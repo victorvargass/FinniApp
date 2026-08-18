@@ -125,9 +125,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const [date, setDate] = useState(
     expense?.date
       ? parseDateString(expense.date)
-      : period
-        ? parseDateString(period.startDate)
-        : new Date()
+      : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -266,9 +264,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
   const [date, setDate] = useState(
     income?.date
       ? parseDateString(income.date)
-      : currentPeriod
-        ? new Date(`${currentPeriod.startDate}T12:00:00`)
-        : new Date()
+      : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
