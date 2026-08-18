@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
 
 import { ThemedText } from '@/components/themed-text';
@@ -60,7 +60,17 @@ export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTota
 
       <View style={styles.legend}>
         {pieData.map((item) => (
-          <View key={item.categoryId} style={styles.legendRow}>
+          <Pressable
+            key={item.categoryId}
+            style={styles.legendRow}
+            onPress={() => {
+              if (selectedCategoryId === item.categoryId) {
+                setSelectedCategoryId(null);
+              } else {
+                setSelectedCategoryId(item.categoryId);
+              }
+            }}
+          >
             <View style={[styles.dot, { backgroundColor: item.color, borderColor: item.categoryId === selectedCategoryId ? '#000' : item.color }]} />
             <ThemedText
               style={[
@@ -81,7 +91,7 @@ export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTota
             ]}>
               {formatCLP(item.value)}
             </ThemedText>
-          </View>
+          </Pressable>
         ))}
       </View>
     </View>
