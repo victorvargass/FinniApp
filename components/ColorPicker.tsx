@@ -1,66 +1,107 @@
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import ReanimatedColorPicker, { HueSlider, Panel1 } from 'reanimated-color-picker';
 
-import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-const PRESET_COLORS = [
-  '#0a7ea4',
-  '#e74c3c',
-  '#2ecc71',
-  '#f39c12',
-  '#9b59b6',
-  '#3498db',
-  '#e67e22',
-  '#1abc9c',
-  '#34495e',
-  '#e91e63',
-  '#607d8b',
-  '#795548',
-];
 
 type ColorPickerProps = {
   value: string;
   onChange: (color: string) => void;
 };
 
+const isHexColor = (color: string) => /^#[0-9a-f]{6}$/i.test(color);
+
 export function ColorPicker({ value, onChange }: ColorPickerProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [draftColor, setDraftColor] = useState(value);
+  const isValidHex = isHexColor(value);
+  const isDraftValid = isHexColor(draftColor);
 
-  const normalized = value.toLowerCase();
-  const isValidHex = /^#[0-9a-f]{6}$/i.test(value);
+  const openColorModal = () => {
+    setDraftColor(isValidHex ? value : '#0a7ea4');
+    setModalVisible(true);
+  };
+
+  const updateDraftColor = (text: string) => {
+    const hex = text.startsWith('#') ? text : `#${text}`;
+    setDraftColor(hex.slice(0, 7));
+  };
 
   return (
     <View style={styles.container}>
-      <View style={styles.grid}>
-        {PRESET_COLORS.map((color) => (
-          <Pressable
-            key={color}
-            onPress={() => onChange(color)}
-            style={[
-              styles.swatch,
-              { backgroundColor: color },
-              normalized === color.toLowerCase() && styles.selected,
-            ]}
-          />
-        ))}
-      </View>
       <View style={styles.customRow}>
-        <View style={[styles.preview, { backgroundColor: isValidHex ? value : '#ccc' }]} />
-        <TextInput
-          style={[styles.hexInput, { color: colors.text, borderColor: colors.icon }]}
-          value={value}
-          onChangeText={(text) => {
-            const hex = text.startsWith('#') ? text : `#${text}`;
-            onChange(hex.slice(0, 7));
-          }}
-          placeholder="#000000"
-          placeholderTextColor={colors.icon}
-          autoCapitalize="none"
-          maxLength={7}
+        <Pressable
+          onPress={openColorModal}
+          style={[
+            styles.preview,
+            {
+              backgroundColor: isValidHex ? value : '#ccc',
+              width: '100%',
+              minHeight: 44,
+              borderRadius: 8,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Seleccionar color personalizado"
         />
       </View>
+
+      <Modal animationType="fade" transparent visible={isModalVisible} onRequestClose={() => setModalVisible(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalVisible(false)} accessibilityLabel="Cerrar selector de color" />
+          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Elige un color</Text>
+            <View style={[styles.modalPreview, { backgroundColor: isDraftValid ? draftColor : '#ccc' }]} />
+            <ReanimatedColorPicker
+              value={isDraftValid ? draftColor : '#0a7ea4'}
+              onChangeJS={({ hex }) => setDraftColor(hex)}
+              sliderThickness={24}
+              thumbSize={28}
+              style={styles.visualPicker}>
+              <Panel1 style={styles.colorPanel} />
+              <HueSlider style={styles.hueSlider} />
+            </ReanimatedColorPicker>
+            <Text style={[styles.modalHint, { color: colors.icon }]}>Color hexadecimal</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={7}
+              onChangeText={updateDraftColor}
+              placeholder="#0a7ea4"
+              placeholderTextColor={colors.icon}
+              style={[styles.modalInput, { color: colors.text, borderColor: colors.icon }]}
+              value={draftColor}
+            />
+            {!isDraftValid && <Text style={styles.errorText}>Usa el formato #RRGGBB.</Text>}
+            <View style={styles.modalActions}>
+              <Pressable onPress={() => setModalVisible(false)} style={[styles.button, styles.cancelButton, { borderColor: colors.icon }]}>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                disabled={!isDraftValid}
+                onPress={() => {
+                  onChange(draftColor.toLowerCase());
+                  setModalVisible(false);
+                }}
+                style={[styles.button, styles.confirmButton, !isDraftValid && styles.disabledButton]}>
+                <Text style={styles.confirmButtonText}>Aplicar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -105,5 +146,82 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    borderRadius: 16,
+    padding: 20,
+    gap: 14,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalPreview: {
+    height: 64,
+    borderRadius: 12,
+  },
+  visualPicker: {
+    gap: 16,
+  },
+  colorPanel: {
+    width: '100%',
+    height: 240,
+    borderRadius: 12,
+  },
+  hueSlider: {
+    width: '100%',
+    borderRadius: 12,
+  },
+  modalHint: {
+    fontSize: 14,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 18,
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 13,
+    marginTop: -8,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 4,
+  },
+  button: {
+    minWidth: 96,
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+  },
+  cancelButton: {
+    borderWidth: 1,
+  },
+  confirmButton: {
+    backgroundColor: '#0a7ea4',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  cancelButtonText: {
+    fontWeight: '600',
+  },
+  confirmButtonText: {
+    color: '#fff', fontWeight: '700',
   },
 });

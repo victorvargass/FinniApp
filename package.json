@@ -47,6 +47,7 @@
     "react-native-svg": "15.12.1",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
+    "reanimated-color-picker": "^4.2.0",
     "victory": "^37.3.6"
   },
   "devDependencies": {
