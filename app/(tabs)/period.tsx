@@ -81,14 +81,14 @@ export default function PeriodScreen() {
                       const selectedDateStr = toDateString(selected);
                       // Chequea que la fecha seleccionada no sea mayor a la fecha de término
                       if (endDate && selected > endDate) {
-                        alert("La fecha de inicio no puede ser mayor a la fecha de término.");
+                        Alert.alert('Error', "La fecha de inicio no puede ser mayor a la fecha de término.");
                         return;
                       }
                       try {
                         await setPeriodStartDate(selectedDateStr);
                         setStartDate(selected);
                       } catch (e: any) {
-                        alert(e.message || "Error al actualizar fecha de inicio");
+                        Alert.alert('Error', e.message || "Error al actualizar fecha de inicio");
                       }
                     }
                   }}
@@ -120,14 +120,14 @@ export default function PeriodScreen() {
                       const selectedDateStr = toDateString(selected);
                       // Chequea que la fecha seleccionada no sea menor a la fecha de inicio
                       if (startDate && selected < startDate) {
-                        alert("La fecha de término no puede ser menor a la fecha de inicio.");
+                        Alert.alert('Error', "La fecha de término no puede ser menor a la fecha de inicio.");
                         return;
                       }
                       try {
                         await setPeriodEndDate(selectedDateStr);
                         setEndDate(selected);
                       } catch (e: any) {
-                        alert(e.message || "Error al actualizar fecha de término");
+                        Alert.alert('Error', e.message || "Error al actualizar fecha de término");
                       }
                     }
                   }}
