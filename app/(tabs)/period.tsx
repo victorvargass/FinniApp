@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryChart } from '@/components/CategoryChart';
@@ -218,6 +218,11 @@ export default function PeriodScreen() {
                       if (typeof closeCurrentPeriod === 'function') {
                         try {
                           await closeCurrentPeriod();
+                          if (Platform.OS === 'android') {
+                            ToastAndroid.show('Período finalizado con éxito.\nSe ha iniciado un nuevo período.', ToastAndroid.LONG);
+                          } else {
+                            Alert.alert('Período finalizado', 'Período finalizado con éxito. Se ha iniciado un nuevo período.');
+                          }
                         } catch (err) {
                           Alert.alert('Error', 'No se pudo cerrar el período.');
                         }
