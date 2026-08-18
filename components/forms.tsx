@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  ToastAndroid,
   View,
 } from 'react-native';
 
@@ -61,8 +62,18 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
       const data = { name: name.trim(), color, periodLimit };
       if (category) {
         await editCategory(category.id, data);
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Categoría actualizada correctamente', ToastAndroid.SHORT);
+        } else {
+          Alert.alert('Guardado', 'Categoría actualizada correctamente');
+        }
       } else {
         await addCategory(data);
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Categoría creada correctamente', ToastAndroid.SHORT);
+        } else {
+          Alert.alert('Guardado', 'Categoría creada correctamente');
+        }
       }
       onSuccess();
     } catch (error) {
@@ -165,8 +176,18 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       const data = { name: name.trim(), amount: amountToSave, categoryId, date: toDateString(date) };
       if (expense) {
         await editExpense(expense.id, data);
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Gasto actualizado correctamente', ToastAndroid.SHORT);
+        } else {
+          Alert.alert('Guardado', 'Gasto actualizado correctamente');
+        }
       } else {
         await addExpense(data)
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Gasto creado correctamente', ToastAndroid.SHORT);
+        } else {
+          Alert.alert('Guardado', 'Gasto creado correctamente');
+        }
       }
       onSuccess();
     } catch (error) {
@@ -337,8 +358,18 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       const data = { name: name.trim(), amount, date: toDateString(date) };
       if (income) {
         await editIncome(income.id, data);
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Ingreso actualizado correctamente', ToastAndroid.SHORT);
+        } else {
+          Alert.alert('Guardado', 'Ingreso actualizado correctamente');
+        }
       } else {
         await addIncome(data);
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Ingreso creado correctamente', ToastAndroid.SHORT);
+        } else {
+          Alert.alert('Guardado', 'Ingreso creado correctamente');
+        }
       }
       onSuccess();
     } catch (error) {

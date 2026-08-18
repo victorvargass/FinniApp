@@ -5,11 +5,13 @@ import {
   Alert,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   TextInput,
+  ToastAndroid,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -271,7 +273,14 @@ export default function ExpensesScreen() {
       {
         text: 'Eliminar',
         style: 'destructive',
-        onPress: () => removeExpense(id),
+        onPress: () => {
+          removeExpense(id)
+          if (Platform.OS === 'android') {
+            ToastAndroid.show('Gasto eliminado', ToastAndroid.SHORT);
+          } else {
+            Alert.alert('Eliminado', 'Gasto eliminado');
+          }
+        }
       },
     ]);
   };

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Platform, Pressable, StyleSheet, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -20,6 +20,11 @@ export default function CategoriesScreen() {
         onPress: async () => {
           try {
             await removeCategory(id);
+            if (Platform.OS === 'android') {
+              ToastAndroid.show('Categoría eliminada', ToastAndroid.SHORT);
+            } else {
+              Alert.alert('Eliminada', 'Categoría eliminada');
+            }
           } catch (error) {
             Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo eliminar');
           }
