@@ -49,31 +49,30 @@ export default function CategoriesScreen() {
           </ThemedText>
         }
         renderItem={({ item }) => (
-          <ThemedView style={styles.item}>
-            <View style={styles.itemLeft}>
-              <View style={[styles.colorBadge, { backgroundColor: item.color }]} />
+          <ThemedView style={[styles.item, { paddingVertical: 6, paddingHorizontal: 10, minHeight: 44 }]}>
+            <View style={[styles.itemLeft, { gap: 8 }]}>
+              <View style={[styles.colorBadge, { backgroundColor: item.color, width: 18, height: 18, borderRadius: 6 }]} />
               <View>
-                <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{item.name}</ThemedText>
                 {item.periodLimit != null && (
-                  <ThemedText style={styles.limit}>
+                  <ThemedText style={[styles.limit, { fontSize: 12 }]}>
                     Límite: {formatCLP(item.periodLimit)}/período
                   </ThemedText>
                 )}
               </View>
             </View>
-            <View style={styles.actions}>
+            <View style={[styles.actions, { gap: 2 }]}>
               <Link href={{ pathname: '/modal/category-form', params: { id: String(item.id) } }} asChild>
-                <Pressable style={styles.editButton}>
-                  <Ionicons name="create-outline" size={20} color="#0a7ea4" />
+                <Pressable style={[styles.editButton, { padding: 4 }]}>
+                  <Ionicons name="create-outline" size={17} color="#0a7ea4" />
                 </Pressable>
               </Link>
-              <Pressable onPress={() => handleDelete(item.id, item.name)}>
-                <Pressable onPress={() => handleDelete(item.id, item.name)}>
-                  <Ionicons name="trash-outline" size={20} color="#be1b1b" />
-                </Pressable>
+              <Pressable onPress={() => handleDelete(item.id, item.name)} style={{ padding: 4 }}>
+                <Ionicons name="trash-outline" size={17} color="#be1b1b" />
               </Pressable>
             </View>
           </ThemedView>
+     
         )}
       />
     </SafeAreaView>

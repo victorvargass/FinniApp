@@ -245,6 +245,7 @@ export default function IncomesScreen() {
       </OptionModal>
 
       <FlatList
+        style={{ marginTop: 8 }}
         data={filteredIncomes}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
@@ -266,17 +267,29 @@ export default function IncomesScreen() {
             }
             onLongPress={() => handleDelete(item.id, item.name)}
             delayLongPress={500}>
-            <ThemedView style={styles.item}>
-              <View style={styles.itemLeft}>
+            <ThemedView
+              style={[
+                styles.item,
+                {
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  minHeight: 40,
+                },
+              ]}
+            >
+              <View style={[styles.itemLeft, { gap: 6 }]}>
                 <View
-                  style={[styles.dot, { backgroundColor: '#008000' }]}
+                  style={[
+                    styles.dot,
+                    { backgroundColor: '#008000', width: 11, height: 11, borderRadius: 5.5 }
+                  ]}
                 />
                 <View style={styles.itemInfo}>
-                  <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
-                  <ThemedText style={styles.meta}>{formatDate(new Date(`${item.date}T12:00:00`))}</ThemedText>
+                  <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{item.name}</ThemedText>
+                  <ThemedText style={[styles.meta, { fontSize: 12 }]}>{formatDate(new Date(`${item.date}T12:00:00`))}</ThemedText>
                 </View>
               </View>
-              <ThemedText type="defaultSemiBold">{formatCLP(item.amount)}</ThemedText>
+              <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(item.amount)}</ThemedText>
             </ThemedView>
           </Pressable>
         )}
@@ -436,7 +449,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     borderRadius: 10,
-    marginBottom: 8,
+    marginBottom: 2,
   },
   itemLeft: {
     flexDirection: 'row',
