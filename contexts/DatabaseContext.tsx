@@ -18,6 +18,8 @@ type DatabaseContextValue = {
   categories: Category[];
   expenses: ExpenseWithCategory[];
   incomes: Income[];
+  expenseNames: string[];
+  incomeNames: string[];
   settings: Settings;
   periodCategoryExpensesTotals: PeriodCategoryExpensesTotals[];
   periodIncomesTotal: number;
@@ -51,6 +53,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
+  const [expenseNames, setExpenseNames] = useState<string[]>([]);
+  const [incomeNames, setIncomeNames] = useState<string[]>([]);
   const [periodCategoryExpensesTotals, setPeriodCategoryExpensesTotals] = useState<PeriodCategoryExpensesTotals[]>([]);
   const [periodIncomesTotal, setPeriodIncomesTotal] = useState<number>(0);
   const [periodHistory, setPeriodHistory] = useState<PeriodHistory[]>([]);
@@ -67,10 +71,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const period = settings.currentPeriod;
-    const [cats, exps, incs, totals, incomesTotal, history] = await Promise.all([
+    const [cats, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
       db.getCategories(),
       db.getExpenses(),
       db.getIncomes(),
+      db.getExpenseNames(),
+      db.getIncomeNames(),
       db.getPeriodCategoryExpensesTotals(period.startDate, period.endDate),
       db.getPeriodIncomesTotal(period.startDate, period.endDate),
       db.getPeriodHistory(),
@@ -78,6 +84,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     setCategories(cats);
     setExpenses(exps);
     setIncomes(incs);
+    setExpenseNames(allExpenseNames);
+    setIncomeNames(allIncomeNames);
     setPeriodCategoryExpensesTotals(totals);
     setPeriodIncomesTotal(incomesTotal);
     setPeriodHistory(history);
@@ -93,10 +101,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         setIsReady(true);
         return;
       }
-      const [cats, exps, incs, totals, incomesTotal, history] = await Promise.all([
+      const [cats, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
         db.getCategories(),
         db.getExpenses(),
         db.getIncomes(),
+        db.getExpenseNames(),
+        db.getIncomeNames(),
         db.getPeriodCategoryExpensesTotals(period.startDate, period.endDate),
         db.getPeriodIncomesTotal(period.startDate, period.endDate),
         db.getPeriodHistory(),
@@ -104,6 +114,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setCategories(cats);
       setExpenses(exps);
       setIncomes(incs);
+      setExpenseNames(allExpenseNames);
+      setIncomeNames(allIncomeNames);
       setPeriodCategoryExpensesTotals(totals);
       setPeriodIncomesTotal(incomesTotal);
       setPeriodHistory(history);
@@ -235,6 +247,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       categories,
       expenses,
       incomes,
+      expenseNames,
+      incomeNames,
       settings,
       periodCategoryExpensesTotals,
       periodIncomesTotal,
@@ -259,6 +273,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       categories,
       expenses,
       incomes,
+      expenseNames,
+      incomeNames,
       settings,
       periodCategoryExpensesTotals,
       periodIncomesTotal,

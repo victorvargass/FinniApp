@@ -484,6 +484,19 @@ export async function getExpenses(): Promise<ExpenseWithCategory[]> {
   return rows as ExpenseWithCategory[];
 }
 
+export async function getExpenseNames(): Promise<string[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ name: string }>(
+    `
+    SELECT name
+    FROM expenses
+    ORDER BY date DESC, id DESC
+    `
+  );
+
+  return rows.map((row) => row.name);
+}
+
 export async function createExpense(
   data: NewExpense
 ): Promise<void> {
@@ -619,6 +632,19 @@ export async function getIncomes(): Promise<Income[]> {
   );
 
   return rows as Income[];
+}
+
+export async function getIncomeNames(): Promise<string[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ name: string }>(
+    `
+    SELECT name
+    FROM incomes
+    ORDER BY date DESC, id DESC
+    `
+  );
+
+  return rows.map((row) => row.name);
 }
 
 

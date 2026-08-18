@@ -24,6 +24,52 @@ function parseDateString(value: string) {
   return new Date(y, m - 1, d, 12);
 }
 
+function getNameSuggestions(names: string[], query: string) {
+  const normalizedQuery = query.trim().toLocaleLowerCase('es');
+  if (!normalizedQuery) return [];
+
+  const uniqueNames = new Map<string, string>();
+  names.forEach((item) => {
+    const name = item.trim();
+    const normalizedName = name.toLocaleLowerCase('es');
+    if (
+      normalizedName.includes(normalizedQuery) &&
+      normalizedName !== normalizedQuery &&
+      !uniqueNames.has(normalizedName)
+    ) {
+      uniqueNames.set(normalizedName, name);
+    }
+  });
+
+  return [...uniqueNames.values()].slice(0, 5);
+}
+
+type NameSuggestionsProps = {
+  suggestions: string[];
+  onSelect: (name: string) => void;
+};
+
+function NameSuggestions({ suggestions, onSelect }: NameSuggestionsProps) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+
+  if (suggestions.length === 0) return null;
+
+  return (
+    <View style={[styles.nameSuggestions, { borderColor: colors.icon }]}>
+      <ThemedText style={styles.nameSuggestionsLabel}>Sugerencias</ThemedText>
+      {suggestions.map((suggestion) => (
+        <Pressable
+          key={suggestion}
+          onPress={() => onSelect(suggestion)}
+          style={styles.nameSuggestion}>
+          <ThemedText>{suggestion}</ThemedText>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 type CategoryFormProps = {
   category?: Category;
   onSuccess: () => void;
@@ -125,7 +171,7 @@ type ExpenseFormProps = {
 };
 
 export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
-  const { categories, addExpense, editExpense, settings } = useDatabase();
+  const { categories, expenseNames, addExpense, editExpense, settings } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -143,6 +189,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const [saving, setSaving] = useState(false);
   const totalAmount = parseAmount(amountText as string);
   const amountToSave = totalAmount == null ? null : Math.round(totalAmount * share);
+  const nameSuggestions = getNameSuggestions(expenseNames, name);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -207,6 +254,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         placeholder="Ej: Compra Jumbo"
         placeholderTextColor={colors.icon}
       />
+      <NameSuggestions suggestions={nameSuggestions} onSelect={setName} />
 
       <ThemedText style={styles.label}>Monto total (CLP)</ThemedText>
       <TextInput
@@ -305,7 +353,7 @@ type IncomeFormProps = {
 };
 
 export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
-  const { addIncome, editIncome, settings } = useDatabase();
+  const { incomeNames, addIncome, editIncome, settings } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -319,6 +367,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const nameSuggestions = getNameSuggestions(incomeNames, name);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -389,6 +438,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         placeholder="Ej: Sueldo"
         placeholderTextColor={colors.icon}
       />
+      <NameSuggestions suggestions={nameSuggestions} onSelect={setName} />
 
       <ThemedText style={styles.label}>Monto (CLP)</ThemedText>
       <TextInput
@@ -456,6 +506,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
+  },
+  nameSuggestions: {
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: -2,
+  },
+  nameSuggestionsLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.6,
+    paddingHorizontal: 12,
+    paddingTop: 9,
+    paddingBottom: 4,
+  },
+  nameSuggestion: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   shareSection: {
     gap: 8,
