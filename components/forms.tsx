@@ -15,7 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatDate, parseAmount, toDateString } from '@/lib/format';
+import { formatCLP, formatDate, parseAmount, toDateString } from '@/lib/format';
 import type { Category, Expense, Income } from '@/lib/types';
 
 function parseDateString(value: string) {
@@ -120,6 +120,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   const [name, setName] = useState(expense?.name ?? '');
   const [amountText, setAmountText] = useState<String>(expense?.amount ? String(expense?.amount) : '');
+  const [share, setShare] = useState(1);
   const [categoryId, setCategoryId] = useState<number | null>(expense?.categoryId ?? null);
   const period = settings?.currentPeriod;
   const [date, setDate] = useState(
@@ -129,14 +130,15 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const totalAmount = parseAmount(amountText as string);
+  const amountToSave = totalAmount == null ? null : Math.round(totalAmount * share);
 
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Error', 'Ingresa un nombre para el gasto');
       return;
     }
-    const amount = parseAmount(amountText as string);
-    if (amount == null) {
+    if (amountToSave == null || amountToSave <= 0) {
       Alert.alert('Error', 'Ingresa un monto válido');
       return;
     }
@@ -160,7 +162,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     
     setSaving(true);
     try {
-      const data = { name: name.trim(), amount, categoryId, date: toDateString(date) };
+      const data = { name: name.trim(), amount: amountToSave, categoryId, date: toDateString(date) };
       if (expense) {
         await editExpense(expense.id, data);
       } else {
@@ -185,7 +187,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         placeholderTextColor={colors.icon}
       />
 
-      <ThemedText style={styles.label}>Monto (CLP)</ThemedText>
+      <ThemedText style={styles.label}>Monto total (CLP)</ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
@@ -194,6 +196,34 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />
+      <View style={styles.shareSection}>
+        <ThemedText style={styles.shareLabel}>¿Qué parte pagas tú?</ThemedText>
+        <View style={styles.shareOptions}>
+          {[
+            { value: 1, label: '100%' },
+            { value: 0.5, label: '50%' },
+            { value: 0.25, label: '25%' },
+          ].map((option) => (
+            <Pressable
+              key={option.label}
+              onPress={() => setShare(option.value)}
+              style={[
+                styles.shareButton,
+                { borderColor: colors.icon },
+                share === option.value && styles.shareButtonSelected,
+              ]}>
+              <ThemedText style={share === option.value ? styles.shareButtonTextSelected : undefined}>
+                {option.label}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+        {amountToSave != null && (
+          <ThemedText style={styles.shareResult}>
+            Se registrará {formatCLP(amountToSave)} como tu gasto.
+          </ThemedText>
+        )}
+      </View>
 
       <ThemedText style={styles.label}>Categoría (opcional)</ThemedText>
       <View style={styles.categoryList}>
@@ -395,6 +425,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
+  },
+  shareSection: {
+    gap: 8,
+    marginBottom: 4,
+  },
+  shareLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  shareOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  shareButton: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 9,
+  },
+  shareButtonSelected: {
+    borderColor: '#0a7ea4',
+    backgroundColor: '#0a7ea412',
+  },
+  shareButtonTextSelected: {
+    color: '#0a7ea4',
+    fontWeight: '700',
+  },
+  shareResult: {
+    color: '#0a7ea4',
+    fontSize: 14,
+    fontWeight: '600',
   },
   categoryList: {
     flexDirection: 'row',
