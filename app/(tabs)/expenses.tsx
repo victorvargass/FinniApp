@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   TextInput,
   View,
 } from 'react-native';
@@ -30,6 +31,16 @@ type SortOption =
   | 'date-desc';
 
 type CategoryFilter = ('none' | number)[];
+
+type ExpenseListItem =
+  | { type: 'expense'; expense: ExpenseWithCategory }
+  | {
+      type: 'category';
+      key: string;
+      name: string;
+      color: string;
+      isCollapsed: boolean;
+    };
 
 const SORT_OPTIONS: { value: SortOption; label: string; group: string }[] = [
   { value: 'date-desc', label: 'Más reciente', group: 'Fecha' },
@@ -163,6 +174,8 @@ export default function ExpensesScreen() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>([]);
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
+  const [isGroupedByCategory, setGroupedByCategory] = useState(false);
+  const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState<string[]>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
@@ -191,6 +204,56 @@ export default function ExpensesScreen() {
 
   const isSortActive = sortBy !== 'date-desc';
   const isFilterActive = categoryFilter.length > 0;
+
+  const listItems = useMemo<ExpenseListItem[]>(() => {
+    if (!isGroupedByCategory) {
+      return filteredExpenses.map((expense) => ({ type: 'expense', expense }));
+    }
+
+    const groups = new Map<
+      string,
+      { name: string; color: string; expenses: ExpenseWithCategory[] }
+    >();
+
+    filteredExpenses.forEach((expense) => {
+      const key = expense.categoryId == null ? 'none' : String(expense.categoryId);
+      const group = groups.get(key) ?? {
+        name: expense.categoryName ?? 'Sin categoría',
+        color: expense.categoryColor ?? '#95a5a6',
+        expenses: [],
+      };
+
+      group.expenses.push(expense);
+      groups.set(key, group);
+    });
+
+    return [...groups.entries()]
+      .sort(([firstKey, first], [secondKey, second]) => {
+        if (firstKey === 'none') return 1;
+        if (secondKey === 'none') return -1;
+        return first.name.localeCompare(second.name, 'es');
+      })
+      .flatMap(([key, group]) => [
+        {
+          type: 'category' as const,
+          key,
+          name: group.name,
+          color: group.color,
+          isCollapsed: collapsedCategoryKeys.includes(key),
+        },
+        ...(collapsedCategoryKeys.includes(key)
+          ? []
+          : group.expenses.map((expense) => ({ type: 'expense' as const, expense }))),
+      ]);
+  }, [filteredExpenses, isGroupedByCategory, collapsedCategoryKeys]);
+
+  const toggleCategoryCollapsed = (key: string) => {
+    setCollapsedCategoryKeys((current) =>
+      current.includes(key)
+        ? current.filter((categoryKey) => categoryKey !== key)
+        : [...current, key]
+    );
+  };
 
   const toggleCategoryFilter = (
     value: number | 'none'
@@ -283,6 +346,21 @@ export default function ExpensesScreen() {
             </View>
           </Pressable>
         </View>
+        <View style={[styles.groupToggle, { borderColor: colors.icon }]}>
+          <View style={styles.groupToggleLabel}>
+            <Ionicons name="folder-open-outline" size={18} color={colors.icon} />
+            <View>
+              <ThemedText type="defaultSemiBold">Agrupar por categoría</ThemedText>
+            </View>
+          </View>
+          <Switch
+            value={isGroupedByCategory}
+            onValueChange={setGroupedByCategory}
+            trackColor={{ false: colors.icon, true: '#0a7ea4' }}
+            thumbColor="#fff"
+            accessibilityLabel="Agrupar gastos por categoría"
+          />
+        </View>
       </ThemedView>
 
       <OptionModal
@@ -330,8 +408,11 @@ export default function ExpensesScreen() {
       </OptionModal>
 
       <FlatList
-        data={filteredExpenses}
-        keyExtractor={(item) => String(item.id)}
+        style={{ marginTop: 8 }}
+        data={listItems}
+        keyExtractor={(item) =>
+          item.type === 'category' ? `category-${item.key}` : `expense-${item.expense.id}`
+        }
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
@@ -341,32 +422,68 @@ export default function ExpensesScreen() {
               : 'No hay gastos que coincidan con los filtros.'}
           </ThemedText>
         }
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() =>
-              router.push({
-                pathname: '/modal/expense-form',
-                params: { id: String(item.id) },
-              })
-            }
-            onLongPress={() => handleDelete(item.id, item.name)}
-            delayLongPress={500}>
-            <ThemedView style={styles.item}>
-              <View style={styles.itemLeft}>
-                <View
-                  style={[styles.dot, { backgroundColor: item.categoryColor ?? '#95a5a6' }]}
-                />
-                <View style={styles.itemInfo}>
+        renderItem={({ item }) => {
+          if (item.type === 'category') {
+            return (
+              <Pressable
+                style={[
+                  styles.categoryHeader,
+                  { borderLeftColor: item.color, backgroundColor: `${item.color}18` },
+                ]}
+                onPress={() => toggleCategoryCollapsed(item.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.isCollapsed ? 'Mostrar' : 'Ocultar'} gastos de ${item.name}`}
+                accessibilityState={{ expanded: !item.isCollapsed }}>
+                <View style={styles.categoryHeaderLeft}>
+                  <View style={[styles.dot, { backgroundColor: item.color }]} />
                   <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
-                  <ThemedText style={styles.meta}>
-                    {item.categoryName ?? 'Sin categoría'} · {formatDate(new Date(`${item.date}T12:00:00`))}
-                  </ThemedText>
                 </View>
-              </View>
-              <ThemedText type="defaultSemiBold">{formatCLP(item.amount)}</ThemedText>
-            </ThemedView>
-          </Pressable>
-        )}
+                <Ionicons
+                  name={item.isCollapsed ? 'chevron-down' : 'chevron-up'}
+                  size={20}
+                  color={item.color}
+                />
+              </Pressable>
+            );
+          }
+
+          const expense = item.expense;
+          return (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/modal/expense-form',
+                  params: { id: String(expense.id) },
+                })
+              }
+              onLongPress={() => handleDelete(expense.id, expense.name)}
+              delayLongPress={500}>
+              <ThemedView style={[styles.item, { paddingVertical: 6, paddingHorizontal: 10, minHeight: 40 }]}>
+                <View style={[styles.itemLeft, { gap: 6 }]}>
+                  {isGroupedByCategory ? null : (
+                    <View
+                      style={[
+                        styles.dot,
+                        { backgroundColor: expense.categoryColor ?? '#95a5a6', width: 11, height: 11, borderRadius: 5.5 }
+                      ]}
+                    />
+                  )}
+            
+                  <View style={[styles.itemInfo]}>
+                    <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{expense.name}</ThemedText>
+                    <ThemedText style={[styles.meta, { fontSize: 12 }]}>
+                      {isGroupedByCategory
+                        ? formatDate(new Date(`${expense.date}T12:00:00`))
+                        : `${expense.categoryName ?? 'Sin categoría'} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`}
+                    </ThemedText>
+               
+                  </View>
+                </View>
+                <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(expense.amount)}</ThemedText>
+              </ThemedView>
+            </Pressable>
+          );
+        }}
       />
     </SafeAreaView>
   );
@@ -437,6 +554,21 @@ const styles = StyleSheet.create({
   toolbarSubtext: {
     fontSize: 12,
     opacity: 0.6,
+  },
+  groupToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  groupToggleLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
   },
   modalOverlay: {
     flex: 1,
@@ -525,13 +657,29 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     marginTop: 40,
   },
+  categoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderLeftWidth: 4,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+  categoryHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
   item: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 14,
     borderRadius: 10,
-    marginBottom: 8,
+    marginBottom: 2,
   },
   itemLeft: {
     flexDirection: 'row',
