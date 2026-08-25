@@ -1,17 +1,21 @@
 import React from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GoogleLogo } from '@/components/google-logo';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useBiometric } from '@/contexts/BiometricContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useGoogle } from '@/hooks/useGoogle';
 
 // Utils
@@ -65,6 +69,14 @@ function ActionButton({
 
 // Main screen
 export default function UserScreen() {
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+  const {
+    authenticationType,
+    enabled: biometricEnabled,
+    isAvailable: isBiometricAvailable,
+    setEnabled: setBiometricEnabled,
+  } = useBiometric();
   const {
     user,
     isLoading,
@@ -133,6 +145,30 @@ export default function UserScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <ThemedView style={styles.header}>
           <ThemedText type="title">Configuración</ThemedText>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">Bloqueo biométrico</ThemedText>
+              <ThemedText style={styles.description}>
+                {isBiometricAvailable
+                  ? `Solicitar ${authenticationType} para acceder a FinniApp.`
+                  : 'Configura una huella o rostro en tu dispositivo para activar esta opción.'}
+              </ThemedText>
+            </View>
+            <Switch
+              accessibilityLabel="Activar bloqueo biométrico"
+              disabled={!isBiometricAvailable}
+              onValueChange={(value) => {
+                setBiometricEnabled(value).catch(() => {
+                  Alert.alert('No se pudo cambiar', 'Inténtalo nuevamente.');
+                });
+              }}
+              trackColor={{ true: colors.tint }}
+              value={biometricEnabled}
+            />
+          </View>
         </ThemedView>
 
         <ThemedView style={styles.card}>
@@ -248,6 +284,15 @@ const styles = StyleSheet.create({
   },
   description: {
     lineHeight: 21,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  settingCopy: {
+    flex: 1,
+    gap: 6,
   },
   profile: {
     flexDirection: 'row',

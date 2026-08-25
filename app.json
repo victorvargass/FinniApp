@@ -43,7 +43,13 @@
       "@react-native-google-signin/google-signin",
       "expo-sqlite",
       "@react-native-community/datetimepicker",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permite que la aplicación use Face ID para proteger tus datos financieros."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

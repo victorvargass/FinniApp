@@ -1,0 +1,95 @@
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useRef } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useBiometric } from '@/contexts/BiometricContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+export function BiometricGate({ children }: React.PropsWithChildren) {
+  const { authenticate, authenticationType, isChecking, isLocked } = useBiometric();
+  const requestedRef = useRef(false);
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+
+  useEffect(() => {
+    if (isLocked && !requestedRef.current) {
+      requestedRef.current = true;
+      authenticate().finally(() => {
+        requestedRef.current = false;
+      });
+    }
+  }, [authenticate, isLocked]);
+
+  if (isChecking) {
+    return (
+      <ThemedView style={styles.centered}>
+        <ActivityIndicator size="large" />
+      </ThemedView>
+    );
+  }
+
+  if (isLocked) {
+    return (
+      <ThemedView style={styles.centered}>
+        <View style={[styles.iconCircle, { backgroundColor: `${colors.tint}18` }]}>
+          <Ionicons name="lock-closed" size={42} color={colors.tint} />
+        </View>
+        <ThemedText type="title" style={styles.title}>Aplicación bloqueada</ThemedText>
+        <ThemedText style={styles.description}>
+          Usa {authenticationType} para acceder a tus datos financieros.
+        </ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          onPress={authenticate}
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: colors.tint },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons name="finger-print" size={22} color={colorScheme === 'dark' ? '#11181C' : '#fff'} />
+          <ThemedText style={[styles.buttonText, { color: colorScheme === 'dark' ? '#11181C' : '#fff' }]}>
+            Desbloquear
+          </ThemedText>
+        </Pressable>
+      </ThemedView>
+    );
+  }
+
+  return children;
+}
+
+const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    gap: 16,
+  },
+  iconCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  title: { textAlign: 'center' },
+  description: { textAlign: 'center', opacity: 0.72, lineHeight: 22 },
+  button: {
+    minHeight: 50,
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 8,
+  },
+  buttonText: { fontWeight: '700' },
+  pressed: { opacity: 0.75 },
+});
