@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   TextInput,
   ToastAndroid,
   View,
@@ -177,7 +178,9 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   const [name, setName] = useState(expense?.name ?? '');
   const [amountText, setAmountText] = useState<String>(expense?.amount ? String(expense?.amount) : '');
-  const [share, setShare] = useState(1);
+  const [isSplitAmount, setIsSplitAmount] = useState(false);
+  const [percentageText, setPercentageText] = useState('50');
+  const [usesCustomPercentage, setUsesCustomPercentage] = useState(false);
   const [categoryId, setCategoryId] = useState<number | null>(expense?.categoryId ?? null);
   const period = settings?.currentPeriod;
   const [date, setDate] = useState(
@@ -188,12 +191,22 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const totalAmount = parseAmount(amountText as string);
-  const amountToSave = totalAmount == null ? null : Math.round(totalAmount * share);
+  const percentage = Number(percentageText.replace(',', '.'));
+  const hasValidPercentage =
+    Number.isFinite(percentage) && percentage > 0 && percentage <= 100;
+  const amountToSave =
+    totalAmount == null || (isSplitAmount && !hasValidPercentage)
+      ? null
+      : Math.round(totalAmount * (isSplitAmount ? percentage / 100 : 1));
   const nameSuggestions = getNameSuggestions(expenseNames, name);
 
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Error', 'Ingresa un nombre para el gasto');
+      return;
+    }
+    if (isSplitAmount && !hasValidPercentage) {
+      Alert.alert('Error', 'Ingresa un porcentaje entre 1% y 100%');
       return;
     }
     if (amountToSave == null || amountToSave <= 0) {
@@ -212,7 +225,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       if (selectedDate < minDate || selectedDate > maxDate) {
         Alert.alert(
           'Error',
-          `La fecha del ingreso debe estar en las fechas del período actual (${formatDate(startDate)} al ${formatDate(endDate)}).`
+          `La fecha del gasto debe estar en las fechas del período actual (${formatDate(startDate)} al ${formatDate(endDate)}).`
         );
         return;
       }
@@ -266,28 +279,91 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         keyboardType="number-pad"
       />
       <View style={styles.shareSection}>
-        <ThemedText style={styles.shareLabel}>¿Qué parte pagas tú?</ThemedText>
-        <View style={styles.shareOptions}>
-          {[
-            { value: 1, label: '100%' },
-            { value: 0.5, label: '50%' },
-            { value: 0.25, label: '25%' },
-          ].map((option) => (
-            <Pressable
-              key={option.label}
-              onPress={() => setShare(option.value)}
-              style={[
-                styles.shareButton,
-                { borderColor: colors.icon },
-                share === option.value && styles.shareButtonSelected,
-              ]}>
-              <ThemedText style={share === option.value ? styles.shareButtonTextSelected : undefined}>
-                {option.label}
-              </ThemedText>
-            </Pressable>
-          ))}
+        <View style={styles.shareToggleRow}>
+          <View style={styles.shareToggleCopy}>
+            <ThemedText style={styles.shareLabel}>Dividir monto</ThemedText>
+            <ThemedText style={styles.shareDescription}>
+              Registra solamente el porcentaje que pagaste tú
+            </ThemedText>
+          </View>
+          <Switch
+            accessibilityLabel="Dividir monto del gasto"
+            onValueChange={setIsSplitAmount}
+            trackColor={{ true: colors.tint }}
+            value={isSplitAmount}
+          />
         </View>
-        {amountToSave != null && (
+
+        {isSplitAmount && (
+          <>
+            <View style={styles.shareOptions}>
+              {[50, 25].map((preset) => {
+                const selected = !usesCustomPercentage && percentage === preset;
+                return (
+                  <Pressable
+                    key={preset}
+                    onPress={() => {
+                      setUsesCustomPercentage(false);
+                      setPercentageText(String(preset));
+                    }}
+                    style={[
+                      styles.shareButton,
+                      { borderColor: colors.icon },
+                      selected && styles.shareButtonSelected,
+                    ]}>
+                    <ThemedText
+                      style={selected ? styles.shareButtonTextSelected : undefined}>
+                      {preset}%
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                onPress={() => setUsesCustomPercentage(true)}
+                style={[
+                  styles.shareButton,
+                  { borderColor: colors.icon },
+                  usesCustomPercentage && styles.shareButtonSelected,
+                ]}>
+                <ThemedText
+                  style={
+                    usesCustomPercentage
+                      ? styles.shareButtonTextSelected
+                      : undefined
+                  }>
+                  Otro
+                </ThemedText>
+              </Pressable>
+            </View>
+
+            {usesCustomPercentage && (
+              <View style={styles.manualPercentageRow}>
+                <ThemedText style={styles.manualPercentageLabel}>
+                  Tu porcentaje
+                </ThemedText>
+                <View style={[styles.percentageInputContainer, { borderColor: colors.icon }]}>
+                  <TextInput
+                    accessibilityLabel="Porcentaje manual"
+                    autoFocus
+                    keyboardType="decimal-pad"
+                    maxLength={6}
+                    onChangeText={(value) =>
+                      setPercentageText(value.replace(/[^0-9.,]/g, '').replace(',', '.'))
+                    }
+                    placeholder="Ej: 33"
+                    placeholderTextColor={colors.icon}
+                    selectTextOnFocus
+                    style={[styles.percentageInput, { color: colors.text }]}
+                    value={percentageText}
+                  />
+                  <ThemedText style={styles.percentageSuffix}>%</ThemedText>
+                </View>
+              </View>
+            )}
+          </>
+        )}
+
+        {isSplitAmount && amountToSave != null && (
           <ThemedText style={styles.shareResult}>
             Se registrará {formatCLP(amountToSave)} como tu gasto.
           </ThemedText>
@@ -528,10 +604,24 @@ const styles = StyleSheet.create({
   shareSection: {
     gap: 8,
     marginBottom: 4,
+    paddingVertical: 8,
+  },
+  shareToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  shareToggleCopy: {
+    flex: 1,
+    gap: 3,
   },
   shareLabel: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  shareDescription: {
+    fontSize: 12,
+    opacity: 0.65,
   },
   shareOptions: {
     flexDirection: 'row',
@@ -556,6 +646,40 @@ const styles = StyleSheet.create({
     color: '#0a7ea4',
     fontSize: 14,
     fontWeight: '600',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#0a7ea412',
+  },
+  manualPercentageLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  manualPercentageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 2,
+  },
+  percentageInputContainer: {
+    width: 120,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  percentageInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 9,
+  },
+  percentageSuffix: {
+    fontSize: 16,
+    fontWeight: '600',
+    opacity: 0.7,
   },
   categoryList: {
     flexDirection: 'row',
