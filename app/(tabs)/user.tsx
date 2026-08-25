@@ -15,6 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useBiometric } from '@/contexts/BiometricContext';
+import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useGoogle } from '@/hooks/useGoogle';
 
@@ -71,6 +72,7 @@ function ActionButton({
 export default function UserScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const { setPreference: setThemePreference } = useThemePreference();
   const {
     authenticationType,
     enabled: biometricEnabled,
@@ -150,11 +152,32 @@ export default function UserScreen() {
         <ThemedView style={styles.card}>
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">Tema oscuro</ThemedText>
+              <ThemedText style={styles.description}>
+                Habilitar el tema oscuro en toda la aplicación
+              </ThemedText>
+            </View>
+            <Switch
+              accessibilityLabel="Activar modo oscuro"
+              onValueChange={(enabled) => {
+                setThemePreference(enabled ? 'dark' : 'light').catch(() => {
+                  Alert.alert('No se pudo cambiar', 'Inténtalo nuevamente.');
+                });
+              }}
+              trackColor={{ true: colors.tint }}
+              value={colorScheme === 'dark'}
+            />
+          </View>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingCopy}>
               <ThemedText type="subtitle">Bloqueo biométrico</ThemedText>
               <ThemedText style={styles.description}>
                 {isBiometricAvailable
-                  ? `Solicitar ${authenticationType} para acceder a FinniApp.`
-                  : 'Configura una huella o rostro en tu dispositivo para activar esta opción.'}
+                  ? `Solicitar ${authenticationType} para acceder a la aplicación`
+                  : 'Configura una huella o rostro en tu dispositivo para activar esta opción'}
               </ThemedText>
             </View>
             <Switch
@@ -177,7 +200,7 @@ export default function UserScreen() {
               <ThemedText type="subtitle">Google Drive</ThemedText>
               <ThemedText style={styles.description}>
                 Conecta tu cuenta de Google para guardar y restaurar tu información
-                de forma segura.
+                de forma segura
               </ThemedText>
               <ActionButton
                 title={isWorking ? 'Conectando...' : 'Conectar con Google'}

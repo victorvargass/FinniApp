@@ -7,13 +7,14 @@ import 'react-native-reanimated';
 import { BiometricGate } from '@/components/biometric-gate';
 import { BiometricProvider } from '@/contexts/BiometricContext';
 import { DatabaseProvider } from '@/contexts/DatabaseContext';
+import { ThemePreferenceProvider } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-export default function RootLayout() {
+function AppContent() {
   const colorScheme = useColorScheme();
 
   return (
@@ -43,5 +44,13 @@ export default function RootLayout() {
         </BiometricGate>
       </BiometricProvider>
     </GestureHandlerRootView>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemePreferenceProvider>
+      <AppContent />
+    </ThemePreferenceProvider>
   );
 }
