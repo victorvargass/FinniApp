@@ -1,6 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  AppState,
+  AppStateStatus,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -10,18 +17,35 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export function BiometricGate({ children }: React.PropsWithChildren) {
   const { authenticate, authenticationType, isChecking, isLocked } = useBiometric();
-  const requestedRef = useRef(false);
+  const autoPromptedRef = useRef(false);
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
   useEffect(() => {
-    if (isLocked && !requestedRef.current) {
-      requestedRef.current = true;
-      authenticate().finally(() => {
-        requestedRef.current = false;
-      });
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') autoPromptedRef.current = false;
+      setAppState(nextState);
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (!isLocked) {
+      autoPromptedRef.current = false;
+      return;
     }
-  }, [authenticate, isLocked]);
+
+    if (appState === 'active' && !autoPromptedRef.current) {
+      const timer = setTimeout(() => {
+        autoPromptedRef.current = true;
+        authenticate();
+      }, 250);
+
+      return () => clearTimeout(timer);
+    }
+  }, [appState, authenticate, isLocked]);
 
   if (isChecking) {
     return (

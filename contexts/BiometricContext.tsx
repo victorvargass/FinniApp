@@ -12,6 +12,7 @@ import React, {
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
 const BIOMETRIC_ENABLED_KEY = '@gastosapp/biometric-lock-enabled';
+const BACKGROUND_GRACE_PERIOD_MS = 10_000;
 
 type BiometricContextValue = {
   enabled: boolean;
@@ -47,10 +48,18 @@ export function BiometricProvider({ children }: PropsWithChildren) {
   const [isLocked, setIsLocked] = useState(false);
   const [authenticationType, setAuthenticationType] = useState('biometría');
   const enabledRef = useRef(false);
+  const isLockedRef = useRef(false);
   const authenticatingRef = useRef(false);
+  const backgroundStartedAtRef = useRef<number | null>(null);
 
   const authenticate = useCallback(async () => {
-    if (Platform.OS === 'web' || authenticatingRef.current) return false;
+    if (
+      Platform.OS === 'web' ||
+      AppState.currentState !== 'active' ||
+      authenticatingRef.current
+    ) {
+      return false;
+    }
 
     authenticatingRef.current = true;
     try {
@@ -62,8 +71,13 @@ export function BiometricProvider({ children }: PropsWithChildren) {
         biometricsSecurityLevel: 'strong',
       });
 
-      if (result.success) setIsLocked(false);
+      if (result.success) {
+        isLockedRef.current = false;
+        setIsLocked(false);
+      }
       return result.success;
+    } catch {
+      return false;
     } finally {
       authenticatingRef.current = false;
     }
@@ -92,6 +106,7 @@ export function BiometricProvider({ children }: PropsWithChildren) {
         setAuthenticationType(getAuthenticationType(types));
         setEnabledState(shouldLock);
         enabledRef.current = shouldLock;
+        isLockedRef.current = shouldLock;
         setIsLocked(shouldLock);
       } finally {
         if (mounted) setIsChecking(false);
@@ -105,12 +120,45 @@ export function BiometricProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
+    let lockTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const lockApp = () => {
+      if (!enabledRef.current || isLockedRef.current) return;
+      isLockedRef.current = true;
+      setIsLocked(true);
+    };
+
     const handleAppStateChange = (nextState: AppStateStatus) => {
-      if (nextState === 'background' && enabledRef.current) setIsLocked(true);
+      if (nextState === 'background') {
+        if (Platform.OS === 'android' && authenticatingRef.current) {
+          LocalAuthentication.cancelAuthenticate().catch(() => {
+            // El sistema también puede haber cerrado el prompt por su cuenta.
+          });
+        }
+
+        backgroundStartedAtRef.current = Date.now();
+        if (enabledRef.current && !isLockedRef.current) {
+          lockTimer = setTimeout(lockApp, BACKGROUND_GRACE_PERIOD_MS);
+        }
+      }
+
+      if (nextState === 'active' && backgroundStartedAtRef.current !== null) {
+        if (lockTimer) {
+          clearTimeout(lockTimer);
+          lockTimer = null;
+        }
+
+        const timeInBackground = Date.now() - backgroundStartedAtRef.current;
+        backgroundStartedAtRef.current = null;
+        if (timeInBackground >= BACKGROUND_GRACE_PERIOD_MS) lockApp();
+      }
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription.remove();
+    return () => {
+      if (lockTimer) clearTimeout(lockTimer);
+      subscription.remove();
+    };
   }, []);
 
   const setEnabled = useCallback(
@@ -123,6 +171,7 @@ export function BiometricProvider({ children }: PropsWithChildren) {
       }
 
       enabledRef.current = nextEnabled;
+      isLockedRef.current = false;
       setEnabledState(nextEnabled);
       setIsLocked(false);
       return true;
