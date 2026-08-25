@@ -177,10 +177,18 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const colors = Colors[colorScheme];
 
   const [name, setName] = useState(expense?.name ?? '');
-  const [amountText, setAmountText] = useState<String>(expense?.amount ? String(expense?.amount) : '');
-  const [isSplitAmount, setIsSplitAmount] = useState(false);
-  const [percentageText, setPercentageText] = useState('50');
-  const [usesCustomPercentage, setUsesCustomPercentage] = useState(false);
+  const expenseWasSplit =
+    expense?.originalAmount != null && expense.splitPercentage != null;
+  const [amountText, setAmountText] = useState<String>(
+    expense ? String(expense.originalAmount ?? expense.amount) : ''
+  );
+  const [isSplitAmount, setIsSplitAmount] = useState(expenseWasSplit);
+  const [percentageText, setPercentageText] = useState(
+    expenseWasSplit ? String(expense.splitPercentage) : '50'
+  );
+  const [usesCustomPercentage, setUsesCustomPercentage] = useState(
+    expenseWasSplit && ![50, 25].includes(expense.splitPercentage!)
+  );
   const [categoryId, setCategoryId] = useState<number | null>(expense?.categoryId ?? null);
   const period = settings?.currentPeriod;
   const [date, setDate] = useState(
@@ -233,7 +241,14 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     
     setSaving(true);
     try {
-      const data = { name: name.trim(), amount: amountToSave, categoryId, date: toDateString(date) };
+      const data = {
+        name: name.trim(),
+        amount: amountToSave,
+        originalAmount: isSplitAmount ? totalAmount : null,
+        splitPercentage: isSplitAmount ? percentage : null,
+        categoryId,
+        date: toDateString(date),
+      };
       if (expense) {
         await editExpense(expense.id, data);
         if (Platform.OS === 'android') {

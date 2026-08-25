@@ -18,6 +18,8 @@ export type Expense = {
   categoryId: number | null;
   periodId: number;
   date: string;
+  originalAmount: number | null;
+  splitPercentage: number | null;
 };
 
 export type Income = {
@@ -73,6 +75,8 @@ export type NewCategory = {
 export type NewExpense = {
   name: string;
   amount: number;
+  originalAmount: number | null;
+  splitPercentage: number | null;
   categoryId: number | null;
   date: string;
 };

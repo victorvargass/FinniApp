@@ -171,6 +171,8 @@ async function migrateSchema(db: SQLite.SQLiteDatabase): Promise<void> {
       category_id INTEGER,
       period_id INTEGER NOT NULL,
       date TEXT NOT NULL,
+      original_amount INTEGER,
+      split_percentage REAL,
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT,
       FOREIGN KEY (period_id) REFERENCES periods(id)
     );
@@ -278,6 +280,8 @@ export async function initDatabase(): Promise<void> {
       category_id INTEGER,
       period_id INTEGER NOT NULL,
       date TEXT NOT NULL,
+      original_amount INTEGER,
+      split_percentage REAL,
 
       FOREIGN KEY(category_id)
           REFERENCES categories(id)
@@ -302,6 +306,16 @@ export async function initDatabase(): Promise<void> {
   // before creating indexes or running any query that requires period_id.
   if (await needsSchemaMigration(db)) {
     await migrateSchema(db);
+  }
+
+  const expenseColumns = await db.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(expenses)'
+  );
+  if (!expenseColumns.some((column) => column.name === 'original_amount')) {
+    await db.execAsync('ALTER TABLE expenses ADD COLUMN original_amount INTEGER;');
+  }
+  if (!expenseColumns.some((column) => column.name === 'split_percentage')) {
+    await db.execAsync('ALTER TABLE expenses ADD COLUMN split_percentage REAL;');
   }
 
   await db.execAsync(`
@@ -463,6 +477,8 @@ export async function getExpenses(): Promise<ExpenseWithCategory[]> {
         e.category_id AS categoryId,
         e.period_id AS periodId,
         e.date,
+        e.original_amount AS originalAmount,
+        e.split_percentage AS splitPercentage,
 
         c.name AS categoryName,
         c.color AS categoryColor
@@ -512,15 +528,19 @@ export async function createExpense(
       amount,
       category_id,
       period_id,
-      date
+      date,
+      original_amount,
+      split_percentage
     )
-    VALUES (?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
     data.name.trim(),
     data.amount,
     data.categoryId,
     periodId,
-    data.date
+    data.date,
+    data.originalAmount,
+    data.splitPercentage
   );
 }
 
@@ -562,13 +582,17 @@ export async function updateExpense(
       name = ?,
       amount = ?,
       category_id = ?,
-      date = ?
+      date = ?,
+      original_amount = ?,
+      split_percentage = ?
     WHERE id = ?
     `,
     data.name.trim(),
     data.amount,
     data.categoryId,
     data.date,
+    data.originalAmount,
+    data.splitPercentage,
     id
   );
 }
