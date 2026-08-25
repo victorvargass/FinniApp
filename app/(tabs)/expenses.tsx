@@ -34,6 +34,12 @@ type SortOption =
 
 type CategoryFilter = ('none' | number)[];
 
+type ExpenseGroup = {
+  name: string;
+  color: string;
+  expenses: ExpenseWithCategory[];
+};
+
 type ExpenseListItem =
   | { type: 'expense'; expense: ExpenseWithCategory }
   | {
@@ -72,6 +78,50 @@ function sortExpenses(items: ExpenseWithCategory[], sortBy: SortOption) {
       return sorted.sort((a, b) => a.date.localeCompare(b.date));
     case 'date-desc':
       return sorted.sort((a, b) => b.date.localeCompare(a.date));
+  }
+}
+
+function compareExpenseGroups(
+  first: ExpenseGroup,
+  second: ExpenseGroup,
+  sortBy: SortOption
+) {
+  const nameComparison = first.name.localeCompare(second.name, 'es');
+
+  switch (sortBy) {
+    case 'name-asc':
+      return nameComparison;
+    case 'name-desc':
+      return -nameComparison;
+    case 'amount-asc':
+    case 'amount-desc': {
+      const firstTotal = first.expenses.reduce((sum, item) => sum + item.amount, 0);
+      const secondTotal = second.expenses.reduce((sum, item) => sum + item.amount, 0);
+      const comparison = firstTotal - secondTotal;
+      return (sortBy === 'amount-asc' ? comparison : -comparison) || nameComparison;
+    }
+    case 'date-asc': {
+      const firstOldest = first.expenses.reduce(
+        (oldest, item) => (item.date < oldest ? item.date : oldest),
+        first.expenses[0].date
+      );
+      const secondOldest = second.expenses.reduce(
+        (oldest, item) => (item.date < oldest ? item.date : oldest),
+        second.expenses[0].date
+      );
+      return firstOldest.localeCompare(secondOldest) || nameComparison;
+    }
+    case 'date-desc': {
+      const firstNewest = first.expenses.reduce(
+        (newest, item) => (item.date > newest ? item.date : newest),
+        first.expenses[0].date
+      );
+      const secondNewest = second.expenses.reduce(
+        (newest, item) => (item.date > newest ? item.date : newest),
+        second.expenses[0].date
+      );
+      return secondNewest.localeCompare(firstNewest) || nameComparison;
+    }
   }
 }
 
@@ -233,10 +283,7 @@ export default function ExpensesScreen() {
       return filteredExpenses.map((expense) => ({ type: 'expense', expense }));
     }
 
-    const groups = new Map<
-      string,
-      { name: string; color: string; expenses: ExpenseWithCategory[] }
-    >();
+    const groups = new Map<string, ExpenseGroup>();
 
     filteredExpenses.forEach((expense) => {
       const key = expense.categoryId == null ? 'none' : String(expense.categoryId);
@@ -251,11 +298,7 @@ export default function ExpensesScreen() {
     });
 
     return [...groups.entries()]
-      .sort(([firstKey, first], [secondKey, second]) => {
-        if (firstKey === 'none') return 1;
-        if (secondKey === 'none') return -1;
-        return first.name.localeCompare(second.name, 'es');
-      })
+      .sort(([, first], [, second]) => compareExpenseGroups(first, second, sortBy))
       .flatMap(([key, group]) => [
         {
           type: 'category' as const,
@@ -268,7 +311,7 @@ export default function ExpensesScreen() {
           ? []
           : group.expenses.map((expense) => ({ type: 'expense' as const, expense }))),
       ]);
-  }, [filteredExpenses, isGroupedByCategory, collapsedCategoryKeys]);
+  }, [filteredExpenses, isGroupedByCategory, collapsedCategoryKeys, sortBy]);
 
   const toggleCategoryCollapsed = (key: string) => {
     setCollapsedCategoryKeys((current) =>
