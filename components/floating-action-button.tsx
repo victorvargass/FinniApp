@@ -1,0 +1,59 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Href, router } from 'expo-router';
+import { Pressable, StyleSheet } from 'react-native';
+
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+type FloatingActionButtonProps = {
+  href: Href;
+  accessibilityLabel: string;
+};
+
+export function FloatingActionButton({
+  href,
+  accessibilityLabel,
+}: FloatingActionButtonProps) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+  const foregroundColor = colorScheme === 'dark' ? '#11181c' : '#fff';
+
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      hitSlop={8}
+      onPress={() => router.push(href)}
+      style={({ pressed }) => [
+        styles.button,
+        { backgroundColor: colors.tint },
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons name="add" size={32} color={foregroundColor} />
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  button: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 58,
+    height: 58,
+    zIndex: 100,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+  },
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
+  },
+});

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   Alert,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FloatingActionButton } from '@/components/floating-action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -189,11 +190,6 @@ export default function IncomesScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ThemedView style={styles.header}>
         <ThemedText type="title">Ingresos</ThemedText>
-        <Link href="/modal/income-form" asChild>
-          <Pressable style={styles.addButton}>
-            <ThemedText style={styles.addButtonText}>+ Nuevo</ThemedText>
-          </Pressable>
-        </Link>
       </ThemedView>
 
       <ThemedView style={styles.filters}>
@@ -262,7 +258,7 @@ export default function IncomesScreen() {
         ListEmptyComponent={
           <ThemedText style={styles.empty}>
             {incomes.length === 0
-              ? 'No hay ingresos registrados. Toca "+ Nuevo" para agregar uno.'
+              ? 'No hay ingresos registrados. Toca el botón + para agregar uno.'
               : 'No hay ingresos que coincidan con los filtros.'}
           </ThemedText>
         }
@@ -303,6 +299,10 @@ export default function IncomesScreen() {
           </Pressable>
         )}
       />
+      <FloatingActionButton
+        href="/modal/income-form"
+        accessibilityLabel="Agregar ingreso"
+      />
     </SafeAreaView>
   );
 }
@@ -317,16 +317,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-  },
-  addButton: {
-    backgroundColor: '#0a7ea4',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '600',
   },
   filters: {
     paddingHorizontal: 20,
@@ -445,7 +435,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 0,
     gap: 10,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   empty: {
     textAlign: 'center',

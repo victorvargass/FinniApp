@@ -3,6 +3,7 @@ import { Link } from 'expo-router';
 import { Alert, FlatList, Platform, Pressable, StyleSheet, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FloatingActionButton } from '@/components/floating-action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useDatabase } from '@/contexts/DatabaseContext';
@@ -37,11 +38,6 @@ export default function CategoriesScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ThemedView style={styles.header}>
         <ThemedText type="title">Categorías</ThemedText>
-        <Link href="/modal/category-form" asChild>
-          <Pressable style={styles.addButton}>
-            <ThemedText style={styles.addButtonText}>+ Nueva</ThemedText>
-          </Pressable>
-        </Link>
       </ThemedView>
 
       <FlatList
@@ -80,6 +76,10 @@ export default function CategoriesScreen() {
      
         )}
       />
+      <FloatingActionButton
+        href="/modal/category-form"
+        accessibilityLabel="Agregar categoría"
+      />
     </SafeAreaView>
   );
 }
@@ -95,19 +95,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  addButton: {
-    backgroundColor: '#0a7ea4',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
   list: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   empty: {
     textAlign: 'center',
