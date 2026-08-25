@@ -224,7 +224,10 @@ export default function SummaryScreen() {
               <View style={styles.categoryContainer}>
                 <ThemedText style={styles.label}>Categorías</ThemedText>
                 {categories.map(category => (
-                  <View key={category.categoryId} style={styles.categoryRow}>
+                  <View
+                    key={category.categoryId ?? 'uncategorized'}
+                    style={styles.categoryRow}
+                  >
                     <View
                       style={[
                         styles.colorDot,

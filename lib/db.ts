@@ -766,6 +766,11 @@ export async function getPeriodCategoryExpensesTotals(
   const db = await getDb();
   const rows = await db.getAllAsync(
     `
+    WITH filtered_expenses AS (
+      SELECT category_id, amount
+      FROM expenses
+      WHERE date >= ? AND date <= ?
+    )
     SELECT
       c.id as categoryId,
       c.name as categoryName,
@@ -773,9 +778,21 @@ export async function getPeriodCategoryExpensesTotals(
       c.period_limit as periodLimit,
       COALESCE(SUM(e.amount), 0) as total
     FROM categories c
-    LEFT JOIN expenses e ON e.category_id = c.id AND e.date >= ? AND e.date <= ?
+    LEFT JOIN filtered_expenses e ON e.category_id = c.id
     GROUP BY c.id
-    ORDER BY total DESC, c.name ASC
+
+    UNION ALL
+
+    SELECT
+      NULL as categoryId,
+      'Sin categoría' as categoryName,
+      '#95a5a6' as categoryColor,
+      NULL as periodLimit,
+      COALESCE(SUM(e.amount), 0) as total
+    FROM filtered_expenses e
+    WHERE e.category_id IS NULL
+
+    ORDER BY total DESC, categoryName ASC
     `,
     startDate,
     endDate
@@ -1038,19 +1055,23 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
   `);
 
   // Organize expenses by period, by category
-  const expensesByPeriodCategory = new Map<number, Map<number, number>>();
+  const expensesByPeriodCategory = new Map<
+    number,
+    Map<number | null, number>
+  >();
 
   for (const exp of expenses) {
-    if (exp.category_id != null) {
-      if (!expensesByPeriodCategory.has(exp.period_id)) {
-        expensesByPeriodCategory.set(exp.period_id, new Map<number, number>());
-      }
-      const catMap = expensesByPeriodCategory.get(exp.period_id)!;
-      catMap.set(
-        exp.category_id,
-        (catMap.get(exp.category_id) ?? 0) + exp.amount
+    if (!expensesByPeriodCategory.has(exp.period_id)) {
+      expensesByPeriodCategory.set(
+        exp.period_id,
+        new Map<number | null, number>()
       );
     }
+    const catMap = expensesByPeriodCategory.get(exp.period_id)!;
+    catMap.set(
+      exp.category_id,
+      (catMap.get(exp.category_id) ?? 0) + exp.amount
+    );
   }
 
   // Organize incomes total by period
@@ -1064,11 +1085,20 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
 
   const result: PeriodHistory[] = periods.map(period => {
     // For this period, get per-category totals
-    const catTotals = expensesByPeriodCategory.get(period.id) ?? new Map();
+    const catTotals =
+      expensesByPeriodCategory.get(period.id) ?? new Map<number | null, number>();
 
     // Build categories array with sum for each category present in catTotals
     const thisCategories = Array.from(catTotals.entries()).map(
       ([categoryId, total]) => {
+        if (categoryId === null) {
+          return {
+            categoryId: null,
+            categoryName: 'Sin categoría',
+            categoryColor: '#95a5a6',
+            total,
+          };
+        }
         const cat = categories.find(c => c.id === categoryId);
         return {
           categoryId,

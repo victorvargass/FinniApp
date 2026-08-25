@@ -35,7 +35,7 @@ export type ExpenseWithCategory = Expense & {
 
 // Ver, pensar en Periods
 export type PeriodCategoryExpensesTotals = {
-  categoryId: number;
+  categoryId: number | null;
   categoryName: string;
   categoryColor: string;
   periodLimit: number | null;
@@ -43,7 +43,7 @@ export type PeriodCategoryExpensesTotals = {
 };
 
 export type PeriodHistoryCategory = {
-  categoryId: number;
+  categoryId: number | null;
   categoryName: string;
   categoryColor: string;
   total: number;

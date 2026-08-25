@@ -13,7 +13,7 @@ type CategoryChartProps = {
 
 export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTotal }: CategoryChartProps) {
   const withSpending = periodCategoryExpensesTotals.filter((item) => item.total > 0);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState<string | null>(null);
   const showPie = withSpending.length > 0
 
   if (!showPie) {
@@ -30,6 +30,8 @@ export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTota
       color: item.categoryColor,
       text: item.categoryName,
       categoryId: item.categoryId,
+      categoryKey:
+        item.categoryId === null ? 'uncategorized' : `category-${item.categoryId}`,
     }))
   ];
 
@@ -47,37 +49,37 @@ export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTota
           </View>
         )}
         onPress={(item: any, index: number) => {
-          if (selectedCategoryId === item.categoryId) {
-            setSelectedCategoryId(null);
+          if (selectedCategoryKey === item.categoryKey) {
+            setSelectedCategoryKey(null);
           } else {
-            setSelectedCategoryId(item.categoryId);
+            setSelectedCategoryKey(item.categoryKey);
           }
         }}
         focusOnPress={true}
         toggleFocusOnPress={true}
-        focusedPieIndex={selectedCategoryId ? pieData.findIndex((item) => item.categoryId === selectedCategoryId) : -1}
+        focusedPieIndex={selectedCategoryKey !== null ? pieData.findIndex((item) => item.categoryKey === selectedCategoryKey) : -1}
       />
 
       <View style={styles.legend}>
         {pieData.map((item) => (
           <Pressable
-            key={item.categoryId}
+            key={item.categoryKey}
             style={styles.legendRow}
             onPress={() => {
-              if (selectedCategoryId === item.categoryId) {
-                setSelectedCategoryId(null);
+              if (selectedCategoryKey === item.categoryKey) {
+                setSelectedCategoryKey(null);
               } else {
-                setSelectedCategoryId(item.categoryId);
+                setSelectedCategoryKey(item.categoryKey);
               }
             }}
           >
-            <View style={[styles.dot, { backgroundColor: item.color, borderColor: item.categoryId === selectedCategoryId ? '#000' : item.color }]} />
+            <View style={[styles.dot, { backgroundColor: item.color, borderColor: item.categoryKey === selectedCategoryKey ? '#000' : item.color }]} />
             <ThemedText
               style={[
                 styles.legendName,
                 { 
-                  color: item.categoryId === selectedCategoryId ? '#000' : '#666',
-                  fontSize: item.categoryId === selectedCategoryId ? 17 : 14
+                  color: item.categoryKey === selectedCategoryKey ? '#000' : '#666',
+                  fontSize: item.categoryKey === selectedCategoryKey ? 17 : 14
                 }
               ]}
             >
@@ -85,8 +87,8 @@ export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTota
             </ThemedText>
             <ThemedText type="defaultSemiBold" style={[
                 {
-                  color: item.categoryId === selectedCategoryId ? '#000' : '#666',
-                  fontSize: item.categoryId === selectedCategoryId ? 17 : 14,
+                  color: item.categoryKey === selectedCategoryKey ? '#000' : '#666',
+                  fontSize: item.categoryKey === selectedCategoryKey ? 17 : 14,
                 }
             ]}>
               {formatCLP(item.value)}
