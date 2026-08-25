@@ -1,4 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { router } from 'expo-router';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -162,7 +163,19 @@ export default function PeriodScreen() {
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Desglose gastos
           </ThemedText>
-          <CategoryChart periodCategoryExpensesTotals={periodCategoryExpensesTotals} periodExpensesTotal={periodExpensesTotal} />
+          <CategoryChart
+            periodCategoryExpensesTotals={periodCategoryExpensesTotals}
+            periodExpensesTotal={periodExpensesTotal}
+            onOpenCategory={(categoryId) => {
+              router.navigate({
+                pathname: '/(tabs)/expenses',
+                params: {
+                  categoryFilter: categoryId === null ? 'none' : String(categoryId),
+                  filterRequestId: String(Date.now()),
+                },
+              });
+            }}
+          />
         </ThemedView>
 
         {withLimits.length > 0 && (

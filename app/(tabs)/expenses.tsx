@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Link, router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { Link, router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -170,6 +170,11 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
 
 export default function ExpensesScreen() {
   const { expenses, categories, removeExpense } = useDatabase();
+  const { categoryFilter: requestedCategory, filterRequestId } =
+    useLocalSearchParams<{
+      categoryFilter?: string;
+      filterRequestId?: string;
+    }>();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -180,6 +185,22 @@ export default function ExpensesScreen() {
   const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState<string[]>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (!requestedCategory) return;
+
+    if (requestedCategory === 'none') {
+      setCategoryFilter(['none']);
+      setSearch('');
+      return;
+    }
+
+    const categoryId = Number(requestedCategory);
+    if (Number.isInteger(categoryId) && categoryId > 0) {
+      setCategoryFilter([categoryId]);
+      setSearch('');
+    }
+  }, [requestedCategory, filterRequestId]);
 
   const filteredExpenses = useMemo(() => {
     const query = search.trim().toLowerCase();

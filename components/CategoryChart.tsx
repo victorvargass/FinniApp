@@ -9,9 +9,14 @@ import { useState } from 'react';
 type CategoryChartProps = {
   periodCategoryExpensesTotals: PeriodCategoryExpensesTotals[];
   periodExpensesTotal: number;
+  onOpenCategory?: (categoryId: number | null) => void;
 };
 
-export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTotal }: CategoryChartProps) {
+export function CategoryChart({
+  periodCategoryExpensesTotals,
+  periodExpensesTotal,
+  onOpenCategory,
+}: CategoryChartProps) {
   const withSpending = periodCategoryExpensesTotals.filter((item) => item.total > 0);
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string | null>(null);
   const showPie = withSpending.length > 0
@@ -35,6 +40,20 @@ export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTota
     }))
   ];
 
+  const handleCategoryPress = (item: (typeof pieData)[number]) => {
+    if (selectedCategoryKey === item.categoryKey) {
+      if (onOpenCategory) {
+        setSelectedCategoryKey(null);
+        onOpenCategory(item.categoryId);
+      } else {
+        setSelectedCategoryKey(null);
+      }
+      return;
+    }
+
+    setSelectedCategoryKey(item.categoryKey);
+  };
+
   return (
     <View style={styles.container}>
       <PieChart
@@ -49,11 +68,7 @@ export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTota
           </View>
         )}
         onPress={(item: any, index: number) => {
-          if (selectedCategoryKey === item.categoryKey) {
-            setSelectedCategoryKey(null);
-          } else {
-            setSelectedCategoryKey(item.categoryKey);
-          }
+          handleCategoryPress(item);
         }}
         focusOnPress={true}
         toggleFocusOnPress={true}
@@ -66,11 +81,7 @@ export function CategoryChart({ periodCategoryExpensesTotals, periodExpensesTota
             key={item.categoryKey}
             style={styles.legendRow}
             onPress={() => {
-              if (selectedCategoryKey === item.categoryKey) {
-                setSelectedCategoryKey(null);
-              } else {
-                setSelectedCategoryKey(item.categoryKey);
-              }
+              handleCategoryPress(item);
             }}
           >
             <View style={[styles.dot, { backgroundColor: item.color, borderColor: item.categoryKey === selectedCategoryKey ? '#000' : item.color }]} />
