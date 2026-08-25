@@ -26,11 +26,16 @@ type BiometricContextValue = {
 const BiometricContext = createContext<BiometricContextValue | null>(null);
 
 function getAuthenticationType(types: LocalAuthentication.AuthenticationType[]) {
+  // Android reports supported hardware, not the method the system prompt will
+  // ultimately use. It can still choose a fingerprint or the device PIN.
+  if (Platform.OS === 'android') {
+    return 'la biometría de tu dispositivo';
+  }
   if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-    return Platform.OS === 'ios' ? 'Face ID' : 'reconocimiento facial';
+    return 'Face ID';
   }
   if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-    return Platform.OS === 'ios' ? 'Touch ID' : 'huella digital';
+    return 'Touch ID';
   }
   return 'biometría';
 }
