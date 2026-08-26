@@ -13,6 +13,8 @@ import { CategoryChart } from '@/components/CategoryChart';
 import { LimitProgressBar } from '@/components/LimitProgressBar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
 import type { PeriodHistory } from '@/lib/types';
 import { exportPeriodReport } from '@/services/PeriodReportService';
@@ -29,6 +31,8 @@ export function HistoricalPeriodModal({
   onClose,
 }: Props) {
   const [isExporting, setIsExporting] = useState(false);
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
 
   if (!period) return null;
 
@@ -70,20 +74,20 @@ export function HistoricalPeriodModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <ThemedView style={styles.container}>
+        <ThemedView style={[styles.container, { backgroundColor: colors.surface }]}>
           <ScrollView showsVerticalScrollIndicator={false}>
   
             <ThemedText type="title" style={styles.headerTitle}>
               Resumen del período
             </ThemedText>
   
-            <ThemedText style={styles.datesSummary}>
+            <ThemedText style={[styles.datesSummary, { color: colors.textSecondary }]}>
               {formatDate(new Date(`${period.startDate}T12:00:00`))} → {formatDate(new Date(`${period.endDate}T12:00:00`))}
             </ThemedText>
   
             <View style={styles.totalsContainer}>
-              <ThemedView style={[styles.summaryCard, { flex: 1 }]}>
-                <ThemedText style={styles.label}>
+              <ThemedView style={[styles.summaryCard, { flex: 1, backgroundColor: colors.surfaceRaised }]}>
+                <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
                   Ingresos
                 </ThemedText>
 
@@ -92,8 +96,8 @@ export function HistoricalPeriodModal({
                 </ThemedText>
               </ThemedView>
 
-              <ThemedView style={[styles.summaryCard, { flex: 1 }]}>
-                <ThemedText style={styles.label}>
+              <ThemedView style={[styles.summaryCard, { flex: 1, backgroundColor: colors.surfaceRaised }]}>
+                <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
                   Gastos
                 </ThemedText>
 
@@ -104,20 +108,23 @@ export function HistoricalPeriodModal({
             </View>
 
 
-            <ThemedView style={styles.balanceCard}>
-              <ThemedText style={styles.label}>
+            <ThemedView style={[styles.balanceCard, { backgroundColor: colors.surfaceRaised }]}>
+              <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
                 Saldo
               </ThemedText>
 
               <ThemedText
-                style={balance >= 0 ? styles.positive : styles.negative}
+                style={[
+                  balance >= 0 ? styles.positive : styles.negative,
+                  balance >= 0 && { color: colors.primary },
+                ]}
               >
                 {formatCLP(balance)}
               </ThemedText>
             </ThemedView>
   
   
-            <ThemedView style={styles.section}>
+            <ThemedView style={[styles.section, { backgroundColor: colors.surfaceRaised }]}>
               <ThemedText type="subtitle">
                 Gastos por categoría
               </ThemedText>
@@ -125,12 +132,13 @@ export function HistoricalPeriodModal({
               <CategoryChart
                 periodCategoryExpensesTotals={categories}
                 periodExpensesTotal={expenses}
+                surfaceColor={colors.surfaceRaised}
               />
             </ThemedView>
   
   
             {limits.length > 0 && (
-              <ThemedView style={styles.section}>
+              <ThemedView style={[styles.section, { backgroundColor: colors.surfaceRaised }]}>
                 <ThemedText type="subtitle">
                   Límites
                 </ThemedText>
@@ -152,6 +160,7 @@ export function HistoricalPeriodModal({
             <Pressable
               style={({ pressed }) => [
                 styles.exportButton,
+                { backgroundColor: colors.primary, borderColor: colors.primary },
                 (pressed || isExporting) && styles.exportButtonPressed,
               ]}
               disabled={isExporting}
@@ -172,10 +181,10 @@ export function HistoricalPeriodModal({
             </Pressable>
   
             <Pressable
-              style={styles.closeButton}
+              style={[styles.closeButton, { borderColor: colors.border }]}
               onPress={onClose}
             >
-              <ThemedText style={styles.closeButtonText}>
+              <ThemedText style={[styles.closeButtonText, { color: colors.primary }]}>
                 Cerrar
               </ThemedText>
             </Pressable>

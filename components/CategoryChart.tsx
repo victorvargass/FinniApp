@@ -2,6 +2,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
 
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
 import type { PeriodCategoryExpensesTotals } from '@/lib/types';
 import { useState } from 'react';
@@ -10,13 +12,17 @@ type CategoryChartProps = {
   periodCategoryExpensesTotals: PeriodCategoryExpensesTotals[];
   periodExpensesTotal: number;
   onOpenCategory?: (categoryId: number | null) => void;
+  surfaceColor?: string;
 };
 
 export function CategoryChart({
   periodCategoryExpensesTotals,
   periodExpensesTotal,
   onOpenCategory,
+  surfaceColor,
 }: CategoryChartProps) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
   const withSpending = periodCategoryExpensesTotals.filter((item) => item.total > 0);
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string | null>(null);
   const showPie = withSpending.length > 0
@@ -61,10 +67,11 @@ export function CategoryChart({
         donut
         radius={110}
         innerRadius={65}
+        innerCircleColor={surfaceColor ?? colors.surface}
         centerLabelComponent={() => (
           <View style={styles.centerLabel}>
-            <ThemedText style={styles.centerAmount}>{formatCLP(periodExpensesTotal)}</ThemedText>
-            <ThemedText style={styles.centerSub}>Total gastos</ThemedText>
+            <ThemedText style={[styles.centerAmount, { color: colors.text }]}>{formatCLP(periodExpensesTotal)}</ThemedText>
+            <ThemedText style={[styles.centerSub, { color: colors.textSecondary }]}>Total gastos</ThemedText>
           </View>
         )}
         onPress={(item: any, index: number) => {
@@ -84,22 +91,31 @@ export function CategoryChart({
               handleCategoryPress(item);
             }}
           >
-            <View style={[styles.dot, { backgroundColor: item.color, borderColor: item.categoryKey === selectedCategoryKey ? '#000' : item.color }]} />
+            <View style={[
+              styles.dot,
+              {
+                backgroundColor: item.color,
+                borderColor: item.categoryKey === selectedCategoryKey ? colors.text : item.color,
+                borderWidth: item.categoryKey === selectedCategoryKey ? 2 : 1,
+              },
+            ]} />
             <ThemedText
               style={[
                 styles.legendName,
-                { 
-                  color: item.categoryKey === selectedCategoryKey ? '#000' : '#666',
-                  fontSize: item.categoryKey === selectedCategoryKey ? 17 : 14
+                {
+                  color: colors.text,
+                  fontSize: 14,
+                  fontWeight: item.categoryKey === selectedCategoryKey ? '700' : '400',
                 }
               ]}
             >
               {item.text}
             </ThemedText>
-            <ThemedText type="defaultSemiBold" style={[
+            <ThemedText style={[
                 {
-                  color: item.categoryKey === selectedCategoryKey ? '#000' : '#666',
-                  fontSize: item.categoryKey === selectedCategoryKey ? 17 : 14,
+                  color: colors.text,
+                  fontSize: 14,
+                  fontWeight: item.categoryKey === selectedCategoryKey ? '700' : '400',
                 }
             ]}>
               {formatCLP(item.value)}

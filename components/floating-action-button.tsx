@@ -16,7 +16,6 @@ export function FloatingActionButton({
 }: FloatingActionButtonProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const foregroundColor = colorScheme === 'dark' ? '#11181c' : '#fff';
 
   return (
     <Pressable
@@ -26,11 +25,11 @@ export function FloatingActionButton({
       onPress={() => router.push(href)}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: colors.tint },
+        { backgroundColor: colors.primary },
         pressed && styles.pressed,
       ]}
     >
-      <Ionicons name="add" size={32} color={foregroundColor} />
+      <Ionicons name="add" size={32} color={colors.onPrimary} />
     </Pressable>
   );
 }

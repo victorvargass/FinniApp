@@ -48,9 +48,9 @@ export default function PeriodScreen() {
   }, [settings.currentPeriodId]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <ThemedView style={styles.header}>
+        <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
           <ThemedText type="title">Resumen Período</ThemedText>
           <View style={styles.dateRangeContainer}>
             <View style={styles.dateContainer}>
@@ -144,22 +144,22 @@ export default function PeriodScreen() {
         </ThemedView>
 
         <View style={styles.totalsContainer}>
-          <ThemedView style={[{ flex: 1 }, styles.card, styles.centered]}>
+          <ThemedView style={[{ flex: 1, backgroundColor: colors.surface }, styles.card, styles.centered]}>
             <ThemedText type="subtitle">Ingresos</ThemedText>
             <ThemedText style={styles.totalIncomes}>{formatCLP(periodIncomesTotal)}</ThemedText>
           </ThemedView>
-          <ThemedView style={[{ flex: 1 }, styles.card, styles.centered]}>
+          <ThemedView style={[{ flex: 1, backgroundColor: colors.surface }, styles.card, styles.centered]}>
             <ThemedText type="subtitle">Gastos</ThemedText>
             <ThemedText style={styles.totalExpenses}>{formatCLP(periodExpensesTotal)}</ThemedText>
           </ThemedView>
         </View>
    
-        <ThemedView style={[styles.card, styles.centered]}>
+        <ThemedView style={[styles.card, styles.centered, { backgroundColor: colors.surface }]}>
           <ThemedText type="subtitle">Saldo</ThemedText>
           <ThemedText style={periodIncomesTotal > periodExpensesTotal ? styles.totalPositiveBalance : styles.totalNegativeBalance}>{formatCLP(periodIncomesTotal - periodExpensesTotal)}</ThemedText>
         </ThemedView>
 
-        <ThemedView style={styles.card}>
+        <ThemedView style={[styles.card, { backgroundColor: colors.surface }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Desglose gastos
           </ThemedText>
@@ -179,7 +179,7 @@ export default function PeriodScreen() {
         </ThemedView>
 
         {withLimits.length > 0 && (
-          <ThemedView style={styles.card}>
+          <ThemedView style={[styles.card, { backgroundColor: colors.surface }]}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
               Límites de gastos
             </ThemedText>
