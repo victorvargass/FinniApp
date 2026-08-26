@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -11,10 +14,12 @@ import { LimitProgressBar } from '@/components/LimitProgressBar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { formatCLP, formatDate } from '@/lib/format';
+import type { PeriodHistory } from '@/lib/types';
+import { exportPeriodReport } from '@/services/PeriodReportService';
 
 type Props = {
   visible: boolean;
-  period: any | null;
+  period: PeriodHistory | null;
   onClose: () => void;
 };
 
@@ -23,7 +28,26 @@ export function HistoricalPeriodModal({
   period,
   onClose,
 }: Props) {
+  const [isExporting, setIsExporting] = useState(false);
+
   if (!period) return null;
+
+  async function handleExport() {
+    if (isExporting || !period) return;
+
+    try {
+      setIsExporting(true);
+      await exportPeriodReport(period);
+    } catch (error) {
+      console.error('No se pudo generar el reporte del período', error);
+      Alert.alert(
+        'No se pudo generar el PDF',
+        'Favor inténtalo nuevamente'
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   const expenses =
     period.categories?.reduce(
@@ -125,12 +149,33 @@ export function HistoricalPeriodModal({
               </ThemedView>
             )}
   
+            <Pressable
+              style={({ pressed }) => [
+                styles.exportButton,
+                (pressed || isExporting) && styles.exportButtonPressed,
+              ]}
+              disabled={isExporting}
+              onPress={handleExport}
+            >
+              {isExporting ? (
+                <View style={styles.exportingContent}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <ThemedText style={styles.exportButtonText}>
+                    Generando PDF…
+                  </ThemedText>
+                </View>
+              ) : (
+                <ThemedText style={styles.exportButtonText}>
+                  Exportar reporte PDF
+                </ThemedText>
+              )}
+            </Pressable>
   
             <Pressable
-              style={styles.close}
+              style={styles.closeButton}
               onPress={onClose}
             >
-              <ThemedText style={styles.closeText}>
+              <ThemedText style={styles.closeButtonText}>
                 Cerrar
               </ThemedText>
             </Pressable>
@@ -225,7 +270,33 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 
-  close: {
+  exportButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#0a7ea4',
+    backgroundColor: '#0a7ea4',
+  },
+
+  exportButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  exportButtonPressed: {
+    opacity: 0.72,
+  },
+
+  exportingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  closeButton: {
     marginTop: 8,
     paddingVertical: 12,
     borderRadius: 10,
@@ -234,7 +305,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
 
-  closeText: {
+  closeButtonText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#006080',

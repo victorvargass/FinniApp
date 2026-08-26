@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-import type { Category, ExpenseWithCategory, Income, NewCategory, NewExpense, NewIncome, NewPeriod, Period, PeriodCategoryExpensesTotals, PeriodHistory, Settings } from './types';
+import type { Category, ExpenseWithCategory, Income, NewCategory, NewExpense, NewIncome, NewPeriod, Period, PeriodCategoryExpensesTotals, PeriodHistory, PeriodStatement, Settings } from './types';
 
 const DATABASE_NAME = 'gastos.db';
 
@@ -1052,8 +1052,9 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
     id: number;
     name: string;
     color: string;
+    period_limit: number | null;
   }[] = await db.getAllAsync(`
-    SELECT id, name, color
+    SELECT id, name, color, period_limit
     FROM categories
   `);
 
@@ -1120,6 +1121,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
             categoryId: null,
             categoryName: 'Sin categoría',
             categoryColor: '#95a5a6',
+            periodLimit: null,
             total,
           };
         }
@@ -1128,6 +1130,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
           categoryId,
           categoryName: cat ? cat.name : "Sin nombre",
           categoryColor: cat ? cat.color : "#CCC",
+          periodLimit: cat?.period_limit ?? null,
           total
         };
       }
@@ -1150,6 +1153,51 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
   });
 
   return result;
+}
+
+export async function getPeriodStatement(
+  periodId: number
+): Promise<PeriodStatement> {
+  const db = await getDb();
+
+  const [expenses, incomes] = await Promise.all([
+    db.getAllAsync<ExpenseWithCategory>(
+      `
+      SELECT
+        e.id,
+        e.name,
+        e.amount,
+        e.category_id AS categoryId,
+        e.period_id AS periodId,
+        e.date,
+        e.original_amount AS originalAmount,
+        e.split_percentage AS splitPercentage,
+        c.name AS categoryName,
+        c.color AS categoryColor
+      FROM expenses e
+      LEFT JOIN categories c ON c.id = e.category_id
+      WHERE e.period_id = ?
+      ORDER BY e.date ASC, e.id ASC
+      `,
+      periodId
+    ),
+    db.getAllAsync<Income>(
+      `
+      SELECT
+        id,
+        name,
+        amount,
+        period_id AS periodId,
+        date
+      FROM incomes
+      WHERE period_id = ?
+      ORDER BY date ASC, id ASC
+      `,
+      periodId
+    ),
+  ]);
+
+  return { expenses, incomes };
 }
 
 /**

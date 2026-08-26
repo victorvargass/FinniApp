@@ -48,6 +48,7 @@ export type PeriodHistoryCategory = {
   categoryId: number | null;
   categoryName: string;
   categoryColor: string;
+  periodLimit: number | null;
   total: number;
 };
 
@@ -58,6 +59,11 @@ export type PeriodHistory = {
   year: number;
   incomesTotal: number;
   categories: PeriodHistoryCategory[];
+};
+
+export type PeriodStatement = {
+  expenses: ExpenseWithCategory[];
+  incomes: Income[];
 };
 
 

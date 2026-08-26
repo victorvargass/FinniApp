@@ -4,6 +4,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import {
   closeDatabase,
   getDatabase,
+  initDatabase,
   resetDatabaseConnection,
 } from '@/lib/db';
 
@@ -188,6 +189,10 @@ export class DatabaseService {
       tempDirectory.delete();
       resetDatabaseConnection();
     }
+
+    // Apply additive migrations when restoring a backup created by an older
+    // app version before the UI starts querying the restored database.
+    await initDatabase();
   }
 
 }
