@@ -117,7 +117,7 @@ export function useGoogle() {
         ...current,
         lastBackup: {
           id: result.id,
-          name: 'gastosapp-backup.db',
+          name: result.name,
           modifiedTime: result.modifiedTime,
         },
       }));

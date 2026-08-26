@@ -117,7 +117,7 @@ export default function UserScreen() {
   const confirmRestore = () => {
     Alert.alert(
       'Restaurar datos',
-      'La restauración reemplazará los datos actuales de GastosApp por el último respaldo. Esta acción no se puede deshacer.',
+      'La restauración reemplazará los datos actuales de FinniApp por el último respaldo. Esta acción no se puede deshacer.',
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Restaurar', style: 'destructive', onPress: runRestore },

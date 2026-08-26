@@ -11,7 +11,7 @@ import React, {
 } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
-const BIOMETRIC_ENABLED_KEY = '@gastosapp/biometric-lock-enabled';
+const BIOMETRIC_ENABLED_KEY = '@finniapp/biometric-lock-enabled';
 const BACKGROUND_GRACE_PERIOD_MS = 60_000;
 
 type BiometricContextValue = {

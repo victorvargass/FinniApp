@@ -71,7 +71,7 @@ export class DatabaseService {
 
       const found = new Set(tables.map((table) => table.name));
       if (requiredTables.some((table) => !found.has(table))) {
-        throw new Error('El respaldo no pertenece a una versión válida de GastosApp.');
+        throw new Error('El respaldo no pertenece a una versión válida de FinniApp.');
       }
     } finally {
       await candidate.closeAsync();

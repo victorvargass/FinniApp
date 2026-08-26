@@ -3,6 +3,7 @@ import { GoogleDriveService } from './GoogleDriveService';
 
 export type BackupMetadata = {
   id: string;
+  name: string;
   modifiedTime: string;
 };
 
@@ -16,6 +17,7 @@ export class BackupService {
       const uploaded = await drive.uploadDatabase(file.uri);
       return {
         id: uploaded.id,
+        name: uploaded.name,
         modifiedTime: uploaded.modifiedTime,
       };
     } finally {
