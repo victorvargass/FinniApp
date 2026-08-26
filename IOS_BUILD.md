@@ -3,8 +3,8 @@
 ## Configuración incluida en el proyecto
 
 - Nombre visible: `FinniApp`
-- Android package estable: `com.vitoco18.GastosApp`
-- iOS bundle identifier estable: `com.vitoco18.GastosApp`
+- Android package estable: `com.vitoco18.FinniApp`
+- iOS bundle identifier estable: `com.vitoco18.FinniApp`
 - Los identificadores nativos se conservan para que las actualizaciones sigan accediendo a los datos locales existentes.
 - `preview`: distribución interna, genera APK en Android e IPA ad hoc en iOS.
 - `ios-simulator`: genera una aplicación para iOS Simulator.
@@ -31,7 +31,7 @@ En el mismo proyecto de Google Cloud usado por Android:
 1. Abre **APIs y servicios > Credenciales**.
 2. Crea un **ID de cliente de OAuth**.
 3. Selecciona **iOS**.
-4. Usa como Bundle ID: `com.vitoco18.GastosApp`.
+4. Usa como Bundle ID: `com.vitoco18.FinniApp`.
 5. Copia el Client ID completo, por ejemplo:
    `123456789-abc.apps.googleusercontent.com`.
 
@@ -114,7 +114,7 @@ No reemplaces el keystore Android existente. En iOS, EAS puede crear y administr
 
 Cuando la preview funcione correctamente:
 
-1. Crea la app en App Store Connect con el Bundle ID `com.vitoco18.GastosApp`.
+1. Crea la app en App Store Connect con el Bundle ID `com.vitoco18.FinniApp`.
 2. Verifica que la variable Google iOS exista en el ambiente `production`.
 3. Genera la build de producción:
 
