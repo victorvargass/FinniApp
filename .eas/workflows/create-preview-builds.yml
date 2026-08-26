@@ -1,0 +1,16 @@
+name: Create Preview Builds
+
+jobs:
+  build_android:
+    name: Build Android Preview
+    type: build
+    params:
+      platform: android
+      profile: preview
+
+  build_ios:
+    name: Build iOS Preview
+    type: build
+    params:
+      platform: ios
+      profile: preview
