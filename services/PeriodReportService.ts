@@ -92,8 +92,8 @@ function categoryRows(
   return categories
     .map((category) => {
       const percentage = expensesTotal > 0
-        ? Math.round((category.total / expensesTotal) * 100)
-        : 0;
+        ? ((category.total / expensesTotal) * 100).toFixed(1)
+        : '0.0';
       const safeColor = /^#[0-9a-f]{3,8}$/i.test(category.categoryColor)
         ? category.categoryColor
         : '#95a5a6';
