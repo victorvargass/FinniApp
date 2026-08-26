@@ -14,3 +14,4 @@ jobs:
     params:
       platform: ios
       profile: preview
+      refresh_ad_hoc_provisioning_profile: true
