@@ -62,7 +62,7 @@ function NameSuggestions({ suggestions, onSelect }: NameSuggestionsProps) {
       {suggestions.map((suggestion) => (
         <Pressable
           key={suggestion}
-          onPress={() => onSelect(suggestion)}
+          onPressIn={() => onSelect(suggestion)}
           style={styles.nameSuggestion}>
           <ThemedText>{suggestion}</ThemedText>
         </Pressable>
@@ -177,6 +177,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const colors = Colors[colorScheme];
 
   const [name, setName] = useState(expense?.name ?? '');
+  const [isNameFocused, setIsNameFocused] = useState(false);
   const expenseWasSplit =
     expense?.originalAmount != null && expense.splitPercentage != null;
   const [amountText, setAmountText] = useState<String>(
@@ -278,12 +279,24 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
-        onChangeText={setName}
+        onChangeText={(value) => {
+          setName(value);
+          setIsNameFocused(true);
+        }}
+        onFocus={() => setIsNameFocused(true)}
+        onBlur={() => setIsNameFocused(false)}
         placeholder="Ej: Compra Jumbo"
         placeholderTextColor={colors.icon}
       />
-      <NameSuggestions suggestions={nameSuggestions} onSelect={setName} />
+      <NameSuggestions
+        suggestions={isNameFocused ? nameSuggestions : []}
+        onSelect={(suggestion) => {
+          setName(suggestion);
+          setIsNameFocused(false);
+        }}
+      />
 
+      <View style={styles.formRemainder} onTouchStart={() => setIsNameFocused(false)}>
       <ThemedText style={styles.label}>Monto total (CLP)</ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
@@ -434,6 +447,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           {expense ? 'Actualizar' : 'Guardar'}
         </ThemedText>
       </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -449,6 +463,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
   const colors = Colors[colorScheme];
 
   const [name, setName] = useState(income?.name ?? '');
+  const [isNameFocused, setIsNameFocused] = useState(false);
   const [amountText, setAmountText] = useState<String>(income?.amount ? String(income?.amount) : '');
   const currentPeriod = settings.currentPeriod;
   const [date, setDate] = useState(
@@ -525,12 +540,24 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
-        onChangeText={setName}
+        onChangeText={(value) => {
+          setName(value);
+          setIsNameFocused(true);
+        }}
+        onFocus={() => setIsNameFocused(true)}
+        onBlur={() => setIsNameFocused(false)}
         placeholder="Ej: Sueldo"
         placeholderTextColor={colors.icon}
       />
-      <NameSuggestions suggestions={nameSuggestions} onSelect={setName} />
+      <NameSuggestions
+        suggestions={isNameFocused ? nameSuggestions : []}
+        onSelect={(suggestion) => {
+          setName(suggestion);
+          setIsNameFocused(false);
+        }}
+      />
 
+      <View style={styles.formRemainder} onTouchStart={() => setIsNameFocused(false)}>
       <ThemedText style={styles.label}>Monto (CLP)</ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
@@ -576,6 +603,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         </ThemedText>
 
       </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -585,6 +613,9 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 8,
     paddingBottom: 40,    
+  },
+  formRemainder: {
+    gap: 8,
   },
   label: {
     marginTop: 8,
