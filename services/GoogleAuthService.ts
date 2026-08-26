@@ -2,9 +2,13 @@ import {
   GoogleSignin,
   type User,
 } from '@react-native-google-signin/google-signin';
+import { Platform } from 'react-native';
 
 export const GOOGLE_WEB_CLIENT_ID =
   '310919587145-jq3tit5t1shu4vomuskc7j3m0todgkvg.apps.googleusercontent.com';
+
+export const GOOGLE_IOS_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
 
 export const GOOGLE_DRIVE_APPDATA_SCOPE =
   'https://www.googleapis.com/auth/drive.appdata';
@@ -14,11 +18,20 @@ export type GoogleUser = User['user'];
 let configured = false;
 
 export class GoogleAuthService {
+  private static assertIosConfigured(): void {
+    if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) {
+      throw new Error(
+        'Google Drive todavía no está configurado para iOS. Agrega EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID en EAS.'
+      );
+    }
+  }
+
   static configure(): void {
     if (configured) return;
 
     GoogleSignin.configure({
       webClientId: GOOGLE_WEB_CLIENT_ID,
+      ...(GOOGLE_IOS_CLIENT_ID ? { iosClientId: GOOGLE_IOS_CLIENT_ID } : {}),
       scopes: ['email', 'profile'],
       offlineAccess: false,
     });
@@ -27,11 +40,14 @@ export class GoogleAuthService {
   }
 
   static async signIn(): Promise<GoogleUser> {
+    this.assertIosConfigured();
     this.configure();
 
-    await GoogleSignin.hasPlayServices({
-      showPlayServicesUpdateDialog: true,
-    });
+    if (Platform.OS === 'android') {
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+    }
 
     const response = await GoogleSignin.signIn();
 
@@ -56,6 +72,9 @@ export class GoogleAuthService {
   }
 
   static async restoreSession(): Promise<GoogleUser | null> {
+    if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) {
+      return null;
+    }
     this.configure();
 
     if (!GoogleSignin.hasPreviousSignIn()) {
@@ -83,6 +102,7 @@ export class GoogleAuthService {
   }
 
   static async getAccessToken(): Promise<string> {
+    this.assertIosConfigured();
     this.configure();
 
     // Drive access is an additional authorization scope on Android.
@@ -94,11 +114,17 @@ export class GoogleAuthService {
   }
 
   static getCurrentUser(): GoogleUser | null {
+    if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) {
+      return null;
+    }
     this.configure();
     return GoogleSignin.getCurrentUser()?.user ?? null;
   }
 
   static async signOut(): Promise<void> {
+    if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) {
+      return;
+    }
     this.configure();
     await GoogleSignin.signOut();
   }

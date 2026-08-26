@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.vitoco18.FinniApp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -40,7 +44,6 @@
           }
         }
       ],
-      "@react-native-google-signin/google-signin",
       "expo-sqlite",
       "@react-native-community/datetimepicker",
       "expo-web-browser",
