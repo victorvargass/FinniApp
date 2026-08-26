@@ -1,0 +1,6 @@
+name: Register iOS Device
+
+jobs:
+  register_device:
+    name: Register iPhone
+    type: apple-device-registration-request

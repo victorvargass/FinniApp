@@ -1,4 +1,4 @@
-name: Create Preview Builds
+name: Create Preview Builds For Android and iOS
 
 jobs:
   build_android:
