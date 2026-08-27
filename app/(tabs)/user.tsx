@@ -268,16 +268,22 @@ export default function UserScreen() {
                   title={isWorking ? 'Respaldando...' : 'Respaldar'}
                   disabled={isWorking}
                   onPress={runBackup}
+                  style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
+                  textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
                 <ActionButton
                   title={isWorking ? 'Restaurando...' : 'Restaurar'}
                   disabled={isWorking || !lastBackup}
                   onPress={confirmRestore}
+                  style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
+                  textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
                 <ActionButton
                   title="Cerrar sesión"
                   disabled={isWorking}
                   onPress={runLogout}
+                  style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
+                  textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
               </View>
             </>
@@ -406,6 +412,13 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontWeight: '700',
+  },
+  darkActionButton: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
+  },
+  darkActionButtonText: {
+    color: '#11181C',
   },
   progress: {
     flexDirection: 'row',
