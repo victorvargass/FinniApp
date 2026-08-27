@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -147,6 +149,25 @@ export default function UserScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <ThemedView style={styles.header}>
           <ThemedText type="title">Configuración</ThemedText>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
+          <Pressable
+            accessibilityLabel="Configurar categorías"
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/categories')}
+            style={({ pressed }) => [
+              styles.settingsLink,
+              pressed && styles.buttonPressed,
+            ]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">Categorías</ThemedText>
+              <ThemedText style={styles.description}>
+                Crea categorías y configura sus límites por período
+              </ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={colors.icon} />
+          </Pressable>
         </ThemedView>
 
         <ThemedView style={styles.card}>
@@ -316,6 +337,13 @@ const styles = StyleSheet.create({
   settingCopy: {
     flex: 1,
     gap: 6,
+  },
+  settingsLink: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
   },
   profile: {
     flexDirection: 'row',

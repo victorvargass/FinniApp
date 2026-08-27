@@ -37,6 +37,10 @@ function AppContent() {
                   name="modal/category-form"
                   options={{ presentation: 'modal', title: 'Categoría' }}
                 />
+                <Stack.Screen
+                  name="modal/categories"
+                  options={{ presentation: 'fullScreenModal', title: 'Categorías' }}
+                />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>

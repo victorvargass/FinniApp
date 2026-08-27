@@ -35,11 +35,7 @@ export default function CategoriesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ThemedView style={styles.header}>
-        <ThemedText type="title">Categorías</ThemedText>
-      </ThemedView>
-
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <FlatList
         data={categories}
         keyExtractor={(item) => String(item.id)}
@@ -79,6 +75,7 @@ export default function CategoriesScreen() {
       <FloatingActionButton
         href="/modal/category-form"
         accessibilityLabel="Agregar categoría"
+        avoidBottomInset
       />
     </SafeAreaView>
   );
@@ -87,13 +84,6 @@ export default function CategoriesScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
   },
   list: {
     padding: 20,

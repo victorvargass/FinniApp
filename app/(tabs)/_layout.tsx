@@ -47,14 +47,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="categories"
-        options={{
-          title: 'Categorías',
-          tabBarLabel: 'Categorías',
-          tabBarIcon: ({ color }) => <Ionicons name="pricetag" size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="summary"
         options={{
           title: 'Resumen',

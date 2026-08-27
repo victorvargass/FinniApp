@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Href, router } from 'expo-router';
 import { Pressable, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -8,14 +9,17 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 type FloatingActionButtonProps = {
   href: Href;
   accessibilityLabel: string;
+  avoidBottomInset?: boolean;
 };
 
 export function FloatingActionButton({
   href,
   accessibilityLabel,
+  avoidBottomInset = false,
 }: FloatingActionButtonProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const insets = useSafeAreaInsets();
 
   return (
     <Pressable
@@ -25,7 +29,10 @@ export function FloatingActionButton({
       onPress={() => router.push(href)}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: colors.primary },
+        {
+          backgroundColor: colors.primary,
+          bottom: avoidBottomInset ? Math.max(insets.bottom, 16) + 20 : 20,
+        },
         pressed && styles.pressed,
       ]}
     >
@@ -38,7 +45,6 @@ const styles = StyleSheet.create({
   button: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
     width: 58,
     height: 58,
     zIndex: 100,
