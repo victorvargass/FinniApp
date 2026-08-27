@@ -220,7 +220,7 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
 }
 
 export default function ExpensesScreen() {
-  const { expenses, categories, removeExpense } = useDatabase();
+  const { expenses, categories, removeExpense, selectedPeriodId } = useDatabase();
   const { categoryFilter: requestedCategory, filterRequestId } =
     useLocalSearchParams<{
       categoryFilter?: string;
@@ -236,6 +236,16 @@ export default function ExpensesScreen() {
   const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState<string[]>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+
+  useEffect(() => {
+    setSearch('');
+    setCategoryFilter([]);
+    setSortBy('date-desc');
+    setGroupedByCategory(false);
+    setCollapsedCategoryKeys([]);
+    setSortModalVisible(false);
+    setFilterModalVisible(false);
+  }, [selectedPeriodId]);
 
   useEffect(() => {
     if (!requestedCategory) return;

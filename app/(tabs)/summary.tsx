@@ -6,6 +6,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
 import { useEffect, useMemo, useState } from 'react';
+import { router } from 'expo-router';
 import {
   Dimensions,
   ScrollView,
@@ -23,12 +24,12 @@ const shortMonths = [
 ];
 
 function formatDayShortMonth(isoDate: string) {
-  const [y, m, d] = isoDate.split('-').map(Number);
+  const [, m, d] = isoDate.split('-').map(Number);
   return `${d.toString().padStart(2, '0')}-${shortMonths[m - 1] || '?'}`;
 }
 
 export default function SummaryScreen() {
-  const { periodHistory } = useDatabase();
+  const { periodHistory, selectPeriod } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -255,6 +256,12 @@ export default function SummaryScreen() {
         onClose={() => {
           setShowPeriodModal(false);
           setSelectedPeriod(null);
+        }}
+        onOpenPeriod={(periodId) => {
+          selectPeriod(periodId);
+          setShowPeriodModal(false);
+          setSelectedPeriod(null);
+          router.navigate('/(tabs)/period');
         }}
       />
     </SafeAreaView>

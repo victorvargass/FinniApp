@@ -9,6 +9,7 @@ import type {
   NewCategory,
   NewExpense,
   NewIncome,
+  Period,
   PeriodCategoryExpensesTotals,
   PeriodHistory,
   Settings,
@@ -21,12 +22,16 @@ type DatabaseContextValue = {
   expenseNames: string[];
   incomeNames: string[];
   settings: Settings;
+  periods: Period[];
+  selectedPeriod: Period | null;
+  selectedPeriodId: number | null;
   periodCategoryExpensesTotals: PeriodCategoryExpensesTotals[];
   periodIncomesTotal: number;
   periodHistory: PeriodHistory[];
   periodExpensesTotal: number;
   isReady: boolean;
   refresh: () => Promise<void>;
+  selectPeriod: (periodId: number) => void;
   closeCurrentPeriod: () => Promise<void>;
   addCategory: (data: NewCategory) => Promise<void>;
   editCategory: (id: number, data: NewCategory) => Promise<void>;
@@ -49,6 +54,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     currentPeriodId: null,
     currentPeriod: null,
   });
+  const [periods, setPeriods] = useState<Period[]>([]);
+  const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([]);
@@ -63,22 +70,34 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     () => periodCategoryExpensesTotals.reduce((sum, item) => sum + item.total, 0),
     [periodCategoryExpensesTotals]
   );
+  const selectedPeriod = useMemo(
+    () => periods.find((period) => period.id === selectedPeriodId) ?? null,
+    [periods, selectedPeriodId]
+  );
 
   const refresh = useCallback(async () => {
     const settings = await db.getSettings();
+    const allPeriods = await db.getPeriods();
     setSettings(settings);
-    if (!settings.currentPeriod) {
+    setPeriods(allPeriods);
+    const targetPeriodId =
+      selectedPeriodId != null && allPeriods.some((period) => period.id === selectedPeriodId)
+        ? selectedPeriodId
+        : settings.currentPeriodId;
+    if (targetPeriodId == null) {
       return;
     }
-    const period = settings.currentPeriod;
+    if (targetPeriodId !== selectedPeriodId) {
+      setSelectedPeriodId(targetPeriodId);
+    }
     const [cats, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
       db.getCategories(),
-      db.getExpenses(),
-      db.getIncomes(),
+      db.getExpenses(targetPeriodId),
+      db.getIncomes(targetPeriodId),
       db.getExpenseNames(),
       db.getIncomeNames(),
-      db.getPeriodCategoryExpensesTotals(period.startDate, period.endDate),
-      db.getPeriodIncomesTotal(period.startDate, period.endDate),
+      db.getPeriodCategoryExpensesTotals(targetPeriodId),
+      db.getPeriodIncomesTotal(targetPeriodId),
       db.getPeriodHistory(),
     ]);
     setCategories(cats);
@@ -89,36 +108,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     setPeriodCategoryExpensesTotals(totals);
     setPeriodIncomesTotal(incomesTotal);
     setPeriodHistory(history);
-  }, []);
+  }, [selectedPeriodId]);
 
   useEffect(() => {
     async function initialize() {
       await db.initDatabase();
-      const settings = await db.getSettings();
-      setSettings(settings);
-      const period = settings.currentPeriod;
-      if (!period) {
-        setIsReady(true);
-        return;
-      }
-      const [cats, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
-        db.getCategories(),
-        db.getExpenses(),
-        db.getIncomes(),
-        db.getExpenseNames(),
-        db.getIncomeNames(),
-        db.getPeriodCategoryExpensesTotals(period.startDate, period.endDate),
-        db.getPeriodIncomesTotal(period.startDate, period.endDate),
-        db.getPeriodHistory(),
-      ]);
-      setCategories(cats);
-      setExpenses(exps);
-      setIncomes(incs);
-      setExpenseNames(allExpenseNames);
-      setIncomeNames(allIncomeNames);
-      setPeriodCategoryExpensesTotals(totals);
-      setPeriodIncomesTotal(incomesTotal);
-      setPeriodHistory(history);
       setIsReady(true);
     }
     initialize();
@@ -128,9 +122,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     if (!isReady) return;
     refresh();
   }, [
-    settings.currentPeriodId,
-    settings.currentPeriod?.startDate,
-    settings.currentPeriod?.endDate,
+    selectedPeriodId,
     isReady,
   ]);
 
@@ -164,10 +156,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const addExpense = useCallback(
     async (data: NewExpense) => {
-      await db.createExpense(data);
+      if (selectedPeriodId == null) throw new Error('No hay un período seleccionado');
+      await db.createExpense(data, selectedPeriodId);
       await refresh();
     },
-    [refresh]
+    [refresh, selectedPeriodId]
   );
 
   const editExpense = useCallback(
@@ -188,10 +181,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const addIncome = useCallback(
     async (data: NewIncome) => {
-      await db.createIncome(data);
+      if (selectedPeriodId == null) throw new Error('No hay un período seleccionado');
+      await db.createIncome(data, selectedPeriodId);
       await refresh();
     },
-    [refresh]
+    [refresh, selectedPeriodId]
   );
 
   const editIncome = useCallback(
@@ -236,11 +230,15 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const closeCurrentPeriod = useCallback(
     async () => {
-      await db.closeCurrentPeriod();
-      await refresh();
+      const nextPeriod = await db.closeCurrentPeriod();
+      setSelectedPeriodId(nextPeriod.id);
     },
-    [refresh]
+    []
   );
+
+  const selectPeriod = useCallback((periodId: number) => {
+    setSelectedPeriodId(periodId);
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -250,12 +248,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       expenseNames,
       incomeNames,
       settings,
+      periods,
+      selectedPeriod,
+      selectedPeriodId,
       periodCategoryExpensesTotals,
       periodIncomesTotal,
       periodHistory,
       periodExpensesTotal,
       isReady,
       refresh,
+      selectPeriod,
       closeCurrentPeriod,
       addCategory,
       editCategory,
@@ -276,12 +278,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       expenseNames,
       incomeNames,
       settings,
+      periods,
+      selectedPeriod,
+      selectedPeriodId,
       periodCategoryExpensesTotals,
       periodIncomesTotal,
       periodHistory,
       periodExpensesTotal,
       isReady,
       refresh,
+      selectPeriod,
       closeCurrentPeriod,
       addCategory,
       editCategory,

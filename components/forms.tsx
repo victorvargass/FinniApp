@@ -172,7 +172,7 @@ type ExpenseFormProps = {
 };
 
 export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
-  const { categories, expenseNames, addExpense, editExpense, settings } = useDatabase();
+  const { categories, expenseNames, addExpense, editExpense, selectedPeriod } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -180,7 +180,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const [isNameFocused, setIsNameFocused] = useState(false);
   const expenseWasSplit =
     expense?.originalAmount != null && expense.splitPercentage != null;
-  const [amountText, setAmountText] = useState<String>(
+  const [amountText, setAmountText] = useState<string>(
     expense ? String(expense.originalAmount ?? expense.amount) : ''
   );
   const [isSplitAmount, setIsSplitAmount] = useState(expenseWasSplit);
@@ -191,11 +191,17 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     expenseWasSplit && ![50, 25].includes(expense.splitPercentage!)
   );
   const [categoryId, setCategoryId] = useState<number | null>(expense?.categoryId ?? null);
-  const period = settings?.currentPeriod;
   const [date, setDate] = useState(
     expense?.date
       ? parseDateString(expense.date)
-      : new Date()
+      : selectedPeriod
+        ? (() => {
+            const today = new Date();
+            const start = parseDateString(selectedPeriod.startDate);
+            const end = parseDateString(selectedPeriod.endDate);
+            return today >= start && today <= end ? today : end;
+          })()
+        : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -223,9 +229,9 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       return;
     }
 
-    if (period) {
-      const startDate = parseDateString(period.startDate);
-      const endDate = parseDateString(period.endDate);
+    if (selectedPeriod) {
+      const startDate = parseDateString(selectedPeriod.startDate);
+      const endDate = parseDateString(selectedPeriod.endDate);
 
       // Limpiar time por si acaso (comparar sólo fechas)
       const selectedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -234,7 +240,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       if (selectedDate < minDate || selectedDate > maxDate) {
         Alert.alert(
           'Error',
-          `La fecha del gasto debe estar en las fechas del período actual (${formatDate(startDate)} al ${formatDate(endDate)}).`
+          `La fecha del gasto debe estar dentro del período seleccionado (${formatDate(startDate)} al ${formatDate(endDate)}).`
         );
         return;
       }
@@ -425,6 +431,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       {showDatePicker && (
         <DateTimePicker
           value={date}
+          minimumDate={selectedPeriod ? parseDateString(selectedPeriod.startDate) : undefined}
+          maximumDate={selectedPeriod ? parseDateString(selectedPeriod.endDate) : undefined}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(_, selected) => {
@@ -458,18 +466,24 @@ type IncomeFormProps = {
 };
 
 export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
-  const { incomeNames, addIncome, editIncome, settings } = useDatabase();
+  const { incomeNames, addIncome, editIncome, selectedPeriod } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
   const [name, setName] = useState(income?.name ?? '');
   const [isNameFocused, setIsNameFocused] = useState(false);
-  const [amountText, setAmountText] = useState<String>(income?.amount ? String(income?.amount) : '');
-  const currentPeriod = settings.currentPeriod;
+  const [amountText, setAmountText] = useState<string>(income?.amount ? String(income?.amount) : '');
   const [date, setDate] = useState(
     income?.date
       ? parseDateString(income.date)
-      : new Date()
+      : selectedPeriod
+        ? (() => {
+            const today = new Date();
+            const start = parseDateString(selectedPeriod.startDate);
+            const end = parseDateString(selectedPeriod.endDate);
+            return today >= start && today <= end ? today : end;
+          })()
+        : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -486,12 +500,12 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       return;
     }
 
-    // Validación: la fecha debe estar dentro del periodo actual
-    if (currentPeriod) {
+    // La fecha siempre debe pertenecer al período que el usuario está editando.
+    if (selectedPeriod) {
       // Corrección: la fecha final del periodo puede traer hora 00:00 UTC, así que compara usando las fechas normalizadas a local (sin hora)
       // Establece explícitamente las fechas en local
-      const periodStart = new Date(currentPeriod.startDate + "T00:00:00");
-      const periodEnd = new Date(currentPeriod.endDate + "T00:00:00");
+      const periodStart = new Date(selectedPeriod.startDate + "T00:00:00");
+      const periodEnd = new Date(selectedPeriod.endDate + "T00:00:00");
       // Elimina la hora para la comparación (local)
       const inputDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       const startDateOnly = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate());
@@ -502,7 +516,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       ) {
         Alert.alert(
           'Error',
-          `La fecha del ingreso debe estar en las fechas del período actual (${formatDate(new Date(`${currentPeriod.startDate}T12:00:00`))} al ${formatDate(new Date(`${currentPeriod.endDate}T12:00:00`))}).`
+          `La fecha del ingreso debe estar dentro del período seleccionado (${formatDate(new Date(`${selectedPeriod.startDate}T12:00:00`))} al ${formatDate(new Date(`${selectedPeriod.endDate}T12:00:00`))}).`
         );
         return;
       }
@@ -578,6 +592,8 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       {showDatePicker && (
         <DateTimePicker
           value={date}
+          minimumDate={selectedPeriod ? parseDateString(selectedPeriod.startDate) : undefined}
+          maximumDate={selectedPeriod ? parseDateString(selectedPeriod.endDate) : undefined}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(_, selected) => {

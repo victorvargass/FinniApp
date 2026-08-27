@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -138,13 +138,19 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
 }
 
 export default function IncomesScreen() {
-  const { incomes, removeIncome } = useDatabase();
+  const { incomes, removeIncome, selectedPeriodId } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [sortModalVisible, setSortModalVisible] = useState(false);
+
+  useEffect(() => {
+    setSearch('');
+    setSortBy('date-desc');
+    setSortModalVisible(false);
+  }, [selectedPeriodId]);
 
   const filteredIncomes = useMemo(() => {
     const query = search.trim().toLowerCase();

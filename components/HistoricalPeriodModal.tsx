@@ -23,12 +23,14 @@ type Props = {
   visible: boolean;
   period: PeriodHistory | null;
   onClose: () => void;
+  onOpenPeriod?: (periodId: number) => void;
 };
 
 export function HistoricalPeriodModal({
   visible,
   period,
   onClose,
+  onOpenPeriod,
 }: Props) {
   const [isExporting, setIsExporting] = useState(false);
   const colorScheme = useColorScheme() ?? 'light';
@@ -157,6 +159,20 @@ export function HistoricalPeriodModal({
               </ThemedView>
             )}
   
+            {onOpenPeriod && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.openButton,
+                  { backgroundColor: colors.primary },
+                  pressed && styles.exportButtonPressed,
+                ]}
+                onPress={() => onOpenPeriod(period.periodId)}>
+                <ThemedText style={styles.exportButtonText}>
+                  Ir al período
+                </ThemedText>
+              </Pressable>
+            )}
+
             <Pressable
               style={({ pressed }) => [
                 styles.exportButton,
@@ -287,6 +303,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#0a7ea4',
     backgroundColor: '#0a7ea4',
+  },
+  openButton: {
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
   },
 
   exportButtonText: {

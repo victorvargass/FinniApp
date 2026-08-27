@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryChart } from '@/components/CategoryChart';
 import { LimitProgressBar } from '@/components/LimitProgressBar';
+import { PeriodSelector } from '@/components/period-selector';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -26,11 +27,13 @@ export default function PeriodScreen() {
     periodExpensesTotal,
     setPeriodStartDate,
     setPeriodEndDate,
-    closeCurrentPeriod
+    closeCurrentPeriod,
+    selectedPeriod,
+    settings,
   } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const { settings } = useDatabase();
+  const isCurrentPeriod = selectedPeriod?.id === settings.currentPeriodId;
 
   // Initial states are just some default dates; sync with settings later.
   const [startDate, setStartDate] = useState(new Date());
@@ -40,16 +43,17 @@ export default function PeriodScreen() {
 
   const withLimits = periodCategoryExpensesTotals.filter((item) => item.periodLimit != null && item.periodLimit > 0);
 
-  // Sync dates from settings.currentPeriod whenever currentPeriodId changes
+  // Sync the editable range with the period being viewed.
   useEffect(() => {
-    if (!settings.currentPeriod) return;
-    setStartDate(parseDateString(settings.currentPeriod.startDate));
-    setEndDate(parseDateString(settings.currentPeriod.endDate));
-  }, [settings.currentPeriodId]);
+    if (!selectedPeriod) return;
+    setStartDate(parseDateString(selectedPeriod.startDate));
+    setEndDate(parseDateString(selectedPeriod.endDate));
+  }, [selectedPeriod]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        <PeriodSelector />
         <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
           <ThemedText type="title">Resumen Período</ThemedText>
           <View style={styles.dateRangeContainer}>
@@ -59,19 +63,19 @@ export default function PeriodScreen() {
                 style={[
                   styles.dateButton,
                   { borderColor: colors.icon },
-                  settings.currentPeriodId !== 1 && { opacity: 0.5 }, // visual hint if blocked
+                  (!isCurrentPeriod || selectedPeriod?.id !== 1) && { opacity: 0.5 },
                 ]}
                 onPress={() => {
-                  if (settings.currentPeriodId === 1) {
+                  if (isCurrentPeriod && selectedPeriod?.id === 1) {
                     setShowStartDatePicker(true);
                   }
                 }}
-                disabled={settings.currentPeriodId !== 1}
+                disabled={!isCurrentPeriod || selectedPeriod?.id !== 1}
               >
                 <ThemedText>{formatDate(startDate)}</ThemedText>
               </Pressable>
 
-              {showStartDatePicker && settings.currentPeriodId === 1 && (
+              {showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
                 <DateTimePicker
                   value={startDate}
                   mode="date"
@@ -95,7 +99,7 @@ export default function PeriodScreen() {
                   }}
                 />
               )}
-              {Platform.OS === 'ios' && showStartDatePicker && settings.currentPeriodId === 1 && (
+              {Platform.OS === 'ios' && showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
                 <Pressable style={styles.doneDate} onPress={() => setShowStartDatePicker(false)}>
                   <ThemedText type="link">Listo</ThemedText>
                 </Pressable>
@@ -105,12 +109,13 @@ export default function PeriodScreen() {
             <View style={styles.dateContainer}>
               <ThemedText>Hasta</ThemedText>
               <Pressable
-                style={[styles.dateButton, { borderColor: colors.icon }]}
+                style={[styles.dateButton, { borderColor: colors.icon }, !isCurrentPeriod && { opacity: 0.5 }]}
+                disabled={!isCurrentPeriod}
                 onPress={() => setShowEndDatePicker(true)}>
                 <ThemedText>{formatDate(endDate)}</ThemedText>
               </Pressable>
 
-              {showEndDatePicker && (
+              {showEndDatePicker && isCurrentPeriod && (
                 <DateTimePicker
                   value={endDate}
                   mode="date"
@@ -196,7 +201,7 @@ export default function PeriodScreen() {
             </View>
           </ThemedView>
         )}
-      {(periodIncomesTotal > 0 && periodExpensesTotal > 0) && (
+      {isCurrentPeriod && (periodIncomesTotal > 0 && periodExpensesTotal > 0) && (
         <View style={{ marginTop: 24, alignItems: 'center' }}>
           <Pressable
             style={{
@@ -219,30 +224,36 @@ export default function PeriodScreen() {
               }
 
               Alert.alert(
-                'Cerrar período',
-                `¿Está seguro? Se archivarán todos los gastos e ingresos del período.\n\nEl próximo período iniciará el ${proximoInicio} y terminará el ${proximoTermino}.`,
+                'Finalizar período actual',
+                `Se creará un nuevo período desde el ${proximoInicio} hasta el ${proximoTermino}.\n\nPodrás volver a este período y modificar sus movimientos cuando lo necesites.`,
                 [
-                  { text: 'Cancelar', style: 'cancel' },
                   {
-                    text: 'Cerrar período',
+                    text: 'Cancelar',
+                    style: 'cancel',
+                  },
+                  {
+                    text: 'Finalizar y continuar',
                     style: 'destructive',
                     onPress: async () => {
-                      // Lógica real para cerrar el período
-                      if (typeof closeCurrentPeriod === 'function') {
-                        try {
-                          await closeCurrentPeriod();
-                          if (Platform.OS === 'android') {
-                            ToastAndroid.show('Período finalizado con éxito.\nSe ha iniciado un nuevo período.', ToastAndroid.LONG);
-                          } else {
-                            Alert.alert('Período finalizado', 'Período finalizado con éxito. Se ha iniciado un nuevo período.');
-                          }
-                        } catch (err) {
-                          Alert.alert('Error', 'No se pudo cerrar el período.');
-                        }
-                      }
-                    }
-                  },
+                      try {
+                        await closeCurrentPeriod();
 
+                        const message =
+                          'El período fue finalizado y se inició el siguiente.';
+
+                        if (Platform.OS === 'android') {
+                          ToastAndroid.show(message, ToastAndroid.LONG);
+                        } else {
+                          Alert.alert('Nuevo período iniciado', message);
+                        }
+                      } catch {
+                        Alert.alert(
+                          'No se pudo finalizar',
+                          'Ocurrió un problema al crear el siguiente período. Inténtalo nuevamente.'
+                        );
+                      }
+                    },
+                  },
                 ]
               );
    

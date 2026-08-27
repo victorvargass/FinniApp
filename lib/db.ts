@@ -394,6 +394,21 @@ export async function updatePeriod(id: number, data: NewPeriod): Promise<void> {
   await db.runAsync('UPDATE periods SET start_date = ?, end_date = ? WHERE id = ?', data.startDate, data.endDate, id);
 }
 
+async function assertDateBelongsToPeriod(
+  db: SQLite.SQLiteDatabase,
+  periodId: number,
+  date: string
+): Promise<void> {
+  const period = await db.getFirstAsync<{ start_date: string; end_date: string }>(
+    'SELECT start_date, end_date FROM periods WHERE id = ?',
+    periodId
+  );
+  if (!period) throw new Error('El período seleccionado ya no existe');
+  if (date < period.start_date || date > period.end_date) {
+    throw new Error('La fecha del movimiento no pertenece al período seleccionado');
+  }
+}
+
 function mapCategory(row: Record<string, unknown>): Category {
   return {
     id: row.id as number,
@@ -460,11 +475,8 @@ export async function deleteCategory(id: number): Promise<void> {
   await db.runAsync('DELETE FROM categories WHERE id = ?', id);
 }
 
-export async function getExpenses(): Promise<ExpenseWithCategory[]> {
-
-  const periodId =
-    await getCurrentPeriodId();
-
+export async function getExpenses(periodId?: number): Promise<ExpenseWithCategory[]> {
+  const targetPeriodId = periodId ?? await getCurrentPeriodId();
   const db = await getDb();
 
   const rows =
@@ -494,7 +506,7 @@ export async function getExpenses(): Promise<ExpenseWithCategory[]> {
         e.date DESC,
         e.id DESC
       `,
-      periodId
+      targetPeriodId
     );
 
   return rows as ExpenseWithCategory[];
@@ -514,12 +526,13 @@ export async function getExpenseNames(): Promise<string[]> {
 }
 
 export async function createExpense(
-  data: NewExpense
+  data: NewExpense,
+  periodId?: number
 ): Promise<void> {
-  const periodId =
-    await getCurrentPeriodId();
+  const targetPeriodId = periodId ?? await getCurrentPeriodId();
 
   const db = await getDb();
+  await assertDateBelongsToPeriod(db, targetPeriodId, data.date);
 
   await db.runAsync(
     `
@@ -537,7 +550,7 @@ export async function createExpense(
     data.name.trim(),
     data.amount,
     data.categoryId,
-    periodId,
+    targetPeriodId,
     data.date,
     data.originalAmount,
     data.splitPercentage
@@ -549,31 +562,13 @@ export async function updateExpense(
   data: NewExpense
 ): Promise<void> {
 
-  const currentPeriodId =
-    await getCurrentPeriodId();
-
   const db = await getDb();
-
-  const expense =
-    await db.getFirstAsync<{
-      period_id:number;
-    }>(
-      `
-      SELECT period_id
-      FROM expenses
-      WHERE id = ?
-      `,
-      id
-    );
-
-  if (
-    expense?.period_id !==
-    currentPeriodId
-  ) {
-    throw new Error(
-      'No se puede modificar un gasto de un período cerrado'
-    );
-  }
+  const expense = await db.getFirstAsync<{ period_id: number }>(
+    'SELECT period_id FROM expenses WHERE id = ?',
+    id
+  );
+  if (!expense) throw new Error('El gasto ya no existe');
+  await assertDateBelongsToPeriod(db, expense.period_id, data.date);
 
   await db.runAsync(
     `
@@ -600,32 +595,7 @@ export async function updateExpense(
 export async function deleteExpense(
   id:number
 ): Promise<void> {
-
-  const currentPeriodId =
-    await getCurrentPeriodId();
-
   const db = await getDb();
-
-  const expense =
-    await db.getFirstAsync<{
-      period_id:number;
-    }>(
-      `
-      SELECT period_id
-      FROM expenses
-      WHERE id = ?
-      `,
-      id
-    );
-
-  if (
-    expense?.period_id !==
-    currentPeriodId
-  ) {
-    throw new Error(
-      'No se puede eliminar un gasto de un período cerrado'
-    );
-  }
 
   await db.runAsync(
     `
@@ -636,8 +606,8 @@ export async function deleteExpense(
   );
 }
 
-export async function getIncomes(): Promise<Income[]> {
-  const periodId = await getCurrentPeriodId();
+export async function getIncomes(periodId?: number): Promise<Income[]> {
+  const targetPeriodId = periodId ?? await getCurrentPeriodId();
   const db = await getDb();
 
   const rows = await db.getAllAsync(
@@ -652,7 +622,7 @@ export async function getIncomes(): Promise<Income[]> {
     WHERE period_id = ?
     ORDER BY date DESC, id DESC
     `,
-    periodId
+    targetPeriodId
   );
 
   return rows as Income[];
@@ -673,12 +643,13 @@ export async function getIncomeNames(): Promise<string[]> {
 
 
 export async function createIncome(
-  data: NewIncome
+  data: NewIncome,
+  periodId?: number
 ): Promise<void> {
-  const periodId =
-    await getCurrentPeriodId();
+  const targetPeriodId = periodId ?? await getCurrentPeriodId();
 
   const db = await getDb();
+  await assertDateBelongsToPeriod(db, targetPeriodId, data.date);
 
   await db.runAsync(
     `
@@ -692,7 +663,7 @@ export async function createIncome(
     `,
     data.name.trim(),
     data.amount,
-    periodId,
+    targetPeriodId,
     data.date
   );
 }
@@ -702,31 +673,13 @@ export async function updateIncome(
   data: NewIncome
 ): Promise<void> {
 
-  const currentPeriodId =
-    await getCurrentPeriodId();
-
   const db = await getDb();
-
-  const income =
-    await db.getFirstAsync<{
-      period_id:number;
-    }>(
-      `
-      SELECT period_id
-      FROM incomes
-      WHERE id = ?
-      `,
-      id
-    );
-
-  if (
-    income?.period_id !==
-    currentPeriodId
-  ) {
-    throw new Error(
-      'No se puede modificar un ingreso de un período cerrado'
-    );
-  }
+  const income = await db.getFirstAsync<{ period_id: number }>(
+    'SELECT period_id FROM incomes WHERE id = ?',
+    id
+  );
+  if (!income) throw new Error('El ingreso ya no existe');
+  await assertDateBelongsToPeriod(db, income.period_id, data.date);
 
   await db.runAsync(
     `
@@ -747,32 +700,7 @@ export async function updateIncome(
 export async function deleteIncome(
   id:number
 ): Promise<void> {
-
-  const currentPeriodId =
-    await getCurrentPeriodId();
-
   const db = await getDb();
-
-  const income =
-    await db.getFirstAsync<{
-      period_id:number;
-    }>(
-      `
-      SELECT period_id
-      FROM incomes
-      WHERE id = ?
-      `,
-      id
-    );
-
-  if (
-    income?.period_id !==
-    currentPeriodId
-  ) {
-    throw new Error(
-      'No se puede eliminar un ingreso de un período cerrado'
-    );
-  }
 
   await db.runAsync(
     `
@@ -784,8 +712,7 @@ export async function deleteIncome(
 }
 
 export async function getPeriodCategoryExpensesTotals(
-  startDate: string,
-  endDate: string
+  periodId: number
 ): Promise<PeriodCategoryExpensesTotals[]> {
   const db = await getDb();
   const rows = await db.getAllAsync(
@@ -793,7 +720,7 @@ export async function getPeriodCategoryExpensesTotals(
     WITH filtered_expenses AS (
       SELECT category_id, amount
       FROM expenses
-      WHERE date >= ? AND date <= ?
+      WHERE period_id = ?
     )
     SELECT
       c.id as categoryId,
@@ -818,15 +745,13 @@ export async function getPeriodCategoryExpensesTotals(
 
     ORDER BY total DESC, categoryName ASC
     `,
-    startDate,
-    endDate
+    periodId
   );
   return rows as PeriodCategoryExpensesTotals[];
 }
 
 export async function getPeriodIncomesTotal(
-  startDate: string,
-  endDate: string
+  periodId: number
 ): Promise<number> {
   const db = await getDb();
   const row = await db.getFirstAsync<{ total: number }>(
@@ -834,10 +759,9 @@ export async function getPeriodIncomesTotal(
     SELECT
       COALESCE(SUM(i.amount), 0) as total
     FROM incomes i
-    WHERE i.date >= ? AND i.date <= ?
+    WHERE i.period_id = ?
     `,
-    startDate,
-    endDate
+    periodId
   );
   return row?.total ?? 0;
 }
