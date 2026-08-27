@@ -10,21 +10,37 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { formatCLP } from '@/lib/format';
 
 export default function CategoriesScreen() {
-  const { categories, removeCategory } = useDatabase();
+  const { categories, getCategoryExpenseCount, removeCategory } = useDatabase();
 
-  const handleDelete = (id: number, name: string) => {
-    Alert.alert('Eliminar categoría', `¿Eliminar "${name}"?`, [
+  const handleDelete = async (id: number, name: string) => {
+    let expenseCount: number;
+    try {
+      expenseCount = await getCategoryExpenseCount(id);
+    } catch {
+      Alert.alert('Error', 'No se pudo comprobar si la categoría está en uso.');
+      return;
+    }
+
+    const hasExpenses = expenseCount > 0;
+    const message = hasExpenses
+      ? `Hay ${expenseCount} ${expenseCount === 1 ? 'gasto asociado' : 'gastos asociados'} a "${name}". Si eliminas la categoría, ${expenseCount === 1 ? 'el gasto quedará' : 'los gastos quedarán'} sin categoría.\n\n¿Deseas eliminarla de todas formas?`
+      : `¿Eliminar "${name}"?`;
+
+    Alert.alert('Eliminar categoría', message, [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Eliminar',
+        text: hasExpenses ? 'Eliminar igualmente' : 'Eliminar',
         style: 'destructive',
         onPress: async () => {
           try {
-            await removeCategory(id);
+            await removeCategory(id, hasExpenses);
+            const successMessage = hasExpenses
+              ? 'Categoría eliminada. Los gastos asociados quedaron sin categoría.'
+              : 'Categoría eliminada';
             if (Platform.OS === 'android') {
-              ToastAndroid.show('Categoría eliminada', ToastAndroid.SHORT);
+              ToastAndroid.show(successMessage, ToastAndroid.LONG);
             } else {
-              Alert.alert('Eliminada', 'Categoría eliminada');
+              Alert.alert('Eliminada', successMessage);
             }
           } catch (error) {
             Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo eliminar');

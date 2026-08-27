@@ -35,7 +35,8 @@ type DatabaseContextValue = {
   closeCurrentPeriod: () => Promise<void>;
   addCategory: (data: NewCategory) => Promise<void>;
   editCategory: (id: number, data: NewCategory) => Promise<void>;
-  removeCategory: (id: number) => Promise<void>;
+  getCategoryExpenseCount: (id: number) => Promise<number>;
+  removeCategory: (id: number, detachExpenses?: boolean) => Promise<void>;
   addExpense: (data: NewExpense) => Promise<void>;
   editExpense: (id: number, data: NewExpense) => Promise<void>;
   removeExpense: (id: number) => Promise<void>;
@@ -143,15 +144,20 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   );
 
   const removeCategory = useCallback(
-    async (id: number) => {
+    async (id: number, detachExpenses = false) => {
       const count = await db.getExpenseCountByCategory(id);
-      if (count > 0) {
+      if (count > 0 && !detachExpenses) {
         throw new Error('No se puede eliminar una categoría con gastos asociados');
       }
-      await db.deleteCategory(id);
+      await db.deleteCategory(id, detachExpenses);
       await refresh();
     },
     [refresh]
+  );
+
+  const getCategoryExpenseCount = useCallback(
+    (id: number) => db.getExpenseCountByCategory(id),
+    []
   );
 
   const addExpense = useCallback(
@@ -261,6 +267,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       closeCurrentPeriod,
       addCategory,
       editCategory,
+      getCategoryExpenseCount,
       removeCategory,
       addExpense,
       editExpense,
@@ -291,6 +298,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       closeCurrentPeriod,
       addCategory,
       editCategory,
+      getCategoryExpenseCount,
       removeCategory,
       addExpense,
       editExpense,

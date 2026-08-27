@@ -470,9 +470,23 @@ export async function updateCategory(
   );
 }
 
-export async function deleteCategory(id: number): Promise<void> {
+export async function deleteCategory(
+  id: number,
+  detachExpenses = false
+): Promise<void> {
   const db = await getDb();
-  await db.runAsync('DELETE FROM categories WHERE id = ?', id);
+  if (!detachExpenses) {
+    await db.runAsync('DELETE FROM categories WHERE id = ?', id);
+    return;
+  }
+
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync(
+      'UPDATE expenses SET category_id = NULL WHERE category_id = ?',
+      id
+    );
+    await transaction.runAsync('DELETE FROM categories WHERE id = ?', id);
+  });
 }
 
 export async function getExpenses(periodId?: number): Promise<ExpenseWithCategory[]> {
