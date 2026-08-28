@@ -1,7 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -11,18 +13,34 @@ import {
   ToastAndroid,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ColorPicker } from '@/components/ColorPicker';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate, parseAmount, toDateString } from '@/lib/format';
 import type { Category, Expense, Income } from '@/lib/types';
 
+type ColorSelectOption = {
+  value: number | null;
+  label: string;
+  color: string;
+};
+
 function parseDateString(value: string) {
   const [y, m, d] = value.split('-').map(Number);
   return new Date(y, m - 1, d, 12);
+}
+
+function getEstimatedBillingDate(purchaseDate: Date, billingDay: number) {
+  const monthOffset = purchaseDate.getDate() <= billingDay ? 0 : 1;
+  const year = purchaseDate.getFullYear();
+  const month = purchaseDate.getMonth() + monthOffset;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(billingDay, lastDay), 12);
 }
 
 function getNameSuggestions(names: string[], query: string) {
@@ -68,6 +86,98 @@ function NameSuggestions({ suggestions, onSelect }: NameSuggestionsProps) {
         </Pressable>
       ))}
     </View>
+  );
+}
+
+function ColorSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  options: ColorSelectOption[];
+  onChange: (value: number | null) => void;
+}) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+  const insets = useSafeAreaInsets();
+  const [visible, setVisible] = useState(false);
+  const selected = options.find((option) => option.value === value) ?? options[0];
+
+  return (
+    <>
+      <ThemedText style={styles.label}>{label}</ThemedText>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${selected.label}`}
+        onPress={() => setVisible(true)}
+        style={({ pressed }) => [
+          styles.selectButton,
+          { borderColor: colors.border },
+          pressed && styles.selectPressed,
+        ]}>
+        <View style={styles.selectValue}>
+          <View style={[styles.selectDot, { backgroundColor: selected.color }]} />
+          <ThemedText type="defaultSemiBold" numberOfLines={1}>{selected.label}</ThemedText>
+        </View>
+        <Ionicons name="chevron-down" size={20} color={colors.icon} />
+      </Pressable>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={visible}
+        onRequestClose={() => setVisible(false)}>
+        <Pressable style={styles.selectOverlay} onPress={() => setVisible(false)}>
+          <Pressable style={styles.selectSheet} onPress={(event) => event.stopPropagation()}>
+            <ThemedView
+              style={[
+                styles.selectContent,
+                {
+                  backgroundColor: colors.surfaceRaised,
+                  paddingBottom: Math.max(insets.bottom, 16) + 12,
+                },
+              ]}>
+              <View style={styles.selectHandle} />
+              <ThemedText type="subtitle">{label}</ThemedText>
+              <ScrollView style={styles.selectOptions} showsVerticalScrollIndicator={false}>
+                {options.map((option) => {
+                  const isSelected = option.value === value;
+                  return (
+                    <Pressable
+                      key={option.value ?? 'none'}
+                      onPress={() => {
+                        onChange(option.value);
+                        setVisible(false);
+                      }}
+                      style={[
+                        styles.selectOption,
+                        { borderColor: isSelected ? option.color : colors.border },
+                        isSelected && { backgroundColor: option.color + '18' },
+                      ]}>
+                      <View style={styles.selectValue}>
+                        <View style={[styles.selectDot, { backgroundColor: option.color }]} />
+                        <ThemedText style={isSelected ? styles.selectOptionSelectedText : undefined}>
+                          {option.label}
+                        </ThemedText>
+                      </View>
+                      {isSelected && <Ionicons name="checkmark-circle" size={21} color={option.color} />}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <Pressable
+                onPress={() => setVisible(false)}
+                style={[styles.selectClose, { borderColor: colors.border }]}>
+                <ThemedText type="defaultSemiBold">Cancelar</ThemedText>
+              </Pressable>
+            </ThemedView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -226,7 +336,16 @@ type ExpenseFormProps = {
 };
 
 export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
-  const { categories, expenseNames, addExpense, editExpense, selectedPeriod } = useDatabase();
+  const {
+    categories,
+    paymentMethods,
+    expenseNames,
+    addExpense,
+    editExpense,
+    selectedPeriod,
+    getCreditCardCycles,
+    settings,
+  } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -245,6 +364,9 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     expenseWasSplit && ![50, 25].includes(expense.splitPercentage!)
   );
   const [categoryId, setCategoryId] = useState<number | null>(expense?.categoryId ?? null);
+  const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
+    expense ? expense.paymentMethodId : settings.defaultPaymentMethodId
+  );
   const [date, setDate] = useState(
     expense?.date
       ? parseDateString(expense.date)
@@ -258,6 +380,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [billingCycleHint, setBillingCycleHint] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const totalAmount = parseAmount(amountText as string);
   const percentage = Number(percentageText.replace(',', '.'));
@@ -268,6 +391,37 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       ? null
       : Math.round(totalAmount * (isSplitAmount ? percentage / 100 : 1));
   const nameSuggestions = getNameSuggestions(expenseNames, name);
+  const visiblePaymentMethods = paymentMethods.filter(
+    (method) => method.active || method.id === paymentMethodId
+  );
+
+  useEffect(() => {
+    const method = paymentMethods.find((item) => item.id === paymentMethodId);
+    if (method?.type !== 'credit' || method.billingDay == null) {
+      setBillingCycleHint(null);
+      return;
+    }
+    let cancelled = false;
+    const purchaseIso = toDateString(date);
+    getCreditCardCycles(method.id)
+      .then((cycles) => {
+        if (cancelled) return;
+        const actualCycle = cycles.find(
+          (cycle) => purchaseIso >= cycle.startDate && purchaseIso <= cycle.endDate
+        );
+        if (actualCycle) {
+          setBillingCycleHint(
+            `${method.active ? '' : `El medio de pago ${method.name} está desactivado, pero sigue asociado a este gasto. `}Pertenece al ciclo que factura el ${formatDate(parseDateString(actualCycle.endDate))}.`
+          );
+          return;
+        }
+        setBillingCycleHint(
+          `${method.active ? '' : `El medio de pago ${method.name} está desactivado, pero sigue asociado a este gasto. `}Se estima para la facturación del ${formatDate(getEstimatedBillingDate(date, method.billingDay!))}. La fecha real se confirma al registrar el ciclo.`
+        );
+      })
+      .catch(() => setBillingCycleHint(null));
+    return () => { cancelled = true; };
+  }, [date, getCreditCardCycles, paymentMethodId, paymentMethods]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -308,6 +462,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         originalAmount: isSplitAmount ? totalAmount : null,
         splitPercentage: isSplitAmount ? percentage : null,
         categoryId,
+        paymentMethodId,
         date: toDateString(date),
       };
       if (expense) {
@@ -458,22 +613,38 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         )}
       </View>
 
-      <ThemedText style={styles.label}>Categoría (opcional)</ThemedText>
-      <View style={styles.categoryList}>
-        {categories.map((cat) => (
-          <Pressable
-            key={cat.id}
-            onPress={() => setCategoryId((current) => (current === cat.id ? null : cat.id))}
-            style={[
-              styles.categoryChip,
-              { borderColor: cat.color },
-              categoryId === cat.id && { backgroundColor: cat.color + '33' },
-            ]}>
-            <View style={[styles.chipDot, { backgroundColor: cat.color }]} />
-            <ThemedText>{cat.name}</ThemedText>
-          </Pressable>
-        ))}
-      </View>
+      <ColorSelect
+        label="Categoría (opcional)"
+        value={categoryId}
+        onChange={setCategoryId}
+        options={[
+          { value: null, label: 'Sin categoría', color: '#95a5a6' },
+          ...categories.map((category) => ({
+            value: category.id,
+            label: category.name,
+            color: category.color,
+          })),
+        ]}
+      />
+
+      <ColorSelect
+        label="Medio de pago (opcional)"
+        value={paymentMethodId}
+        onChange={setPaymentMethodId}
+        options={[
+          { value: null, label: 'No especificado', color: '#95a5a6' },
+          ...visiblePaymentMethods.map((method) => ({
+            value: method.id,
+            label: `${method.name}${method.active ? '' : ' (desactivado)'}`,
+            color: method.color,
+          })),
+        ]}
+      />
+      {billingCycleHint && (
+        <ThemedText style={[styles.paymentHint, { color: colors.tint }]}>
+          {billingCycleHint}
+        </ThemedText>
+      )}
 
       <ThemedText style={styles.label}>Fecha</ThemedText>
       <Pressable
@@ -797,24 +968,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     opacity: 0.7,
   },
-  categoryList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryChip: {
+  selectButton: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    gap: 12,
   },
-  chipDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  selectPressed: { opacity: 0.7 },
+  selectValue: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  selectDot: { width: 14, height: 14, borderRadius: 5 },
+  selectOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  selectSheet: { maxHeight: '72%' },
+  selectContent: { borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 20, gap: 14 },
+  selectHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: '#9ba1a6', opacity: 0.55, alignSelf: 'center' },
+  selectOptions: { maxHeight: 390 },
+  selectOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 13, marginBottom: 8, gap: 12 },
+  selectOptionSelectedText: { fontWeight: '700' },
+  selectClose: { borderWidth: 1, borderRadius: 10, paddingVertical: 13, alignItems: 'center' },
+  paymentHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    paddingHorizontal: 4,
+    opacity: 0.9,
   },
   dateButton: {
     borderWidth: 1,

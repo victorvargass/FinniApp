@@ -4,11 +4,16 @@ import { ActivityIndicator, View } from 'react-native';
 import * as db from '@/lib/db';
 import type {
   Category,
+  CreditCardCycle,
   ExpenseWithCategory,
   Income,
   NewCategory,
   NewExpense,
   NewIncome,
+  NewCreditCardCycle,
+  NewPaymentMethod,
+  PaymentMethod,
+  PaymentMethodTotal,
   Period,
   PeriodCategoryExpensesTotals,
   PeriodHistory,
@@ -17,6 +22,8 @@ import type {
 
 type DatabaseContextValue = {
   categories: Category[];
+  paymentMethods: PaymentMethod[];
+  paymentMethodTotals: PaymentMethodTotal[];
   expenses: ExpenseWithCategory[];
   incomes: Income[];
   expenseNames: string[];
@@ -37,6 +44,13 @@ type DatabaseContextValue = {
   editCategory: (id: number, data: NewCategory) => Promise<void>;
   getCategoryExpenseCount: (id: number) => Promise<number>;
   removeCategory: (id: number, detachExpenses?: boolean) => Promise<void>;
+  addPaymentMethod: (data: NewPaymentMethod) => Promise<void>;
+  editPaymentMethod: (id: number, data: NewPaymentMethod) => Promise<void>;
+  setPaymentMethodActive: (id: number, active: boolean) => Promise<void>;
+  setDefaultPaymentMethod: (id: number | null) => Promise<void>;
+  getCreditCardCycles: (paymentMethodId: number) => Promise<CreditCardCycle[]>;
+  addCreditCardCycle: (data: NewCreditCardCycle) => Promise<void>;
+  editCreditCardCycle: (id: number, statementAmount: number | null, status: CreditCardCycle['status']) => Promise<void>;
   addExpense: (data: NewExpense) => Promise<void>;
   editExpense: (id: number, data: NewExpense) => Promise<void>;
   removeExpense: (id: number) => Promise<void>;
@@ -53,12 +67,15 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>({
     id: 1,
     currentPeriodId: null,
+    defaultPaymentMethodId: null,
     currentPeriod: null,
   });
   const [periods, setPeriods] = useState<Period[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [paymentMethodTotals, setPaymentMethodTotals] = useState<PaymentMethodTotal[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenseNames, setExpenseNames] = useState<string[]>([]);
@@ -91,8 +108,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     if (targetPeriodId !== selectedPeriodId) {
       setSelectedPeriodId(targetPeriodId);
     }
-    const [cats, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
+    const [cats, methods, methodTotals, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
       db.getCategories(),
+      db.getPaymentMethods(true),
+      db.getPaymentMethodTotals(targetPeriodId),
       db.getExpenses(targetPeriodId),
       db.getIncomes(targetPeriodId),
       db.getExpenseNames(),
@@ -102,6 +121,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       db.getPeriodHistory(),
     ]);
     setCategories(cats);
+    setPaymentMethods(methods);
+    setPaymentMethodTotals(methodTotals);
     setExpenses(exps);
     setIncomes(incs);
     setExpenseNames(allExpenseNames);
@@ -159,6 +180,45 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     (id: number) => db.getExpenseCountByCategory(id),
     []
   );
+
+  const addPaymentMethod = useCallback(async (data: NewPaymentMethod) => {
+    await db.createPaymentMethod(data);
+    await refresh();
+  }, [refresh]);
+
+  const editPaymentMethod = useCallback(async (id: number, data: NewPaymentMethod) => {
+    await db.updatePaymentMethod(id, data);
+    await refresh();
+  }, [refresh]);
+
+  const setPaymentMethodActive = useCallback(async (id: number, active: boolean) => {
+    await db.setPaymentMethodActive(id, active);
+    await refresh();
+  }, [refresh]);
+
+  const setDefaultPaymentMethod = useCallback(async (id: number | null) => {
+    await db.setDefaultPaymentMethod(id);
+    await refresh();
+  }, [refresh]);
+
+  const getCreditCardCycles = useCallback(
+    (paymentMethodId: number) => db.getCreditCardCycles(paymentMethodId),
+    []
+  );
+
+  const addCreditCardCycle = useCallback(async (data: NewCreditCardCycle) => {
+    await db.createCreditCardCycle(data);
+    await refresh();
+  }, [refresh]);
+
+  const editCreditCardCycle = useCallback(async (
+    id: number,
+    statementAmount: number | null,
+    status: CreditCardCycle['status']
+  ) => {
+    await db.updateCreditCardCycle(id, statementAmount, status);
+    await refresh();
+  }, [refresh]);
 
   const addExpense = useCallback(
     async (data: NewExpense) => {
@@ -249,6 +309,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       categories,
+      paymentMethods,
+      paymentMethodTotals,
       expenses,
       incomes,
       expenseNames,
@@ -269,6 +331,13 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editCategory,
       getCategoryExpenseCount,
       removeCategory,
+      addPaymentMethod,
+      editPaymentMethod,
+      setPaymentMethodActive,
+      setDefaultPaymentMethod,
+      getCreditCardCycles,
+      addCreditCardCycle,
+      editCreditCardCycle,
       addExpense,
       editExpense,
       removeExpense,
@@ -280,6 +349,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       categories,
+      paymentMethods,
+      paymentMethodTotals,
       expenses,
       incomes,
       expenseNames,
@@ -300,6 +371,13 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editCategory,
       getCategoryExpenseCount,
       removeCategory,
+      addPaymentMethod,
+      editPaymentMethod,
+      setPaymentMethodActive,
+      setDefaultPaymentMethod,
+      getCreditCardCycles,
+      addCreditCardCycle,
+      editCreditCardCycle,
       addExpense,
       editExpense,
       removeExpense,

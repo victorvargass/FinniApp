@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-import type { Category, ExpenseWithCategory, Income, NewCategory, NewExpense, NewIncome, NewPeriod, Period, PeriodCategoryExpensesTotals, PeriodHistory, PeriodStatement, Settings } from './types';
+import type { Category, CreditCardCycle, ExpenseWithCategory, Income, NewCategory, NewCreditCardCycle, NewExpense, NewIncome, NewPaymentMethod, NewPeriod, PaymentMethod, PaymentMethodTotal, Period, PeriodCategoryExpensesTotals, PeriodHistory, PeriodStatement, Settings } from './types';
 
 const DATABASE_NAME = 'gastos.db';
 
@@ -263,6 +263,7 @@ export async function initDatabase(): Promise<void> {
     CREATE TABLE IF NOT EXISTS settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       current_period_id INTEGER,
+      default_payment_method_id INTEGER,
       FOREIGN KEY (current_period_id) REFERENCES periods(id) ON DELETE SET NULL
     );
 
@@ -300,6 +301,25 @@ export async function initDatabase(): Promise<void> {
       FOREIGN KEY(period_id) REFERENCES periods(id)
     );
 
+    CREATE TABLE IF NOT EXISTS payment_methods (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL CHECK (type IN ('cash', 'debit', 'prepaid', 'credit')),
+      billing_day INTEGER,
+      color TEXT NOT NULL DEFAULT '#0a7ea4',
+      active INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS credit_card_cycles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payment_method_id INTEGER NOT NULL,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      statement_amount INTEGER,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reconciled')),
+      FOREIGN KEY(payment_method_id) REFERENCES payment_methods(id) ON DELETE CASCADE
+    );
+
   `);
 
   // Existing databases can have an older expenses/incomes schema. Migrate it
@@ -317,6 +337,23 @@ export async function initDatabase(): Promise<void> {
   if (!expenseColumns.some((column) => column.name === 'split_percentage')) {
     await db.execAsync('ALTER TABLE expenses ADD COLUMN split_percentage REAL;');
   }
+  if (!expenseColumns.some((column) => column.name === 'payment_method_id')) {
+    await db.execAsync('ALTER TABLE expenses ADD COLUMN payment_method_id INTEGER;');
+  }
+
+  const paymentMethodColumns = await db.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(payment_methods)'
+  );
+  if (!paymentMethodColumns.some((column) => column.name === 'color')) {
+    await db.execAsync("ALTER TABLE payment_methods ADD COLUMN color TEXT NOT NULL DEFAULT '#0a7ea4';");
+  }
+
+  const currentSettingsColumns = await db.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(settings)'
+  );
+  if (!currentSettingsColumns.some((column) => column.name === 'default_payment_method_id')) {
+    await db.execAsync('ALTER TABLE settings ADD COLUMN default_payment_method_id INTEGER;');
+  }
 
   await db.execAsync(`
     CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
@@ -326,6 +363,8 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_incomes_period ON incomes(period_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_period_category ON expenses(period_id, category_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_period_date ON expenses(period_id, date);
+    CREATE INDEX IF NOT EXISTS idx_expenses_payment_method ON expenses(payment_method_id);
+    CREATE INDEX IF NOT EXISTS idx_credit_cycles_method_end ON credit_card_cycles(payment_method_id, end_date);
 
     INSERT OR IGNORE INTO periods (id, start_date, end_date)
     VALUES (
@@ -340,6 +379,11 @@ export async function initDatabase(): Promise<void> {
       1
     );
   `);
+
+  await db.runAsync(
+    `INSERT OR IGNORE INTO payment_methods (name, type, billing_day, color, active)
+     VALUES ('Efectivo', 'cash', NULL, '#27ae60', 1)`
+  );
 
   const row = await db.getFirstAsync<{ count: number }>(
     'SELECT COUNT(*) as count FROM categories'
@@ -489,6 +533,201 @@ export async function deleteCategory(
   });
 }
 
+function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
+  return {
+    id: row.id as number,
+    name: row.name as string,
+    type: row.type as PaymentMethod['type'],
+    billingDay: row.billing_day == null ? null : Number(row.billing_day),
+    color: row.color as string,
+    active: Number(row.active) === 1,
+  };
+}
+
+export async function getPaymentMethods(includeInactive = false): Promise<PaymentMethod[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT id, name, type, billing_day, color, active
+     FROM payment_methods
+     ${includeInactive ? '' : 'WHERE active = 1'}
+     ORDER BY active DESC, type ASC, name COLLATE NOCASE ASC`
+  );
+  return rows.map(mapPaymentMethod);
+}
+
+function validatePaymentMethod(data: NewPaymentMethod) {
+  if (!data.name.trim()) throw new Error('Ingresa un nombre para el medio de pago');
+  if (!/^#[0-9a-f]{6}$/i.test(data.color)) throw new Error('Selecciona un color válido');
+  if (data.type === 'credit') {
+    if (data.billingDay == null || data.billingDay < 1 || data.billingDay > 31) {
+      throw new Error('El día estimado de facturación debe estar entre 1 y 31');
+    }
+  }
+}
+
+export async function createPaymentMethod(data: NewPaymentMethod): Promise<void> {
+  validatePaymentMethod(data);
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO payment_methods (name, type, billing_day, color, active)
+     VALUES (?, ?, ?, ?, 1)`,
+    data.name.trim(),
+    data.type,
+    data.type === 'credit' ? data.billingDay : null,
+    data.color.toLowerCase()
+  );
+}
+
+export async function updatePaymentMethod(id: number, data: NewPaymentMethod): Promise<void> {
+  const db = await getDb();
+  const current = await db.getFirstAsync<{ type: PaymentMethod['type'] }>(
+    'SELECT type FROM payment_methods WHERE id = ?',
+    id
+  );
+  if (!current) throw new Error('El medio de pago ya no existe');
+  const immutableTypeData = { ...data, type: current.type };
+  validatePaymentMethod(immutableTypeData);
+  await db.runAsync(
+    `UPDATE payment_methods SET name = ?, billing_day = ?, color = ? WHERE id = ?`,
+    data.name.trim(),
+    current.type === 'credit' ? data.billingDay : null,
+    data.color.toLowerCase(),
+    id
+  );
+}
+
+export async function setPaymentMethodActive(id: number, active: boolean): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync('UPDATE payment_methods SET active = ? WHERE id = ?', active ? 1 : 0, id);
+    if (!active) {
+      await transaction.runAsync(
+        'UPDATE settings SET default_payment_method_id = NULL WHERE default_payment_method_id = ?',
+        id
+      );
+    }
+  });
+}
+
+export async function setDefaultPaymentMethod(id: number | null): Promise<void> {
+  const db = await getDb();
+  if (id != null) {
+    const method = await db.getFirstAsync<{ active: number }>(
+      'SELECT active FROM payment_methods WHERE id = ?',
+      id
+    );
+    if (!method || Number(method.active) !== 1) {
+      throw new Error('Solo puedes elegir un medio de pago activo');
+    }
+  }
+  await db.runAsync('UPDATE settings SET default_payment_method_id = ? WHERE id = 1', id);
+}
+
+export async function getPaymentMethodTotals(periodId: number): Promise<PaymentMethodTotal[]> {
+  const db = await getDb();
+  return db.getAllAsync<PaymentMethodTotal>(
+    `SELECT
+       e.payment_method_id AS paymentMethodId,
+       COALESCE(pm.name, 'No especificado') AS paymentMethodName,
+       pm.type AS paymentMethodType,
+       pm.color AS paymentMethodColor,
+       SUM(e.amount) AS total
+     FROM expenses e
+     LEFT JOIN payment_methods pm ON pm.id = e.payment_method_id
+     WHERE e.period_id = ?
+     GROUP BY e.payment_method_id, pm.name, pm.type, pm.color
+     ORDER BY total DESC`,
+    periodId
+  );
+}
+
+function addDaysToIso(value: string, days: number): string {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, month - 1, day + days, 12);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function firstCycleStart(endDate: string): string {
+  const [year, month, day] = endDate.split('-').map(Number);
+  const previousMonthLastDay = new Date(year, month - 1, 0).getDate();
+  const previousClose = new Date(year, month - 2, Math.min(day, previousMonthLastDay), 12);
+  const iso = `${previousClose.getFullYear()}-${String(previousClose.getMonth() + 1).padStart(2, '0')}-${String(previousClose.getDate()).padStart(2, '0')}`;
+  return addDaysToIso(iso, 1);
+}
+
+export async function getCreditCardCycles(paymentMethodId: number): Promise<CreditCardCycle[]> {
+  const db = await getDb();
+  return db.getAllAsync<CreditCardCycle>(
+    `SELECT
+       cc.id,
+       cc.payment_method_id AS paymentMethodId,
+       cc.start_date AS startDate,
+       cc.end_date AS endDate,
+       cc.statement_amount AS statementAmount,
+       cc.status,
+       COALESCE(SUM(e.amount), 0) AS recordedTotal
+     FROM credit_card_cycles cc
+     LEFT JOIN expenses e
+       ON e.payment_method_id = cc.payment_method_id
+      AND e.date >= cc.start_date
+      AND e.date <= cc.end_date
+     WHERE cc.payment_method_id = ?
+     GROUP BY cc.id
+     ORDER BY cc.end_date DESC`,
+    paymentMethodId
+  );
+}
+
+export async function createCreditCardCycle(data: NewCreditCardCycle): Promise<void> {
+  const db = await getDb();
+  const method = await db.getFirstAsync<{ type: string }>(
+    'SELECT type FROM payment_methods WHERE id = ?',
+    data.paymentMethodId
+  );
+  if (method?.type !== 'credit') throw new Error('El medio de pago no es una tarjeta de crédito');
+  const latest = await db.getFirstAsync<{ end_date: string }>(
+    `SELECT end_date FROM credit_card_cycles
+     WHERE payment_method_id = ? ORDER BY end_date DESC LIMIT 1`,
+    data.paymentMethodId
+  );
+  if (latest && data.endDate <= latest.end_date) {
+    throw new Error('La nueva facturación debe ser posterior a la última registrada');
+  }
+  const previous = await db.getFirstAsync<{ end_date: string }>(
+    `SELECT end_date FROM credit_card_cycles
+     WHERE payment_method_id = ? AND end_date < ?
+     ORDER BY end_date DESC LIMIT 1`,
+    data.paymentMethodId,
+    data.endDate
+  );
+  const startDate = previous ? addDaysToIso(previous.end_date, 1) : firstCycleStart(data.endDate);
+  if (startDate > data.endDate) throw new Error('La fecha de facturación no es válida');
+  await db.runAsync(
+    `INSERT INTO credit_card_cycles
+      (payment_method_id, start_date, end_date, statement_amount, status)
+     VALUES (?, ?, ?, ?, ?)`,
+    data.paymentMethodId,
+    startDate,
+    data.endDate,
+    data.statementAmount,
+    data.status
+  );
+}
+
+export async function updateCreditCardCycle(
+  id: number,
+  statementAmount: number | null,
+  status: CreditCardCycle['status']
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'UPDATE credit_card_cycles SET statement_amount = ?, status = ? WHERE id = ?',
+    statementAmount,
+    status,
+    id
+  );
+}
+
 export async function getExpenses(periodId?: number): Promise<ExpenseWithCategory[]> {
   const targetPeriodId = periodId ?? await getCurrentPeriodId();
   const db = await getDb();
@@ -505,14 +744,21 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
         e.date,
         e.original_amount AS originalAmount,
         e.split_percentage AS splitPercentage,
+        e.payment_method_id AS paymentMethodId,
 
         c.name AS categoryName,
-        c.color AS categoryColor
+        c.color AS categoryColor,
+        pm.name AS paymentMethodName,
+        pm.type AS paymentMethodType,
+        pm.color AS paymentMethodColor
 
       FROM expenses e
 
       LEFT JOIN categories c
         ON c.id = e.category_id
+
+      LEFT JOIN payment_methods pm
+        ON pm.id = e.payment_method_id
 
       WHERE e.period_id = ?
 
@@ -558,8 +804,9 @@ export async function createExpense(
       date,
       original_amount,
       split_percentage
+      ,payment_method_id
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
     data.name.trim(),
     data.amount,
@@ -568,6 +815,7 @@ export async function createExpense(
     data.date,
     data.originalAmount,
     data.splitPercentage
+    ,data.paymentMethodId
   );
 }
 
@@ -594,6 +842,7 @@ export async function updateExpense(
       date = ?,
       original_amount = ?,
       split_percentage = ?
+      ,payment_method_id = ?
     WHERE id = ?
     `,
     data.name.trim(),
@@ -602,6 +851,7 @@ export async function updateExpense(
     data.date,
     data.originalAmount,
     data.splitPercentage,
+    data.paymentMethodId,
     id
   );
 }
@@ -795,6 +1045,7 @@ export async function getSettings(): Promise<Settings> {
   const row = await db.getFirstAsync<{
     id: number;
     current_period_id: number | null;
+    default_payment_method_id: number | null;
     period_id: number | null;
     start_date: string | null;
     end_date: string | null;
@@ -803,6 +1054,7 @@ export async function getSettings(): Promise<Settings> {
     SELECT
       s.id,
       s.current_period_id,
+      s.default_payment_method_id,
 
       p.id AS period_id,
       p.start_date,
@@ -819,6 +1071,7 @@ export async function getSettings(): Promise<Settings> {
   return {
     id: row?.id ?? 1,
     currentPeriodId: row?.current_period_id ?? null,
+    defaultPaymentMethodId: row?.default_payment_method_id ?? null,
 
     currentPeriod: row?.period_id
       ? {
@@ -996,14 +1249,27 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
     FROM categories
   `);
 
+  const paymentMethods: {
+    id: number;
+    name: string;
+    color: string;
+    type: PaymentMethod['type'];
+    billing_day: number | null;
+    active: number;
+  }[] = await db.getAllAsync(`
+    SELECT id, name, color, type, billing_day, active
+    FROM payment_methods
+  `);
+
   // Get all expenses (including null category_id allowed)
   const expenses: {
     id: number;
     period_id: number;
     category_id: number | null;
+    payment_method_id: number | null;
     amount: number;
   }[] = await db.getAllAsync(`
-    SELECT id, period_id, category_id, amount
+    SELECT id, period_id, category_id, payment_method_id, amount
     FROM expenses
   `);
 
@@ -1022,6 +1288,10 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
     number,
     Map<number | null, number>
   >();
+  const expensesByPeriodPaymentMethod = new Map<
+    number,
+    Map<number | null, number>
+  >();
 
   for (const exp of expenses) {
     if (!expensesByPeriodCategory.has(exp.period_id)) {
@@ -1034,6 +1304,15 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
     catMap.set(
       exp.category_id,
       (catMap.get(exp.category_id) ?? 0) + exp.amount
+    );
+
+    if (!expensesByPeriodPaymentMethod.has(exp.period_id)) {
+      expensesByPeriodPaymentMethod.set(exp.period_id, new Map<number | null, number>());
+    }
+    const methodMap = expensesByPeriodPaymentMethod.get(exp.period_id)!;
+    methodMap.set(
+      exp.payment_method_id,
+      (methodMap.get(exp.payment_method_id) ?? 0) + exp.amount
     );
   }
 
@@ -1077,6 +1356,24 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
     // Sort categories by total descending (to match original order)
     thisCategories.sort((a, b) => b.total - a.total);
 
+    const methodTotals =
+      expensesByPeriodPaymentMethod.get(period.id) ?? new Map<number | null, number>();
+    const thisPaymentMethods = Array.from(methodTotals.entries()).map(
+      ([paymentMethodId, total]) => {
+        const method = paymentMethods.find(item => item.id === paymentMethodId);
+        return {
+          paymentMethodId,
+          paymentMethodName: method?.name ?? 'No especificado',
+          paymentMethodColor: method?.color ?? '#95a5a6',
+          paymentMethodType: method?.type ?? null,
+          billingDay: method?.billing_day ?? null,
+          active: method ? Number(method.active) === 1 : null,
+          total,
+        };
+      }
+    );
+    thisPaymentMethods.sort((a, b) => b.total - a.total);
+
     // Fill incomesTotal for this period
     const incomesTotal = incomesByPeriod.get(period.id) ?? 0;
 
@@ -1086,6 +1383,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
       endDate: period.end_date,
       year: new Date(period.start_date).getFullYear(),
       categories: thisCategories,
+      paymentMethods: thisPaymentMethods,
       incomesTotal: incomesTotal
     };
   });
@@ -1110,10 +1408,15 @@ export async function getPeriodStatement(
         e.date,
         e.original_amount AS originalAmount,
         e.split_percentage AS splitPercentage,
+        e.payment_method_id AS paymentMethodId,
         c.name AS categoryName,
-        c.color AS categoryColor
+        c.color AS categoryColor,
+        pm.name AS paymentMethodName,
+        pm.type AS paymentMethodType,
+        pm.color AS paymentMethodColor
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id
+      LEFT JOIN payment_methods pm ON pm.id = e.payment_method_id
       WHERE e.period_id = ?
       ORDER BY e.date ASC, e.id ASC
       `,

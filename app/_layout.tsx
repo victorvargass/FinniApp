@@ -41,6 +41,18 @@ function AppContent() {
                   name="modal/categories"
                   options={{ presentation: 'fullScreenModal', title: 'Categorías' }}
                 />
+                <Stack.Screen
+                  name="modal/payment-methods"
+                  options={{ presentation: 'fullScreenModal', title: 'Medios de pago' }}
+                />
+                <Stack.Screen
+                  name="modal/payment-method-form"
+                  options={{ presentation: 'modal', title: 'Medio de pago' }}
+                />
+                <Stack.Screen
+                  name="modal/card-cycles"
+                  options={{ presentation: 'fullScreenModal', title: 'Conciliación' }}
+                />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>

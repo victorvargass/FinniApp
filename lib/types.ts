@@ -20,6 +20,7 @@ export type Expense = {
   date: string;
   originalAmount: number | null;
   splitPercentage: number | null;
+  paymentMethodId: number | null;
 };
 
 export type Income = {
@@ -33,6 +34,54 @@ export type Income = {
 export type ExpenseWithCategory = Expense & {
   categoryName: string | null;
   categoryColor: string | null;
+  paymentMethodName: string | null;
+  paymentMethodType: PaymentMethodType | null;
+  paymentMethodColor: string | null;
+};
+
+export type PaymentMethodType = 'cash' | 'debit' | 'prepaid' | 'credit';
+
+export type PaymentMethod = {
+  id: number;
+  name: string;
+  type: PaymentMethodType;
+  billingDay: number | null;
+  color: string;
+  active: boolean;
+};
+
+export type NewPaymentMethod = {
+  name: string;
+  type: PaymentMethodType;
+  billingDay: number | null;
+  color: string;
+};
+
+export type PaymentMethodTotal = {
+  paymentMethodId: number | null;
+  paymentMethodName: string;
+  paymentMethodType: PaymentMethodType | null;
+  paymentMethodColor: string | null;
+  total: number;
+};
+
+export type CreditCardCycleStatus = 'pending' | 'reconciled';
+
+export type CreditCardCycle = {
+  id: number;
+  paymentMethodId: number;
+  startDate: string;
+  endDate: string;
+  statementAmount: number | null;
+  status: CreditCardCycleStatus;
+  recordedTotal: number;
+};
+
+export type NewCreditCardCycle = {
+  paymentMethodId: number;
+  endDate: string;
+  statementAmount: number | null;
+  status: CreditCardCycleStatus;
 };
 
 // Ver, pensar en Periods
@@ -52,6 +101,16 @@ export type PeriodHistoryCategory = {
   total: number;
 };
 
+export type PeriodHistoryPaymentMethod = {
+  paymentMethodId: number | null;
+  paymentMethodName: string;
+  paymentMethodColor: string;
+  paymentMethodType: PaymentMethodType | null;
+  billingDay: number | null;
+  active: boolean | null;
+  total: number;
+};
+
 export type PeriodHistory = {
   periodId: number;
   startDate: string;
@@ -59,6 +118,7 @@ export type PeriodHistory = {
   year: number;
   incomesTotal: number;
   categories: PeriodHistoryCategory[];
+  paymentMethods: PeriodHistoryPaymentMethod[];
 };
 
 export type PeriodStatement = {
@@ -85,6 +145,7 @@ export type NewExpense = {
   splitPercentage: number | null;
   categoryId: number | null;
   date: string;
+  paymentMethodId: number | null;
 };
 
 export type NewIncome = {
@@ -96,5 +157,6 @@ export type NewIncome = {
 export type Settings = {
   id: number;
   currentPeriodId: number | null;
+  defaultPaymentMethodId: number | null;
   currentPeriod?: Period | null;
 };

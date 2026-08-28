@@ -171,6 +171,22 @@ export default function UserScreen() {
         </ThemedView>
 
         <ThemedView style={styles.card}>
+          <Pressable
+            accessibilityLabel="Configurar medios de pago"
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/payment-methods')}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">Medios de pago</ThemedText>
+              <ThemedText style={styles.description}>
+                Configura efectivo, tarjetas y sus ciclos de facturación
+              </ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={colors.icon} />
+          </Pressable>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
               <ThemedText type="subtitle">Tema oscuro</ThemedText>
