@@ -28,7 +28,7 @@ function formatDayShortMonth(isoDate: string) {
   return `${d.toString().padStart(2, '0')}-${shortMonths[m - 1] || '?'}`;
 }
 
-export default function SummaryScreen() {
+export default function HistoricalSummaryScreen() {
   const { periodHistory, selectPeriod } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -169,7 +169,7 @@ export default function SummaryScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <ThemedView style={styles.header}>
-          <ThemedText type="title">Histórico</ThemedText>
+          <ThemedText type="title">Resumen Histórico</ThemedText>
         </ThemedView>
 
         {stackData.length > 0 && categories.length > 0 ? (

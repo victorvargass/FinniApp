@@ -49,8 +49,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="summary"
         options={{
-          title: 'Resumen',
-          tabBarLabel: 'Resumen',
+          title: 'Histórico',
+          tabBarLabel: 'Histórico',
           tabBarIcon: ({ color }) => <Ionicons name="bar-chart" size={24} color={color} />,
         }}
       />
