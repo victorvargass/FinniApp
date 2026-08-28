@@ -77,7 +77,7 @@ type CategoryFormProps = {
 };
 
 export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
-  const { addCategory, editCategory } = useDatabase();
+  const { addCategory, editCategory, getCategoryExpenseCount, removeCategory } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
@@ -130,6 +130,52 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!category || saving) return;
+
+    let expenseCount: number;
+    try {
+      expenseCount = await getCategoryExpenseCount(category.id);
+    } catch {
+      Alert.alert('Error', 'No se pudo comprobar si la categoría está en uso.');
+      return;
+    }
+
+    const hasExpenses = expenseCount > 0;
+    const message = hasExpenses
+      ? `Hay ${expenseCount} ${expenseCount === 1 ? 'gasto asociado' : 'gastos asociados'} a "${category.name}". Si eliminas la categoría, ${expenseCount === 1 ? 'el gasto quedará' : 'los gastos quedarán'} sin categoría.\n\n¿Deseas eliminarla de todas formas?`
+      : `¿Eliminar "${category.name}"?`;
+
+    Alert.alert(
+      'Eliminar categoría',
+      message,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: hasExpenses ? 'Eliminar igualmente' : 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setSaving(true);
+            try {
+              await removeCategory(category.id, hasExpenses);
+              const successMessage = hasExpenses
+                ? 'Categoría eliminada. Los gastos asociados quedaron sin categoría.'
+                : 'Categoría eliminada';
+              if (Platform.OS === 'android') ToastAndroid.show(successMessage, ToastAndroid.LONG);
+              else Alert.alert('Eliminada', successMessage);
+              onSuccess();
+            } catch (error) {
+              Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo eliminar');
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <ThemedText style={styles.label}>Nombre</ThemedText>
@@ -162,6 +208,14 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
           {category ? 'Actualizar' : 'Guardar'}
         </ThemedText>
       </Pressable>
+      {category && (
+        <Pressable
+          style={[styles.deleteButton, saving && styles.buttonDisabled]}
+          onPress={handleDelete}
+          disabled={saving}>
+          <ThemedText style={styles.deleteButtonText}>Eliminar categoría</ThemedText>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -785,5 +839,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 16,
+  },
+  deleteButton: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#be1b1b',
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: '#be1b1b',
+    fontWeight: '700',
   },
 });
