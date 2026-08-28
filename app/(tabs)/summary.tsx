@@ -263,6 +263,32 @@ export default function HistoricalSummaryScreen() {
           setSelectedPeriod(null);
           router.navigate('/(tabs)/period');
         }}
+        onOpenCategory={(periodId, categoryId) => {
+          selectPeriod(periodId);
+          setShowPeriodModal(false);
+          setSelectedPeriod(null);
+          router.navigate({
+            pathname: '/(tabs)/expenses',
+            params: {
+              categoryFilter: categoryId == null ? 'none' : String(categoryId),
+              paymentMethodFilter: '',
+              filterRequestId: String(Date.now()),
+            },
+          });
+        }}
+        onOpenPaymentMethod={(periodId, paymentMethodId) => {
+          selectPeriod(periodId);
+          setShowPeriodModal(false);
+          setSelectedPeriod(null);
+          router.navigate({
+            pathname: '/(tabs)/expenses',
+            params: {
+              categoryFilter: '',
+              paymentMethodFilter: paymentMethodId == null ? 'none' : String(paymentMethodId),
+              filterRequestId: String(Date.now()),
+            },
+          });
+        }}
       />
     </SafeAreaView>
   );

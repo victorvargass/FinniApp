@@ -6,13 +6,14 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
 import type { PeriodCategoryExpensesTotals } from '@/lib/types';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type CategoryChartProps = {
   periodCategoryExpensesTotals: PeriodCategoryExpensesTotals[];
   periodExpensesTotal: number;
   onOpenCategory?: (categoryId: number | null) => void;
   surfaceColor?: string;
+  selectionResetKey?: string | number;
 };
 
 export function CategoryChart({
@@ -20,12 +21,17 @@ export function CategoryChart({
   periodExpensesTotal,
   onOpenCategory,
   surfaceColor,
+  selectionResetKey,
 }: CategoryChartProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const withSpending = periodCategoryExpensesTotals.filter((item) => item.total > 0);
   const [selectedCategoryKey, setSelectedCategoryKey] = useState<string | null>(null);
   const showPie = withSpending.length > 0
+
+  useEffect(() => {
+    setSelectedCategoryKey(null);
+  }, [selectionResetKey, periodCategoryExpensesTotals]);
 
   if (!showPie) {
     return (

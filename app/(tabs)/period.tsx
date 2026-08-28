@@ -4,7 +4,9 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryChart } from '@/components/CategoryChart';
+import { BreakdownSection, type BreakdownMode } from '@/components/breakdown-section';
 import { LimitProgressBar } from '@/components/LimitProgressBar';
+import { PaymentMethodChart } from '@/components/PaymentMethodChart';
 import { PeriodSelector } from '@/components/period-selector';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -25,6 +27,7 @@ export default function PeriodScreen() {
     periodCategoryExpensesTotals,
     periodIncomesTotal,
     periodExpensesTotal,
+    paymentMethodTotals,
     setPeriodStartDate,
     setPeriodEndDate,
     closeCurrentPeriod,
@@ -40,6 +43,8 @@ export default function PeriodScreen() {
   const [endDate, setEndDate] = useState(new Date());
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [categorySelectionReset, setCategorySelectionReset] = useState(0);
+  const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>('category');
 
   const withLimits = periodCategoryExpensesTotals.filter((item) => item.periodLimit != null && item.periodLimit > 0);
 
@@ -48,6 +53,7 @@ export default function PeriodScreen() {
     if (!selectedPeriod) return;
     setStartDate(parseDateString(selectedPeriod.startDate));
     setEndDate(parseDateString(selectedPeriod.endDate));
+    setBreakdownMode('category');
   }, [selectedPeriod]);
 
   return (
@@ -164,43 +170,65 @@ export default function PeriodScreen() {
           <ThemedText style={periodIncomesTotal > periodExpensesTotal ? styles.totalPositiveBalance : styles.totalNegativeBalance}>{formatCLP(periodIncomesTotal - periodExpensesTotal)}</ThemedText>
         </ThemedView>
 
-        <ThemedView style={[styles.card, { backgroundColor: colors.surface }]}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Desglose gastos
-          </ThemedText>
-          <CategoryChart
-            periodCategoryExpensesTotals={periodCategoryExpensesTotals}
-            periodExpensesTotal={periodExpensesTotal}
-            onOpenCategory={(categoryId) => {
-              router.navigate({
-                pathname: '/(tabs)/expenses',
-                params: {
-                  categoryFilter: categoryId === null ? 'none' : String(categoryId),
-                  filterRequestId: String(Date.now()),
-                },
-              });
-            }}
-          />
-        </ThemedView>
+        <BreakdownSection
+          mode={breakdownMode}
+          onChange={setBreakdownMode}
+          backgroundColor={colors.surface}
+          categoryContent={(
+            <>
+              <CategoryChart
+                periodCategoryExpensesTotals={periodCategoryExpensesTotals}
+                periodExpensesTotal={periodExpensesTotal}
+                selectionResetKey={`${selectedPeriod?.id ?? 'none'}-${categorySelectionReset}`}
+                onOpenCategory={(categoryId) => {
+                  router.navigate({
+                    pathname: '/(tabs)/expenses',
+                    params: {
+                      categoryFilter: categoryId === null ? 'none' : String(categoryId),
+                      paymentMethodFilter: '',
+                      filterRequestId: String(Date.now()),
+                    },
+                  });
+                }}
+              />
 
-        {withLimits.length > 0 && (
-          <ThemedView style={[styles.card, { backgroundColor: colors.surface }]}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Límites de gastos
-            </ThemedText>
-            <View style={styles.limits}>
-              {withLimits.map((item) => (
-                <LimitProgressBar
-                  key={item.categoryId}
-                  name={item.categoryName}
-                  color={item.categoryColor}
-                  spent={item.total}
-                  limit={item.periodLimit}
-                />
-              ))}
-            </View>
-          </ThemedView>
-        )}
+              {withLimits.length > 0 && (
+                <View style={[styles.limitsSection, { borderTopColor: colors.border }]}>
+                  <ThemedText type="subtitle">Límites de gastos</ThemedText>
+                  <View style={styles.limits}>
+                    {withLimits.map((item) => (
+                      <LimitProgressBar
+                        key={item.categoryId}
+                        name={item.categoryName}
+                        color={item.categoryColor}
+                        spent={item.total}
+                        limit={item.periodLimit}
+                      />
+                    ))}
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+          paymentMethodContent={(
+            <PaymentMethodChart
+              items={paymentMethodTotals}
+              total={periodExpensesTotal}
+              selectionResetKey={selectedPeriod?.id ?? 'none'}
+              onSelectPaymentMethod={() => setCategorySelectionReset((value) => value + 1)}
+              onOpenPaymentMethod={(paymentMethodId) => {
+                router.navigate({
+                  pathname: '/(tabs)/expenses',
+                  params: {
+                    categoryFilter: '',
+                    paymentMethodFilter: paymentMethodId == null ? 'none' : String(paymentMethodId),
+                    filterRequestId: String(Date.now()),
+                  },
+                });
+              }}
+            />
+          )}
+        />
       {isCurrentPeriod && (periodIncomesTotal > 0 && periodExpensesTotal > 0) && (
         <View style={{ marginTop: 24, alignItems: 'center' }}>
           <Pressable
@@ -254,7 +282,8 @@ export default function PeriodScreen() {
                       }
                     },
                   },
-                ]
+                ],
+                { cancelable: true }
               );
    
             }}
@@ -299,11 +328,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sectionTitle: {
-    marginBottom: 4,
-  },
   limits: {
     gap: 16,
+  },
+  limitsSection: {
+    borderTopWidth: 1,
+    marginTop: 18,
+    paddingTop: 18,
+    gap: 14,
   },
   dateButton: {
     borderWidth: 1,

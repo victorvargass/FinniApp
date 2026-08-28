@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 
 import { CategoryChart } from '@/components/CategoryChart';
+import { BreakdownSection, type BreakdownMode } from '@/components/breakdown-section';
 import { LimitProgressBar } from '@/components/LimitProgressBar';
+import { PaymentMethodChart } from '@/components/PaymentMethodChart';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -24,6 +26,8 @@ type Props = {
   period: PeriodHistory | null;
   onClose: () => void;
   onOpenPeriod?: (periodId: number) => void;
+  onOpenCategory?: (periodId: number, categoryId: number | null) => void;
+  onOpenPaymentMethod?: (periodId: number, paymentMethodId: number | null) => void;
 };
 
 export function HistoricalPeriodModal({
@@ -31,10 +35,18 @@ export function HistoricalPeriodModal({
   period,
   onClose,
   onOpenPeriod,
+  onOpenCategory,
+  onOpenPaymentMethod,
 }: Props) {
   const [isExporting, setIsExporting] = useState(false);
+  const [categorySelectionReset, setCategorySelectionReset] = useState(0);
+  const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>('category');
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+
+  useEffect(() => {
+    setBreakdownMode('category');
+  }, [period?.periodId, visible]);
 
   if (!period) return null;
 
@@ -64,6 +76,7 @@ export function HistoricalPeriodModal({
   const incomes = period.incomesTotal ?? 0;
   const balance = incomes - expenses;
   const categories = period.categories ?? [];
+  const paymentMethods = period.paymentMethods ?? [];
   const limits = categories.filter(
     (item: any) => item.periodLimit && item.periodLimit > 0
   );
@@ -75,8 +88,13 @@ export function HistoricalPeriodModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <ThemedView style={[styles.container, { backgroundColor: colors.surface }]}>
+      <Pressable
+        accessibilityLabel="Cerrar resumen histórico"
+        onPress={onClose}
+        style={styles.overlay}>
+        <Pressable
+          onPress={(event) => event.stopPropagation()}
+          style={[styles.container, { backgroundColor: colors.surface }]}>
           <ScrollView showsVerticalScrollIndicator={false}>
   
             <ThemedText type="title" style={styles.headerTitle}>
@@ -126,38 +144,54 @@ export function HistoricalPeriodModal({
             </ThemedView>
   
   
-            <ThemedView style={[styles.section, { backgroundColor: colors.surfaceRaised }]}>
-              <ThemedText type="subtitle">
-                Gastos por categoría
-              </ThemedText>
-  
-              <CategoryChart
-                periodCategoryExpensesTotals={categories}
-                periodExpensesTotal={expenses}
-                surfaceColor={colors.surfaceRaised}
-              />
-            </ThemedView>
-  
-  
-            {limits.length > 0 && (
-              <ThemedView style={[styles.section, { backgroundColor: colors.surfaceRaised }]}>
-                <ThemedText type="subtitle">
-                  Límites
-                </ThemedText>
-  
-                <View style={styles.limitList}>
-                  {limits.map((item: any) => (
-                    <LimitProgressBar
-                      key={item.categoryId}
-                      name={item.categoryName}
-                      color={item.categoryColor}
-                      spent={item.total}
-                      limit={item.periodLimit}
-                    />
-                  ))}
-                </View>
-              </ThemedView>
-            )}
+            <BreakdownSection
+              mode={breakdownMode}
+              onChange={setBreakdownMode}
+              backgroundColor={colors.surfaceRaised}
+              style={styles.breakdown}
+              categoryContent={(
+                <>
+                  <CategoryChart
+                    periodCategoryExpensesTotals={categories}
+                    periodExpensesTotal={expenses}
+                    surfaceColor={colors.surfaceRaised}
+                    selectionResetKey={`${period.periodId}-${categorySelectionReset}`}
+                    onOpenCategory={onOpenCategory
+                      ? (categoryId) => onOpenCategory(period.periodId, categoryId)
+                      : undefined}
+                  />
+
+                  {limits.length > 0 && (
+                    <View style={[styles.limitsSection, { borderTopColor: colors.border }]}>
+                      <ThemedText type="subtitle">Límites de gastos</ThemedText>
+                      <View style={styles.limitList}>
+                        {limits.map((item: any) => (
+                          <LimitProgressBar
+                            key={item.categoryId}
+                            name={item.categoryName}
+                            color={item.categoryColor}
+                            spent={item.total}
+                            limit={item.periodLimit}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+              paymentMethodContent={(
+                <PaymentMethodChart
+                  items={paymentMethods}
+                  total={expenses}
+                  surfaceColor={colors.surfaceRaised}
+                  selectionResetKey={period.periodId}
+                  onSelectPaymentMethod={() => setCategorySelectionReset((value) => value + 1)}
+                  onOpenPaymentMethod={onOpenPaymentMethod
+                    ? (paymentMethodId) => onOpenPaymentMethod(period.periodId, paymentMethodId)
+                    : undefined}
+                />
+              )}
+            />
   
             {onOpenPeriod && (
               <Pressable
@@ -206,8 +240,8 @@ export function HistoricalPeriodModal({
             </Pressable>
   
           </ScrollView>
-        </ThemedView>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -283,16 +317,19 @@ const styles = StyleSheet.create({
     color: '#e44332',
   },
 
-  section: {
-    borderRadius: 14,
-    padding: 14,
-    backgroundColor: '#fbfcfd',
-    marginBottom: 12,
-    gap: 10,
-  },
-
   limitList: {
     gap: 12,
+  },
+
+  breakdown: {
+    marginBottom: 12,
+  },
+
+  limitsSection: {
+    borderTopWidth: 1,
+    marginTop: 18,
+    paddingTop: 18,
+    gap: 14,
   },
 
   exportButton: {

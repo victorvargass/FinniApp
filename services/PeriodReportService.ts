@@ -8,8 +8,10 @@ import { formatCLP } from '@/lib/format';
 import type {
   ExpenseWithCategory,
   Income,
+  PaymentMethodType,
   PeriodHistory,
   PeriodHistoryCategory,
+  PeriodHistoryPaymentMethod,
 } from '@/lib/types';
 
 const COLORS = {
@@ -81,6 +83,17 @@ function total(items: { amount: number }[]): number {
   return items.reduce((sum, item) => sum + item.amount, 0);
 }
 
+const PAYMENT_METHOD_TYPE_LABELS: Record<PaymentMethodType, string> = {
+  cash: 'Efectivo',
+  debit: 'Débito',
+  prepaid: 'Prepago',
+  credit: 'Crédito',
+};
+
+function paymentMethodTypeLabel(type: PaymentMethodType | null): string {
+  return type ? PAYMENT_METHOD_TYPE_LABELS[type] : 'Sin tipo';
+}
+
 function categoryRows(
   categories: PeriodHistoryCategory[],
   expensesTotal: number
@@ -104,7 +117,7 @@ function categoryRows(
             <span class="dot" style="background:${safeColor}"></span>
             ${escapeHtml(category.categoryName)}
           </div>
-          <div class="category-value">${formatCLP(category.total)} · ${percentage}%</div>
+          <div class="category-value">${formatCLP(category.total)} - ${percentage}%</div>
         </div>`;
     })
     .join('');
@@ -160,9 +173,58 @@ function donutChart(
     </div>`;
 }
 
+function paymentMethodRows(
+  methods: PeriodHistoryPaymentMethod[],
+  expenses: ExpenseWithCategory[],
+  expensesTotal: number
+): string {
+  if (methods.length === 0) {
+    return '<div class="empty">No hubo medios de pago asociados a los gastos de este período.</div>';
+  }
+
+  const movementCounts = expenses.reduce((counts, expense) => {
+    const key = expense.paymentMethodId == null ? 'unspecified' : String(expense.paymentMethodId);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+
+  return methods
+    .map((method) => {
+      const key = method.paymentMethodId == null ? 'unspecified' : String(method.paymentMethodId);
+      const count = movementCounts.get(key) ?? 0;
+      const percentage = expensesTotal > 0
+        ? ((method.total / expensesTotal) * 100).toFixed(1)
+        : '0.0';
+      const safeColor = /^#[0-9a-f]{3,8}$/i.test(method.paymentMethodColor)
+        ? method.paymentMethodColor
+        : '#95a5a6';
+      const details = method.paymentMethodId == null
+        ? 'Sin información registrada'
+        : [
+            paymentMethodTypeLabel(method.paymentMethodType),
+            method.paymentMethodType === 'credit' && method.billingDay
+              ? `factura aprox. el día ${method.billingDay}`
+              : null,
+            method.active === false ? 'Desactivado' : 'Activo',
+          ].filter(Boolean).join(' - ');
+
+      return `
+        <tr>
+          <td>
+            <div class="method-name"><span class="dot" style="background:${safeColor}"></span><strong>${escapeHtml(method.paymentMethodName)}</strong></div>
+            <div class="row-note">${escapeHtml(details)}</div>
+          </td>
+          <td class="movement-count">${count} ${count === 1 ? 'movimiento' : 'movimientos'}</td>
+          <td class="percentage">${percentage}%</td>
+          <td class="amount">${formatCLP(method.total)}</td>
+        </tr>`;
+    })
+    .join('');
+}
+
 function expenseRows(expenses: ExpenseWithCategory[]): string {
   if (expenses.length === 0) {
-    return '<tr><td colspan="4" class="empty-cell">No hubo gastos en este período.</td></tr>';
+    return '<tr><td colspan="5" class="empty-cell">No hubo gastos en este período.</td></tr>';
   }
 
   return expenses
@@ -170,14 +232,21 @@ function expenseRows(expenses: ExpenseWithCategory[]): string {
       const categoryColor = expense.categoryColor && /^#[0-9a-f]{3,8}$/i.test(expense.categoryColor)
         ? expense.categoryColor
         : '#95a5a6';
+      const paymentMethodColor = expense.paymentMethodColor && /^#[0-9a-f]{3,8}$/i.test(expense.paymentMethodColor)
+        ? expense.paymentMethodColor
+        : '#95a5a6';
       const splitNote = expense.originalAmount && expense.splitPercentage
         ? `<div class="row-note">Tu parte: ${expense.splitPercentage}% de ${formatCLP(expense.originalAmount)}</div>`
+        : '';
+      const paymentMethodNote = expense.paymentMethodType
+        ? `<div class="row-note">${paymentMethodTypeLabel(expense.paymentMethodType)}</div>`
         : '';
       return `
         <tr>
           <td class="date">${formatShortDate(expense.date)}</td>
           <td><strong>${escapeHtml(expense.name)}</strong>${splitNote}</td>
           <td class="category-cell"><span class="tag" style="border-color:${categoryColor}">${escapeHtml(expense.categoryName ?? 'Sin categoría')}</span></td>
+          <td class="payment-method-cell"><span class="tag" style="border-color:${paymentMethodColor}">${escapeHtml(expense.paymentMethodName ?? 'No especificado')}</span>${paymentMethodNote}</td>
           <td class="amount expense">-${formatCLP(expense.amount)}</td>
         </tr>`;
     })
@@ -260,6 +329,8 @@ export function buildPeriodReportHtml(
         .category-row:last-child { border-bottom: 0; }
         .category-name { display: flex; align-items: center; min-width: 0; font-weight: 650; }
         .category-value { color: ${COLORS.muted}; white-space: nowrap; font-size: 9px; }
+        .payment-method-section { padding: 15px 16px 12px; border: 1px solid #e5ecee; border-radius: 14px; box-shadow: 0 3px 12px rgba(21,49,59,.055); }
+        .method-name { display: flex; align-items: center; min-width: 0; }
         .dot { width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; flex: none; }
         table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; }
         thead { display: table-header-group; }
@@ -268,10 +339,14 @@ export function buildPeriodReportHtml(
         th:first-child { border-radius: 8px 0 0 8px; }
         th:last-child { border-radius: 0 8px 8px 0; }
         td { padding: 10px; border-bottom: 1px solid #edf2f3; vertical-align: top; }
-        td.date, td.category-cell, td.amount { vertical-align: middle; }
+        td.date, td.category-cell, td.payment-method-cell, td.movement-count, td.percentage, td.amount { vertical-align: middle; }
         tbody tr:nth-child(even) td { background: #fbfcfc; }
         tbody tr:last-child td { border-bottom: 0; }
         .date { width: 66px; color: ${COLORS.muted}; white-space: nowrap; }
+        .category-cell { width: 112px; }
+        .payment-method-cell { width: 124px; }
+        .movement-count { width: 100px; color: ${COLORS.muted}; white-space: nowrap; }
+        .percentage { width: 52px; color: ${COLORS.muted}; text-align: right; white-space: nowrap; }
         .amount { width: 115px; font-weight: 800; text-align: right; white-space: nowrap; }
         .tag { display: inline-block; padding: 2px 7px; color: ${COLORS.muted}; background: #edf3f4; border: 1px solid; border-radius: 99px; font-size: 8px; white-space: nowrap; }
         .row-note { margin-top: 2px; color: ${COLORS.muted}; font-size: 8px; }
@@ -315,11 +390,20 @@ export function buildPeriodReportHtml(
         </div>
       </section>
 
+      <section class="section payment-method-section">
+        <h2 class="section-title">Gastos por medio de pago</h2>
+        <div class="section-subtitle">Distribución, configuración y uso durante el período</div>
+        <table>
+          <thead><tr><th>Medio de pago</th><th>Uso</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Total</th></tr></thead>
+          <tbody>${paymentMethodRows(period.paymentMethods ?? [], expenses, expensesTotal)}</tbody>
+        </table>
+      </section>
+
       <section class="section transactions${expenses.length <= 8 ? ' keep-together' : ''}">
         <h2 class="section-title">Detalle de gastos</h2>
         <div class="section-subtitle">${expenses.length} ${expenses.length === 1 ? 'movimiento' : 'movimientos'}</div>
         <table>
-          <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th style="text-align:right">Monto</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Medio de pago</th><th style="text-align:right">Monto</th></tr></thead>
           <tbody>${expenseRows(expenses)}</tbody>
         </table>
         <div class="table-total"><span>Total gastos</span><span class="expense">${formatCLP(expensesTotal)}</span></div>
