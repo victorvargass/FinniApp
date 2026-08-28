@@ -9,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   TextInput,
   ToastAndroid,
   View,
@@ -23,7 +22,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
-import type { Category, ExpenseWithCategory } from '@/lib/types';
+import type { Category, ExpenseWithCategory, PaymentMethod } from '@/lib/types';
 
 type SortOption =
   | 'name-asc'
@@ -34,6 +33,8 @@ type SortOption =
   | 'date-desc';
 
 type CategoryFilter = ('none' | number)[];
+type PaymentMethodFilter = ('none' | number)[];
+type GroupBy = 'none' | 'category' | 'payment-method';
 
 type ExpenseGroup = {
   name: string;
@@ -44,10 +45,11 @@ type ExpenseGroup = {
 type ExpenseListItem =
   | { type: 'expense'; expense: ExpenseWithCategory }
   | {
-      type: 'category';
+      type: 'group';
       key: string;
       name: string;
       color: string;
+      total: number;
       isCollapsed: boolean;
     };
 
@@ -80,6 +82,19 @@ function sortExpenses(items: ExpenseWithCategory[], sortBy: SortOption) {
     case 'date-desc':
       return sorted.sort((a, b) => b.date.localeCompare(a.date));
   }
+}
+
+function getPaymentMethodFilterLabel(
+  filter: PaymentMethodFilter,
+  paymentMethods: PaymentMethod[]
+) {
+  if (filter.length === 0) return 'Todos';
+  if (filter.length === 1) {
+    const value = filter[0];
+    if (value === 'none') return 'No especificado';
+    return paymentMethods.find((method) => method.id === value)?.name ?? 'Medio de pago';
+  }
+  return `${filter.length} medios`;
 }
 
 function compareExpenseGroups(
@@ -220,10 +235,15 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
 }
 
 export default function ExpensesScreen() {
-  const { expenses, categories, removeExpense, selectedPeriodId } = useDatabase();
-  const { categoryFilter: requestedCategory, filterRequestId } =
+  const { expenses, categories, paymentMethods, removeExpense, selectedPeriodId } = useDatabase();
+  const {
+    categoryFilter: requestedCategory,
+    paymentMethodFilter: requestedPaymentMethod,
+    filterRequestId,
+  } =
     useLocalSearchParams<{
       categoryFilter?: string;
+      paymentMethodFilter?: string;
       filterRequestId?: string;
     }>();
   const colorScheme = useColorScheme() ?? 'light';
@@ -231,20 +251,24 @@ export default function ExpensesScreen() {
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>([]);
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<PaymentMethodFilter>([]);
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
-  const [isGroupedByCategory, setGroupedByCategory] = useState(false);
-  const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState<string[]>([]);
+  const [groupBy, setGroupBy] = useState<GroupBy>('none');
+  const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<string[]>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [groupModalVisible, setGroupModalVisible] = useState(false);
 
   useEffect(() => {
     setSearch('');
     setCategoryFilter([]);
+    setPaymentMethodFilter([]);
     setSortBy('date-desc');
-    setGroupedByCategory(false);
-    setCollapsedCategoryKeys([]);
+    setGroupBy('none');
+    setCollapsedGroupKeys([]);
     setSortModalVisible(false);
     setFilterModalVisible(false);
+    setGroupModalVisible(false);
   }, [selectedPeriodId]);
 
   useEffect(() => {
@@ -252,6 +276,7 @@ export default function ExpensesScreen() {
 
     if (requestedCategory === 'none') {
       setCategoryFilter(['none']);
+      setPaymentMethodFilter([]);
       setSearch('');
       return;
     }
@@ -259,9 +284,28 @@ export default function ExpensesScreen() {
     const categoryId = Number(requestedCategory);
     if (Number.isInteger(categoryId) && categoryId > 0) {
       setCategoryFilter([categoryId]);
+      setPaymentMethodFilter([]);
       setSearch('');
     }
   }, [requestedCategory, filterRequestId]);
+
+  useEffect(() => {
+    if (!requestedPaymentMethod) return;
+
+    if (requestedPaymentMethod === 'none') {
+      setPaymentMethodFilter(['none']);
+      setCategoryFilter([]);
+      setSearch('');
+      return;
+    }
+
+    const paymentMethodId = Number(requestedPaymentMethod);
+    if (Number.isInteger(paymentMethodId) && paymentMethodId > 0) {
+      setPaymentMethodFilter([paymentMethodId]);
+      setCategoryFilter([]);
+      setSearch('');
+    }
+  }, [requestedPaymentMethod, filterRequestId]);
 
   const filteredExpenses = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -279,28 +323,41 @@ export default function ExpensesScreen() {
     
         if (!match) return false;
       }
+
+      if (paymentMethodFilter.length > 0) {
+        const match =
+          (item.paymentMethodId == null && paymentMethodFilter.includes('none')) ||
+          (item.paymentMethodId != null && paymentMethodFilter.includes(item.paymentMethodId));
+        if (!match) return false;
+      }
     
       return true;
     });
 
     return sortExpenses(filtered, sortBy);
-  }, [expenses, search, categoryFilter, sortBy]);
+  }, [expenses, search, categoryFilter, paymentMethodFilter, sortBy]);
 
   const isSortActive = sortBy !== 'date-desc';
-  const isFilterActive = categoryFilter.length > 0;
+  const isFilterActive = categoryFilter.length > 0 || paymentMethodFilter.length > 0;
 
   const listItems = useMemo<ExpenseListItem[]>(() => {
-    if (!isGroupedByCategory) {
+    if (groupBy === 'none') {
       return filteredExpenses.map((expense) => ({ type: 'expense', expense }));
     }
 
     const groups = new Map<string, ExpenseGroup>();
 
     filteredExpenses.forEach((expense) => {
-      const key = expense.categoryId == null ? 'none' : String(expense.categoryId);
+      const groupsByCategory = groupBy === 'category';
+      const id = groupsByCategory ? expense.categoryId : expense.paymentMethodId;
+      const key = id == null ? 'none' : String(id);
       const group = groups.get(key) ?? {
-        name: expense.categoryName ?? 'Sin categoría',
-        color: expense.categoryColor ?? '#95a5a6',
+        name: groupsByCategory
+          ? expense.categoryName ?? 'Sin categoría'
+          : expense.paymentMethodName ?? 'No especificado',
+        color: groupsByCategory
+          ? expense.categoryColor ?? '#95a5a6'
+          : expense.paymentMethodColor ?? '#95a5a6',
         expenses: [],
       };
 
@@ -312,23 +369,32 @@ export default function ExpensesScreen() {
       .sort(([, first], [, second]) => compareExpenseGroups(first, second, sortBy))
       .flatMap(([key, group]) => [
         {
-          type: 'category' as const,
+          type: 'group' as const,
           key,
           name: group.name,
           color: group.color,
-          isCollapsed: collapsedCategoryKeys.includes(key),
+          total: group.expenses.reduce((sum, expense) => sum + expense.amount, 0),
+          isCollapsed: collapsedGroupKeys.includes(key),
         },
-        ...(collapsedCategoryKeys.includes(key)
+        ...(collapsedGroupKeys.includes(key)
           ? []
           : group.expenses.map((expense) => ({ type: 'expense' as const, expense }))),
       ]);
-  }, [filteredExpenses, isGroupedByCategory, collapsedCategoryKeys, sortBy]);
+  }, [filteredExpenses, groupBy, collapsedGroupKeys, sortBy]);
 
-  const toggleCategoryCollapsed = (key: string) => {
-    setCollapsedCategoryKeys((current) =>
+  const toggleGroupCollapsed = (key: string) => {
+    setCollapsedGroupKeys((current) =>
       current.includes(key)
         ? current.filter((categoryKey) => categoryKey !== key)
         : [...current, key]
+    );
+  };
+
+  const togglePaymentMethodFilter = (value: number | 'none') => {
+    setPaymentMethodFilter((previous) =>
+      previous.includes(value)
+        ? previous.filter((item) => item !== value)
+        : [...previous, value]
     );
   };
 
@@ -413,33 +479,34 @@ export default function ExpensesScreen() {
             style={[
               styles.toolbarButton,
               { borderColor: colors.icon },
-              isFilterActive && styles.toolbarButtonActive,
+              groupBy !== 'none' && styles.toolbarButtonActive,
             ]}
-            onPress={() => setFilterModalVisible(true)}>
-            <Ionicons name="filter" size={18} color={isFilterActive ? '#0a7ea4' : colors.icon} />
+            onPress={() => setGroupModalVisible(true)}>
+            <Ionicons name="layers-outline" size={18} color={groupBy !== 'none' ? '#0a7ea4' : colors.icon} />
             <View style={styles.toolbarButtonText}>
-              <ThemedText type="defaultSemiBold">Filtro</ThemedText>
+              <ThemedText type="defaultSemiBold">Agrupar</ThemedText>
               <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
-                {getCategoryFilterLabel(categoryFilter, categories)}
+                {groupBy === 'category' ? 'Categoría' : groupBy === 'payment-method' ? 'Medio de pago' : 'Sin agrupar'}
               </ThemedText>
             </View>
           </Pressable>
         </View>
-        <View style={[styles.groupToggle, { borderColor: colors.icon }]}>
-          <View style={styles.groupToggleLabel}>
-            <Ionicons name="folder-open-outline" size={18} color={colors.icon} />
-            <View>
-              <ThemedText type="defaultSemiBold">Agrupar por categoría</ThemedText>
-            </View>
+        <Pressable
+          style={[
+            styles.filterButton,
+            { borderColor: colors.icon },
+            isFilterActive && styles.toolbarButtonActive,
+          ]}
+          onPress={() => setFilterModalVisible(true)}>
+          <Ionicons name="filter" size={18} color={isFilterActive ? '#0a7ea4' : colors.icon} />
+          <View style={styles.toolbarButtonText}>
+            <ThemedText type="defaultSemiBold">Filtros</ThemedText>
+            <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
+              Categoría: {getCategoryFilterLabel(categoryFilter, categories)} · Pago: {getPaymentMethodFilterLabel(paymentMethodFilter, paymentMethods)}
+            </ThemedText>
           </View>
-          <Switch
-            value={isGroupedByCategory}
-            onValueChange={setGroupedByCategory}
-            trackColor={{ false: colors.icon, true: '#0a7ea4' }}
-            thumbColor="#fff"
-            accessibilityLabel="Agrupar gastos por categoría"
-          />
-        </View>
+          <Ionicons name="chevron-forward" size={19} color={colors.icon} />
+        </Pressable>
       </ThemedView>
 
       <OptionModal
@@ -462,9 +529,38 @@ export default function ExpensesScreen() {
       </OptionModal>
 
       <OptionModal
+        visible={groupModalVisible}
+        title="Agrupar gastos"
+        onClose={() => setGroupModalVisible(false)}>
+        <ModalOption
+          label="Sin agrupar"
+          selected={groupBy === 'none'}
+          onPress={() => { setGroupBy('none'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
+        />
+        <ModalOption
+          label="Por categoría"
+          selected={groupBy === 'category'}
+          onPress={() => { setGroupBy('category'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
+        />
+        <ModalOption
+          label="Por medio de pago"
+          selected={groupBy === 'payment-method'}
+          onPress={() => { setGroupBy('payment-method'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
+        />
+      </OptionModal>
+
+      <OptionModal
         visible={filterModalVisible}
-        title="Filtrar por categoría"
+        title="Filtrar gastos"
         onClose={() => setFilterModalVisible(false)}>
+        <View style={styles.filterModalHeader}>
+          <ThemedText style={styles.modalGroupLabel}>CATEGORÍA</ThemedText>
+          {categoryFilter.length > 0 && (
+            <Pressable onPress={() => setCategoryFilter([])}>
+              <ThemedText type="link">Limpiar</ThemedText>
+            </Pressable>
+          )}
+        </View>
         <ModalOption
           label="Todas las categorías"
           selected={categoryFilter.length === 0}
@@ -484,13 +580,47 @@ export default function ExpensesScreen() {
             onPress={() => toggleCategoryFilter(cat.id)}
           />
         ))}
+        <View style={styles.filterModalHeader}>
+          <ThemedText style={styles.modalGroupLabel}>MEDIO DE PAGO</ThemedText>
+          {paymentMethodFilter.length > 0 && (
+            <Pressable onPress={() => setPaymentMethodFilter([])}>
+              <ThemedText type="link">Limpiar</ThemedText>
+            </Pressable>
+          )}
+        </View>
+        <ModalOption
+          label="Todos los medios"
+          selected={paymentMethodFilter.length === 0}
+          onPress={() => setPaymentMethodFilter([])}
+        />
+        <ModalOption
+          label="No especificado"
+          selected={paymentMethodFilter.includes('none')}
+          onPress={() => togglePaymentMethodFilter('none')}
+        />
+        {paymentMethods.map((method) => (
+          <ModalOption
+            key={method.id}
+            label={method.name}
+            color={method.color}
+            selected={paymentMethodFilter.includes(method.id)}
+            onPress={() => togglePaymentMethodFilter(method.id)}
+          />
+        ))}
+        {isFilterActive && (
+          <Pressable
+            style={styles.clearAllFilters}
+            onPress={() => { setCategoryFilter([]); setPaymentMethodFilter([]); }}>
+            <ThemedText style={styles.clearAllFiltersText}>Limpiar todos los filtros</ThemedText>
+          </Pressable>
+        )}
       </OptionModal>
 
       <FlatList
         style={{ marginTop: 8 }}
         data={listItems}
         keyExtractor={(item) =>
-          item.type === 'category' ? `category-${item.key}` : `expense-${item.expense.id}`
+          item.type === 'group' ? `group-${groupBy}-${item.key}` : `expense-${item.expense.id}`
         }
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
@@ -502,14 +632,14 @@ export default function ExpensesScreen() {
           </ThemedText>
         }
         renderItem={({ item }) => {
-          if (item.type === 'category') {
+          if (item.type === 'group') {
             return (
               <Pressable
                 style={[
                   styles.categoryHeader,
                   { borderLeftColor: item.color, backgroundColor: `${item.color}18` },
                 ]}
-                onPress={() => toggleCategoryCollapsed(item.key)}
+                onPress={() => toggleGroupCollapsed(item.key)}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.isCollapsed ? 'Mostrar' : 'Ocultar'} gastos de ${item.name}`}
                 accessibilityState={{ expanded: !item.isCollapsed }}>
@@ -517,11 +647,14 @@ export default function ExpensesScreen() {
                   <View style={[styles.dot, { backgroundColor: item.color }]} />
                   <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
                 </View>
-                <Ionicons
-                  name={item.isCollapsed ? 'chevron-down' : 'chevron-up'}
-                  size={20}
-                  color={item.color}
-                />
+                <View style={styles.groupHeaderRight}>
+                  <ThemedText type="defaultSemiBold">{formatCLP(item.total)}</ThemedText>
+                  <Ionicons
+                    name={item.isCollapsed ? 'chevron-down' : 'chevron-up'}
+                    size={20}
+                    color={item.color}
+                  />
+                </View>
               </Pressable>
             );
           }
@@ -539,7 +672,7 @@ export default function ExpensesScreen() {
               delayLongPress={500}>
               <ThemedView style={[styles.item, { paddingVertical: 6, paddingHorizontal: 10, minHeight: 40 }]}>
                 <View style={[styles.itemLeft, { gap: 6 }]}>
-                  {isGroupedByCategory ? null : (
+                  {groupBy === 'none' && (
                     <View
                       style={[
                         styles.dot,
@@ -551,9 +684,11 @@ export default function ExpensesScreen() {
                   <View style={[styles.itemInfo]}>
                     <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{expense.name}</ThemedText>
                     <ThemedText style={[styles.meta, { fontSize: 12 }]}>
-                      {isGroupedByCategory
-                        ? formatDate(new Date(`${expense.date}T12:00:00`))
-                        : `${expense.categoryName ?? 'Sin categoría'} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`}
+                      {groupBy === 'category'
+                        ? `${formatDate(new Date(`${expense.date}T12:00:00`))} · ${expense.paymentMethodName ?? 'No especificado'}`
+                        : groupBy === 'payment-method'
+                          ? `${expense.categoryName ?? 'Sin categoría'} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`
+                          : `${expense.categoryName ?? 'Sin categoría'} · ${expense.paymentMethodName ?? 'No especificado'} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`}
                     </ThemedText>
                
                   </View>
@@ -628,20 +763,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.6,
   },
-  groupToggle: {
+  filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  groupToggleLabel: {
+  filterModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    flex: 1,
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  clearAllFilters: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  clearAllFiltersText: {
+    color: '#be1b1b',
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -745,6 +889,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     flex: 1,
+  },
+  groupHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   item: {
     flexDirection: 'row',
