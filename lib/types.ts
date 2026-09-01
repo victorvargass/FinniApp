@@ -21,6 +21,7 @@ export type Expense = {
   originalAmount: number | null;
   splitPercentage: number | null;
   paymentMethodId: number | null;
+  recurringExpenseId: number | null;
 };
 
 export type Income = {
@@ -75,6 +76,8 @@ export type CreditCardCycle = {
   statementAmount: number | null;
   status: CreditCardCycleStatus;
   recordedTotal: number;
+  bankChargeAmount: number;
+  adjustmentAmount: number;
 };
 
 export type NewCreditCardCycle = {
@@ -82,6 +85,11 @@ export type NewCreditCardCycle = {
   endDate: string;
   statementAmount: number | null;
   status: CreditCardCycleStatus;
+};
+
+export type ReconcileCreditCardCycle = {
+  statementAmount: number;
+  bankChargeAmount: number;
 };
 
 // Ver, pensar en Periods
@@ -146,6 +154,64 @@ export type NewExpense = {
   categoryId: number | null;
   date: string;
   paymentMethodId: number | null;
+};
+
+export type RecurringFrequency = 'weekly' | 'monthly' | 'annual' | 'custom';
+
+export type RecurringRegistrationMode = 'automatic' | 'confirmation';
+
+export type RecurringOccurrenceStatus = 'scheduled' | 'pending' | 'generated' | 'skipped';
+
+export type NewRecurringSchedule = {
+  frequency: RecurringFrequency;
+  intervalMonths: number;
+  executionDay: number | null;
+  registrationMode: RecurringRegistrationMode;
+  startDate: string;
+  endDate: string | null;
+  active: boolean;
+};
+
+export type NewRecurringExpense = NewRecurringSchedule & {
+  name: string;
+  amount: number;
+  originalAmount: number | null;
+  splitPercentage: number | null;
+  categoryId: number | null;
+  paymentMethodId: number | null;
+  sourceExpenseId?: number | null;
+};
+
+export type RecurringExpense = NewRecurringExpense & {
+  id: number;
+  sourceExpenseId: number | null;
+  categoryName: string | null;
+  categoryColor: string | null;
+  paymentMethodName: string | null;
+  paymentMethodColor: string | null;
+  nextDate: string | null;
+  pendingCount: number;
+};
+
+export type RecurringOccurrence = {
+  id: number;
+  recurringExpenseId: number;
+  scheduledDate: string;
+  status: RecurringOccurrenceStatus;
+  expenseId: number | null;
+};
+
+export type RecurringConfirmationSchedule = {
+  recurringExpenseId: number;
+  name: string;
+  amount: number;
+  scheduledDate: string;
+};
+
+export type GeneratedRecurringExpenseNotification = RecurringConfirmationSchedule;
+
+export type RecurringDecisionItem = RecurringConfirmationSchedule & {
+  status: 'pending' | 'skipped';
 };
 
 export type NewIncome = {

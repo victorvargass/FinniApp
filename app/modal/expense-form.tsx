@@ -1,23 +1,63 @@
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { ExpenseForm } from '@/components/forms';
+import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useDatabase } from '@/contexts/DatabaseContext';
+import * as db from '@/lib/db';
+import type { ExpenseWithCategory } from '@/lib/types';
 
 export default function ExpenseFormModal() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { expenses } = useDatabase();
   const navigation = useNavigation();
 
-  const expense = id ? expenses.find((e) => e.id === Number(id)) : undefined;
+  const expenseFromSelectedPeriod = id ? expenses.find((e) => e.id === Number(id)) : undefined;
+  const [loadedExpense, setLoadedExpense] = useState<ExpenseWithCategory | null>(
+    expenseFromSelectedPeriod ?? null
+  );
+  const [loading, setLoading] = useState(Boolean(id && !expenseFromSelectedPeriod));
+  const expense = expenseFromSelectedPeriod ?? loadedExpense ?? undefined;
+
+  useEffect(() => {
+    const expenseId = Number(id);
+    if (!id || expenseFromSelectedPeriod || !Number.isInteger(expenseId)) return;
+    let cancelled = false;
+    setLoading(true);
+    db.getExpenseById(expenseId)
+      .then((result) => {
+        if (!cancelled) setLoadedExpense(result);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [expenseFromSelectedPeriod, id]);
 
   useEffect(() => {
     navigation.setOptions({
       title: expense ? 'Editar gasto' : 'Nuevo gasto',
     });
   }, [navigation, expense]);
+
+  if (loading) {
+    return (
+      <ThemedView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" />
+        <ThemedText>Cargando gasto...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (id && !expense) {
+    return (
+      <ThemedView style={[styles.container, styles.center]}>
+        <ThemedText>El gasto de origen ya no existe.</ThemedText>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -29,5 +69,11 @@ export default function ExpenseFormModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 24,
   },
 });

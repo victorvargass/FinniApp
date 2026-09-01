@@ -12,18 +12,30 @@ import type {
   NewIncome,
   NewCreditCardCycle,
   NewPaymentMethod,
+  NewRecurringExpense,
+  NewRecurringSchedule,
   PaymentMethod,
   PaymentMethodTotal,
   Period,
   PeriodCategoryExpensesTotals,
   PeriodHistory,
+  ReconcileCreditCardCycle,
+  RecurringDecisionItem,
+  RecurringExpense,
   Settings,
 } from '@/lib/types';
+import { addIsoDays, toIsoDate } from '@/lib/recurrence';
+import {
+  notifyGeneratedRecurringExpenses,
+  syncRecurringNotifications,
+} from '@/services/RecurringNotificationService';
 
 type DatabaseContextValue = {
   categories: Category[];
   paymentMethods: PaymentMethod[];
   paymentMethodTotals: PaymentMethodTotal[];
+  recurringExpenses: RecurringExpense[];
+  recurringDecisions: RecurringDecisionItem[];
   expenses: ExpenseWithCategory[];
   incomes: Income[];
   expenseNames: string[];
@@ -51,7 +63,18 @@ type DatabaseContextValue = {
   getCreditCardCycles: (paymentMethodId: number) => Promise<CreditCardCycle[]>;
   addCreditCardCycle: (data: NewCreditCardCycle) => Promise<void>;
   editCreditCardCycle: (id: number, statementAmount: number | null, status: CreditCardCycle['status']) => Promise<void>;
-  addExpense: (data: NewExpense) => Promise<void>;
+  reconcileCreditCardCycle: (id: number, data: ReconcileCreditCardCycle) => Promise<void>;
+  unreconcileCreditCardCycle: (id: number) => Promise<void>;
+  addRecurringExpense: (data: NewRecurringExpense) => Promise<void>;
+  editRecurringExpense: (id: number, data: NewRecurringExpense) => Promise<void>;
+  setRecurringExpenseActive: (id: number, active: boolean) => Promise<void>;
+  removeRecurringExpense: (id: number) => Promise<void>;
+  approveRecurringOccurrence: (recurringExpenseId: number, scheduledDate: string) => Promise<void>;
+  skipRecurringOccurrence: (recurringExpenseId: number, scheduledDate: string) => Promise<void>;
+  dismissSkippedOccurrence: (recurringExpenseId: number, scheduledDate: string) => Promise<void>;
+  markRecurringOccurrencePending: (recurringExpenseId: number, scheduledDate: string) => Promise<void>;
+  retryRecurringOccurrence: (recurringExpenseId: number, scheduledDate: string) => Promise<void>;
+  addExpense: (data: NewExpense, recurringSchedule?: NewRecurringSchedule) => Promise<void>;
   editExpense: (id: number, data: NewExpense) => Promise<void>;
   removeExpense: (id: number) => Promise<void>;
   addIncome: (data: NewIncome) => Promise<void>;
@@ -73,9 +96,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [periods, setPeriods] = useState<Period[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [hasRefreshed, setHasRefreshed] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [paymentMethodTotals, setPaymentMethodTotals] = useState<PaymentMethodTotal[]>([]);
+  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
+  const [recurringDecisions, setRecurringDecisions] = useState<RecurringDecisionItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenseNames, setExpenseNames] = useState<string[]>([]);
@@ -92,8 +118,25 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     () => periods.find((period) => period.id === selectedPeriodId) ?? null,
     [periods, selectedPeriodId]
   );
+  const recurringNotificationKey = useMemo(
+    () => JSON.stringify(recurringExpenses.map((item) => ({
+      id: item.id,
+      name: item.name,
+      amount: item.amount,
+      frequency: item.frequency,
+      intervalMonths: item.intervalMonths,
+      executionDay: item.executionDay,
+      registrationMode: item.registrationMode,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      active: item.active,
+    }))),
+    [recurringExpenses]
+  );
 
   const refresh = useCallback(async () => {
+    const generatedExpenses = await db.processDueRecurringExpenses();
+    await notifyGeneratedRecurringExpenses(generatedExpenses).catch(() => undefined);
     const settings = await db.getSettings();
     const allPeriods = await db.getPeriods();
     setSettings(settings);
@@ -108,10 +151,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     if (targetPeriodId !== selectedPeriodId) {
       setSelectedPeriodId(targetPeriodId);
     }
-    const [cats, methods, methodTotals, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
+    const [cats, methods, methodTotals, recurring, decisions, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
       db.getCategories(),
       db.getPaymentMethods(true),
       db.getPaymentMethodTotals(targetPeriodId),
+      db.getRecurringExpenses(),
+      db.getRecurringDecisionItems(),
       db.getExpenses(targetPeriodId),
       db.getIncomes(targetPeriodId),
       db.getExpenseNames(),
@@ -123,6 +168,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     setCategories(cats);
     setPaymentMethods(methods);
     setPaymentMethodTotals(methodTotals);
+    setRecurringExpenses(recurring);
+    setRecurringDecisions(decisions);
     setExpenses(exps);
     setIncomes(incs);
     setExpenseNames(allExpenseNames);
@@ -130,7 +177,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     setPeriodCategoryExpensesTotals(totals);
     setPeriodIncomesTotal(incomesTotal);
     setPeriodHistory(history);
+    setHasRefreshed(true);
   }, [selectedPeriodId]);
+
+  useEffect(() => {
+    if (!isReady || !hasRefreshed) return;
+    const today = toIsoDate(new Date());
+    db.getUpcomingRecurringConfirmations(addIsoDays(today, 365), today)
+      .then(syncRecurringNotifications)
+      .catch(() => undefined);
+  }, [hasRefreshed, isReady, recurringNotificationKey]);
 
   useEffect(() => {
     async function initialize() {
@@ -220,10 +276,91 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const reconcileCreditCardCycle = useCallback(async (
+    id: number,
+    data: ReconcileCreditCardCycle
+  ) => {
+    await db.reconcileCreditCardCycle(id, data);
+    await refresh();
+  }, [refresh]);
+
+  const unreconcileCreditCardCycle = useCallback(async (id: number) => {
+    await db.unreconcileCreditCardCycle(id);
+    await refresh();
+  }, [refresh]);
+
+  const addRecurringExpense = useCallback(async (data: NewRecurringExpense) => {
+    await db.createRecurringExpense(data);
+    await refresh();
+  }, [refresh]);
+
+  const editRecurringExpense = useCallback(async (id: number, data: NewRecurringExpense) => {
+    await db.updateRecurringExpense(id, data);
+    await refresh();
+  }, [refresh]);
+
+  const setRecurringExpenseActive = useCallback(async (id: number, active: boolean) => {
+    await db.setRecurringExpenseActive(id, active);
+    await refresh();
+  }, [refresh]);
+
+  const removeRecurringExpense = useCallback(async (id: number) => {
+    await db.deleteRecurringExpense(id);
+    await refresh();
+  }, [refresh]);
+
+  const approveRecurringOccurrence = useCallback(async (
+    recurringExpenseId: number,
+    scheduledDate: string
+  ) => {
+    await db.approveRecurringOccurrence(recurringExpenseId, scheduledDate);
+    await refresh();
+  }, [refresh]);
+
+  const skipRecurringOccurrence = useCallback(async (
+    recurringExpenseId: number,
+    scheduledDate: string
+  ) => {
+    await db.skipRecurringOccurrence(recurringExpenseId, scheduledDate);
+    await refresh();
+  }, [refresh]);
+
+  const dismissSkippedOccurrence = useCallback(async (
+    recurringExpenseId: number,
+    scheduledDate: string
+  ) => {
+    await db.dismissSkippedOccurrence(recurringExpenseId, scheduledDate);
+    await refresh();
+  }, [refresh]);
+
+  const markRecurringOccurrencePending = useCallback(async (
+    recurringExpenseId: number,
+    scheduledDate: string
+  ) => {
+    await db.markRecurringOccurrencePending(recurringExpenseId, scheduledDate);
+    await refresh();
+  }, [refresh]);
+
+  const retryRecurringOccurrence = useCallback(async (
+    recurringExpenseId: number,
+    scheduledDate: string
+  ) => {
+    await db.restoreRecurringOccurrence(recurringExpenseId, scheduledDate);
+    try {
+      await db.approveRecurringOccurrence(recurringExpenseId, scheduledDate);
+    } finally {
+      await refresh();
+    }
+  }, [refresh]);
+
   const addExpense = useCallback(
-    async (data: NewExpense) => {
+    async (data: NewExpense, recurringSchedule?: NewRecurringSchedule) => {
       if (selectedPeriodId == null) throw new Error('No hay un período seleccionado');
-      await db.createExpense(data, selectedPeriodId);
+      if (recurringSchedule) {
+        await db.createExpenseWithRecurrence(data, recurringSchedule, selectedPeriodId);
+      } else {
+        await db.createExpense(data, selectedPeriodId);
+      }
       await refresh();
     },
     [refresh, selectedPeriodId]
@@ -311,6 +448,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       categories,
       paymentMethods,
       paymentMethodTotals,
+      recurringExpenses,
+      recurringDecisions,
       expenses,
       incomes,
       expenseNames,
@@ -338,6 +477,17 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       getCreditCardCycles,
       addCreditCardCycle,
       editCreditCardCycle,
+      reconcileCreditCardCycle,
+      unreconcileCreditCardCycle,
+      addRecurringExpense,
+      editRecurringExpense,
+      setRecurringExpenseActive,
+      removeRecurringExpense,
+      approveRecurringOccurrence,
+      skipRecurringOccurrence,
+      dismissSkippedOccurrence,
+      markRecurringOccurrencePending,
+      retryRecurringOccurrence,
       addExpense,
       editExpense,
       removeExpense,
@@ -351,6 +501,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       categories,
       paymentMethods,
       paymentMethodTotals,
+      recurringExpenses,
+      recurringDecisions,
       expenses,
       incomes,
       expenseNames,
@@ -378,6 +530,17 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       getCreditCardCycles,
       addCreditCardCycle,
       editCreditCardCycle,
+      reconcileCreditCardCycle,
+      unreconcileCreditCardCycle,
+      addRecurringExpense,
+      editRecurringExpense,
+      setRecurringExpenseActive,
+      removeRecurringExpense,
+      approveRecurringOccurrence,
+      skipRecurringOccurrence,
+      dismissSkippedOccurrence,
+      markRecurringOccurrencePending,
+      retryRecurringOccurrence,
       addExpense,
       editExpense,
       removeExpense,

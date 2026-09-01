@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
-import type { Category, CreditCardCycle, ExpenseWithCategory, Income, NewCategory, NewCreditCardCycle, NewExpense, NewIncome, NewPaymentMethod, NewPeriod, PaymentMethod, PaymentMethodTotal, Period, PeriodCategoryExpensesTotals, PeriodHistory, PeriodStatement, Settings } from './types';
+import { addIsoDays, getOccurrenceDates } from './recurrence';
+import type { Category, CreditCardCycle, ExpenseWithCategory, GeneratedRecurringExpenseNotification, Income, NewCategory, NewCreditCardCycle, NewExpense, NewIncome, NewPaymentMethod, NewPeriod, NewRecurringExpense, NewRecurringSchedule, PaymentMethod, PaymentMethodTotal, Period, PeriodCategoryExpensesTotals, PeriodHistory, PeriodStatement, ReconcileCreditCardCycle, RecurringConfirmationSchedule, RecurringDecisionItem, RecurringExpense, RecurringOccurrenceStatus, Settings } from './types';
 
 const DATABASE_NAME = 'gastos.db';
 
@@ -248,6 +249,123 @@ async function assertUniqueCategoryFields(
   }
 }
 
+function recurringExecutionDay(date: string, frequency: RecurringExpense['frequency']): number | null {
+  if (frequency !== 'monthly' && frequency !== 'custom') return null;
+  return Number(date.slice(8, 10));
+}
+
+async function syncRecurringSourceExpenses(db: SQLite.SQLiteDatabase): Promise<void> {
+  await db.runAsync(`
+    UPDATE recurring_expenses
+    SET source_expense_id = (
+      SELECT occurrence.expense_id
+      FROM recurring_expense_occurrences occurrence
+      WHERE occurrence.recurring_expense_id = recurring_expenses.id
+        AND occurrence.scheduled_date = recurring_expenses.start_date
+        AND occurrence.status = 'generated'
+        AND occurrence.expense_id IS NOT NULL
+      ORDER BY occurrence.id ASC
+      LIMIT 1
+    )
+    WHERE source_expense_id IS NULL
+      AND EXISTS (
+        SELECT 1
+        FROM recurring_expense_occurrences occurrence
+        WHERE occurrence.recurring_expense_id = recurring_expenses.id
+          AND occurrence.scheduled_date = recurring_expenses.start_date
+          AND occurrence.status = 'generated'
+          AND occurrence.expense_id IS NOT NULL
+      )
+  `);
+
+  const sources = await db.getAllAsync<{
+    id: number;
+    frequency: RecurringExpense['frequency'];
+    start_date: string;
+    source_expense_id: number;
+    name: string;
+    amount: number;
+    original_amount: number | null;
+    split_percentage: number | null;
+    category_id: number | null;
+    payment_method_id: number | null;
+    date: string;
+  }>(`
+    SELECT
+      recurring.id,
+      recurring.frequency,
+      recurring.start_date,
+      recurring.source_expense_id,
+      expense.name,
+      expense.amount,
+      expense.original_amount,
+      expense.split_percentage,
+      expense.category_id,
+      expense.payment_method_id,
+      expense.date
+    FROM recurring_expenses recurring
+    INNER JOIN expenses expense ON expense.id = recurring.source_expense_id
+  `);
+
+  for (const source of sources) {
+    await db.withExclusiveTransactionAsync(async (transaction) => {
+      if (source.date !== source.start_date) {
+        const collision = await transaction.getFirstAsync<{ id: number }>(
+          `SELECT id FROM recurring_expense_occurrences
+           WHERE recurring_expense_id = ? AND scheduled_date = ? AND expense_id != ?`,
+          source.id,
+          source.date,
+          source.source_expense_id
+        );
+        if (!collision) {
+          await transaction.runAsync(
+            `UPDATE recurring_expense_occurrences
+             SET scheduled_date = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE recurring_expense_id = ? AND expense_id = ?`,
+            source.date,
+            source.id,
+            source.source_expense_id
+          );
+          await transaction.runAsync(
+            `DELETE FROM recurring_expense_occurrences
+             WHERE recurring_expense_id = ? AND status != 'generated'`,
+            source.id
+          );
+        }
+      }
+
+      await transaction.runAsync(
+        `UPDATE recurring_expenses SET
+          name = ?, amount = ?, original_amount = ?, split_percentage = ?,
+          category_id = ?, payment_method_id = ?,
+          start_date = CASE
+            WHEN NOT EXISTS (
+              SELECT 1 FROM recurring_expense_occurrences
+              WHERE recurring_expense_id = ? AND scheduled_date = ? AND expense_id != ?
+            ) THEN ? ELSE start_date END,
+          execution_day = ?,
+          end_date = CASE WHEN end_date IS NOT NULL AND end_date < ? THEN ? ELSE end_date END,
+          updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        source.name,
+        source.amount,
+        source.original_amount,
+        source.split_percentage,
+        source.category_id,
+        source.payment_method_id,
+        source.id,
+        source.date,
+        source.source_expense_id,
+        source.date,
+        recurringExecutionDay(source.date, source.frequency),
+        source.date,
+        source.date,
+        source.id
+      );
+    });
+  }
+}
+
 export async function initDatabase(): Promise<void> {
   const db = await getDb();
 
@@ -317,7 +435,48 @@ export async function initDatabase(): Promise<void> {
       end_date TEXT NOT NULL,
       statement_amount INTEGER,
       status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reconciled')),
+      bank_charge_expense_id INTEGER,
+      adjustment_expense_id INTEGER,
+      reconciled_at TEXT,
       FOREIGN KEY(payment_method_id) REFERENCES payment_methods(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS recurring_expenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      original_amount INTEGER,
+      split_percentage REAL,
+      category_id INTEGER,
+      payment_method_id INTEGER,
+      frequency TEXT NOT NULL CHECK (frequency IN ('weekly', 'monthly', 'annual', 'custom')),
+      interval_months INTEGER NOT NULL DEFAULT 1,
+      execution_basis TEXT NOT NULL DEFAULT 'calendar' CHECK (execution_basis = 'calendar'),
+      execution_day INTEGER,
+      registration_mode TEXT NOT NULL CHECK (registration_mode IN ('automatic', 'confirmation')),
+      start_date TEXT NOT NULL,
+      end_date TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      source_expense_id INTEGER,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
+      FOREIGN KEY(payment_method_id) REFERENCES payment_methods(id) ON DELETE SET NULL,
+      FOREIGN KEY(source_expense_id) REFERENCES expenses(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS recurring_expense_occurrences (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recurring_expense_id INTEGER NOT NULL,
+      scheduled_date TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('scheduled', 'pending', 'generated', 'skipped')),
+      expense_id INTEGER,
+      dismissed INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(recurring_expense_id, scheduled_date),
+      FOREIGN KEY(recurring_expense_id) REFERENCES recurring_expenses(id) ON DELETE CASCADE,
+      FOREIGN KEY(expense_id) REFERENCES expenses(id) ON DELETE SET NULL
     );
 
   `);
@@ -340,6 +499,18 @@ export async function initDatabase(): Promise<void> {
   if (!expenseColumns.some((column) => column.name === 'payment_method_id')) {
     await db.execAsync('ALTER TABLE expenses ADD COLUMN payment_method_id INTEGER;');
   }
+  if (!expenseColumns.some((column) => column.name === 'recurring_expense_id')) {
+    await db.execAsync('ALTER TABLE expenses ADD COLUMN recurring_expense_id INTEGER;');
+  }
+
+  const recurringOccurrenceColumns = await db.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(recurring_expense_occurrences)'
+  );
+  if (!recurringOccurrenceColumns.some((column) => column.name === 'dismissed')) {
+    await db.execAsync(
+      'ALTER TABLE recurring_expense_occurrences ADD COLUMN dismissed INTEGER NOT NULL DEFAULT 0;'
+    );
+  }
 
   const paymentMethodColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(payment_methods)'
@@ -348,12 +519,55 @@ export async function initDatabase(): Promise<void> {
     await db.execAsync("ALTER TABLE payment_methods ADD COLUMN color TEXT NOT NULL DEFAULT '#0a7ea4';");
   }
 
+  const creditCardCycleColumns = await db.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(credit_card_cycles)'
+  );
+  if (!creditCardCycleColumns.some((column) => column.name === 'bank_charge_expense_id')) {
+    await db.execAsync('ALTER TABLE credit_card_cycles ADD COLUMN bank_charge_expense_id INTEGER;');
+  }
+  if (!creditCardCycleColumns.some((column) => column.name === 'adjustment_expense_id')) {
+    await db.execAsync('ALTER TABLE credit_card_cycles ADD COLUMN adjustment_expense_id INTEGER;');
+  }
+  if (!creditCardCycleColumns.some((column) => column.name === 'reconciled_at')) {
+    await db.execAsync('ALTER TABLE credit_card_cycles ADD COLUMN reconciled_at TEXT;');
+  }
+
   const currentSettingsColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(settings)'
   );
   if (!currentSettingsColumns.some((column) => column.name === 'default_payment_method_id')) {
     await db.execAsync('ALTER TABLE settings ADD COLUMN default_payment_method_id INTEGER;');
   }
+
+  await db.runAsync(
+    "UPDATE recurring_expenses SET execution_basis = 'calendar' WHERE execution_basis != 'calendar'"
+  );
+
+  await syncRecurringSourceExpenses(db);
+
+  await db.runAsync(`
+    UPDATE recurring_expense_occurrences
+    SET status = 'pending', updated_at = CURRENT_TIMESTAMP
+    WHERE status = 'generated'
+      AND expense_id IS NULL
+      AND EXISTS (
+        SELECT 1 FROM recurring_expenses recurring
+        WHERE recurring.id = recurring_expense_occurrences.recurring_expense_id
+          AND recurring.source_expense_id IS NOT NULL
+          AND recurring.registration_mode = 'confirmation'
+      )
+  `);
+  await db.runAsync(`
+    DELETE FROM recurring_expense_occurrences
+    WHERE status = 'generated'
+      AND expense_id IS NULL
+      AND EXISTS (
+        SELECT 1 FROM recurring_expenses recurring
+        WHERE recurring.id = recurring_expense_occurrences.recurring_expense_id
+          AND recurring.source_expense_id IS NOT NULL
+          AND recurring.registration_mode = 'automatic'
+      )
+  `);
 
   await db.execAsync(`
     CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
@@ -364,7 +578,10 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_expenses_period_category ON expenses(period_id, category_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_period_date ON expenses(period_id, date);
     CREATE INDEX IF NOT EXISTS idx_expenses_payment_method ON expenses(payment_method_id);
+    CREATE INDEX IF NOT EXISTS idx_expenses_recurring ON expenses(recurring_expense_id);
     CREATE INDEX IF NOT EXISTS idx_credit_cycles_method_end ON credit_card_cycles(payment_method_id, end_date);
+    CREATE INDEX IF NOT EXISTS idx_recurring_active ON recurring_expenses(active);
+    CREATE INDEX IF NOT EXISTS idx_recurring_occurrence_date ON recurring_expense_occurrences(recurring_expense_id, scheduled_date);
 
     INSERT OR IGNORE INTO periods (id, start_date, end_date)
     VALUES (
@@ -665,8 +882,12 @@ export async function getCreditCardCycles(paymentMethodId: number): Promise<Cred
        cc.end_date AS endDate,
        cc.statement_amount AS statementAmount,
        cc.status,
+       COALESCE(bank_charge.amount, 0) AS bankChargeAmount,
+       COALESCE(adjustment.amount, 0) AS adjustmentAmount,
        COALESCE(SUM(e.amount), 0) AS recordedTotal
      FROM credit_card_cycles cc
+     LEFT JOIN expenses bank_charge ON bank_charge.id = cc.bank_charge_expense_id
+     LEFT JOIN expenses adjustment ON adjustment.id = cc.adjustment_expense_id
      LEFT JOIN expenses e
        ON e.payment_method_id = cc.payment_method_id
       AND e.date >= cc.start_date
@@ -728,6 +949,152 @@ export async function updateCreditCardCycle(
   );
 }
 
+async function getOrCreateBankFeesCategory(transaction: SQLite.SQLiteDatabase): Promise<number> {
+  const existing = await transaction.getFirstAsync<{ id: number }>(
+    "SELECT id FROM categories WHERE name = 'Comisiones Bancarias'"
+  );
+  if (existing) return existing.id;
+  const palette = ['#7c3aed', '#6d28d9', '#5b21b6', '#4338ca', '#3730a3'];
+  let color = palette[0];
+  for (const candidate of palette) {
+    const used = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT id FROM categories WHERE color = ?',
+      candidate
+    );
+    if (!used) {
+      color = candidate;
+      break;
+    }
+  }
+  const result = await transaction.runAsync(
+    `INSERT INTO categories (name, color, period_limit)
+     VALUES ('Comisiones Bancarias', ?, NULL)`,
+    color
+  );
+  return result.lastInsertRowId;
+}
+
+export async function reconcileCreditCardCycle(
+  id: number,
+  data: ReconcileCreditCardCycle
+): Promise<void> {
+  if (!Number.isFinite(data.statementAmount) || data.statementAmount < 0) {
+    throw new Error('Ingresa el monto real facturado');
+  }
+  if (!Number.isFinite(data.bankChargeAmount) || data.bankChargeAmount < 0) {
+    throw new Error('El cargo bancario no es válido');
+  }
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    const cycle = await transaction.getFirstAsync<{
+      id: number;
+      payment_method_id: number;
+      end_date: string;
+      status: CreditCardCycle['status'];
+      recorded_total: number;
+    }>(
+      `SELECT
+        cycle.id,
+        cycle.payment_method_id,
+        cycle.end_date,
+        cycle.status,
+        COALESCE(SUM(expense.amount), 0) AS recorded_total
+       FROM credit_card_cycles cycle
+       LEFT JOIN expenses expense
+         ON expense.payment_method_id = cycle.payment_method_id
+        AND expense.date >= cycle.start_date
+        AND expense.date <= cycle.end_date
+       WHERE cycle.id = ?
+       GROUP BY cycle.id`,
+      id
+    );
+    if (!cycle) throw new Error('El ciclo ya no existe');
+    if (cycle.status === 'reconciled') throw new Error('Este ciclo ya está consolidado');
+
+    const period = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT id FROM periods WHERE start_date <= ? AND end_date >= ? ORDER BY start_date DESC LIMIT 1',
+      cycle.end_date,
+      cycle.end_date
+    );
+    if (!period) throw new Error('No existe un período que incluya la fecha de facturación');
+    const categoryId = await getOrCreateBankFeesCategory(transaction);
+    let bankChargeExpenseId: number | null = null;
+    if (data.bankChargeAmount > 0) {
+      const result = await transaction.runAsync(
+        `INSERT INTO expenses
+          (name, amount, category_id, period_id, date, original_amount, split_percentage,
+           payment_method_id, recurring_expense_id)
+         VALUES ('Mantención / Comisiones', ?, ?, ?, ?, NULL, NULL, ?, NULL)`,
+        data.bankChargeAmount,
+        categoryId,
+        period.id,
+        cycle.end_date,
+        cycle.payment_method_id
+      );
+      bankChargeExpenseId = result.lastInsertRowId;
+    }
+
+    const adjustmentAmount = data.statementAmount - cycle.recorded_total - data.bankChargeAmount;
+    let adjustmentExpenseId: number | null = null;
+    if (adjustmentAmount !== 0) {
+      const result = await transaction.runAsync(
+        `INSERT INTO expenses
+          (name, amount, category_id, period_id, date, original_amount, split_percentage,
+           payment_method_id, recurring_expense_id)
+         VALUES ('Diferencia de Facturación / Intereses', ?, ?, ?, ?, NULL, NULL, ?, NULL)`,
+        adjustmentAmount,
+        categoryId,
+        period.id,
+        cycle.end_date,
+        cycle.payment_method_id
+      );
+      adjustmentExpenseId = result.lastInsertRowId;
+    }
+
+    await transaction.runAsync(
+      `UPDATE credit_card_cycles
+       SET statement_amount = ?, status = 'reconciled', bank_charge_expense_id = ?,
+           adjustment_expense_id = ?, reconciled_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      data.statementAmount,
+      bankChargeExpenseId,
+      adjustmentExpenseId,
+      id
+    );
+  });
+}
+
+export async function unreconcileCreditCardCycle(id: number): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    const cycle = await transaction.getFirstAsync<{
+      status: CreditCardCycle['status'];
+      bank_charge_expense_id: number | null;
+      adjustment_expense_id: number | null;
+    }>(
+      `SELECT status, bank_charge_expense_id, adjustment_expense_id
+       FROM credit_card_cycles WHERE id = ?`,
+      id
+    );
+    if (!cycle) throw new Error('El estado de cuenta ya no existe');
+    if (cycle.status !== 'reconciled') return;
+
+    await transaction.runAsync(
+      `UPDATE credit_card_cycles
+       SET status = 'pending', bank_charge_expense_id = NULL,
+           adjustment_expense_id = NULL, reconciled_at = NULL
+       WHERE id = ?`,
+      id
+    );
+    if (cycle.bank_charge_expense_id != null) {
+      await transaction.runAsync('DELETE FROM expenses WHERE id = ?', cycle.bank_charge_expense_id);
+    }
+    if (cycle.adjustment_expense_id != null) {
+      await transaction.runAsync('DELETE FROM expenses WHERE id = ?', cycle.adjustment_expense_id);
+    }
+  });
+}
+
 export async function getExpenses(periodId?: number): Promise<ExpenseWithCategory[]> {
   const targetPeriodId = periodId ?? await getCurrentPeriodId();
   const db = await getDb();
@@ -745,6 +1112,7 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
         e.original_amount AS originalAmount,
         e.split_percentage AS splitPercentage,
         e.payment_method_id AS paymentMethodId,
+        e.recurring_expense_id AS recurringExpenseId,
 
         c.name AS categoryName,
         c.color AS categoryColor,
@@ -772,6 +1140,34 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
   return rows as ExpenseWithCategory[];
 }
 
+export async function getExpenseById(id: number): Promise<ExpenseWithCategory | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<ExpenseWithCategory>(
+    `SELECT
+      e.id,
+      e.name,
+      e.amount,
+      e.category_id AS categoryId,
+      e.period_id AS periodId,
+      e.date,
+      e.original_amount AS originalAmount,
+      e.split_percentage AS splitPercentage,
+      e.payment_method_id AS paymentMethodId,
+      e.recurring_expense_id AS recurringExpenseId,
+      c.name AS categoryName,
+      c.color AS categoryColor,
+      pm.name AS paymentMethodName,
+      pm.type AS paymentMethodType,
+      pm.color AS paymentMethodColor
+     FROM expenses e
+     LEFT JOIN categories c ON c.id = e.category_id
+     LEFT JOIN payment_methods pm ON pm.id = e.payment_method_id
+     WHERE e.id = ?`,
+    id
+  );
+  return row ?? null;
+}
+
 export async function getExpenseNames(): Promise<string[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<{ name: string }>(
@@ -785,16 +1181,40 @@ export async function getExpenseNames(): Promise<string[]> {
   return rows.map((row) => row.name);
 }
 
+async function assertCreditCardCycleIsEditable(
+  db: SQLite.SQLiteDatabase,
+  paymentMethodId: number | null,
+  date: string
+): Promise<void> {
+  if (paymentMethodId == null) return;
+  const reconciledCycle = await db.getFirstAsync<{ id: number }>(
+    `SELECT id
+     FROM credit_card_cycles
+     WHERE payment_method_id = ?
+       AND status = 'reconciled'
+       AND start_date <= ?
+       AND end_date >= ?
+     LIMIT 1`,
+    paymentMethodId,
+    date,
+    date
+  );
+  if (reconciledCycle) {
+    throw new Error('Este gasto pertenece a un estado de cuenta consolidado y no se puede modificar');
+  }
+}
+
 export async function createExpense(
   data: NewExpense,
   periodId?: number
-): Promise<void> {
+): Promise<number> {
   const targetPeriodId = periodId ?? await getCurrentPeriodId();
 
   const db = await getDb();
   await assertDateBelongsToPeriod(db, targetPeriodId, data.date);
+  await assertCreditCardCycleIsEditable(db, data.paymentMethodId, data.date);
 
-  await db.runAsync(
+  const result = await db.runAsync(
     `
     INSERT INTO expenses (
       name,
@@ -817,6 +1237,7 @@ export async function createExpense(
     data.splitPercentage
     ,data.paymentMethodId
   );
+  return result.lastInsertRowId;
 }
 
 export async function updateExpense(
@@ -825,49 +1246,702 @@ export async function updateExpense(
 ): Promise<void> {
 
   const db = await getDb();
-  const expense = await db.getFirstAsync<{ period_id: number }>(
-    'SELECT period_id FROM expenses WHERE id = ?',
+  const expense = await db.getFirstAsync<{
+    period_id: number;
+    date: string;
+    payment_method_id: number | null;
+    recurring_expense_id: number | null;
+  }>(
+    'SELECT period_id, date, payment_method_id, recurring_expense_id FROM expenses WHERE id = ?',
     id
   );
   if (!expense) throw new Error('El gasto ya no existe');
   await assertDateBelongsToPeriod(db, expense.period_id, data.date);
+  await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
+  await assertCreditCardCycleIsEditable(db, data.paymentMethodId, data.date);
 
-  await db.runAsync(
-    `
-    UPDATE expenses
-    SET
-      name = ?,
-      amount = ?,
-      category_id = ?,
-      date = ?,
-      original_amount = ?,
-      split_percentage = ?
-      ,payment_method_id = ?
-    WHERE id = ?
-    `,
-    data.name.trim(),
-    data.amount,
-    data.categoryId,
-    data.date,
-    data.originalAmount,
-    data.splitPercentage,
-    data.paymentMethodId,
-    id
-  );
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync(
+      `UPDATE expenses SET
+        name = ?, amount = ?, category_id = ?, date = ?,
+        original_amount = ?, split_percentage = ?, payment_method_id = ?
+       WHERE id = ?`,
+      data.name.trim(),
+      data.amount,
+      data.categoryId,
+      data.date,
+      data.originalAmount,
+      data.splitPercentage,
+      data.paymentMethodId,
+      id
+    );
+
+    if (expense.recurring_expense_id == null) return;
+    const recurring = await transaction.getFirstAsync<{
+      id: number;
+      frequency: RecurringExpense['frequency'];
+      source_expense_id: number | null;
+    }>(
+      `SELECT id, frequency, source_expense_id
+       FROM recurring_expenses
+       WHERE id = ? AND (
+         source_expense_id = ? OR (
+           source_expense_id IS NULL AND EXISTS (
+             SELECT 1 FROM recurring_expense_occurrences
+             WHERE recurring_expense_id = recurring_expenses.id
+               AND expense_id = ?
+               AND scheduled_date = recurring_expenses.start_date
+           )
+         )
+       )`,
+      expense.recurring_expense_id,
+      id,
+      id
+    );
+    if (!recurring) return;
+
+    if (data.date !== expense.date) {
+      const collision = await transaction.getFirstAsync(
+        `SELECT id FROM recurring_expense_occurrences
+         WHERE recurring_expense_id = ? AND scheduled_date = ? AND expense_id != ?`,
+        recurring.id,
+        data.date,
+        id
+      );
+      if (collision) {
+        throw new Error('La recurrencia ya tiene otra ejecución en la nueva fecha');
+      }
+      await transaction.runAsync(
+        `UPDATE recurring_expense_occurrences
+         SET scheduled_date = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE recurring_expense_id = ? AND expense_id = ?`,
+        data.date,
+        recurring.id,
+        id
+      );
+      await transaction.runAsync(
+        `DELETE FROM recurring_expense_occurrences
+         WHERE recurring_expense_id = ? AND status != 'generated'`,
+        recurring.id
+      );
+    }
+
+    await transaction.runAsync(
+      `UPDATE recurring_expenses SET
+        name = ?, amount = ?, original_amount = ?, split_percentage = ?,
+        category_id = ?, payment_method_id = ?, start_date = ?, execution_day = ?,
+        end_date = CASE WHEN end_date IS NOT NULL AND end_date < ? THEN ? ELSE end_date END,
+        source_expense_id = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      data.name.trim(),
+      data.amount,
+      data.originalAmount,
+      data.splitPercentage,
+      data.categoryId,
+      data.paymentMethodId,
+      data.date,
+      recurringExecutionDay(data.date, recurring.frequency),
+      data.date,
+      data.date,
+      id,
+      recurring.id
+    );
+  });
 }
 
 export async function deleteExpense(
   id:number
 ): Promise<void> {
   const db = await getDb();
-
-  await db.runAsync(
-    `
-    DELETE FROM expenses
-    WHERE id = ?
-    `,
+  const expense = await db.getFirstAsync<{ date: string; payment_method_id: number | null }>(
+    'SELECT date, payment_method_id FROM expenses WHERE id = ?',
     id
   );
+  if (!expense) return;
+  await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    const recurringOccurrence = await transaction.getFirstAsync<{
+      occurrence_id: number;
+      recurring_expense_id: number;
+      source_expense_id: number | null;
+      registration_mode: RecurringExpense['registrationMode'];
+    }>(
+      `SELECT
+        occurrence.id AS occurrence_id,
+        occurrence.recurring_expense_id,
+        recurring.source_expense_id,
+        recurring.registration_mode
+       FROM recurring_expense_occurrences occurrence
+       INNER JOIN recurring_expenses recurring ON recurring.id = occurrence.recurring_expense_id
+       WHERE occurrence.expense_id = ? AND occurrence.status = 'generated'
+       LIMIT 1`,
+      id
+    );
+
+    await transaction.runAsync('DELETE FROM expenses WHERE id = ?', id);
+
+    if (!recurringOccurrence || recurringOccurrence.source_expense_id === id) return;
+    if (recurringOccurrence.registration_mode === 'confirmation') {
+      await transaction.runAsync(
+        `UPDATE recurring_expense_occurrences
+         SET status = 'pending', expense_id = NULL, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        recurringOccurrence.occurrence_id
+      );
+    } else {
+      await transaction.runAsync(
+        'DELETE FROM recurring_expense_occurrences WHERE id = ?',
+        recurringOccurrence.occurrence_id
+      );
+    }
+  });
+}
+
+function validateRecurringExpense(data: NewRecurringExpense): void {
+  if (!data.name.trim()) throw new Error('Ingresa un nombre para el gasto recurrente');
+  if (!Number.isFinite(data.amount) || data.amount <= 0) throw new Error('Ingresa un monto válido');
+  if (data.frequency === 'custom' && (!Number.isInteger(data.intervalMonths) || data.intervalMonths < 1)) {
+    throw new Error('El intervalo personalizado debe ser de al menos un mes');
+  }
+  if (
+    (data.frequency === 'monthly' || data.frequency === 'custom') &&
+    (data.executionDay == null || !Number.isInteger(data.executionDay) || data.executionDay < 1 || data.executionDay > 31)
+  ) {
+    throw new Error('Ingresa un día de ejecución válido');
+  }
+  if (data.endDate && data.endDate < data.startDate) {
+    throw new Error('La fecha de fin no puede ser anterior al inicio');
+  }
+}
+
+function mapRecurringExpense(row: Record<string, unknown>): RecurringExpense {
+  return {
+    id: Number(row.id),
+    name: String(row.name),
+    amount: Number(row.amount),
+    originalAmount: row.original_amount == null ? null : Number(row.original_amount),
+    splitPercentage: row.split_percentage == null ? null : Number(row.split_percentage),
+    categoryId: row.category_id == null ? null : Number(row.category_id),
+    paymentMethodId: row.payment_method_id == null ? null : Number(row.payment_method_id),
+    frequency: row.frequency as RecurringExpense['frequency'],
+    intervalMonths: Number(row.interval_months),
+    executionDay: row.execution_day == null ? null : Number(row.execution_day),
+    registrationMode: row.registration_mode as RecurringExpense['registrationMode'],
+    startDate: String(row.start_date),
+    endDate: row.end_date == null ? null : String(row.end_date),
+    active: Number(row.active) === 1,
+    sourceExpenseId: row.source_expense_id == null ? null : Number(row.source_expense_id),
+    categoryName: row.category_name == null ? null : String(row.category_name),
+    categoryColor: row.category_color == null ? null : String(row.category_color),
+    paymentMethodName: row.payment_method_name == null ? null : String(row.payment_method_name),
+    paymentMethodColor: row.payment_method_color == null ? null : String(row.payment_method_color),
+    nextDate: null,
+    pendingCount: 0,
+  };
+}
+
+async function getRecurringRows(db: SQLite.SQLiteDatabase): Promise<RecurringExpense[]> {
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT
+       r.*,
+       c.name AS category_name,
+       c.color AS category_color,
+       pm.name AS payment_method_name,
+       pm.color AS payment_method_color
+     FROM recurring_expenses r
+     LEFT JOIN categories c ON c.id = r.category_id
+     LEFT JOIN payment_methods pm ON pm.id = r.payment_method_id
+     ORDER BY r.active DESC, r.name COLLATE NOCASE ASC`
+  );
+  return rows.map(mapRecurringExpense);
+}
+
+export async function getRecurringExpenses(): Promise<RecurringExpense[]> {
+  const db = await getDb();
+  const [rules, occurrences] = await Promise.all([
+    getRecurringRows(db),
+    db.getAllAsync<{
+      recurring_expense_id: number;
+      scheduled_date: string;
+      status: RecurringOccurrenceStatus;
+    }>('SELECT recurring_expense_id, scheduled_date, status FROM recurring_expense_occurrences'),
+  ]);
+  const today = toLocalIsoDate(new Date());
+  const horizon = addIsoDays(today, 3660);
+
+  return rules.map((rule) => {
+    const ruleOccurrences = occurrences.filter((item) => item.recurring_expense_id === rule.id);
+    const statuses = new Map(ruleOccurrences.map((item) => [item.scheduled_date, item.status]));
+    const overduePending = ruleOccurrences
+      .filter((item) => item.status === 'pending')
+      .map((item) => item.scheduled_date)
+      .sort()[0] ?? null;
+    const nextDate = overduePending ?? getOccurrenceDates(rule, today, horizon, 5000)
+      .find((date) => !['generated', 'skipped'].includes(statuses.get(date) ?? '')) ?? null;
+    return {
+      ...rule,
+      nextDate,
+      pendingCount: ruleOccurrences.filter((item) => item.status === 'pending').length,
+    };
+  });
+}
+
+export async function getRecurringDecisionItems(): Promise<RecurringDecisionItem[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{
+    recurring_expense_id: number;
+    name: string;
+    amount: number;
+    scheduled_date: string;
+    status: 'pending' | 'skipped';
+  }>(
+    `SELECT
+       o.recurring_expense_id,
+       r.name,
+       r.amount,
+       o.scheduled_date,
+       o.status
+     FROM recurring_expense_occurrences o
+     INNER JOIN recurring_expenses r ON r.id = o.recurring_expense_id
+     WHERE o.status IN ('pending', 'skipped') AND o.dismissed = 0
+     ORDER BY CASE o.status WHEN 'pending' THEN 0 ELSE 1 END,
+              o.scheduled_date DESC
+     LIMIT 200`
+  );
+  return rows.map((row) => ({
+    recurringExpenseId: row.recurring_expense_id,
+    name: row.name,
+    amount: row.amount,
+    scheduledDate: row.scheduled_date,
+    status: row.status,
+  }));
+}
+
+function recurringInsertValues(data: NewRecurringExpense) {
+  return [
+    data.name.trim(),
+    data.amount,
+    data.originalAmount,
+    data.splitPercentage,
+    data.categoryId,
+    data.paymentMethodId,
+    data.frequency,
+    data.frequency === 'custom' ? data.intervalMonths : 1,
+    'calendar',
+    data.executionDay,
+    data.registrationMode,
+    data.startDate,
+    data.endDate,
+    data.active ? 1 : 0,
+    data.sourceExpenseId ?? null,
+  ] as const;
+}
+
+const RECURRING_INSERT_SQL = `INSERT INTO recurring_expenses (
+  name, amount, original_amount, split_percentage, category_id, payment_method_id,
+  frequency, interval_months, execution_basis, execution_day, registration_mode,
+  start_date, end_date, active, source_expense_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+export async function createRecurringExpense(data: NewRecurringExpense): Promise<number> {
+  validateRecurringExpense(data);
+  const db = await getDb();
+  let createdId = 0;
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    let sourceDate: string | null = null;
+    if (data.sourceExpenseId != null) {
+      const source = await transaction.getFirstAsync<{ date: string }>(
+        'SELECT date FROM expenses WHERE id = ?',
+        data.sourceExpenseId
+      );
+      if (!source) throw new Error('El gasto de origen ya no existe');
+      sourceDate = source.date;
+    }
+    const result = await transaction.runAsync(RECURRING_INSERT_SQL, ...recurringInsertValues(data));
+    createdId = result.lastInsertRowId;
+    if (data.sourceExpenseId != null) {
+      await transaction.runAsync(
+        'UPDATE expenses SET recurring_expense_id = ? WHERE id = ?',
+        result.lastInsertRowId,
+        data.sourceExpenseId
+      );
+      if (sourceDate === data.startDate) {
+        await transaction.runAsync(
+          `INSERT INTO recurring_expense_occurrences
+            (recurring_expense_id, scheduled_date, status, expense_id)
+           VALUES (?, ?, 'generated', ?)`,
+          result.lastInsertRowId,
+          data.startDate,
+          data.sourceExpenseId
+        );
+      }
+    }
+  });
+  return createdId;
+}
+
+export async function createExpenseWithRecurrence(
+  expense: NewExpense,
+  schedule: NewRecurringSchedule,
+  periodId: number
+): Promise<number> {
+  const recurrence: NewRecurringExpense = { ...expense, ...schedule, sourceExpenseId: null };
+  validateRecurringExpense(recurrence);
+  if (schedule.startDate !== expense.date) {
+    throw new Error('La recurrencia debe comenzar en la fecha del gasto');
+  }
+  const db = await getDb();
+  await assertDateBelongsToPeriod(db, periodId, expense.date);
+  await assertCreditCardCycleIsEditable(db, expense.paymentMethodId, expense.date);
+  let createdExpenseId = 0;
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    const recurringResult = await transaction.runAsync(
+      RECURRING_INSERT_SQL,
+      ...recurringInsertValues(recurrence)
+    );
+    const expenseResult = await transaction.runAsync(
+      `INSERT INTO expenses (
+        name, amount, category_id, period_id, date, original_amount, split_percentage,
+        payment_method_id, recurring_expense_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      expense.name.trim(),
+      expense.amount,
+      expense.categoryId,
+      periodId,
+      expense.date,
+      expense.originalAmount,
+      expense.splitPercentage,
+      expense.paymentMethodId,
+      recurringResult.lastInsertRowId
+    );
+    createdExpenseId = expenseResult.lastInsertRowId;
+    await transaction.runAsync(
+      `INSERT INTO recurring_expense_occurrences
+        (recurring_expense_id, scheduled_date, status, expense_id)
+       VALUES (?, ?, 'generated', ?)`,
+      recurringResult.lastInsertRowId,
+      expense.date,
+      expenseResult.lastInsertRowId
+    );
+    await transaction.runAsync(
+      'UPDATE recurring_expenses SET source_expense_id = ? WHERE id = ?',
+      expenseResult.lastInsertRowId,
+      recurringResult.lastInsertRowId
+    );
+  });
+  return createdExpenseId;
+}
+
+export async function updateRecurringExpense(id: number, data: NewRecurringExpense): Promise<void> {
+  validateRecurringExpense(data);
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    const current = await transaction.getFirstAsync('SELECT id FROM recurring_expenses WHERE id = ?', id);
+    if (!current) throw new Error('El gasto recurrente ya no existe');
+    await transaction.runAsync(
+      `UPDATE recurring_expenses SET
+        frequency = ?, interval_months = ?, execution_basis = ?,
+        execution_day = ?, registration_mode = ?, start_date = ?, end_date = ?, active = ?,
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      data.frequency,
+      data.frequency === 'custom' ? data.intervalMonths : 1,
+      'calendar',
+      data.executionDay,
+      data.registrationMode,
+      data.startDate,
+      data.endDate,
+      data.active ? 1 : 0,
+      id
+    );
+    await transaction.runAsync(
+      `DELETE FROM recurring_expense_occurrences
+       WHERE recurring_expense_id = ? AND status IN ('scheduled', 'pending')`,
+      id
+    );
+  });
+}
+
+export async function setRecurringExpenseActive(id: number, active: boolean): Promise<void> {
+  const db = await getDb();
+  const result = await db.runAsync(
+    'UPDATE recurring_expenses SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    active ? 1 : 0,
+    id
+  );
+  if (result.changes === 0) throw new Error('El gasto recurrente ya no existe');
+}
+
+export async function deleteRecurringExpense(id: number): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync(
+      'UPDATE expenses SET recurring_expense_id = NULL WHERE recurring_expense_id = ?',
+      id
+    );
+    await transaction.runAsync(
+      'DELETE FROM recurring_expense_occurrences WHERE recurring_expense_id = ?',
+      id
+    );
+    const result = await transaction.runAsync('DELETE FROM recurring_expenses WHERE id = ?', id);
+    if (result.changes === 0) throw new Error('El gasto recurrente ya no existe');
+  });
+}
+
+function toLocalIsoDate(value: Date): string {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+}
+
+async function insertGeneratedRecurringExpense(
+  transaction: SQLite.SQLiteDatabase,
+  rule: RecurringExpense,
+  scheduledDate: string,
+  periodId: number
+): Promise<number> {
+  const result = await transaction.runAsync(
+    `INSERT INTO expenses (
+      name, amount, category_id, period_id, date, original_amount, split_percentage,
+      payment_method_id, recurring_expense_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    rule.name,
+    rule.amount,
+    rule.categoryId,
+    periodId,
+    scheduledDate,
+    rule.originalAmount,
+    rule.splitPercentage,
+    rule.paymentMethodId,
+    rule.id
+  );
+  return result.lastInsertRowId;
+}
+
+export async function processDueRecurringExpenses(
+  today = toLocalIsoDate(new Date())
+): Promise<GeneratedRecurringExpenseNotification[]> {
+  const db = await getDb();
+  const generatedExpenses: GeneratedRecurringExpenseNotification[] = [];
+  const [rules, periods, occurrenceRows] = await Promise.all([
+    getRecurringRows(db),
+    getPeriods(),
+    db.getAllAsync<{
+      recurring_expense_id: number;
+      scheduled_date: string;
+      status: RecurringOccurrenceStatus;
+    }>('SELECT recurring_expense_id, scheduled_date, status FROM recurring_expense_occurrences'),
+  ]);
+
+  for (const rule of rules.filter((item) => item.active)) {
+    const dates = getOccurrenceDates(rule, rule.startDate, today, 5000);
+    const existing = new Map(
+      occurrenceRows
+        .filter((item) => item.recurring_expense_id === rule.id)
+        .map((item) => [item.scheduled_date, item.status])
+    );
+    for (const scheduledDate of dates) {
+      const status = existing.get(scheduledDate);
+      if (status === 'generated' || status === 'skipped') continue;
+      if (rule.registrationMode === 'confirmation') {
+        await db.runAsync(
+          `INSERT INTO recurring_expense_occurrences
+            (recurring_expense_id, scheduled_date, status)
+           VALUES (?, ?, 'pending')
+           ON CONFLICT(recurring_expense_id, scheduled_date)
+           DO UPDATE SET status = 'pending', updated_at = CURRENT_TIMESTAMP
+           WHERE status = 'scheduled'`,
+          rule.id,
+          scheduledDate
+        );
+        continue;
+      }
+      const period = periods.find(
+        (item) => scheduledDate >= item.startDate && scheduledDate <= item.endDate
+      );
+      if (!period) continue;
+      let wasCreated = false;
+      await db.withExclusiveTransactionAsync(async (transaction) => {
+        const current = await transaction.getFirstAsync<{ status: RecurringOccurrenceStatus }>(
+          `SELECT status FROM recurring_expense_occurrences
+           WHERE recurring_expense_id = ? AND scheduled_date = ?`,
+          rule.id,
+          scheduledDate
+        );
+        if (current?.status === 'generated' || current?.status === 'skipped') return;
+        const expenseId = await insertGeneratedRecurringExpense(transaction, rule, scheduledDate, period.id);
+        await transaction.runAsync(
+          `INSERT INTO recurring_expense_occurrences
+            (recurring_expense_id, scheduled_date, status, expense_id)
+           VALUES (?, ?, 'generated', ?)
+           ON CONFLICT(recurring_expense_id, scheduled_date)
+           DO UPDATE SET status = 'generated', expense_id = excluded.expense_id,
+                         updated_at = CURRENT_TIMESTAMP`,
+          rule.id,
+          scheduledDate,
+          expenseId
+        );
+        wasCreated = true;
+      });
+      if (wasCreated) {
+        generatedExpenses.push({
+          recurringExpenseId: rule.id,
+          name: rule.name,
+          amount: rule.amount,
+          scheduledDate,
+        });
+      }
+    }
+  }
+  return generatedExpenses;
+}
+
+export async function approveRecurringOccurrence(
+  recurringExpenseId: number,
+  scheduledDate: string
+): Promise<number> {
+  const db = await getDb();
+  const [rule, periods] = await Promise.all([
+    getRecurringRows(db).then((items) => items.find((item) => item.id === recurringExpenseId)),
+    getPeriods(),
+  ]);
+  if (!rule) throw new Error('El gasto recurrente ya no existe');
+  const period = periods.find(
+    (item) => scheduledDate >= item.startDate && scheduledDate <= item.endDate
+  );
+  if (!period) throw new Error('No existe un período que incluya la fecha programada');
+  let generatedExpenseId = 0;
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    const current = await transaction.getFirstAsync<{
+      status: RecurringOccurrenceStatus;
+      expense_id: number | null;
+    }>(
+      `SELECT status, expense_id FROM recurring_expense_occurrences
+       WHERE recurring_expense_id = ? AND scheduled_date = ?`,
+      recurringExpenseId,
+      scheduledDate
+    );
+    if (current?.status === 'generated' && current.expense_id != null) {
+      generatedExpenseId = current.expense_id;
+      return;
+    }
+    if (current?.status === 'skipped') throw new Error('Esta ejecución fue omitida');
+    const expenseId = await insertGeneratedRecurringExpense(transaction, rule, scheduledDate, period.id);
+    generatedExpenseId = expenseId;
+    await transaction.runAsync(
+      `INSERT INTO recurring_expense_occurrences
+        (recurring_expense_id, scheduled_date, status, expense_id)
+       VALUES (?, ?, 'generated', ?)
+       ON CONFLICT(recurring_expense_id, scheduled_date)
+       DO UPDATE SET status = 'generated', expense_id = excluded.expense_id,
+                     updated_at = CURRENT_TIMESTAMP`,
+      recurringExpenseId,
+      scheduledDate,
+      expenseId
+    );
+  });
+  return generatedExpenseId;
+}
+
+export async function skipRecurringOccurrence(
+  recurringExpenseId: number,
+  scheduledDate: string
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO recurring_expense_occurrences
+      (recurring_expense_id, scheduled_date, status)
+     VALUES (?, ?, 'skipped')
+     ON CONFLICT(recurring_expense_id, scheduled_date)
+     DO UPDATE SET status = 'skipped', expense_id = NULL, dismissed = 0,
+                   updated_at = CURRENT_TIMESTAMP
+     WHERE status != 'generated'`,
+    recurringExpenseId,
+    scheduledDate
+  );
+}
+
+export async function dismissSkippedOccurrence(
+  recurringExpenseId: number,
+  scheduledDate: string
+): Promise<void> {
+  const db = await getDb();
+  const result = await db.runAsync(
+    `UPDATE recurring_expense_occurrences
+     SET dismissed = 1, updated_at = CURRENT_TIMESTAMP
+     WHERE recurring_expense_id = ? AND scheduled_date = ? AND status = 'skipped'`,
+    recurringExpenseId,
+    scheduledDate
+  );
+  if (result.changes === 0) {
+    throw new Error('La notificación omitida ya no está disponible');
+  }
+}
+
+export async function markRecurringOccurrencePending(
+  recurringExpenseId: number,
+  scheduledDate: string
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO recurring_expense_occurrences
+      (recurring_expense_id, scheduled_date, status)
+     VALUES (?, ?, 'pending')
+     ON CONFLICT(recurring_expense_id, scheduled_date)
+     DO UPDATE SET status = 'pending', updated_at = CURRENT_TIMESTAMP
+     WHERE status = 'scheduled'`,
+    recurringExpenseId,
+    scheduledDate
+  );
+}
+
+export async function restoreRecurringOccurrence(
+  recurringExpenseId: number,
+  scheduledDate: string
+): Promise<void> {
+  const db = await getDb();
+  const result = await db.runAsync(
+    `UPDATE recurring_expense_occurrences
+     SET status = 'pending', updated_at = CURRENT_TIMESTAMP
+     WHERE recurring_expense_id = ? AND scheduled_date = ? AND status = 'skipped'`,
+    recurringExpenseId,
+    scheduledDate
+  );
+  if (result.changes === 0) {
+    throw new Error('La ejecución omitida ya no está disponible');
+  }
+}
+
+export async function getUpcomingRecurringConfirmations(
+  throughDate: string,
+  today = toLocalIsoDate(new Date())
+): Promise<RecurringConfirmationSchedule[]> {
+  const db = await getDb();
+  const [rules, occurrences] = await Promise.all([
+    getRecurringRows(db),
+    db.getAllAsync<{
+      recurring_expense_id: number;
+      scheduled_date: string;
+      status: RecurringOccurrenceStatus;
+    }>('SELECT recurring_expense_id, scheduled_date, status FROM recurring_expense_occurrences'),
+  ]);
+  const result: RecurringConfirmationSchedule[] = [];
+  for (const rule of rules.filter((item) => item.active && item.registrationMode === 'confirmation')) {
+    const statuses = new Map(
+      occurrences
+        .filter((item) => item.recurring_expense_id === rule.id)
+        .map((item) => [item.scheduled_date, item.status])
+    );
+    for (const scheduledDate of getOccurrenceDates(rule, today, throughDate, 5000)) {
+      const status = statuses.get(scheduledDate);
+      if (status === 'generated' || status === 'skipped') continue;
+      result.push({
+        recurringExpenseId: rule.id,
+        name: rule.name,
+        amount: rule.amount,
+        scheduledDate,
+      });
+    }
+  }
+  return result;
 }
 
 export async function getIncomes(periodId?: number): Promise<Income[]> {
@@ -1409,6 +2483,7 @@ export async function getPeriodStatement(
         e.original_amount AS originalAmount,
         e.split_percentage AS splitPercentage,
         e.payment_method_id AS paymentMethodId,
+        e.recurring_expense_id AS recurringExpenseId,
         c.name AS categoryName,
         c.color AS categoryColor,
         pm.name AS paymentMethodName,

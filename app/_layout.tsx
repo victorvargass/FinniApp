@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { BiometricGate } from '@/components/biometric-gate';
+import { RecurringNotificationController } from '@/components/recurring-notification-controller';
 import { BiometricProvider } from '@/contexts/BiometricContext';
 import { DatabaseProvider } from '@/contexts/DatabaseContext';
 import { ThemePreferenceProvider } from '@/contexts/ThemeContext';
@@ -22,6 +23,7 @@ function AppContent() {
       <BiometricProvider>
         <BiometricGate>
           <DatabaseProvider>
+            <RecurringNotificationController />
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
               <Stack>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -52,6 +54,18 @@ function AppContent() {
                 <Stack.Screen
                   name="modal/card-cycles"
                   options={{ presentation: 'fullScreenModal', title: 'Conciliación' }}
+                />
+                <Stack.Screen
+                  name="modal/recurring-expenses"
+                  options={{ presentation: 'fullScreenModal', title: 'Gastos recurrentes' }}
+                />
+                <Stack.Screen
+                  name="modal/recurring-confirmations"
+                  options={{ presentation: 'fullScreenModal', title: 'Notificaciones' }}
+                />
+                <Stack.Screen
+                  name="modal/recurring-expense-form"
+                  options={{ presentation: 'modal', title: 'Gasto recurrente' }}
                 />
               </Stack>
               <StatusBar style="auto" />

@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,9 +16,11 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useBiometric } from '@/contexts/BiometricContext';
+import { useDatabase } from '@/contexts/DatabaseContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useGoogle } from '@/hooks/useGoogle';
+import { Alert } from '@/lib/alert';
 
 // Utils
 function formatBackupDate(date: string | undefined): string {
@@ -75,6 +76,8 @@ export default function UserScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { setPreference: setThemePreference } = useThemePreference();
+  const { recurringDecisions } = useDatabase();
+  const pendingConfirmations = recurringDecisions.filter((item) => item.status === 'pending').length;
   const {
     authenticationType,
     enabled: biometricEnabled,
@@ -149,6 +152,26 @@ export default function UserScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <ThemedView style={styles.header}>
           <ThemedText type="title">Configuración</ThemedText>
+          <Pressable
+            accessibilityLabel={pendingConfirmations > 0
+              ? `Notificaciones, ${pendingConfirmations} pendientes`
+              : 'Notificaciones'}
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/recurring-confirmations')}
+            hitSlop={10}
+            style={({ pressed }) => [
+              styles.notificationButton,
+              pressed && styles.buttonPressed,
+            ]}>
+            <Ionicons name="notifications-outline" size={25} color={colors.icon} />
+            {pendingConfirmations > 0 && (
+              <View style={styles.notificationBadge}>
+                <ThemedText style={styles.notificationBadgeText}>
+                  {pendingConfirmations > 99 ? '99+' : pendingConfirmations}
+                </ThemedText>
+              </View>
+            )}
+          </Pressable>
         </ThemedView>
 
         <ThemedView style={styles.card}>
@@ -180,6 +203,22 @@ export default function UserScreen() {
               <ThemedText type="subtitle">Medios de pago</ThemedText>
               <ThemedText style={styles.description}>
                 Configura efectivo, tarjetas y sus ciclos de facturación
+              </ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={colors.icon} />
+          </Pressable>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
+          <Pressable
+            accessibilityLabel="Configurar gastos recurrentes"
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/recurring-expenses')}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">Gastos recurrentes</ThemedText>
+              <ThemedText style={styles.description}>
+                Gestiona suscripciones, gastos automáticos y confirmaciones
               </ThemedText>
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />
@@ -340,7 +379,37 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 12,
+    minHeight: 52,
+    position: 'relative',
+  },
+  notificationButton: {
+    position: 'absolute',
+    right: 0,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 1,
+    right: 0,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '800',
   },
   card: {
     borderRadius: 12,

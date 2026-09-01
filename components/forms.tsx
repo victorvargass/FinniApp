@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -16,13 +16,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ColorPicker } from '@/components/ColorPicker';
+import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, parseAmount, toDateString } from '@/lib/format';
-import type { Category, Expense, Income } from '@/lib/types';
+import type { Category, Expense, Income, NewRecurringSchedule } from '@/lib/types';
+import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
 type ColorSelectOption = {
   value: number | null;
@@ -41,6 +44,18 @@ function getEstimatedBillingDate(purchaseDate: Date, billingDay: number) {
   const month = purchaseDate.getMonth() + monthOffset;
   const lastDay = new Date(year, month + 1, 0).getDate();
   return new Date(year, month, Math.min(billingDay, lastDay), 12);
+}
+
+function getDefaultRecurringSchedule(date: Date): NewRecurringSchedule {
+  return {
+    frequency: 'monthly',
+    intervalMonths: 2,
+    executionDay: date.getDate(),
+    registrationMode: 'confirmation',
+    startDate: toDateString(date),
+    endDate: null,
+    active: true,
+  };
 }
 
 function getNameSuggestions(names: string[], query: string) {
@@ -380,6 +395,10 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [makeRecurring, setMakeRecurring] = useState(false);
+  const [recurringSchedule, setRecurringSchedule] = useState<NewRecurringSchedule>(() =>
+    getDefaultRecurringSchedule(date)
+  );
   const [billingCycleHint, setBillingCycleHint] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const totalAmount = parseAmount(amountText as string);
@@ -423,6 +442,17 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     return () => { cancelled = true; };
   }, [date, getCreditCardCycles, paymentMethodId, paymentMethods]);
 
+  useEffect(() => {
+    if (expense || !makeRecurring) return;
+    setRecurringSchedule((current) => ({
+      ...current,
+      startDate: toDateString(date),
+      executionDay: current.frequency === 'monthly' || current.frequency === 'custom'
+        ? date.getDate()
+        : null,
+    }));
+  }, [date, expense, makeRecurring]);
+
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Error', 'Ingresa un nombre para el gasto');
@@ -435,6 +465,16 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     if (amountToSave == null || amountToSave <= 0) {
       Alert.alert('Error', 'Ingresa un monto válido');
       return;
+    }
+    if (!expense && makeRecurring) {
+      const granted = await ensureRecurringNotificationPermission();
+      if (!granted && recurringSchedule.registrationMode === 'confirmation') {
+        Alert.alert(
+          'Notificaciones desactivadas',
+          'Activa las notificaciones del sistema para usar el modo con confirmación.'
+        );
+        return;
+      }
     }
 
     if (selectedPeriod) {
@@ -473,11 +513,24 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           Alert.alert('Guardado', 'Gasto actualizado correctamente');
         }
       } else {
-        await addExpense(data)
+        await addExpense(
+          data,
+          makeRecurring
+            ? { ...recurringSchedule, startDate: data.date, active: true }
+            : undefined
+        );
         if (Platform.OS === 'android') {
-          ToastAndroid.show('Gasto creado correctamente', ToastAndroid.SHORT);
+          ToastAndroid.show(
+            makeRecurring ? 'Gasto y recurrencia creados' : 'Gasto creado correctamente',
+            ToastAndroid.SHORT
+          );
         } else {
-          Alert.alert('Guardado', 'Gasto creado correctamente');
+          Alert.alert(
+            'Guardado',
+            makeRecurring ? 'Gasto y recurrencia creados' : 'Gasto creado correctamente',
+            [{ text: 'Aceptar' }],
+            { cancelable: true }
+          );
         }
       }
       onSuccess();
@@ -670,6 +723,55 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>
           <ThemedText type="link">Listo</ThemedText>
         </Pressable>
+      )}
+
+      {!expense && (
+        <View style={[styles.recurringBox, { borderColor: colors.border }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: makeRecurring }}
+            onPress={() => setMakeRecurring((current) => !current)}
+            style={styles.recurringHeader}>
+            <View style={styles.recurringHeaderCopy}>
+              <ThemedText type="defaultSemiBold">Hacer recurrente</ThemedText>
+              <ThemedText style={styles.shareDescription}>
+                Programa la creación de este gasto de manera recurrente
+              </ThemedText>
+            </View>
+            <Ionicons
+              name={makeRecurring ? 'chevron-up' : 'chevron-down'}
+              size={21}
+              color={colors.icon}
+            />
+          </Pressable>
+          {makeRecurring && (
+            <View style={[styles.recurringFields, { borderTopColor: colors.border }]}>
+              <RecurringScheduleFields
+                value={recurringSchedule}
+                onChange={setRecurringSchedule}
+                fixedStartDate={toDateString(date)}
+              />
+            </View>
+          )}
+        </View>
+      )}
+
+      {expense && (
+        <View style={styles.recurringExpenseActions}>
+          <Pressable
+            onPress={() => router.push({
+              pathname: '/modal/recurring-expense-form',
+              params: expense.recurringExpenseId
+                ? { id: String(expense.recurringExpenseId) }
+                : { sourceExpenseId: String(expense.id) },
+            })}
+            style={[styles.secondaryAction, { borderColor: colors.border }]}>
+            <Ionicons name="repeat-outline" size={19} color={colors.primary} />
+            <ThemedText type="defaultSemiBold">
+              {expense.recurringExpenseId ? 'Editar recurrencia' : 'Hacer recurrente'}
+            </ThemedText>
+          </Pressable>
+        </View>
       )}
 
       <Pressable
@@ -1018,6 +1120,30 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 16,
+  },
+  recurringBox: {
+    borderWidth: 1,
+    borderRadius: 10,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  recurringHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 13,
+  },
+  recurringHeaderCopy: { flex: 1, gap: 2 },
+  recurringFields: { borderTopWidth: 1, padding: 13 },
+  recurringExpenseActions: { gap: 8, marginTop: 10 },
+  secondaryAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
   },
   deleteButton: {
     marginTop: 8,
