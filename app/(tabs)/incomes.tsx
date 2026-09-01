@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Modal,
   Platform,
@@ -21,6 +20,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import type { Income } from '@/lib/types';
 

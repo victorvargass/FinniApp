@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, ToastAndroid, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, ToastAndroid, View } from 'react-native';
 
 import { ColorPicker } from '@/components/ColorPicker';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Alert } from '@/lib/alert';
 import type { PaymentMethodType } from '@/lib/types';
 
 const TYPES: { value: PaymentMethodType; label: string }[] = [

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -17,6 +16,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import type { PeriodHistory } from '@/lib/types';
 import { exportPeriodReport } from '@/services/PeriodReportService';

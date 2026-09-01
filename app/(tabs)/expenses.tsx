@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Modal,
   Platform,
@@ -21,6 +20,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import type { Category, ExpenseWithCategory, PaymentMethod } from '@/lib/types';
 
@@ -235,7 +235,14 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
 }
 
 export default function ExpensesScreen() {
-  const { expenses, categories, paymentMethods, removeExpense, selectedPeriodId } = useDatabase();
+  const {
+    expenses,
+    categories,
+    paymentMethods,
+    recurringExpenses,
+    removeExpense,
+    selectedPeriodId,
+  } = useDatabase();
   const {
     categoryFilter: requestedCategory,
     paymentMethodFilter: requestedPaymentMethod,
@@ -258,6 +265,24 @@ export default function ExpensesScreen() {
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [groupModalVisible, setGroupModalVisible] = useState(false);
+  const activeRecurringExpenseIds = useMemo(
+    () => new Set(recurringExpenses.filter((item) => item.active).map((item) => item.id)),
+    [recurringExpenses]
+  );
+  const availableCategoryIds = useMemo(
+    () => new Set(expenses.flatMap((item) => item.categoryId == null ? [] : [item.categoryId])),
+    [expenses]
+  );
+  const availablePaymentMethodIds = useMemo(
+    () => new Set(expenses.flatMap((item) => item.paymentMethodId == null ? [] : [item.paymentMethodId])),
+    [expenses]
+  );
+  const hasUncategorizedExpenses = expenses.some((item) => item.categoryId == null);
+  const hasUnspecifiedPaymentExpenses = expenses.some((item) => item.paymentMethodId == null);
+  const availableCategories = categories.filter((item) => availableCategoryIds.has(item.id));
+  const availablePaymentMethods = paymentMethods.filter((item) =>
+    availablePaymentMethodIds.has(item.id)
+  );
 
   useEffect(() => {
     setSearch('');
@@ -306,6 +331,26 @@ export default function ExpensesScreen() {
       setSearch('');
     }
   }, [requestedPaymentMethod, filterRequestId]);
+
+  useEffect(() => {
+    setCategoryFilter((current) => {
+      const available = current.filter((item) =>
+        item === 'none' ? hasUncategorizedExpenses : availableCategoryIds.has(item)
+      );
+      return available.length === current.length ? current : available;
+    });
+    setPaymentMethodFilter((current) => {
+      const available = current.filter((item) =>
+        item === 'none' ? hasUnspecifiedPaymentExpenses : availablePaymentMethodIds.has(item)
+      );
+      return available.length === current.length ? current : available;
+    });
+  }, [
+    availableCategoryIds,
+    availablePaymentMethodIds,
+    hasUncategorizedExpenses,
+    hasUnspecifiedPaymentExpenses,
+  ]);
 
   const filteredExpenses = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -414,12 +459,19 @@ export default function ExpensesScreen() {
       {
         text: 'Eliminar',
         style: 'destructive',
-        onPress: () => {
-          removeExpense(id)
-          if (Platform.OS === 'android') {
-            ToastAndroid.show('Gasto eliminado', ToastAndroid.SHORT);
-          } else {
-            Alert.alert('Eliminado', 'Gasto eliminado');
+        onPress: async () => {
+          try {
+            await removeExpense(id);
+            if (Platform.OS === 'android') {
+              ToastAndroid.show('Gasto eliminado', ToastAndroid.SHORT);
+            } else {
+              Alert.alert('Eliminado', 'Gasto eliminado');
+            }
+          } catch (error) {
+            Alert.alert(
+              'No se puede eliminar',
+              error instanceof Error ? error.message : 'No se pudo eliminar el gasto.'
+            );
           }
         }
       },
@@ -566,12 +618,14 @@ export default function ExpensesScreen() {
           selected={categoryFilter.length === 0}
           onPress={() => setCategoryFilter([])}
         />
-        <ModalOption
-          label="Sin categoría"
-          selected={categoryFilter.includes('none')}
-          onPress={() => toggleCategoryFilter('none')}
-        />
-        {categories.map((cat) => (
+        {hasUncategorizedExpenses && (
+          <ModalOption
+            label="Sin categoría"
+            selected={categoryFilter.includes('none')}
+            onPress={() => toggleCategoryFilter('none')}
+          />
+        )}
+        {availableCategories.map((cat) => (
           <ModalOption
             key={cat.id}
             label={cat.name}
@@ -593,12 +647,14 @@ export default function ExpensesScreen() {
           selected={paymentMethodFilter.length === 0}
           onPress={() => setPaymentMethodFilter([])}
         />
-        <ModalOption
-          label="No especificado"
-          selected={paymentMethodFilter.includes('none')}
-          onPress={() => togglePaymentMethodFilter('none')}
-        />
-        {paymentMethods.map((method) => (
+        {hasUnspecifiedPaymentExpenses && (
+          <ModalOption
+            label="No especificado"
+            selected={paymentMethodFilter.includes('none')}
+            onPress={() => togglePaymentMethodFilter('none')}
+          />
+        )}
+        {availablePaymentMethods.map((method) => (
           <ModalOption
             key={method.id}
             label={method.name}
@@ -682,7 +738,18 @@ export default function ExpensesScreen() {
                   )}
             
                   <View style={[styles.itemInfo]}>
-                    <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{expense.name}</ThemedText>
+                    <View style={styles.expenseNameRow}>
+                      <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{expense.name}</ThemedText>
+                      {expense.recurringExpenseId != null &&
+                        activeRecurringExpenseIds.has(expense.recurringExpenseId) && (
+                        <Ionicons
+                          name="sync-circle-outline"
+                          size={18}
+                          color={colors.primary}
+                          accessibilityLabel="Gasto recurrente"
+                        />
+                      )}
+                    </View>
                     <ThemedText style={[styles.meta, { fontSize: 12 }]}>
                       {groupBy === 'category'
                         ? `${formatDate(new Date(`${expense.date}T12:00:00`))} · ${expense.paymentMethodName ?? 'No especificado'}`
@@ -917,6 +984,11 @@ const styles = StyleSheet.create({
   itemInfo: {
     flex: 1,
     gap: 2,
+  },
+  expenseNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   meta: {
     fontSize: 13,
