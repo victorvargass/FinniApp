@@ -226,6 +226,22 @@ export default function UserScreen() {
         </ThemedView>
 
         <ThemedView style={styles.card}>
+          <Pressable
+            accessibilityLabel="Gestionar deudas y cuotas"
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/debts')}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">Deudas y cuotas</ThemedText>
+              <ThemedText style={styles.description}>
+                Activa compras en cuotas y revisa saldos pendientes
+              </ThemedText>
+            </View>
+            <Ionicons name="wallet-outline" size={22} color={colors.icon} />
+          </Pressable>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
               <ThemedText type="subtitle">Tema oscuro</ThemedText>

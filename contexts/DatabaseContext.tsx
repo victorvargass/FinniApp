@@ -5,11 +5,13 @@ import * as db from '@/lib/db';
 import type {
   Category,
   CreditCardCycle,
+  DebtPlan,
   ExpenseWithCategory,
   Income,
   NewCategory,
   NewExpense,
   NewIncome,
+  NewInstallmentPurchase,
   NewCreditCardCycle,
   NewPaymentMethod,
   NewRecurringExpense,
@@ -65,6 +67,13 @@ type DatabaseContextValue = {
   editCreditCardCycle: (id: number, statementAmount: number | null, status: CreditCardCycle['status']) => Promise<void>;
   reconcileCreditCardCycle: (id: number, data: ReconcileCreditCardCycle) => Promise<void>;
   unreconcileCreditCardCycle: (id: number) => Promise<void>;
+  getDebtPlans: (paymentMethodId?: number) => Promise<DebtPlan[]>;
+  getDebtPlan: (id: number) => Promise<DebtPlan | null>;
+  addInstallmentPurchase: (data: NewInstallmentPurchase) => Promise<number>;
+  activateInstallmentPlan: (id: number, periodId: number, actualAmount: number) => Promise<void>;
+  settleInstallmentPlan: (id: number, periodId: number) => Promise<void>;
+  cancelFutureInstallments: (id: number) => Promise<void>;
+  restoreRemovedInstallment: (installmentId: number) => Promise<void>;
   addRecurringExpense: (data: NewRecurringExpense) => Promise<void>;
   editRecurringExpense: (id: number, data: NewRecurringExpense) => Promise<void>;
   setRecurringExpenseActive: (id: number, active: boolean) => Promise<void>;
@@ -137,6 +146,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     const generatedExpenses = await db.processDueRecurringExpenses();
     await notifyGeneratedRecurringExpenses(generatedExpenses).catch(() => undefined);
+    await db.processProjectedInstallments();
     const settings = await db.getSettings();
     const allPeriods = await db.getPeriods();
     setSettings(settings);
@@ -286,6 +296,35 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const unreconcileCreditCardCycle = useCallback(async (id: number) => {
     await db.unreconcileCreditCardCycle(id);
+    await refresh();
+  }, [refresh]);
+
+  const getDebtPlans = useCallback((paymentMethodId?: number) => db.getDebtPlans(paymentMethodId), []);
+  const getDebtPlan = useCallback((id: number) => db.getDebtPlan(id), []);
+
+  const addInstallmentPurchase = useCallback(async (data: NewInstallmentPurchase) => {
+    const id = await db.createInstallmentPurchase(data);
+    await refresh();
+    return id;
+  }, [refresh]);
+
+  const activateInstallmentPlan = useCallback(async (id: number, periodId: number, actualAmount: number) => {
+    await db.activateInstallmentPlan(id, periodId, actualAmount);
+    await refresh();
+  }, [refresh]);
+
+  const settleInstallmentPlan = useCallback(async (id: number, periodId: number) => {
+    await db.settleInstallmentPlan(id, periodId);
+    await refresh();
+  }, [refresh]);
+
+  const cancelFutureInstallments = useCallback(async (id: number) => {
+    await db.cancelFutureInstallments(id);
+    await refresh();
+  }, [refresh]);
+
+  const restoreRemovedInstallment = useCallback(async (installmentId: number) => {
+    await db.restoreRemovedInstallment(installmentId);
     await refresh();
   }, [refresh]);
 
@@ -479,6 +518,13 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editCreditCardCycle,
       reconcileCreditCardCycle,
       unreconcileCreditCardCycle,
+      getDebtPlans,
+      getDebtPlan,
+      addInstallmentPurchase,
+      activateInstallmentPlan,
+      settleInstallmentPlan,
+      cancelFutureInstallments,
+      restoreRemovedInstallment,
       addRecurringExpense,
       editRecurringExpense,
       setRecurringExpenseActive,
@@ -532,6 +578,13 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editCreditCardCycle,
       reconcileCreditCardCycle,
       unreconcileCreditCardCycle,
+      getDebtPlans,
+      getDebtPlan,
+      addInstallmentPurchase,
+      activateInstallmentPlan,
+      settleInstallmentPlan,
+      cancelFutureInstallments,
+      restoreRemovedInstallment,
       addRecurringExpense,
       editRecurringExpense,
       setRecurringExpenseActive,

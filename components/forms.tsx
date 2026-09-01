@@ -109,11 +109,13 @@ function ColorSelect({
   value,
   options,
   onChange,
+  showColor = true,
 }: {
   label: string;
   value: number | null;
   options: ColorSelectOption[];
   onChange: (value: number | null) => void;
+  showColor?: boolean;
 }) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -134,7 +136,7 @@ function ColorSelect({
           pressed && styles.selectPressed,
         ]}>
         <View style={styles.selectValue}>
-          <View style={[styles.selectDot, { backgroundColor: selected.color }]} />
+          {showColor && <View style={[styles.selectDot, { backgroundColor: selected.color }]} />}
           <ThemedText type="defaultSemiBold" numberOfLines={1}>{selected.label}</ThemedText>
         </View>
         <Ionicons name="chevron-down" size={20} color={colors.icon} />
@@ -173,7 +175,7 @@ function ColorSelect({
                         isSelected && { backgroundColor: option.color + '18' },
                       ]}>
                       <View style={styles.selectValue}>
-                        <View style={[styles.selectDot, { backgroundColor: option.color }]} />
+                        {showColor && <View style={[styles.selectDot, { backgroundColor: option.color }]} />}
                         <ThemedText style={isSelected ? styles.selectOptionSelectedText : undefined}>
                           {option.label}
                         </ThemedText>
@@ -356,6 +358,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     paymentMethods,
     expenseNames,
     addExpense,
+    addInstallmentPurchase,
     editExpense,
     selectedPeriod,
     getCreditCardCycles,
@@ -363,6 +366,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const insets = useSafeAreaInsets();
 
   const [name, setName] = useState(expense?.name ?? '');
   const [isNameFocused, setIsNameFocused] = useState(false);
@@ -396,6 +400,10 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [makeRecurring, setMakeRecurring] = useState(false);
+  const [isInstallmentPurchase, setIsInstallmentPurchase] = useState(false);
+  const [installmentCountText, setInstallmentCountText] = useState('3');
+  const [installmentPreset, setInstallmentPreset] = useState<number | null>(3);
+  const [firstInstallmentTiming, setFirstInstallmentTiming] = useState<'current' | 'next'>('current');
   const [recurringSchedule, setRecurringSchedule] = useState<NewRecurringSchedule>(() =>
     getDefaultRecurringSchedule(date)
   );
@@ -413,6 +421,23 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const visiblePaymentMethods = paymentMethods.filter(
     (method) => method.active || method.id === paymentMethodId
   );
+  const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
+  const isCreditPayment = selectedPaymentMethod?.type === 'credit';
+  const installmentCount = Number(installmentCountText);
+  const estimatedInstallmentAmount = amountToSave != null && Number.isInteger(installmentCount) && installmentCount > 0
+    ? Math.floor(amountToSave / installmentCount)
+    : null;
+  const estimatedFirstDueDate = isCreditPayment && selectedPaymentMethod.billingDay != null
+    ? (() => {
+        const estimated = getEstimatedBillingDate(date, selectedPaymentMethod.billingDay!);
+        if (firstInstallmentTiming === 'next') estimated.setMonth(estimated.getMonth() + 1);
+        return estimated;
+      })()
+    : null;
+
+  useEffect(() => {
+    if (!isCreditPayment) setIsInstallmentPurchase(false);
+  }, [isCreditPayment]);
 
   useEffect(() => {
     const method = paymentMethods.find((item) => item.id === paymentMethodId);
@@ -513,21 +538,39 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           Alert.alert('Guardado', 'Gasto actualizado correctamente');
         }
       } else {
-        await addExpense(
-          data,
-          makeRecurring
-            ? { ...recurringSchedule, startDate: data.date, active: true }
-            : undefined
-        );
+        if (isInstallmentPurchase) {
+          if (!Number.isInteger(installmentCount) || installmentCount < 2 || installmentCount > 600) {
+            throw new Error('El número de cuotas debe estar entre 2 y 600');
+          }
+          if (!estimatedFirstDueDate || paymentMethodId == null || totalAmount == null) {
+            throw new Error('No se pudo calcular la primera cuota');
+          }
+          await addInstallmentPurchase({
+            name: data.name,
+            totalAmount: amountToSave!,
+            categoryId: data.categoryId,
+            paymentMethodId,
+            purchaseDate: data.date,
+            firstDueDate: toDateString(estimatedFirstDueDate),
+            totalInstallments: installmentCount,
+          });
+        } else {
+          await addExpense(
+            data,
+            makeRecurring
+              ? { ...recurringSchedule, startDate: data.date, active: true }
+              : undefined
+          );
+        }
         if (Platform.OS === 'android') {
           ToastAndroid.show(
-            makeRecurring ? 'Gasto y recurrencia creados' : 'Gasto creado correctamente',
+            isInstallmentPurchase ? 'Compra proyectada en cuotas' : makeRecurring ? 'Gasto y recurrencia creados' : 'Gasto creado correctamente',
             ToastAndroid.SHORT
           );
         } else {
           Alert.alert(
             'Guardado',
-            makeRecurring ? 'Gasto y recurrencia creados' : 'Gasto creado correctamente',
+            isInstallmentPurchase ? 'Compra proyectada. Activa la primera cuota desde Deudas y cuotas.' : makeRecurring ? 'Gasto y recurrencia creados' : 'Gasto creado correctamente',
             [{ text: 'Aceptar' }],
             { cancelable: true }
           );
@@ -542,6 +585,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   };
 
   return (
+    <View style={styles.formShell}>
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <ThemedText style={styles.label}>Nombre</ThemedText>
       <TextInput
@@ -574,7 +618,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />
-      <View style={styles.shareSection}>
+      {!isInstallmentPurchase && <View style={styles.shareSection}>
         <View style={styles.shareToggleRow}>
           <View style={styles.shareToggleCopy}>
             <ThemedText style={styles.shareLabel}>Dividir monto</ThemedText>
@@ -664,7 +708,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             Se registrará {formatCLP(amountToSave)} como tu gasto.
           </ThemedText>
         )}
-      </View>
+      </View>}
 
       <ColorSelect
         label="Categoría (opcional)"
@@ -699,6 +743,83 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </ThemedText>
       )}
 
+      {!expense && isCreditPayment && (
+        <View style={[styles.installmentBox, { borderColor: colors.border }]}> 
+          <View style={styles.installmentHeader}>
+            <View style={styles.shareToggleCopy}>
+              <ThemedText type="defaultSemiBold">Compra en cuotas</ThemedText>
+              <ThemedText style={styles.shareDescription}>Proyecta la deuda y activa la primera cuota cuando sea facturada</ThemedText>
+            </View>
+            <Switch
+              accessibilityLabel="Registrar compra en cuotas"
+              value={isInstallmentPurchase}
+              onValueChange={(value) => {
+                setIsInstallmentPurchase(value);
+                if (value) {
+                  setMakeRecurring(false);
+                  setIsSplitAmount(false);
+                }
+              }}
+              trackColor={{ true: colors.tint }}
+            />
+          </View>
+          {isInstallmentPurchase && (
+            <View style={[styles.installmentBody, { borderTopColor: colors.border }]}> 
+              <ColorSelect
+                label="Número de cuotas"
+                value={installmentPreset}
+                showColor={false}
+                onChange={(value) => {
+                  setInstallmentPreset(value);
+                  if (value != null) setInstallmentCountText(String(value));
+                  else setInstallmentCountText('');
+                }}
+                options={[
+                  ...[2, 3, 6, 12, 24, 36, 48].map((count) => ({ value: count, label: `${count} cuotas`, color: colors.primary })),
+                  { value: null, label: 'Personalizado', color: colors.primary },
+                ]}
+              />
+              {installmentPreset == null && (
+                <View style={styles.customInstallments}>
+                  <ThemedText style={styles.customInstallmentsLabel}>Cantidad personalizada</ThemedText>
+                  <TextInput
+                    accessibilityLabel="Número personalizado de cuotas"
+                    autoFocus
+                    keyboardType="number-pad"
+                    maxLength={3}
+                    placeholder="2 a 600"
+                    placeholderTextColor={colors.icon}
+                    value={installmentCountText}
+                    onChangeText={(value) => setInstallmentCountText(value.replace(/\D/g, ''))}
+                    onBlur={() => {
+                      const value = Number(installmentCountText);
+                      if (!Number.isInteger(value) || value < 2) setInstallmentCountText('2');
+                      else if (value > 600) setInstallmentCountText('600');
+                    }}
+                    style={[styles.input, styles.customInstallmentInput, { color: colors.text, borderColor: colors.icon }]}
+                  />
+                </View>
+              )}
+              {estimatedInstallmentAmount != null && (
+                <ThemedText style={styles.shareResult}>Estimado desde {formatCLP(estimatedInstallmentAmount)} por cuota. La diferencia se reparte en las últimas cuotas.</ThemedText>
+              )}
+              <ThemedText style={styles.installmentSectionLabel}>Primera cuota</ThemedText>
+              <View style={styles.shareOptions}>
+                {([['current', 'Este cierre'], ['next', 'Próximo cierre']] as const).map(([value, label]) => (
+                  <Pressable
+                    key={value}
+                    onPress={() => setFirstInstallmentTiming(value)}
+                    style={[styles.shareButton, { borderColor: colors.icon }, firstInstallmentTiming === value && styles.shareButtonSelected]}>
+                    <ThemedText style={firstInstallmentTiming === value ? styles.shareButtonTextSelected : undefined}>{label}</ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+              {estimatedFirstDueDate && <ThemedText style={styles.paymentHint}>Fecha estimada: {formatDate(estimatedFirstDueDate)}</ThemedText>}
+            </View>
+          )}
+        </View>
+      )}
+
       <ThemedText style={styles.label}>Fecha</ThemedText>
       <Pressable
         style={[styles.dateButton, { borderColor: colors.icon }]}
@@ -725,7 +846,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </Pressable>
       )}
 
-      {!expense && (
+      {!expense && !isInstallmentPurchase && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}>
           <Pressable
             accessibilityRole="button"
@@ -758,32 +879,45 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
       {expense && (
         <View style={styles.recurringExpenseActions}>
-          <Pressable
-            onPress={() => router.push({
-              pathname: '/modal/recurring-expense-form',
-              params: expense.recurringExpenseId
-                ? { id: String(expense.recurringExpenseId) }
-                : { sourceExpenseId: String(expense.id) },
-            })}
-            style={[styles.secondaryAction, { borderColor: colors.border }]}>
-            <Ionicons name="repeat-outline" size={19} color={colors.primary} />
-            <ThemedText type="defaultSemiBold">
-              {expense.recurringExpenseId ? 'Editar recurrencia' : 'Hacer recurrente'}
-            </ThemedText>
-          </Pressable>
+          {expense.debtPlanId == null && (
+            <Pressable
+              onPress={() => router.push({
+                pathname: '/modal/recurring-expense-form',
+                params: expense.recurringExpenseId
+                  ? { id: String(expense.recurringExpenseId) }
+                  : { sourceExpenseId: String(expense.id) },
+              })}
+              style={[styles.secondaryAction, { borderColor: colors.border }]}> 
+              <Ionicons name="repeat-outline" size={19} color={colors.primary} />
+              <ThemedText type="defaultSemiBold">
+                {expense.recurringExpenseId ? 'Editar recurrencia' : 'Hacer recurrente'}
+              </ThemedText>
+            </Pressable>
+          )}
+          {expense.debtPlanId != null && (
+            <Pressable
+              onPress={() => router.push({ pathname: '/modal/debt-detail', params: { id: String(expense.debtPlanId) } })}
+              style={[styles.secondaryAction, { borderColor: colors.border }]}> 
+              <Ionicons name="card-outline" size={19} color={colors.primary} />
+              <ThemedText type="defaultSemiBold">Ver detalle de cuotas</ThemedText>
+            </Pressable>
+          )}
         </View>
       )}
 
+      </View>
+    </ScrollView>
+    <View style={[styles.formFooter, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
       <Pressable
-        style={[styles.button, saving && styles.buttonDisabled]}
+        style={[styles.button, styles.footerButton, saving && styles.buttonDisabled]}
         onPress={handleSave}
         disabled={saving}>
         <ThemedText style={styles.buttonText}>
           {expense ? 'Actualizar' : 'Guardar'}
         </ThemedText>
       </Pressable>
-      </View>
-    </ScrollView>
+    </View>
+    </View>
   );
 }
 
@@ -952,6 +1086,9 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
 }
 
 const styles = StyleSheet.create({
+  formShell: { flex: 1 },
+  formFooter: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 20, paddingTop: 10 },
+  footerButton: { marginTop: 0 },
   container: {
     padding: 20,
     gap: 8,
@@ -1127,6 +1264,31 @@ const styles = StyleSheet.create({
     marginTop: 10,
     overflow: 'hidden',
   },
+  installmentBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    marginTop: 14,
+    overflow: 'hidden',
+  },
+  installmentHeader: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  installmentBody: {
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 18,
+    gap: 14,
+  },
+  installmentSectionLabel: { fontWeight: '700', marginTop: 4 },
+  customInstallments: { gap: 7 },
+  customInstallmentsLabel: { fontSize: 13, fontWeight: '600', opacity: 0.75 },
+  customInstallmentInput: { marginTop: 0 },
   recurringHeader: {
     flexDirection: 'row',
     alignItems: 'center',

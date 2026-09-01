@@ -67,6 +67,14 @@ function AppContent() {
                   name="modal/recurring-expense-form"
                   options={{ presentation: 'modal', title: 'Gasto recurrente' }}
                 />
+                <Stack.Screen
+                  name="modal/debts"
+                  options={{ presentation: 'fullScreenModal', title: 'Deudas y cuotas' }}
+                />
+                <Stack.Screen
+                  name="modal/debt-detail"
+                  options={{ presentation: 'fullScreenModal', title: 'Detalle de cuotas' }}
+                />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>

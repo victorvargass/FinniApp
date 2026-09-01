@@ -22,6 +22,9 @@ export type Expense = {
   splitPercentage: number | null;
   paymentMethodId: number | null;
   recurringExpenseId: number | null;
+  debtPlanId: number | null;
+  installmentNumber: number | null;
+  totalInstallments: number | null;
 };
 
 export type Income = {
@@ -90,6 +93,44 @@ export type NewCreditCardCycle = {
 export type ReconcileCreditCardCycle = {
   statementAmount: number;
   bankChargeAmount: number;
+};
+
+export type DebtPlanStatus = 'projected' | 'active' | 'completed' | 'cancelled';
+
+export type InstallmentStatus = 'projected' | 'posted' | 'cancelled';
+
+export type NewInstallmentPurchase = {
+  name: string;
+  totalAmount: number;
+  categoryId: number | null;
+  paymentMethodId: number;
+  purchaseDate: string;
+  firstDueDate: string;
+  totalInstallments: number;
+};
+
+export type DebtInstallment = {
+  id: number;
+  number: number;
+  dueDate: string;
+  projectedAmount: number;
+  expenseId: number | null;
+  status: InstallmentStatus;
+  manuallyRemoved: boolean;
+};
+
+export type DebtPlan = NewInstallmentPurchase & {
+  id: number;
+  kind: 'credit_installment';
+  installmentAmount: number;
+  status: DebtPlanStatus;
+  paymentMethodName: string;
+  paymentMethodColor: string;
+  categoryName: string | null;
+  categoryColor: string | null;
+  postedInstallments: number;
+  remainingAmount: number;
+  installments?: DebtInstallment[];
 };
 
 // Ver, pensar en Periods

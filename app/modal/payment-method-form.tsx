@@ -178,6 +178,14 @@ export default function PaymentMethodFormScreen() {
           <ThemedText type="defaultSemiBold">Ver ciclos y conciliar</ThemedText>
         </Pressable>
       )}
+      {method?.type === 'credit' && (
+        <Pressable
+          onPress={() => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } })}
+          style={[styles.secondaryButton, { borderColor: colors.border }]}> 
+          <Ionicons name="wallet-outline" size={20} color={colors.primary} />
+          <ThemedText type="defaultSemiBold">Compras en cuotas</ThemedText>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -198,4 +206,5 @@ const styles = StyleSheet.create({
   save: { marginTop: 18, borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0a7ea4' },
   saveText: { color: '#fff', fontWeight: '700' },
   cyclesButton: { borderWidth: 1, borderRadius: 10, padding: 13, alignItems: 'center' },
+  secondaryButton: { borderWidth: 1, borderRadius: 10, padding: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
 });
