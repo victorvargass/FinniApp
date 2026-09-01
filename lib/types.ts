@@ -279,4 +279,13 @@ export type Settings = {
   currentPeriodId: number | null;
   defaultPaymentMethodId: number | null;
   currentPeriod?: Period | null;
+  movementReminderEnabled: boolean;
+  movementReminderFrequency: 'daily' | 'weekly';
+  movementReminderWeekday: number;
+  movementReminderHour: number;
+  movementReminderMinute: number;
 };
+
+export type MovementReminderSettings = Pick<Settings,
+  'movementReminderEnabled' | 'movementReminderFrequency' | 'movementReminderWeekday' |
+  'movementReminderHour' | 'movementReminderMinute'>;

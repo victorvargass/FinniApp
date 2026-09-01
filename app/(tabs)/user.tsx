@@ -23,6 +23,16 @@ import { useGoogle } from '@/hooks/useGoogle';
 import { Alert } from '@/lib/alert';
 
 // Utils
+const WEEKDAY_LABELS: Record<number, string> = {
+  1: 'domingos',
+  2: 'lunes',
+  3: 'martes',
+  4: 'miércoles',
+  5: 'jueves',
+  6: 'viernes',
+  7: 'sábados',
+};
+
 function formatBackupDate(date: string | undefined): string {
   if (!date) return 'Nunca';
   const parsed = new Date(date);
@@ -76,7 +86,7 @@ export default function UserScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { setPreference: setThemePreference } = useThemePreference();
-  const { recurringDecisions } = useDatabase();
+  const { recurringDecisions, settings, setMovementReminder } = useDatabase();
   const pendingConfirmations = recurringDecisions.filter((item) => item.status === 'pending').length;
   const {
     authenticationType,
@@ -239,6 +249,49 @@ export default function UserScreen() {
             </View>
             <Ionicons name="wallet-outline" size={22} color={colors.icon} />
           </Pressable>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
+          <View style={styles.settingRow}>
+            <Pressable
+              accessibilityLabel="Configurar periodicidad del recordatorio"
+              accessibilityRole="button"
+              onPress={() => router.push('/modal/movement-reminder')}
+              style={({ pressed }) => [styles.reminderLink, pressed && styles.buttonPressed]}>
+              <View style={styles.settingCopy}>
+                <ThemedText type="subtitle">Recordatorio de movimientos</ThemedText>
+                <ThemedText style={styles.description}>
+                  {settings.movementReminderFrequency === 'daily'
+                    ? 'Todos los días'
+                    : `Todos los ${WEEKDAY_LABELS[settings.movementReminderWeekday] ?? 'domingos'}`} · {String(settings.movementReminderHour).padStart(2, '0')}:{String(settings.movementReminderMinute).padStart(2, '0')}
+                </ThemedText>
+              </View>
+            </Pressable>
+            <Switch
+              accessibilityLabel="Activar recordatorio de movimientos"
+              value={settings.movementReminderEnabled}
+              onValueChange={(movementReminderEnabled) => {
+                setMovementReminder({
+                  movementReminderEnabled,
+                  movementReminderFrequency: settings.movementReminderFrequency,
+                  movementReminderWeekday: settings.movementReminderWeekday,
+                  movementReminderHour: settings.movementReminderHour,
+                  movementReminderMinute: settings.movementReminderMinute,
+                }).catch((toggleError) => {
+                  Alert.alert('No se pudo actualizar', toggleError instanceof Error ? toggleError.message : 'Inténtalo nuevamente.');
+                });
+              }}
+              trackColor={{ true: colors.primary }}
+            />
+            <Pressable
+              accessibilityLabel="Configurar periodicidad del recordatorio"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => router.push('/modal/movement-reminder')}
+              style={({ pressed }) => pressed && styles.buttonPressed}>
+              <Ionicons name="chevron-forward" size={20} color={colors.icon} />
+            </Pressable>
+          </View>
         </ThemedView>
 
         <ThemedView style={styles.card}>
@@ -451,6 +504,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 14,
+  },
+  reminderLink: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   profile: {
     flexDirection: 'row',

@@ -17,6 +17,7 @@ import type {
   NewRecurringExpense,
   NewRecurringIncome,
   NewRecurringSchedule,
+  MovementReminderSettings,
   PaymentMethod,
   PaymentMethodTotal,
   Period,
@@ -33,6 +34,7 @@ import {
   notifyGeneratedRecurringExpenses,
   syncRecurringNotifications,
 } from '@/services/RecurringNotificationService';
+import { syncMovementReminder } from '@/services/MovementReminderService';
 
 type DatabaseContextValue = {
   categories: Category[];
@@ -98,6 +100,7 @@ type DatabaseContextValue = {
   removeIncome: (id: number) => Promise<void>;
   setPeriodStartDate: (date: string) => Promise<void>;
   setPeriodEndDate: (date: string) => Promise<void>;
+  setMovementReminder: (data: MovementReminderSettings) => Promise<void>;
 };
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
@@ -107,6 +110,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     id: 1,
     currentPeriodId: null,
     defaultPaymentMethodId: null,
+    movementReminderEnabled: false,
+    movementReminderFrequency: 'daily',
+    movementReminderWeekday: 1,
+    movementReminderHour: 21,
+    movementReminderMinute: 0,
     currentPeriod: null,
   });
   const [periods, setPeriods] = useState<Period[]>([]);
@@ -519,6 +527,15 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     setSelectedPeriodId(periodId);
   }, []);
 
+  const setMovementReminder = useCallback(async (data: MovementReminderSettings) => {
+    const scheduled = await syncMovementReminder(data);
+    if (data.movementReminderEnabled && !scheduled) {
+      throw new Error('Debes permitir las notificaciones para activar el recordatorio');
+    }
+    await db.updateMovementReminderSettings(data);
+    await refresh();
+  }, [refresh]);
+
   const value = useMemo(
     () => ({
       categories,
@@ -584,6 +601,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       removeIncome,
       setPeriodStartDate,
       setPeriodEndDate,
+      setMovementReminder,
     }),
     [
       categories,
@@ -649,6 +667,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       removeIncome,
       setPeriodStartDate,
       setPeriodEndDate,
+      setMovementReminder,
     ]
   );
 

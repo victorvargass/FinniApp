@@ -382,6 +382,11 @@ export async function initDatabase(): Promise<void> {
       id INTEGER PRIMARY KEY CHECK (id = 1),
       current_period_id INTEGER,
       default_payment_method_id INTEGER,
+      movement_reminder_enabled INTEGER NOT NULL DEFAULT 0,
+      movement_reminder_frequency TEXT NOT NULL DEFAULT 'daily',
+      movement_reminder_weekday INTEGER NOT NULL DEFAULT 1,
+      movement_reminder_hour INTEGER NOT NULL DEFAULT 21,
+      movement_reminder_minute INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY (current_period_id) REFERENCES periods(id) ON DELETE SET NULL
     );
 
@@ -605,6 +610,13 @@ export async function initDatabase(): Promise<void> {
   );
   if (!currentSettingsColumns.some((column) => column.name === 'default_payment_method_id')) {
     await db.execAsync('ALTER TABLE settings ADD COLUMN default_payment_method_id INTEGER;');
+  }
+  if (!currentSettingsColumns.some((column) => column.name === 'movement_reminder_enabled')) {
+    await db.execAsync("ALTER TABLE settings ADD COLUMN movement_reminder_enabled INTEGER NOT NULL DEFAULT 0;");
+    await db.execAsync("ALTER TABLE settings ADD COLUMN movement_reminder_frequency TEXT NOT NULL DEFAULT 'daily';");
+    await db.execAsync("ALTER TABLE settings ADD COLUMN movement_reminder_weekday INTEGER NOT NULL DEFAULT 1;");
+    await db.execAsync("ALTER TABLE settings ADD COLUMN movement_reminder_hour INTEGER NOT NULL DEFAULT 21;");
+    await db.execAsync("ALTER TABLE settings ADD COLUMN movement_reminder_minute INTEGER NOT NULL DEFAULT 0;");
   }
 
   await db.runAsync(
@@ -2636,6 +2648,11 @@ export async function getSettings(): Promise<Settings> {
     id: number;
     current_period_id: number | null;
     default_payment_method_id: number | null;
+    movement_reminder_enabled: number;
+    movement_reminder_frequency: 'daily' | 'weekly';
+    movement_reminder_weekday: number;
+    movement_reminder_hour: number;
+    movement_reminder_minute: number;
     period_id: number | null;
     start_date: string | null;
     end_date: string | null;
@@ -2645,6 +2662,11 @@ export async function getSettings(): Promise<Settings> {
       s.id,
       s.current_period_id,
       s.default_payment_method_id,
+      s.movement_reminder_enabled,
+      s.movement_reminder_frequency,
+      s.movement_reminder_weekday,
+      s.movement_reminder_hour,
+      s.movement_reminder_minute,
 
       p.id AS period_id,
       p.start_date,
@@ -2662,6 +2684,11 @@ export async function getSettings(): Promise<Settings> {
     id: row?.id ?? 1,
     currentPeriodId: row?.current_period_id ?? null,
     defaultPaymentMethodId: row?.default_payment_method_id ?? null,
+    movementReminderEnabled: (row?.movement_reminder_enabled ?? 0) === 1,
+    movementReminderFrequency: row?.movement_reminder_frequency ?? 'daily',
+    movementReminderWeekday: row?.movement_reminder_weekday ?? 1,
+    movementReminderHour: row?.movement_reminder_hour ?? 21,
+    movementReminderMinute: row?.movement_reminder_minute ?? 0,
 
     currentPeriod: row?.period_id
       ? {
@@ -2671,6 +2698,17 @@ export async function getSettings(): Promise<Settings> {
         }
       : null,
   };
+}
+
+export async function updateMovementReminderSettings(data: import('./types').MovementReminderSettings): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE settings SET movement_reminder_enabled = ?, movement_reminder_frequency = ?,
+      movement_reminder_weekday = ?, movement_reminder_hour = ?, movement_reminder_minute = ?
+     WHERE id = 1`,
+    data.movementReminderEnabled ? 1 : 0, data.movementReminderFrequency,
+    data.movementReminderWeekday, data.movementReminderHour, data.movementReminderMinute
+  );
 }
 
 async function getCurrentPeriodId(): Promise<number> {

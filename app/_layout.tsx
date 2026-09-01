@@ -79,6 +79,10 @@ function AppContent() {
                   name="modal/debt-detail"
                   options={{ presentation: 'fullScreenModal', title: 'Detalle de cuotas' }}
                 />
+                <Stack.Screen
+                  name="modal/movement-reminder"
+                  options={{ presentation: 'modal', title: 'Recordatorio de movimientos' }}
+                />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>
