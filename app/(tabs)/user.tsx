@@ -211,14 +211,14 @@ export default function UserScreen() {
 
         <ThemedView style={styles.card}>
           <Pressable
-            accessibilityLabel="Configurar gastos recurrentes"
+            accessibilityLabel="Configurar movimientos recurrentes"
             accessibilityRole="button"
             onPress={() => router.push('/modal/recurring-expenses')}
             style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
             <View style={styles.settingCopy}>
-              <ThemedText type="subtitle">Gastos recurrentes</ThemedText>
+              <ThemedText type="subtitle">Movimientos recurrentes</ThemedText>
               <ThemedText style={styles.description}>
-                Gestiona suscripciones, gastos automáticos y confirmaciones
+                Gestiona gastos e ingresos programados
               </ThemedText>
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />

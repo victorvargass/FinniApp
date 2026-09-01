@@ -57,7 +57,7 @@ function AppContent() {
                 />
                 <Stack.Screen
                   name="modal/recurring-expenses"
-                  options={{ presentation: 'fullScreenModal', title: 'Gastos recurrentes' }}
+                  options={{ presentation: 'fullScreenModal', title: 'Movimientos recurrentes' }}
                 />
                 <Stack.Screen
                   name="modal/recurring-confirmations"
@@ -66,6 +66,10 @@ function AppContent() {
                 <Stack.Screen
                   name="modal/recurring-expense-form"
                   options={{ presentation: 'modal', title: 'Gasto recurrente' }}
+                />
+                <Stack.Screen
+                  name="modal/recurring-income-form"
+                  options={{ presentation: 'modal', title: 'Ingreso recurrente' }}
                 />
                 <Stack.Screen
                   name="modal/debts"

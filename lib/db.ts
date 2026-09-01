@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
-import { addIsoDays, addIsoMonths, getOccurrenceDates } from './recurrence';
-import type { Category, CreditCardCycle, DebtPlan, ExpenseWithCategory, GeneratedRecurringExpenseNotification, Income, NewCategory, NewCreditCardCycle, NewExpense, NewIncome, NewInstallmentPurchase, NewPaymentMethod, NewPeriod, NewRecurringExpense, NewRecurringSchedule, PaymentMethod, PaymentMethodTotal, Period, PeriodCategoryExpensesTotals, PeriodHistory, PeriodStatement, ReconcileCreditCardCycle, RecurringConfirmationSchedule, RecurringDecisionItem, RecurringExpense, RecurringOccurrenceStatus, Settings } from './types';
+import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
+import type { Category, CreditCardCycle, DebtPlan, ExpenseWithCategory, GeneratedRecurringExpenseNotification, Income, NewCategory, NewCreditCardCycle, NewExpense, NewIncome, NewInstallmentPurchase, NewPaymentMethod, NewPeriod, NewRecurringExpense, NewRecurringIncome, NewRecurringSchedule, PaymentMethod, PaymentMethodTotal, Period, PeriodCategoryExpensesTotals, PeriodHistory, PeriodStatement, ReconcileCreditCardCycle, RecurringConfirmationSchedule, RecurringDecisionItem, RecurringExpense, RecurringIncome, RecurringOccurrenceStatus, Settings } from './types';
 
 const DATABASE_NAME = 'gastos.db';
 
@@ -513,6 +513,23 @@ export async function initDatabase(): Promise<void> {
       FOREIGN KEY(expense_id) REFERENCES expenses(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS recurring_incomes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      frequency TEXT NOT NULL CHECK (frequency IN ('weekly', 'monthly', 'annual', 'custom')),
+      interval_months INTEGER NOT NULL DEFAULT 1,
+      execution_day INTEGER,
+      start_date TEXT NOT NULL,
+      end_date TEXT,
+      next_date TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      source_income_id INTEGER,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(source_income_id) REFERENCES incomes(id) ON DELETE SET NULL
+    );
+
   `);
 
   // Existing databases can have an older expenses/incomes schema. Migrate it
@@ -541,6 +558,10 @@ export async function initDatabase(): Promise<void> {
   }
   if (!expenseColumns.some((column) => column.name === 'debt_installment_id')) {
     await db.execAsync('ALTER TABLE expenses ADD COLUMN debt_installment_id INTEGER;');
+  }
+  const incomeColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(incomes)');
+  if (!incomeColumns.some((column) => column.name === 'recurring_income_id')) {
+    await db.execAsync('ALTER TABLE incomes ADD COLUMN recurring_income_id INTEGER;');
   }
 
   const recurringOccurrenceColumns = await db.getAllAsync<{ name: string }>(
@@ -631,6 +652,8 @@ export async function initDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_recurring_active ON recurring_expenses(active);
     CREATE INDEX IF NOT EXISTS idx_recurring_occurrence_date ON recurring_expense_occurrences(recurring_expense_id, scheduled_date);
     CREATE INDEX IF NOT EXISTS idx_debt_installments_due ON debt_installments(debt_plan_id, due_date);
+    CREATE INDEX IF NOT EXISTS idx_incomes_recurring ON incomes(recurring_income_id);
+    CREATE INDEX IF NOT EXISTS idx_recurring_incomes_next ON recurring_incomes(active, next_date);
 
     INSERT OR IGNORE INTO periods (id, start_date, end_date)
     VALUES (
@@ -2316,7 +2339,8 @@ export async function getIncomes(periodId?: number): Promise<Income[]> {
       name,
       amount,
       period_id AS periodId,
-      date
+      date,
+      recurring_income_id AS recurringIncomeId
     FROM incomes
     WHERE period_id = ?
     ORDER BY date DESC, id DESC
@@ -2365,6 +2389,137 @@ export async function createIncome(
     targetPeriodId,
     data.date
   );
+}
+
+export async function createIncomeWithRecurrence(
+  data: NewIncome,
+  schedule: Omit<NewRecurringIncome, 'name' | 'amount' | 'sourceIncomeId'>,
+  periodId: number
+): Promise<void> {
+  const db = await getDb();
+  await assertDateBelongsToPeriod(db, periodId, data.date);
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    const incomeResult = await transaction.runAsync(
+      'INSERT INTO incomes (name, amount, period_id, date) VALUES (?, ?, ?, ?)',
+      data.name.trim(), data.amount, periodId, data.date
+    );
+    const rule = { ...schedule, name: data.name.trim(), amount: data.amount };
+    const nextDate = getNextOccurrenceDate(rule, data.date);
+    const recurringResult = await transaction.runAsync(
+      `INSERT INTO recurring_incomes
+        (name, amount, frequency, interval_months, execution_day, start_date,
+         end_date, next_date, active, source_income_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      rule.name, rule.amount, rule.frequency, rule.frequency === 'custom' ? rule.intervalMonths : 1,
+      rule.executionDay, data.date, rule.endDate, nextDate, incomeResult.lastInsertRowId
+    );
+    await transaction.runAsync(
+      'UPDATE incomes SET recurring_income_id = ? WHERE id = ?',
+      recurringResult.lastInsertRowId, incomeResult.lastInsertRowId
+    );
+  });
+}
+
+export async function createRecurringIncomeFromSource(
+  sourceIncomeId: number,
+  schedule: Omit<NewRecurringIncome, 'name' | 'amount' | 'sourceIncomeId'>
+): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    const source = await transaction.getFirstAsync<{ id: number; name: string; amount: number; date: string; recurring_income_id: number | null }>(
+      'SELECT id, name, amount, date, recurring_income_id FROM incomes WHERE id = ?', sourceIncomeId
+    );
+    if (!source) throw new Error('El ingreso de origen ya no existe');
+    if (source.recurring_income_id != null) throw new Error('Este ingreso ya tiene una recurrencia');
+    const rule = { ...schedule, name: source.name, amount: source.amount, startDate: source.date };
+    const nextDate = getNextOccurrenceDate(rule, source.date);
+    const result = await transaction.runAsync(
+      `INSERT INTO recurring_incomes
+        (name, amount, frequency, interval_months, execution_day, start_date,
+         end_date, next_date, active, source_income_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      source.name, source.amount, rule.frequency, rule.frequency === 'custom' ? rule.intervalMonths : 1,
+      rule.executionDay, source.date, rule.endDate, nextDate, source.id
+    );
+    await transaction.runAsync('UPDATE incomes SET recurring_income_id = ? WHERE id = ?', result.lastInsertRowId, source.id);
+  });
+}
+
+export async function getRecurringIncomes(): Promise<RecurringIncome[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    'SELECT * FROM recurring_incomes ORDER BY active DESC, next_date, id DESC'
+  );
+  return rows.map((row) => ({
+    id: Number(row.id), name: String(row.name), amount: Number(row.amount),
+    frequency: row.frequency as RecurringIncome['frequency'], intervalMonths: Number(row.interval_months),
+    executionDay: row.execution_day == null ? null : Number(row.execution_day),
+    startDate: String(row.start_date), endDate: row.end_date == null ? null : String(row.end_date),
+    nextDate: row.next_date == null ? null : String(row.next_date), active: Number(row.active) === 1,
+    sourceIncomeId: row.source_income_id == null ? null : Number(row.source_income_id),
+  }));
+}
+
+export async function updateRecurringIncome(id: number, data: NewRecurringIncome): Promise<void> {
+  const db = await getDb();
+  const last = await db.getFirstAsync<{ date: string }>(
+    'SELECT date FROM incomes WHERE recurring_income_id = ? ORDER BY date DESC, id DESC LIMIT 1', id
+  );
+  const nextDate = getNextOccurrenceDate(data, last?.date ?? data.startDate);
+  const result = await db.runAsync(
+    `UPDATE recurring_incomes SET name = ?, amount = ?, frequency = ?, interval_months = ?,
+      execution_day = ?, start_date = ?, end_date = ?, next_date = ?, active = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    data.name.trim(), data.amount, data.frequency, data.frequency === 'custom' ? data.intervalMonths : 1,
+    data.executionDay, data.startDate, data.endDate, nextDate, data.active ? 1 : 0, id
+  );
+  if (result.changes === 0) throw new Error('El ingreso recurrente ya no existe');
+}
+
+export async function setRecurringIncomeActive(id: number, active: boolean): Promise<void> {
+  const db = await getDb();
+  const result = await db.runAsync('UPDATE recurring_incomes SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', active ? 1 : 0, id);
+  if (result.changes === 0) throw new Error('El ingreso recurrente ya no existe');
+}
+
+export async function deleteRecurringIncome(id: number): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync('UPDATE incomes SET recurring_income_id = NULL WHERE recurring_income_id = ?', id);
+    const result = await transaction.runAsync('DELETE FROM recurring_incomes WHERE id = ?', id);
+    if (result.changes === 0) throw new Error('El ingreso recurrente ya no existe');
+  });
+}
+
+export async function processDueRecurringIncomes(): Promise<void> {
+  const db = await getDb();
+  await db.withExclusiveTransactionAsync(async (transaction) => {
+    const rules = await transaction.getAllAsync<{
+      id: number; name: string; amount: number; frequency: RecurringIncome['frequency']; interval_months: number;
+      execution_day: number | null; start_date: string; end_date: string | null; next_date: string;
+    }>("SELECT * FROM recurring_incomes WHERE active = 1 AND next_date IS NOT NULL");
+    for (const rule of rules) {
+      let nextDate: string | null = rule.next_date;
+      for (let guard = 0; guard < 600 && nextDate; guard += 1) {
+        const period = await transaction.getFirstAsync<{ id: number }>(
+          'SELECT id FROM periods WHERE start_date <= ? AND end_date >= ? ORDER BY start_date DESC LIMIT 1', nextDate, nextDate
+        );
+        if (!period) break;
+        await transaction.runAsync(
+          'INSERT INTO incomes (name, amount, period_id, date, recurring_income_id) VALUES (?, ?, ?, ?, ?)',
+          rule.name, rule.amount, period.id, nextDate, rule.id
+        );
+        nextDate = getNextOccurrenceDate({
+          frequency: rule.frequency, intervalMonths: rule.interval_months,
+          executionDay: rule.execution_day, startDate: rule.start_date, endDate: rule.end_date,
+        }, nextDate);
+      }
+      await transaction.runAsync(
+        'UPDATE recurring_incomes SET next_date = ?, active = CASE WHEN ? IS NULL THEN 0 ELSE active END, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        nextDate, nextDate, rule.id
+      );
+    }
+  });
 }
 
 export async function updateIncome(

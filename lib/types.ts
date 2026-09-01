@@ -33,6 +33,7 @@ export type Income = {
   amount: number;
   periodId: number;
   date: string;
+  recurringIncomeId: number | null;
 };
 
 export type ExpenseWithCategory = Expense & {
@@ -253,6 +254,18 @@ export type GeneratedRecurringExpenseNotification = RecurringConfirmationSchedul
 
 export type RecurringDecisionItem = RecurringConfirmationSchedule & {
   status: 'pending' | 'skipped';
+};
+
+export type NewRecurringIncome = Omit<NewRecurringSchedule, 'registrationMode'> & {
+  name: string;
+  amount: number;
+  sourceIncomeId?: number | null;
+};
+
+export type RecurringIncome = NewRecurringIncome & {
+  id: number;
+  sourceIncomeId: number | null;
+  nextDate: string | null;
 };
 
 export type NewIncome = {

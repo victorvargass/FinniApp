@@ -19,6 +19,8 @@ type Props = {
   showActiveToggle?: boolean;
   fixedStartDate?: string;
   storedNextDate?: string | null;
+  hideRegistrationMode?: boolean;
+  movementKind?: 'gasto' | 'ingreso';
 };
 
 const FREQUENCIES: { value: RecurringFrequency; label: string }[] = [
@@ -69,6 +71,8 @@ export function RecurringScheduleFields({
   showActiveToggle = false,
   fixedStartDate,
   storedNextDate,
+  hideRegistrationMode = false,
+  movementKind = 'gasto',
 }: Props) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const [datePicker, setDatePicker] = useState<'start' | 'end' | null>(null);
@@ -169,6 +173,7 @@ export function RecurringScheduleFields({
         </>
       )}
 
+      {!hideRegistrationMode && <>
       <ThemedText style={styles.label}>Modo de registro</ThemedText>
       <Options<RecurringRegistrationMode>
         options={[
@@ -183,11 +188,12 @@ export function RecurringScheduleFields({
           ? 'El gasto se registrará automáticamente cuando llegue la fecha programada.'
           : 'Recibirás una notificación para aprobar u omitir el gasto.'}
       </ThemedText>
+      </>}
 
       <View style={styles.switchRow}>
         <View style={styles.switchCopy}>
           <ThemedText type="defaultSemiBold">Fecha de fin</ThemedText>
-          <ThemedText style={styles.hint}>{value.endDate ? 'Después de esta fecha, el gasto no se seguirá registrando de manera recurrente' : 'Sin fecha de término'}</ThemedText>
+          <ThemedText style={styles.hint}>{value.endDate ? `Después de esta fecha, el ${movementKind} no se seguirá registrando de manera recurrente` : 'Sin fecha de término'}</ThemedText>
         </View>
         <Switch
           value={value.endDate != null}

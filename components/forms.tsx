@@ -927,9 +927,10 @@ type IncomeFormProps = {
 };
 
 export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
-  const { incomeNames, addIncome, editIncome, selectedPeriod } = useDatabase();
+  const { incomeNames, addIncome, editIncome, addRecurringIncomeFromSource, selectedPeriod } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const insets = useSafeAreaInsets();
 
   const [name, setName] = useState(income?.name ?? '');
   const [isNameFocused, setIsNameFocused] = useState(false);
@@ -947,6 +948,11 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [makeIncomeRecurring, setMakeIncomeRecurring] = useState(false);
+  const [incomeSchedule, setIncomeSchedule] = useState<NewRecurringSchedule>(() => ({
+    ...getDefaultRecurringSchedule(date),
+    registrationMode: 'automatic',
+  }));
   const [saving, setSaving] = useState(false);
   const nameSuggestions = getNameSuggestions(incomeNames, name);
 
@@ -988,13 +994,30 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       const data = { name: name.trim(), amount, date: toDateString(date) };
       if (income) {
         await editIncome(income.id, data);
+        if (makeIncomeRecurring && income.recurringIncomeId == null) {
+          await addRecurringIncomeFromSource(income.id, {
+            ...incomeSchedule,
+            startDate: data.date,
+            executionDay: incomeSchedule.frequency === 'monthly' || incomeSchedule.frequency === 'custom'
+              ? date.getDate()
+              : null,
+            registrationMode: 'automatic',
+          });
+        }
         if (Platform.OS === 'android') {
-          ToastAndroid.show('Ingreso actualizado correctamente', ToastAndroid.SHORT);
+          ToastAndroid.show(makeIncomeRecurring ? 'Ingreso actualizado y recurrencia creada' : 'Ingreso actualizado correctamente', ToastAndroid.SHORT);
         } else {
-          Alert.alert('Guardado', 'Ingreso actualizado correctamente');
+          Alert.alert('Guardado', makeIncomeRecurring ? 'Ingreso actualizado y recurrencia creada' : 'Ingreso actualizado correctamente');
         }
       } else {
-        await addIncome(data);
+        await addIncome(data, makeIncomeRecurring ? {
+          ...incomeSchedule,
+          startDate: data.date,
+          executionDay: incomeSchedule.frequency === 'monthly' || incomeSchedule.frequency === 'custom'
+            ? date.getDate()
+            : null,
+          registrationMode: 'automatic',
+        } : undefined);
         if (Platform.OS === 'android') {
           ToastAndroid.show('Ingreso creado correctamente', ToastAndroid.SHORT);
         } else {
@@ -1010,6 +1033,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
   };
 
   return (
+    <View style={styles.formShell}>
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <ThemedText style={styles.label}>Nombre</ThemedText>
       <TextInput
@@ -1071,17 +1095,49 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         </Pressable>
       )}
 
-      <Pressable
-        style={[styles.button, saving && styles.buttonDisabled]}
-        onPress={handleSave}
-        disabled={saving}>
-        <ThemedText style={styles.buttonText}>
-          {income ? 'Actualizar' : 'Guardar'}
-        </ThemedText>
+      {(!income || income.recurringIncomeId == null) && (
+        <View style={[styles.recurringBox, { borderColor: colors.border }]}> 
+          <Pressable onPress={() => setMakeIncomeRecurring((current) => !current)} style={styles.recurringHeader}>
+            <View style={styles.recurringHeaderCopy}>
+              <ThemedText type="defaultSemiBold">Hacer recurrente</ThemedText>
+              <ThemedText style={styles.shareDescription}>Registra automáticamente este ingreso en las próximas fechas</ThemedText>
+            </View>
+            <Ionicons name={makeIncomeRecurring ? 'chevron-up' : 'chevron-down'} size={21} color={colors.icon} />
+          </Pressable>
+          {makeIncomeRecurring && (
+            <View style={[styles.recurringFields, { borderTopColor: colors.border }]}> 
+              <RecurringScheduleFields
+                value={incomeSchedule}
+                onChange={(value) => setIncomeSchedule({ ...value, registrationMode: 'automatic' })}
+                fixedStartDate={toDateString(date)}
+                hideRegistrationMode
+                movementKind="ingreso"
+              />
+            </View>
+          )}
+        </View>
+      )}
 
-      </Pressable>
+      {income?.recurringIncomeId != null && (
+        <Pressable
+          onPress={() => router.push({ pathname: '/modal/recurring-income-form', params: { id: String(income.recurringIncomeId) } })}
+          style={[styles.secondaryAction, { borderColor: colors.border }]}> 
+          <Ionicons name="repeat-outline" size={19} color={colors.primary} />
+          <ThemedText type="defaultSemiBold">Editar recurrencia</ThemedText>
+        </Pressable>
+      )}
+
       </View>
     </ScrollView>
+    <View style={[styles.formFooter, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <Pressable
+        style={[styles.button, styles.footerButton, saving && styles.buttonDisabled]}
+        onPress={handleSave}
+        disabled={saving}>
+        <ThemedText style={styles.buttonText}>{income ? 'Actualizar' : 'Guardar'}</ThemedText>
+      </Pressable>
+    </View>
+    </View>
   );
 }
 

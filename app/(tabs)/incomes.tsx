@@ -138,13 +138,17 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
 }
 
 export default function IncomesScreen() {
-  const { incomes, removeIncome, selectedPeriodId } = useDatabase();
+  const { incomes, recurringIncomes, removeIncome, selectedPeriodId } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [sortModalVisible, setSortModalVisible] = useState(false);
+  const activeRecurringIncomeIds = useMemo(
+    () => new Set(recurringIncomes.filter((item) => item.active).map((item) => item.id)),
+    [recurringIncomes]
+  );
 
   useEffect(() => {
     setSearch('');
@@ -296,7 +300,12 @@ export default function IncomesScreen() {
                   ]}
                 />
                 <View style={styles.itemInfo}>
-                  <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{item.name}</ThemedText>
+                  <View style={styles.incomeNameRow}>
+                    <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{item.name}</ThemedText>
+                    {item.recurringIncomeId != null && activeRecurringIncomeIds.has(item.recurringIncomeId) && (
+                      <Ionicons name="sync-circle-outline" size={18} color={colors.primary} accessibilityLabel="Ingreso recurrente" />
+                    )}
+                  </View>
                   <ThemedText style={[styles.meta, { fontSize: 12 }]}>{formatDate(new Date(`${item.date}T12:00:00`))}</ThemedText>
                 </View>
               </View>
@@ -471,6 +480,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  incomeNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   meta: {
     fontSize: 13,
     opacity: 0.6,
