@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Alert, FlatList, Platform, Pressable, StyleSheet, ToastAndroid, View } from 'react-native';
+import { FlatList, Platform, Pressable, StyleSheet, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Alert } from '@/lib/alert';
 import type { PaymentMethodType } from '@/lib/types';
 
 const TYPE_LABELS: Record<PaymentMethodType, string> = {
@@ -73,6 +74,15 @@ export default function PaymentMethodsScreen() {
                 color={settings.defaultPaymentMethodId === item.id ? '#f2b705' : colors.icon}
               />
             </Pressable>
+            {item.type === 'credit' && (
+              <Pressable
+                accessibilityLabel={`Ver estados de cuenta de ${item.name}`}
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: '/modal/card-cycles', params: { id: String(item.id) } })}
+                style={styles.statementButton}>
+                <Ionicons name="receipt-outline" size={21} color={colors.primary} />
+              </Pressable>
+            )}
             <Pressable
               accessibilityLabel={`Configurar ${item.name}`}
               onPress={() => router.push({ pathname: '/modal/payment-method-form', params: { id: String(item.id) } })}
@@ -99,5 +109,6 @@ const styles = StyleSheet.create({
   secondary: { opacity: 0.65, fontSize: 13 },
   chevron: { paddingVertical: 8, paddingLeft: 4 },
   star: { padding: 6 },
+  statementButton: { padding: 6 },
   starDisabled: { opacity: 0.35 },
 });
