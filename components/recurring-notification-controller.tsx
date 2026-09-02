@@ -10,6 +10,7 @@ import {
   configureRecurringNotifications,
   getRecurringNotificationData,
 } from '@/services/RecurringNotificationService';
+import { getMovementReminderUrl } from '@/services/MovementReminderService';
 
 function showResult(message: string) {
   if (Platform.OS === 'android') {
@@ -22,6 +23,7 @@ function showResult(message: string) {
 export function RecurringNotificationController() {
   const {
     recurringExpenses,
+    recurringIncomes,
     approveRecurringOccurrence,
     skipRecurringOccurrence,
     markRecurringOccurrencePending,
@@ -30,9 +32,20 @@ export function RecurringNotificationController() {
 
   useEffect(() => {
     const handleResponse = async (response: Notifications.NotificationResponse) => {
+      const responseKey = `${response.notification.request.identifier}:${response.actionIdentifier}`;
+      const movementReminderUrl = getMovementReminderUrl(response);
+      if (movementReminderUrl) {
+        if (handledResponse.current === responseKey) return;
+        handledResponse.current = responseKey;
+        router.replace(movementReminderUrl);
+        await Notifications.dismissNotificationAsync(response.notification.request.identifier)
+          .catch(() => undefined);
+        await Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
+        return;
+      }
+
       const data = getRecurringNotificationData(response);
       if (!data) return;
-      const responseKey = `${response.notification.request.identifier}:${response.actionIdentifier}`;
       if (handledResponse.current === responseKey) {
         await Notifications.dismissNotificationAsync(response.notification.request.identifier)
           .catch(() => undefined);
@@ -41,23 +54,24 @@ export function RecurringNotificationController() {
       handledResponse.current = responseKey;
 
       try {
-        await markRecurringOccurrencePending(data.recurringExpenseId, data.scheduledDate);
-        const recurring = recurringExpenses.find(
-          (item) => item.id === data.recurringExpenseId
+        await markRecurringOccurrencePending(data.kind, data.recurringId, data.scheduledDate);
+        const recurring = (data.kind === 'expense' ? recurringExpenses : recurringIncomes).find(
+          (item) => item.id === data.recurringId
         );
+        const noun = data.kind === 'expense' ? 'gasto' : 'ingreso';
         const description = recurring
           ? `${recurring.name} por ${formatCLP(recurring.amount)}`
-          : 'el gasto recurrente programado';
+          : `el ${noun} recurrente programado`;
 
-        const confirmExpense = async () => {
+        const confirmMovement = async () => {
           try {
-            await approveRecurringOccurrence(data.recurringExpenseId, data.scheduledDate);
-            showResult('Gasto recurrente creado');
-            router.replace('/(tabs)/expenses');
+            await approveRecurringOccurrence(data.kind, data.recurringId, data.scheduledDate);
+            showResult(`${noun === 'gasto' ? 'Gasto' : 'Ingreso'} recurrente creado`);
+            router.replace(data.kind === 'expense' ? '/(tabs)/expenses' : '/(tabs)/incomes');
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Inténtalo nuevamente.';
             Alert.alert(
-              'No se pudo crear el gasto',
+              `No se pudo crear el ${noun}`,
               `${message}\n\nLa ejecución seguirá pendiente para que puedas intentarlo nuevamente.`,
               [
                 {
@@ -66,16 +80,16 @@ export function RecurringNotificationController() {
                 },
                 {
                   text: 'Reintentar',
-                  onPress: () => void confirmExpense(),
+                  onPress: () => void confirmMovement(),
                 },
               ]
             );
           }
         };
 
-        const omitExpense = async () => {
+        const omitMovement = async () => {
           try {
-            await skipRecurringOccurrence(data.recurringExpenseId, data.scheduledDate);
+            await skipRecurringOccurrence(data.kind, data.recurringId, data.scheduledDate);
             showResult('Omitido. Puedes reintentarlo desde Notificaciones');
           } catch (error) {
             Alert.alert(
@@ -86,17 +100,17 @@ export function RecurringNotificationController() {
         };
 
         Alert.alert(
-          'Registrar gasto recurrente',
+          `Registrar ${noun} recurrente`,
           `FinniApp quiere registrar ${description}.`,
           [
             {
               text: 'Omitir',
               style: 'destructive',
-              onPress: () => void omitExpense(),
+              onPress: () => void omitMovement(),
             },
             {
               text: 'Confirmar',
-              onPress: () => void confirmExpense(),
+              onPress: () => void confirmMovement(),
             },
           ]
         );
@@ -131,6 +145,7 @@ export function RecurringNotificationController() {
     approveRecurringOccurrence,
     markRecurringOccurrencePending,
     recurringExpenses,
+    recurringIncomes,
     skipRecurringOccurrence,
   ]);
 

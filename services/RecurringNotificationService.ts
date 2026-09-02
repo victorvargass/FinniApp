@@ -9,7 +9,7 @@ import type {
 } from '@/lib/types';
 
 const RECURRING_CHANNEL = 'recurring-expenses';
-const DATA_KIND = 'recurring-expense';
+const DATA_KINDS = ['recurring-expense', 'recurring-income'] as const;
 const LEGACY_CATEGORIES = [
   'recurring-expense-confirmation',
   'recurring_expense_confirmation',
@@ -28,8 +28,8 @@ export async function configureRecurringNotifications(): Promise<void> {
   if (Platform.OS === 'web') return;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(RECURRING_CHANNEL, {
-      name: 'Gastos recurrentes',
-      description: 'Avisos de gastos programados',
+      name: 'Movimientos recurrentes',
+      description: 'Avisos de gastos e ingresos programados',
       importance: Notifications.AndroidImportance.HIGH,
       sound: 'default',
     });
@@ -92,7 +92,7 @@ async function cancelOurScheduledNotifications(): Promise<void> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled
-      .filter((item) => item.content.data?.kind === DATA_KIND)
+      .filter((item) => DATA_KINDS.includes(item.content.data?.kind as typeof DATA_KINDS[number]))
       .map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier))
   );
 }
@@ -110,14 +110,15 @@ export async function syncRecurringNotifications(
     .sort((first, second) => first.scheduledDate.localeCompare(second.scheduledDate))
     .slice(0, 50);
   for (const schedule of limited) {
+    const noun = schedule.kind === 'expense' ? 'gasto' : 'ingreso';
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'FinniApp quiere registrar un gasto recurrente',
+        title: `FinniApp quiere registrar un ${noun} recurrente`,
         body: `${schedule.name} · ${formatCLP(schedule.amount)}. Toca para revisarlo.`,
         sound: 'default',
         data: {
-          kind: DATA_KIND,
-          recurringExpenseId: schedule.recurringExpenseId,
+          kind: `recurring-${schedule.kind}`,
+          recurringId: schedule.recurringId,
           scheduledDate: schedule.scheduledDate,
         },
       },
@@ -131,12 +132,16 @@ export async function syncRecurringNotifications(
 }
 
 export function getRecurringNotificationData(response: Notifications.NotificationResponse): {
-  recurringExpenseId: number;
+  kind: 'expense' | 'income';
+  recurringId: number;
   scheduledDate: string;
 } | null {
   const data = response.notification.request.content.data;
-  const recurringExpenseId = Number(data?.recurringExpenseId);
+  const kind = data?.kind === 'recurring-expense'
+    ? 'expense'
+    : data?.kind === 'recurring-income' ? 'income' : null;
+  const recurringId = Number(data?.recurringId ?? data?.recurringExpenseId);
   const scheduledDate = typeof data?.scheduledDate === 'string' ? data.scheduledDate : null;
-  if (data?.kind !== DATA_KIND || !Number.isInteger(recurringExpenseId) || !scheduledDate) return null;
-  return { recurringExpenseId, scheduledDate };
+  if (!kind || !Number.isInteger(recurringId) || !scheduledDate) return null;
+  return { kind, recurringId, scheduledDate };
 }
