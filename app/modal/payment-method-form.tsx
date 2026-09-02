@@ -24,6 +24,11 @@ function showDefaultConfirmation(name: string) {
   else Alert.alert('Medio predeterminado', message);
 }
 
+function showResult(message: string) {
+  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
+  else Alert.alert('Listo', message);
+}
+
 export default function PaymentMethodFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const {
@@ -33,6 +38,8 @@ export default function PaymentMethodFormScreen() {
     editPaymentMethod,
     setPaymentMethodActive,
     setDefaultPaymentMethod,
+    getPaymentMethodDeletionInfo,
+    removePaymentMethod,
   } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -54,11 +61,62 @@ export default function PaymentMethodFormScreen() {
       const data = { name: name.trim(), type, billingDay: type === 'credit' ? day : null, color };
       if (method) await editPaymentMethod(method.id, data);
       else await addPaymentMethod(data);
+      showResult(method ? 'Medio de pago actualizado' : 'Medio de pago guardado');
       router.back();
     } catch (error) {
       Alert.alert('No se pudo guardar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!method) return;
+    if (settings.defaultPaymentMethodId === method.id) {
+      Alert.alert(
+        'No se puede eliminar',
+        'Este es tu medio de pago favorito. Marca otro como favorito antes de eliminarlo.'
+      );
+      return;
+    }
+    try {
+      const info = await getPaymentMethodDeletionInfo(method.id);
+      if (info.debtPlanCount > 0) {
+        Alert.alert(
+          'No se puede eliminar',
+          `Este medio tiene ${info.debtPlanCount === 1 ? 'una compra en cuotas asociada' : `${info.debtPlanCount} compras en cuotas asociadas`}. Elimina primero esas compras.`
+        );
+        return;
+      }
+      const expenseWarning = info.expenseCount > 0
+        ? ` Los ${info.expenseCount} gastos asociados quedarán con medio de pago “No especificado”.`
+        : '';
+      Alert.alert(
+        'Eliminar medio de pago',
+        `¿Eliminar “${method.name}”?${expenseWarning}`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: () => {
+              setSaving(true);
+              removePaymentMethod(method.id)
+                .then(() => {
+                  showResult('Medio de pago eliminado');
+                  router.back();
+                })
+                .catch((error) => Alert.alert(
+                  'No se pudo eliminar',
+                  error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+                ))
+                .finally(() => setSaving(false));
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('No se pudo revisar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
     }
   };
 
@@ -178,6 +236,16 @@ export default function PaymentMethodFormScreen() {
           <ThemedText type="defaultSemiBold">Ver ciclos y conciliar</ThemedText>
         </Pressable>
       )}
+      {method && (
+        <Pressable
+          disabled={saving || settings.defaultPaymentMethodId === method.id}
+          onPress={() => void confirmDelete()}
+          style={[styles.deleteButton, settings.defaultPaymentMethodId === method.id && styles.deleteDisabled]}>
+          <ThemedText style={styles.deleteText}>
+            {settings.defaultPaymentMethodId === method.id ? 'No se puede eliminar el favorito' : 'Eliminar medio de pago'}
+          </ThemedText>
+        </Pressable>
+      )}
       {method?.type === 'credit' && (
         <Pressable
           onPress={() => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } })}
@@ -207,4 +275,7 @@ const styles = StyleSheet.create({
   saveText: { color: '#fff', fontWeight: '700' },
   cyclesButton: { borderWidth: 1, borderRadius: 10, padding: 13, alignItems: 'center' },
   secondaryButton: { borderWidth: 1, borderRadius: 10, padding: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  deleteButton: { borderWidth: 1, borderColor: '#dc2626', borderRadius: 10, padding: 13, alignItems: 'center' },
+  deleteDisabled: { opacity: 0.45 },
+  deleteText: { color: '#dc2626', fontWeight: '700' },
 });
