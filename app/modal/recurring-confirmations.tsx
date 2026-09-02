@@ -37,31 +37,33 @@ export default function RecurringConfirmationsScreen() {
     { title: 'Omitidos', data: skipped },
   ].filter((section) => section.data.length > 0);
 
-  const confirmExpense = async (item: RecurringDecisionItem) => {
+  const confirmMovement = async (item: RecurringDecisionItem) => {
+    const noun = item.kind === 'expense' ? 'gasto' : 'ingreso';
     try {
-      await approveRecurringOccurrence(item.recurringExpenseId, item.scheduledDate);
-      showResult('Gasto recurrente creado');
-      router.replace('/(tabs)/expenses');
+      await approveRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate);
+      showResult(`${noun === 'gasto' ? 'Gasto' : 'Ingreso'} recurrente creado`);
+      router.replace(item.kind === 'expense' ? '/(tabs)/expenses' : '/(tabs)/incomes');
     } catch (error) {
       Alert.alert(
-        'No se pudo crear el gasto',
+        `No se pudo crear el ${noun}`,
         `${error instanceof Error ? error.message : 'Inténtalo nuevamente.'}\n\nLa ejecución seguirá pendiente.`
       );
     }
   };
 
-  const omitExpense = (item: RecurringDecisionItem) => {
+  const omitMovement = (item: RecurringDecisionItem) => {
+    const noun = item.kind === 'expense' ? 'gasto' : 'ingreso';
     Alert.alert(
-      'Omitir este gasto',
-      'No se creará el gasto. Podrás reintentarlo más adelante desde la sección Omitidos.',
+      `Omitir este ${noun}`,
+      `No se creará el ${noun}. Podrás reintentarlo más adelante desde la sección Omitidos.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Omitir',
           style: 'destructive',
           onPress: () => {
-            skipRecurringOccurrence(item.recurringExpenseId, item.scheduledDate)
-              .then(() => showResult('Gasto recurrente omitido'))
+            skipRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate)
+              .then(() => showResult(`${noun === 'gasto' ? 'Gasto' : 'Ingreso'} recurrente omitido`))
               .catch((error) => {
                 Alert.alert(
                   'No se pudo omitir',
@@ -74,23 +76,24 @@ export default function RecurringConfirmationsScreen() {
     );
   };
 
-  const retryExpense = (item: RecurringDecisionItem) => {
+  const retryMovement = (item: RecurringDecisionItem) => {
+    const noun = item.kind === 'expense' ? 'gasto' : 'ingreso';
     Alert.alert(
-      'Reintentar gasto',
-      `¿Crear el gasto recurrente "${item.name}" en este período?`,
+      `Reintentar ${noun}`,
+      `¿Crear el ${noun} recurrente "${item.name}" en este período?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Crear gasto',
+          text: `Crear ${noun}`,
           onPress: () => {
-            retryRecurringOccurrence(item.recurringExpenseId, item.scheduledDate)
+            retryRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate)
               .then(() => {
-                showResult('Gasto recurrente creado');
-                router.replace('/(tabs)/expenses');
+                showResult(`${noun === 'gasto' ? 'Gasto' : 'Ingreso'} recurrente creado`);
+                router.replace(item.kind === 'expense' ? '/(tabs)/expenses' : '/(tabs)/incomes');
               })
               .catch((error) => {
                 Alert.alert(
-                  'No se pudo crear el gasto',
+                  `No se pudo crear el ${noun}`,
                   `${error instanceof Error ? error.message : 'Inténtalo nuevamente.'}\n\nLa ejecución quedó pendiente.`
                 );
               });
@@ -101,16 +104,17 @@ export default function RecurringConfirmationsScreen() {
   };
 
   const deleteSkippedNotification = (item: RecurringDecisionItem) => {
+    const noun = item.kind === 'expense' ? 'gasto' : 'ingreso';
     Alert.alert(
       'Eliminar notificación',
-      `Se quitará de Omitidos la notificación de "${item.name}". El gasto seguirá marcado como omitido y no se creará.`,
+      `Se quitará de Omitidos la notificación de "${item.name}". El ${noun} seguirá marcado como omitido y no se creará.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
-            dismissSkippedOccurrence(item.recurringExpenseId, item.scheduledDate)
+            dismissSkippedOccurrence(item.kind, item.recurringId, item.scheduledDate)
               .then(() => showResult('Notificación eliminada'))
               .catch((error) => {
                 Alert.alert(
@@ -128,7 +132,7 @@ export default function RecurringConfirmationsScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <SectionList
         sections={sections}
-        keyExtractor={(item) => `${item.recurringExpenseId}-${item.scheduledDate}`}
+        keyExtractor={(item) => `${item.kind}-${item.recurringId}-${item.scheduledDate}`}
         contentContainerStyle={styles.list}
         ListEmptyComponent={(
           <ThemedText style={styles.empty}>No tienes confirmaciones pendientes ni omitidas.</ThemedText>
@@ -154,11 +158,11 @@ export default function RecurringConfirmationsScreen() {
             {item.status === 'pending' ? (
               <View style={styles.actions}>
                 <Pressable
-                  onPress={() => omitExpense(item)}
+                  onPress={() => omitMovement(item)}
                   style={[styles.action, { borderColor: colors.border }]}>
                   <ThemedText type="defaultSemiBold">Omitir</ThemedText>
                 </Pressable>
-                <Pressable onPress={() => void confirmExpense(item)} style={[styles.action, styles.primary]}>
+                <Pressable onPress={() => void confirmMovement(item)} style={[styles.action, styles.primary]}>
                   <ThemedText style={styles.primaryText}>Confirmar</ThemedText>
                 </Pressable>
               </View>
@@ -170,7 +174,7 @@ export default function RecurringConfirmationsScreen() {
                   <ThemedText type="defaultSemiBold" style={styles.deleteText}>Eliminar</ThemedText>
                 </Pressable>
                 <Pressable
-                  onPress={() => retryExpense(item)}
+                  onPress={() => retryMovement(item)}
                   style={[styles.action, { borderColor: colors.primary }]}>
                   <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>Reintentar</ThemedText>
                 </Pressable>

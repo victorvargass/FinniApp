@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput, ToastAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
@@ -12,6 +12,14 @@ import { Alert } from '@/lib/alert';
 import { parseAmount } from '@/lib/format';
 import type { NewRecurringSchedule } from '@/lib/types';
 
+function showResult(message: string) {
+  if (Platform.OS === 'android') {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
+  } else {
+    Alert.alert('Listo', message, [{ text: 'Aceptar' }]);
+  }
+}
+
 export default function RecurringIncomeFormScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { recurringIncomes, editRecurringIncome, removeRecurringIncome } = useDatabase();
@@ -22,8 +30,8 @@ export default function RecurringIncomeFormScreen() {
   const [schedule, setSchedule] = useState<NewRecurringSchedule>(() => recurring ? {
     frequency: recurring.frequency, intervalMonths: recurring.intervalMonths,
     executionDay: recurring.executionDay, startDate: recurring.startDate,
-    endDate: recurring.endDate, active: recurring.active, registrationMode: 'automatic',
-  } : { frequency: 'monthly', intervalMonths: 1, executionDay: new Date().getDate(), startDate: '', endDate: null, active: true, registrationMode: 'automatic' });
+    endDate: recurring.endDate, active: recurring.active, registrationMode: recurring.registrationMode,
+  } : { frequency: 'monthly', intervalMonths: 1, executionDay: new Date().getDate(), startDate: '', endDate: null, active: true, registrationMode: 'confirmation' });
   const [saving, setSaving] = useState(false);
 
   if (!recurring) return <SafeAreaView style={styles.safe}><ThemedText style={styles.empty}>El ingreso recurrente ya no existe.</ThemedText></SafeAreaView>;
@@ -37,8 +45,9 @@ export default function RecurringIncomeFormScreen() {
         name: name.trim(), amount, sourceIncomeId: recurring.sourceIncomeId,
         frequency: schedule.frequency, intervalMonths: schedule.intervalMonths,
         executionDay: schedule.executionDay, startDate: schedule.startDate,
-        endDate: schedule.endDate, active: schedule.active,
+        endDate: schedule.endDate, active: schedule.active, registrationMode: schedule.registrationMode,
       });
+      showResult('Recurrencia actualizada');
       router.back();
     } catch (error) { Alert.alert('No se pudo guardar', error instanceof Error ? error.message : 'Inténtalo nuevamente.'); }
     finally { setSaving(false); }
@@ -47,9 +56,9 @@ export default function RecurringIncomeFormScreen() {
   return <SafeAreaView style={styles.safe} edges={['bottom']}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <ThemedText style={styles.label}>Nombre</ThemedText><TextInput value={name} onChangeText={setName} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
     <ThemedText style={styles.label}>Monto</ThemedText><TextInput value={amountText} onChangeText={setAmountText} keyboardType="number-pad" style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
-    <RecurringScheduleFields value={schedule} onChange={(value) => setSchedule({ ...value, registrationMode: 'automatic' })} showActiveToggle fixedStartDate={recurring.startDate} storedNextDate={recurring.nextDate} hideRegistrationMode movementKind="ingreso" />
+    <RecurringScheduleFields value={schedule} onChange={setSchedule} showActiveToggle fixedStartDate={recurring.startDate} storedNextDate={recurring.nextDate} movementKind="ingreso" />
     <Pressable disabled={saving} onPress={save} style={styles.save}><ThemedText style={styles.saveText}>{saving ? 'Guardando...' : 'Guardar cambios'}</ThemedText></Pressable>
-    <Pressable disabled={saving} onPress={() => Alert.alert('Eliminar recurrencia', 'Los ingresos registrados anteriormente se conservarán.', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Eliminar', style: 'destructive', onPress: () => removeRecurringIncome(recurring.id).then(() => router.back()).catch((error) => Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Inténtalo nuevamente.')) }])} style={styles.remove}><ThemedText style={styles.removeText}>Eliminar recurrencia</ThemedText></Pressable>
+    <Pressable disabled={saving} onPress={() => Alert.alert('Eliminar recurrencia', 'Los ingresos registrados anteriormente se conservarán.', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Eliminar', style: 'destructive', onPress: () => removeRecurringIncome(recurring.id).then(() => { showResult('Recurrencia eliminada'); router.back(); }).catch((error) => Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Inténtalo nuevamente.')) }])} style={styles.remove}><ThemedText style={styles.removeText}>Eliminar recurrencia</ThemedText></Pressable>
   </ScrollView></SafeAreaView>;
 }
 

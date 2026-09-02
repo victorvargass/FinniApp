@@ -45,6 +45,23 @@ export default function RecurringExpensesScreen() {
     </View>
   );
 
+  const runOccurrenceAction = async (
+    action: 'approve' | 'skip',
+    kind: 'expense' | 'income',
+    recurringId: number,
+    scheduledDate: string
+  ) => {
+    try {
+      if (action === 'approve') await approveRecurringOccurrence(kind, recurringId, scheduledDate);
+      else await skipRecurringOccurrence(kind, recurringId, scheduledDate);
+    } catch (error) {
+      Alert.alert(
+        'No se pudo completar',
+        error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+      );
+    }
+  };
+
   if (section === 'incomes') {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -53,7 +70,7 @@ export default function RecurringExpensesScreen() {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.list}
           ListHeaderComponent={tabs}
-          ListEmptyComponent={<ThemedText style={styles.empty}>Aún no tienes ingresos recurrentes. Puedes crearlos desde Nuevo ingreso.</ThemedText>}
+          ListEmptyComponent={<ThemedText style={styles.empty}>Aún no tienes ingresos recurrentes. Puedes crearlos desde un ingreso.</ThemedText>}
           renderItem={({ item }) => (
             <ThemedView style={[styles.card, !item.active && styles.inactive]}>
               <View style={styles.cardHeader}>
@@ -69,33 +86,27 @@ export default function RecurringExpensesScreen() {
                 <Switch value={item.active} onValueChange={(active) => setRecurringIncomeActive(item.id, active).catch((error) => Alert.alert('No se pudo cambiar', error instanceof Error ? error.message : 'Inténtalo nuevamente.'))} trackColor={{ true: '#2e9d63' }} />
               </View>
               <View style={styles.metaRow}>
-                <View style={[styles.modeBadge, { borderColor: colors.border }]}><Ionicons name="flash-outline" size={14} color={colors.icon} /><ThemedText style={styles.modeText}>Automático</ThemedText></View>
-                <Pressable onPress={() => Alert.alert('Eliminar recurrencia', `¿Eliminar la recurrencia de ${item.name}? Los ingresos anteriores se conservarán.`, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Eliminar', style: 'destructive', onPress: () => removeRecurringIncome(item.id).catch((error) => Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Inténtalo nuevamente.')) }])}>
+                <View style={[styles.modeBadge, { borderColor: colors.border }]}>
+                  <Ionicons name={item.registrationMode === 'automatic' ? 'flash-outline' : 'notifications-outline'} size={14} color={colors.icon} />
+                  <ThemedText style={styles.modeText}>{item.registrationMode === 'automatic' ? 'Automático' : 'Con confirmación'}</ThemedText>
+                </View>
+                {item.pendingCount > 0 && <ThemedText style={styles.pending}>{item.pendingCount} {item.pendingCount === 1 ? 'pendiente' : 'pendientes'}</ThemedText>}
+                <Pressable onPress={() => Alert.alert('Eliminar recurrencia', `¿Eliminar la recurrencia de ${item.name}? Los ingresos anteriores se conservarán.`, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Eliminar', style: 'destructive', onPress: () => removeRecurringIncome(item.id).then(() => showResult('Recurrencia eliminada')).catch((error) => Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Inténtalo nuevamente.')) }])}>
                   <ThemedText style={styles.removeLink}>Eliminar</ThemedText>
                 </Pressable>
               </View>
+              {item.pendingCount > 0 && item.nextDate && (
+                <View style={styles.pendingActions}>
+                  <Pressable onPress={() => runOccurrenceAction('skip', 'income', item.id, item.nextDate!)} style={[styles.action, { borderColor: colors.border }]}><ThemedText type="defaultSemiBold">Omitir</ThemedText></Pressable>
+                  <Pressable onPress={() => runOccurrenceAction('approve', 'income', item.id, item.nextDate!)} style={[styles.action, styles.approve]}><ThemedText style={styles.approveText}>Aprobar</ThemedText></Pressable>
+                </View>
+              )}
             </ThemedView>
           )}
         />
       </SafeAreaView>
     );
   }
-
-  const runOccurrenceAction = async (
-    action: 'approve' | 'skip',
-    recurringExpenseId: number,
-    scheduledDate: string
-  ) => {
-    try {
-      if (action === 'approve') await approveRecurringOccurrence(recurringExpenseId, scheduledDate);
-      else await skipRecurringOccurrence(recurringExpenseId, scheduledDate);
-    } catch (error) {
-      Alert.alert(
-        'No se pudo completar',
-        error instanceof Error ? error.message : 'Inténtalo nuevamente.'
-      );
-    }
-  };
 
   const confirmRemove = (id: number, name: string) => {
     Alert.alert(
@@ -130,7 +141,7 @@ export default function RecurringExpensesScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={tabs}
         ListEmptyComponent={(
-          <ThemedText style={styles.empty}>Aún no tienes gastos recurrentes.</ThemedText>
+          <ThemedText style={styles.empty}>Aún no tienes gastos recurrentes. Puedes crearlos desde un gasto.</ThemedText>
         )}
         renderItem={({ item }) => (
           <ThemedView style={[styles.card, !item.active && styles.inactive]}>
@@ -194,12 +205,12 @@ export default function RecurringExpensesScreen() {
             {item.pendingCount > 0 && item.nextDate && (
               <View style={styles.pendingActions}>
                 <Pressable
-                  onPress={() => runOccurrenceAction('skip', item.id, item.nextDate!)}
+                  onPress={() => runOccurrenceAction('skip', 'expense', item.id, item.nextDate!)}
                   style={[styles.action, { borderColor: colors.border }]}>
                   <ThemedText type="defaultSemiBold">Omitir</ThemedText>
                 </Pressable>
                 <Pressable
-                  onPress={() => runOccurrenceAction('approve', item.id, item.nextDate!)}
+                  onPress={() => runOccurrenceAction('approve', 'expense', item.id, item.nextDate!)}
                   style={[styles.action, styles.approve]}>
                   <ThemedText style={styles.approveText}>Aprobar</ThemedText>
                 </Pressable>

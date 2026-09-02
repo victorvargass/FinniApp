@@ -949,10 +949,9 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [makeIncomeRecurring, setMakeIncomeRecurring] = useState(false);
-  const [incomeSchedule, setIncomeSchedule] = useState<NewRecurringSchedule>(() => ({
-    ...getDefaultRecurringSchedule(date),
-    registrationMode: 'automatic',
-  }));
+  const [incomeSchedule, setIncomeSchedule] = useState<NewRecurringSchedule>(() =>
+    getDefaultRecurringSchedule(date)
+  );
   const [saving, setSaving] = useState(false);
   const nameSuggestions = getNameSuggestions(incomeNames, name);
 
@@ -1001,7 +1000,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
             executionDay: incomeSchedule.frequency === 'monthly' || incomeSchedule.frequency === 'custom'
               ? date.getDate()
               : null,
-            registrationMode: 'automatic',
+            registrationMode: incomeSchedule.registrationMode,
           });
         }
         if (Platform.OS === 'android') {
@@ -1016,7 +1015,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
           executionDay: incomeSchedule.frequency === 'monthly' || incomeSchedule.frequency === 'custom'
             ? date.getDate()
             : null,
-          registrationMode: 'automatic',
+          registrationMode: incomeSchedule.registrationMode,
         } : undefined);
         if (Platform.OS === 'android') {
           ToastAndroid.show('Ingreso creado correctamente', ToastAndroid.SHORT);
@@ -1108,9 +1107,8 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
             <View style={[styles.recurringFields, { borderTopColor: colors.border }]}> 
               <RecurringScheduleFields
                 value={incomeSchedule}
-                onChange={(value) => setIncomeSchedule({ ...value, registrationMode: 'automatic' })}
+                onChange={setIncomeSchedule}
                 fixedStartDate={toDateString(date)}
-                hideRegistrationMode
                 movementKind="ingreso"
               />
             </View>

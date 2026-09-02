@@ -127,9 +127,11 @@ export function RecurringScheduleFields({
             onChangeText={(text) => update({ executionDay: Number(text.replace(/\D/g, '')) || null })}
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
           />
-          <ThemedText style={styles.hint}>
-            Si un mes es más corto, se usará su último día.
-          </ThemedText>
+          {(value.executionDay ?? 0) >= 29 && (
+            <ThemedText style={styles.hint}>
+              Si un mes es más corto, se usará su último día.
+            </ThemedText>
+          )}
         </>
       )}
 
@@ -185,8 +187,8 @@ export function RecurringScheduleFields({
       />
       <ThemedText style={styles.hint}>
         {value.registrationMode === 'automatic'
-          ? 'El gasto se registrará automáticamente cuando llegue la fecha programada.'
-          : 'Recibirás una notificación para aprobar u omitir el gasto.'}
+          ? `El ${movementKind} se registrará automáticamente cuando llegue la fecha programada.`
+          : `Recibirás una notificación para aprobar u omitir el ${movementKind}.`}
       </ThemedText>
       </>}
 
@@ -235,7 +237,7 @@ export function RecurringScheduleFields({
         <View style={styles.switchRow}>
           <View style={styles.switchCopy}>
             <ThemedText type="defaultSemiBold">Activo</ThemedText>
-            <ThemedText style={styles.hint}>Permite crear las próximas ejecuciones</ThemedText>
+            <ThemedText style={styles.hint}>Permite crear los próximos movimientos recurrentes</ThemedText>
           </View>
           <Switch
             value={value.active}
