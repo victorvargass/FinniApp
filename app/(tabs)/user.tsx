@@ -79,6 +79,143 @@ function ActionButton({
   );
 }
 
+const GoogleAccountCard = React.memo(function GoogleAccountCard() {
+  const colorScheme = useColorScheme() ?? 'light';
+  const {
+    user,
+    isLoading,
+    isWorking,
+    isConnected,
+    lastBackup,
+    error,
+    login,
+    backup,
+    restore,
+    logout,
+  } = useGoogle();
+
+  React.useEffect(() => {
+    if (!error) return;
+    Alert.alert(
+      t('common.error'),
+      error,
+      [{ text: t('common.accept') }],
+      { cancelable: true }
+    );
+  }, [error]);
+
+  const runBackup = async () => {
+    try {
+      await backup();
+      Alert.alert(t('settings.backupCompleted'), t('settings.backupCompletedMessage'));
+    } catch {
+      // El hook expone el error mediante su estado.
+    }
+  };
+
+  const runRestore = async () => {
+    try {
+      await restore();
+      Alert.alert(t('settings.restoreCompleted'), t('settings.restoreCompletedMessage'));
+    } catch {
+      // El hook expone el error mediante su estado.
+    }
+  };
+
+  const confirmRestore = () => {
+    Alert.alert(
+      t('settings.restoreData'),
+      t('settings.restoreWarning'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.restore'), style: 'destructive', onPress: runRestore },
+      ]
+    );
+  };
+
+  return (
+    <ThemedView style={styles.card}>
+      {isLoading ? (
+        <View style={styles.googleLoading}>
+          <ActivityIndicator size="small" />
+          <ThemedText>{t('settings.loadingSession')}</ThemedText>
+        </View>
+      ) : !isConnected ? (
+        <>
+          <ThemedText type="subtitle">{t('settings.googleDrive')}</ThemedText>
+          <ThemedText style={styles.description}>{t('settings.googleDriveHint')}</ThemedText>
+          <ActionButton
+            title={isWorking ? t('settings.connecting') : t('settings.connectGoogle')}
+            disabled={isWorking}
+            onPress={() => {
+              login().catch(() => {
+                // El mensaje se muestra desde el estado del hook.
+              });
+            }}
+            style={styles.googleButtonStyle}
+            textStyle={styles.googleButtonTextStyle}
+            icon={<GoogleLogo />}
+          />
+        </>
+      ) : (
+        <>
+          <View style={styles.profile}>
+            <View style={styles.avatar}>
+              <ThemedText style={styles.avatarText}>
+                {(user?.name?.[0] ?? 'G').toUpperCase()}
+              </ThemedText>
+            </View>
+            <View style={styles.profileInfo}>
+              <ThemedText type="subtitle">{user?.name ?? t('settings.googleUser')}</ThemedText>
+              <ThemedText style={styles.secondary}>
+                {user?.email ?? t('settings.emailUnavailable')}
+              </ThemedText>
+            </View>
+          </View>
+          <View style={styles.infoRow}>
+            <ThemedText style={styles.infoLabel}>{t('settings.state')}</ThemedText>
+            <ThemedText style={styles.connected}>{t('settings.connectedGoogle')}</ThemedText>
+          </View>
+          <View style={styles.infoRow}>
+            <ThemedText style={styles.infoLabel}>{t('settings.lastBackup')}</ThemedText>
+            <ThemedText style={styles.infoValue}>{formatBackupDate(lastBackup?.modifiedTime)}</ThemedText>
+          </View>
+          <View style={styles.actions}>
+            <ActionButton
+              title={isWorking ? t('settings.backingUp') : t('settings.backup')}
+              disabled={isWorking}
+              onPress={runBackup}
+              style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
+              textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
+            />
+            <ActionButton
+              title={isWorking ? t('settings.restoring') : t('settings.restore')}
+              disabled={isWorking || !lastBackup}
+              onPress={confirmRestore}
+              style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
+              textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
+            />
+            <ActionButton
+              title={t('settings.signOut')}
+              disabled={isWorking}
+              onPress={() => { void logout(); }}
+              style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
+              textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
+            />
+          </View>
+        </>
+      )}
+
+      {isWorking && (
+        <View style={styles.progress}>
+          <ActivityIndicator size="small" />
+          <ThemedText>{t('common.processing')}</ThemedText>
+        </View>
+      )}
+    </ThemedView>
+  );
+});
+
 // Main screen
 export default function UserScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -94,54 +231,6 @@ export default function UserScreen() {
     isAvailable: isBiometricAvailable,
     setEnabled: setBiometricEnabled,
   } = useBiometric();
-  const {
-    user,
-    isLoading,
-    isWorking,
-    isConnected,
-    lastBackup,
-    error,
-    login,
-    backup,
-    restore,
-    logout,
-  } = useGoogle();
-
-  // Actions
-  const runBackup = async () => {
-    try {
-      await backup();
-      Alert.alert(t('settings.backupCompleted'), t('settings.backupCompletedMessage'));
-    } catch {
-      // El hook ya expone el error.
-    }
-  };
-
-  const runRestore = async () => {
-    try {
-      await restore();
-      Alert.alert(
-        t('settings.restoreCompleted'), t('settings.restoreCompletedMessage')
-      );
-    } catch {
-      // El hook ya expone el error.
-    }
-  };
-
-  const confirmRestore = () => {
-    Alert.alert(
-      t('settings.restoreData'), t('settings.restoreWarning'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('settings.restore'), style: 'destructive', onPress: runRestore },
-      ]
-    );
-  };
-
-  const runLogout = async () => {
-    await logout();
-  };
-
   // Main content
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -346,102 +435,7 @@ export default function UserScreen() {
           </View>
         </ThemedView>
 
-        <ThemedView style={styles.card}>
-          {isLoading ? (
-            <View style={styles.googleLoading}>
-              <ActivityIndicator size="small" />
-              <ThemedText>{t('settings.loadingSession')}</ThemedText>
-            </View>
-          ) : !isConnected ? (
-            <>
-              <ThemedText type="subtitle">{t('settings.googleDrive')}</ThemedText>
-              <ThemedText style={styles.description}>
-                {t('settings.googleDriveHint')}
-              </ThemedText>
-              <ActionButton
-                title={isWorking ? t('settings.connecting') : t('settings.connectGoogle')}
-                disabled={isWorking}
-                onPress={() => {
-                  login().catch(() => {
-                    // El mensaje se muestra debajo.
-                  });
-                }}
-                style={styles.googleButtonStyle}
-                textStyle={styles.googleButtonTextStyle}
-                icon={<GoogleLogo />}
-              />
-            </>
-          ) : (
-            <>
-              <View style={styles.profile}>
-                <View style={styles.avatar}>
-                  <ThemedText style={styles.avatarText}>
-                    {(user?.name?.[0] ?? 'G').toUpperCase()}
-                  </ThemedText>
-                </View>
-                <View style={styles.profileInfo}>
-                  <ThemedText type="subtitle">
-                    {user?.name ?? t('settings.googleUser')}
-                  </ThemedText>
-                  <ThemedText style={styles.secondary}>
-                    {user?.email ?? t('settings.emailUnavailable')}
-                  </ThemedText>
-                </View>
-              </View>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>{t('settings.state')}</ThemedText>
-                <ThemedText style={styles.connected}>{t('settings.connectedGoogle')}</ThemedText>
-              </View>
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>{t('settings.lastBackup')}</ThemedText>
-                <ThemedText style={styles.infoValue}>
-                  {formatBackupDate(lastBackup?.modifiedTime)}
-                </ThemedText>
-              </View>
-              <View style={styles.actions}>
-                <ActionButton
-                  title={isWorking ? t('settings.backingUp') : t('settings.backup')}
-                  disabled={isWorking}
-                  onPress={runBackup}
-                  style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
-                  textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
-                />
-                <ActionButton
-                  title={isWorking ? t('settings.restoring') : t('settings.restore')}
-                  disabled={isWorking || !lastBackup}
-                  onPress={confirmRestore}
-                  style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
-                  textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
-                />
-                <ActionButton
-                  title={t('settings.signOut')}
-                  disabled={isWorking}
-                  onPress={runLogout}
-                  style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
-                  textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
-                />
-              </View>
-            </>
-          )}
-
-          {isWorking && (
-            <View style={styles.progress}>
-              <ActivityIndicator size="small" />
-              <ThemedText>{t('common.processing')}</ThemedText>
-            </View>
-          )}
-
-          {error && (
-            <>
-              {Alert.alert(
-                t('common.error'),
-                error,
-                [{ text: 'OK' }],
-                { cancelable: true }
-              )}
-            </>
-          )}
-        </ThemedView>
+        <GoogleAccountCard />
       </ScrollView>
     </SafeAreaView>
   );
