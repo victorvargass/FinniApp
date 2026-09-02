@@ -5,6 +5,7 @@ import type { MovementReminderSettings } from '@/lib/types';
 
 const CHANNEL = 'movement-reminders';
 const KIND = 'movement-reminder';
+export const MOVEMENT_REMINDER_URL = '/(tabs)/period' as const;
 
 async function cancelExisting() {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
@@ -40,11 +41,20 @@ export async function syncMovementReminder(settings: MovementReminderSettings): 
       title: 'Registra tus movimientos',
       body: '¿Olvidaste registrar tus gastos o ingresos de hoy?',
       sound: 'default',
-      data: { kind: KIND },
+      data: { kind: KIND, url: MOVEMENT_REMINDER_URL },
     },
     trigger: settings.movementReminderFrequency === 'daily'
       ? { type: Notifications.SchedulableTriggerInputTypes.DAILY, ...base }
       : { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: settings.movementReminderWeekday, ...base },
   });
   return true;
+}
+
+export function getMovementReminderUrl(
+  response: Notifications.NotificationResponse
+): typeof MOVEMENT_REMINDER_URL | null {
+  const data = response.notification.request.content.data;
+  return data?.kind === KIND && data.url === MOVEMENT_REMINDER_URL
+    ? MOVEMENT_REMINDER_URL
+    : null;
 }

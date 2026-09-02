@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -34,6 +34,11 @@ export default function MovementReminderScreen() {
         movementReminderHour: time.getHours(),
         movementReminderMinute: time.getMinutes(),
       });
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('Recordatorio guardado', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('Listo', 'Recordatorio guardado');
+      }
       router.back();
     } catch (error) {
       Alert.alert('No se pudo guardar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
