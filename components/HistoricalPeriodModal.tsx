@@ -18,6 +18,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import type { PeriodHistory } from '@/lib/types';
 import { exportPeriodReport } from '@/services/PeriodReportService';
 
@@ -59,8 +60,8 @@ export function HistoricalPeriodModal({
     } catch (error) {
       console.error('No se pudo generar el reporte del período', error);
       Alert.alert(
-        'No se pudo generar el PDF',
-        'Favor inténtalo nuevamente'
+        t('historicalPeriod.exportError'),
+        t('historicalPeriod.exportRetry')
       );
     } finally {
       setIsExporting(false);
@@ -89,7 +90,7 @@ export function HistoricalPeriodModal({
       onRequestClose={onClose}
     >
       <Pressable
-        accessibilityLabel="Cerrar resumen histórico"
+        accessibilityLabel={t('accessibility.closeHistoricalSummary')}
         onPress={onClose}
         style={styles.overlay}>
         <Pressable
@@ -98,7 +99,7 @@ export function HistoricalPeriodModal({
           <ScrollView showsVerticalScrollIndicator={false}>
   
             <ThemedText type="title" style={styles.headerTitle}>
-              Resumen del período
+              {t('historicalPeriod.title')}
             </ThemedText>
   
             <ThemedText style={[styles.datesSummary, { color: colors.textSecondary }]}>
@@ -108,7 +109,7 @@ export function HistoricalPeriodModal({
             <View style={styles.totalsContainer}>
               <ThemedView style={[styles.summaryCard, { flex: 1, backgroundColor: colors.surfaceRaised }]}>
                 <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
-                  Ingresos
+                  {t('historicalPeriod.incomes')}
                 </ThemedText>
 
                 <ThemedText style={styles.income}>
@@ -118,7 +119,7 @@ export function HistoricalPeriodModal({
 
               <ThemedView style={[styles.summaryCard, { flex: 1, backgroundColor: colors.surfaceRaised }]}>
                 <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
-                  Gastos
+                  {t('historicalPeriod.expenses')}
                 </ThemedText>
 
                 <ThemedText style={styles.expense}>
@@ -130,7 +131,7 @@ export function HistoricalPeriodModal({
 
             <ThemedView style={[styles.balanceCard, { backgroundColor: colors.surfaceRaised }]}>
               <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
-                Saldo
+                {t('historicalPeriod.balance')}
               </ThemedText>
 
               <ThemedText
@@ -163,7 +164,7 @@ export function HistoricalPeriodModal({
 
                   {limits.length > 0 && (
                     <View style={[styles.limitsSection, { borderTopColor: colors.border }]}>
-                      <ThemedText type="subtitle">Límites de gastos</ThemedText>
+                      <ThemedText type="subtitle">{t('historicalPeriod.limits')}</ThemedText>
                       <View style={styles.limitList}>
                         {limits.map((item: any) => (
                           <LimitProgressBar
@@ -202,7 +203,7 @@ export function HistoricalPeriodModal({
                 ]}
                 onPress={() => onOpenPeriod(period.periodId)}>
                 <ThemedText style={styles.exportButtonText}>
-                  Ir al período
+                  {t('historicalPeriod.openPeriod')}
                 </ThemedText>
               </Pressable>
             )}
@@ -220,12 +221,12 @@ export function HistoricalPeriodModal({
                 <View style={styles.exportingContent}>
                   <ActivityIndicator size="small" color="#fff" />
                   <ThemedText style={styles.exportButtonText}>
-                    Generando PDF…
+                    {t('historicalPeriod.generatingPdf')}
                   </ThemedText>
                 </View>
               ) : (
                 <ThemedText style={styles.exportButtonText}>
-                  Exportar reporte PDF
+                  {t('historicalPeriod.exportPdf')}
                 </ThemedText>
               )}
             </Pressable>
@@ -235,7 +236,7 @@ export function HistoricalPeriodModal({
               onPress={onClose}
             >
               <ThemedText style={[styles.closeButtonText, { color: colors.primary }]}>
-                Cerrar
+                {t('common.close')}
               </ThemedText>
             </Pressable>
   

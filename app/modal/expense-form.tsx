@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 
 import { ExpenseForm } from '@/components/forms';
 import { ThemedText } from '@/components/themed-text';
+import { t } from '@/lib/i18n';
 import { ThemedView } from '@/components/themed-view';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import * as db from '@/lib/db';
@@ -38,7 +39,7 @@ export default function ExpenseFormModal() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: expense ? 'Editar gasto' : 'Nuevo gasto',
+      title: expense ? t('expenses.edit') : t('expenses.new'),
     });
   }, [navigation, expense]);
 
@@ -46,7 +47,7 @@ export default function ExpenseFormModal() {
     return (
       <ThemedView style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" />
-        <ThemedText>Cargando gasto...</ThemedText>
+        <ThemedText>{t('expenses.loading')}</ThemedText>
       </ThemedView>
     );
   }
@@ -54,7 +55,7 @@ export default function ExpenseFormModal() {
   if (id && !expense) {
     return (
       <ThemedView style={[styles.container, styles.center]}>
-        <ThemedText>El gasto de origen ya no existe.</ThemedText>
+        <ThemedText>{t('expenses.originMissing')}</ThemedText>
       </ThemedView>
     );
   }

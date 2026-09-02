@@ -22,6 +22,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import type { Category, ExpenseWithCategory, PaymentMethod } from '@/lib/types';
 
 type SortOption =
@@ -54,12 +55,12 @@ type ExpenseListItem =
     };
 
 const SORT_OPTIONS: { value: SortOption; label: string; group: string }[] = [
-  { value: 'date-desc', label: 'Más reciente', group: 'Fecha' },
-  { value: 'date-asc', label: 'Más antigua', group: 'Fecha' },
-  { value: 'name-asc', label: 'A → Z', group: 'Nombre' },
-  { value: 'name-desc', label: 'Z → A', group: 'Nombre' },
-  { value: 'amount-desc', label: 'Mayor a menor', group: 'Monto' },
-  { value: 'amount-asc', label: 'Menor a mayor', group: 'Monto' },
+  { value: 'date-desc', label: t('filters.newest'), group: t('filters.date') },
+  { value: 'date-asc', label: t('filters.oldest'), group: t('filters.date') },
+  { value: 'name-asc', label: 'A → Z', group: t('filters.name') },
+  { value: 'name-desc', label: 'Z → A', group: t('filters.name') },
+  { value: 'amount-desc', label: t('filters.highest'), group: t('filters.amount') },
+  { value: 'amount-asc', label: t('filters.lowest'), group: t('filters.amount') },
 ];
 
 const SORT_LABELS = Object.fromEntries(
@@ -88,13 +89,13 @@ function getPaymentMethodFilterLabel(
   filter: PaymentMethodFilter,
   paymentMethods: PaymentMethod[]
 ) {
-  if (filter.length === 0) return 'Todos';
+  if (filter.length === 0) return t('filters.all');
   if (filter.length === 1) {
     const value = filter[0];
-    if (value === 'none') return 'No especificado';
-    return paymentMethods.find((method) => method.id === value)?.name ?? 'Medio de pago';
+    if (value === 'none') return t('common.notSpecified');
+    return paymentMethods.find((method) => method.id === value)?.name ?? t('navigation.paymentMethod');
   }
-  return `${filter.length} medios`;
+  return t('filters.mediaCount', { count: filter.length });
 }
 
 function compareExpenseGroups(
@@ -146,18 +147,18 @@ function getCategoryFilterLabel(
   categories: Category[]
 ) {
   if (filter.length === 0)
-    return 'Todas';
+    return t('filters.allFeminine');
 
   if (filter.length === 1) {
     const value = filter[0];
 
     if (value === 'none')
-      return 'Sin categoría';
+      return t('expenses.noCategory');
 
-    return categories.find(c => c.id === value)?.name ?? 'Categoría';
+    return categories.find(c => c.id === value)?.name ?? t('navigation.category');
   }
 
-  return `${filter.length} categorías`;
+  return t('filters.categoriesCount', { count: filter.length });
 }
 
 type OptionModalProps = {
@@ -197,7 +198,7 @@ function OptionModal({ visible, title, onClose, children }: OptionModalProps) {
             <Pressable
               style={[styles.modalCloseButton, { borderColor: colors.icon }]}
               onPress={onClose}>
-              <ThemedText type="defaultSemiBold">Cerrar</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('common.close')}</ThemedText>
             </Pressable>
           </ThemedView>
         </Pressable>
@@ -398,8 +399,8 @@ export default function ExpensesScreen() {
       const key = id == null ? 'none' : String(id);
       const group = groups.get(key) ?? {
         name: groupsByCategory
-          ? expense.categoryName ?? 'Sin categoría'
-          : expense.paymentMethodName ?? 'No especificado',
+          ? expense.categoryName ?? t('expenses.noCategory')
+          : expense.paymentMethodName ?? t('common.notSpecified'),
         color: groupsByCategory
           ? expense.categoryColor ?? '#95a5a6'
           : expense.paymentMethodColor ?? '#95a5a6',
@@ -454,23 +455,23 @@ export default function ExpensesScreen() {
   };
 
   const handleDelete = (id: number, name: string) => {
-    Alert.alert('Eliminar gasto', `¿Eliminar "${name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('expenses.delete'), t('expenses.deleteQuestion', { name }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Eliminar',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await removeExpense(id);
             if (Platform.OS === 'android') {
-              ToastAndroid.show('Gasto eliminado', ToastAndroid.SHORT);
+              ToastAndroid.show(t('expenses.deleted'), ToastAndroid.SHORT);
             } else {
-              Alert.alert('Eliminado', 'Gasto eliminado');
+              Alert.alert(t('common.deleted'), t('expenses.deleted'));
             }
           } catch (error) {
             Alert.alert(
-              'No se puede eliminar',
-              error instanceof Error ? error.message : 'No se pudo eliminar el gasto.'
+              t('expenses.cannotDelete'),
+              error instanceof Error ? error.message : t('expenses.deleteError')
             );
           }
         }
@@ -488,7 +489,7 @@ export default function ExpensesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ThemedView style={styles.header}>
-        <ThemedText type="title">Gastos</ThemedText>
+        <ThemedText type="title">{t('navigation.expenses')}</ThemedText>
       </ThemedView>
 
       <ThemedView style={styles.filters}>
@@ -498,7 +499,7 @@ export default function ExpensesScreen() {
             style={[styles.searchInput, { color: colors.text }]}
             value={search}
             onChangeText={setSearch}
-            placeholder="Buscar por nombre..."
+            placeholder={t('expenses.searchPlaceholder')}
             placeholderTextColor={colors.icon}
             autoCorrect={false}
             clearButtonMode="while-editing"
@@ -520,7 +521,7 @@ export default function ExpensesScreen() {
             onPress={() => setSortModalVisible(true)}>
             <Ionicons name="swap-vertical" size={18} color={isSortActive ? '#0a7ea4' : colors.icon} />
             <View style={styles.toolbarButtonText}>
-              <ThemedText type="defaultSemiBold">Orden</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('filters.order')}</ThemedText>
               <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
                 {SORT_LABELS[sortBy]}
               </ThemedText>
@@ -536,9 +537,9 @@ export default function ExpensesScreen() {
             onPress={() => setGroupModalVisible(true)}>
             <Ionicons name="layers-outline" size={18} color={groupBy !== 'none' ? '#0a7ea4' : colors.icon} />
             <View style={styles.toolbarButtonText}>
-              <ThemedText type="defaultSemiBold">Agrupar</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('filters.group')}</ThemedText>
               <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
-                {groupBy === 'category' ? 'Categoría' : groupBy === 'payment-method' ? 'Medio de pago' : 'Sin agrupar'}
+                {groupBy === 'category' ? t('navigation.category') : groupBy === 'payment-method' ? t('navigation.paymentMethod') : t('filters.noGrouping')}
               </ThemedText>
             </View>
           </Pressable>
@@ -552,9 +553,9 @@ export default function ExpensesScreen() {
           onPress={() => setFilterModalVisible(true)}>
           <Ionicons name="filter" size={18} color={isFilterActive ? '#0a7ea4' : colors.icon} />
           <View style={styles.toolbarButtonText}>
-            <ThemedText type="defaultSemiBold">Filtros</ThemedText>
+            <ThemedText type="defaultSemiBold">{t('common.filters')}</ThemedText>
             <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
-              Categoría: {getCategoryFilterLabel(categoryFilter, categories)} · Pago: {getPaymentMethodFilterLabel(paymentMethodFilter, paymentMethods)}
+              {t('filters.categorySummary', { category: getCategoryFilterLabel(categoryFilter, categories), payment: getPaymentMethodFilterLabel(paymentMethodFilter, paymentMethods) })}
             </ThemedText>
           </View>
           <Ionicons name="chevron-forward" size={19} color={colors.icon} />
@@ -563,7 +564,7 @@ export default function ExpensesScreen() {
 
       <OptionModal
         visible={sortModalVisible}
-        title="Ordenar por"
+        title={t('filters.sortBy')}
         onClose={() => setSortModalVisible(false)}>
         {sortGroups.map((group) => (
           <View key={group} style={styles.modalGroup}>
@@ -582,20 +583,20 @@ export default function ExpensesScreen() {
 
       <OptionModal
         visible={groupModalVisible}
-        title="Agrupar gastos"
+        title={t('filters.groupExpenses')}
         onClose={() => setGroupModalVisible(false)}>
         <ModalOption
-          label="Por categoría"
+          label={t('filters.groupByCategory')}
           selected={groupBy === 'category'}
           onPress={() => { setGroupBy('category'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
         />
         <ModalOption
-          label="Por medio de pago"
+          label={t('filters.groupByPaymentMethod')}
           selected={groupBy === 'payment-method'}
           onPress={() => { setGroupBy('payment-method'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
         />
         <ModalOption
-          label="Sin agrupar"
+          label={t('filters.noGrouping')}
           selected={groupBy === 'none'}
           onPress={() => { setGroupBy('none'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
         />
@@ -603,24 +604,24 @@ export default function ExpensesScreen() {
 
       <OptionModal
         visible={filterModalVisible}
-        title="Filtrar gastos"
+        title={t('filters.filterExpenses')}
         onClose={() => setFilterModalVisible(false)}>
         <View style={styles.filterModalHeader}>
-          <ThemedText style={styles.modalGroupLabel}>CATEGORÍA</ThemedText>
+          <ThemedText style={styles.modalGroupLabel}>{t('filters.category')}</ThemedText>
           {categoryFilter.length > 0 && (
             <Pressable onPress={() => setCategoryFilter([])}>
-              <ThemedText type="link">Limpiar</ThemedText>
+              <ThemedText type="link">{t('filters.clear')}</ThemedText>
             </Pressable>
           )}
         </View>
         <ModalOption
-          label="Todas las categorías"
+          label={t('filters.allCategories')}
           selected={categoryFilter.length === 0}
           onPress={() => setCategoryFilter([])}
         />
         {hasUncategorizedExpenses && (
           <ModalOption
-            label="Sin categoría"
+            label={t('expenses.noCategory')}
             selected={categoryFilter.includes('none')}
             onPress={() => toggleCategoryFilter('none')}
           />
@@ -635,21 +636,21 @@ export default function ExpensesScreen() {
           />
         ))}
         <View style={styles.filterModalHeader}>
-          <ThemedText style={styles.modalGroupLabel}>MEDIO DE PAGO</ThemedText>
+          <ThemedText style={styles.modalGroupLabel}>{t('filters.paymentMethod')}</ThemedText>
           {paymentMethodFilter.length > 0 && (
             <Pressable onPress={() => setPaymentMethodFilter([])}>
-              <ThemedText type="link">Limpiar</ThemedText>
+              <ThemedText type="link">{t('filters.clear')}</ThemedText>
             </Pressable>
           )}
         </View>
         <ModalOption
-          label="Todos los medios"
+          label={t('filters.allPaymentMethods')}
           selected={paymentMethodFilter.length === 0}
           onPress={() => setPaymentMethodFilter([])}
         />
         {hasUnspecifiedPaymentExpenses && (
           <ModalOption
-            label="No especificado"
+            label={t('common.notSpecified')}
             selected={paymentMethodFilter.includes('none')}
             onPress={() => togglePaymentMethodFilter('none')}
           />
@@ -667,7 +668,7 @@ export default function ExpensesScreen() {
           <Pressable
             style={styles.clearAllFilters}
             onPress={() => { setCategoryFilter([]); setPaymentMethodFilter([]); }}>
-            <ThemedText style={styles.clearAllFiltersText}>Limpiar todos los filtros</ThemedText>
+            <ThemedText style={styles.clearAllFiltersText}>{t('filters.clearAll')}</ThemedText>
           </Pressable>
         )}
       </OptionModal>
@@ -683,8 +684,8 @@ export default function ExpensesScreen() {
         ListEmptyComponent={
           <ThemedText style={styles.empty}>
             {expenses.length === 0
-              ? 'No hay gastos registrados. Toca el botón + para agregar uno.'
-              : 'No hay gastos que coincidan con los filtros.'}
+              ? t('expenses.empty')
+              : t('expenses.emptyFiltered')}
           </ThemedText>
         }
         renderItem={({ item }) => {
@@ -746,16 +747,16 @@ export default function ExpensesScreen() {
                           name="sync-circle-outline"
                           size={18}
                           color={colors.primary}
-                          accessibilityLabel="Gasto recurrente"
+                          accessibilityLabel={t('accessibility.recurringExpense')}
                         />
                       )}
                     </View>
                     <ThemedText style={[styles.meta, { fontSize: 12 }]}>
                       {groupBy === 'category'
-                        ? `${formatDate(new Date(`${expense.date}T12:00:00`))} · ${expense.paymentMethodName ?? 'No especificado'}`
+                        ? `${formatDate(new Date(`${expense.date}T12:00:00`))} · ${expense.paymentMethodName ?? t('common.notSpecified')}`
                         : groupBy === 'payment-method'
-                          ? `${expense.categoryName ?? 'Sin categoría'} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`
-                          : `${expense.categoryName ?? 'Sin categoría'} · ${expense.paymentMethodName ?? 'No especificado'} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`}
+                          ? `${expense.categoryName ?? t('expenses.noCategory')} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`
+                          : `${expense.categoryName ?? t('expenses.noCategory')} · ${expense.paymentMethodName ?? t('common.notSpecified')} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`}
                     </ThemedText>
                
                   </View>
@@ -768,7 +769,7 @@ export default function ExpensesScreen() {
       />
       <FloatingActionButton
         href="/modal/expense-form"
-        accessibilityLabel="Agregar gasto"
+        accessibilityLabel={t('accessibility.addExpense')}
       />
     </SafeAreaView>
   );

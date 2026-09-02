@@ -14,6 +14,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useBiometric } from '@/contexts/BiometricContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { t } from '@/lib/i18n';
 
 export function BiometricGate({ children }: React.PropsWithChildren) {
   const { authenticate, authenticationType, isChecking, isLocked } = useBiometric();
@@ -61,9 +62,9 @@ export function BiometricGate({ children }: React.PropsWithChildren) {
         <View style={[styles.iconCircle, { backgroundColor: `${colors.tint}18` }]}>
           <Ionicons name="lock-closed" size={42} color={colors.tint} />
         </View>
-        <ThemedText type="title" style={styles.title}>Aplicación bloqueada</ThemedText>
+        <ThemedText type="title" style={styles.title}>{t('biometric.appLocked')}</ThemedText>
         <ThemedText style={styles.description}>
-          Usa {authenticationType} para acceder a tus datos financieros.
+          {t('biometric.accessWith', { authenticationType })}
         </ThemedText>
         <Pressable
           accessibilityRole="button"
@@ -76,7 +77,7 @@ export function BiometricGate({ children }: React.PropsWithChildren) {
         >
           <Ionicons name="finger-print" size={22} color={colorScheme === 'dark' ? '#11181C' : '#fff'} />
           <ThemedText style={[styles.buttonText, { color: colorScheme === 'dark' ? '#11181C' : '#fff' }]}>
-            Desbloquear
+            {t('biometric.unlock')}
           </ThemedText>
         </Pressable>
       </ThemedView>

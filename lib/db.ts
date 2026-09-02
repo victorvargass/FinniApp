@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { t } from './i18n';
 
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
 import type { Category, CreditCardCycle, DebtPlan, ExpenseWithCategory, GeneratedRecurringExpenseNotification, Income, NewCategory, NewCreditCardCycle, NewExpense, NewIncome, NewInstallmentPurchase, NewPaymentMethod, NewPeriod, NewRecurringExpense, NewRecurringIncome, NewRecurringSchedule, PaymentMethod, PaymentMethodTotal, Period, PeriodCategoryExpensesTotals, PeriodHistory, PeriodStatement, ReconcileCreditCardCycle, RecurringConfirmationSchedule, RecurringDecisionItem, RecurringExpense, RecurringIncome, RecurringOccurrenceStatus, Settings } from './types';
@@ -16,17 +17,17 @@ function normalizeColor(color: string): string {
 }
 
 const DEFAULT_CATEGORIES: NewCategory[] = [
-  { name: 'Alimentación', color: '#e74c3c', periodLimit: null },
-  { name: 'Transporte', color: '#3498db', periodLimit: null },
-  { name: 'Cuentas', color: '#34495e', periodLimit: null },
-  { name: 'Ahorro', color: '#27ae60', periodLimit: null },
-  { name: 'Salud', color: '#1abc9c', periodLimit: null },
-  { name: 'Diversión', color: '#9b59b6', periodLimit: null },
-  { name: 'Mascotas', color: '#e67e22', periodLimit: null },
-  { name: 'Extras', color: '#95a5a6', periodLimit: null },
-  { name: 'Hogar', color: '#2ecc71', periodLimit: null },
-  { name: 'Suscripciones', color: '#8e44ad', periodLimit: null },
-  { name: 'Vestuario', color: '#d35400', periodLimit: null },
+  { name: t('database.defaultCategories.food'), color: '#e74c3c', periodLimit: null },
+  { name: t('database.defaultCategories.transport'), color: '#3498db', periodLimit: null },
+  { name: t('database.defaultCategories.bills'), color: '#34495e', periodLimit: null },
+  { name: t('database.defaultCategories.savings'), color: '#27ae60', periodLimit: null },
+  { name: t('database.defaultCategories.health'), color: '#1abc9c', periodLimit: null },
+  { name: t('database.defaultCategories.fun'), color: '#9b59b6', periodLimit: null },
+  { name: t('database.defaultCategories.pets'), color: '#e67e22', periodLimit: null },
+  { name: t('database.defaultCategories.extras'), color: '#95a5a6', periodLimit: null },
+  { name: t('database.defaultCategories.home'), color: '#2ecc71', periodLimit: null },
+  { name: t('database.defaultCategories.subscriptions'), color: '#8e44ad', periodLimit: null },
+  { name: t('database.defaultCategories.clothing'), color: '#d35400', periodLimit: null },
 ];
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -251,7 +252,7 @@ async function assertUniqueCategoryFields(
   // Validación para no permitir colores reservados (por ejemplo, el verde de ingresos)
   const colorNormalized = normalizeColor(data.color);
   if (RESERVED_COLORS.map(normalizeColor).includes(colorNormalized)) {
-    throw new Error('No se permite usar ese color porque está reservado para los ingresos');
+    throw new Error(t('database.reservedIncomeColor'));
   }
 
   const nameRow = await db.getFirstAsync<{ id: number }>(
@@ -260,7 +261,7 @@ async function assertUniqueCategoryFields(
     excludeId ?? -1
   );
   if (nameRow) {
-    throw new Error('Ya existe una categoría con ese nombre');
+    throw new Error(t('database.categoryNameExists'));
   }
 
   const colorRow = await db.getFirstAsync<{ id: number }>(
@@ -269,7 +270,7 @@ async function assertUniqueCategoryFields(
     excludeId ?? -1
   );
   if (colorRow) {
-    throw new Error('Ese color ya está en uso por otra categoría');
+    throw new Error(t('database.categoryColorExists'));
   }
 }
 
@@ -748,7 +749,8 @@ async function initializeDatabase(): Promise<void> {
 
   await db.runAsync(
     `INSERT OR IGNORE INTO payment_methods (name, type, billing_day, color, active)
-     VALUES ('Efectivo', 'cash', NULL, '#27ae60', 1)`
+     VALUES (?, 'cash', NULL, '#27ae60', 1)`,
+    t('paymentMethods.cash')
   );
 
   const row = await db.getFirstAsync<{ count: number }>(
@@ -828,9 +830,9 @@ async function assertDateBelongsToPeriod(
     'SELECT start_date, end_date FROM periods WHERE id = ?',
     periodId
   );
-  if (!period) throw new Error('El período seleccionado ya no existe');
+  if (!period) throw new Error(t('database.periodMissing'));
   if (date < period.start_date || date > period.end_date) {
-    throw new Error('La fecha del movimiento no pertenece al período seleccionado');
+    throw new Error(t('database.movementOutsidePeriod'));
   }
 }
 
@@ -937,11 +939,11 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
 }
 
 function validatePaymentMethod(data: NewPaymentMethod) {
-  if (!data.name.trim()) throw new Error('Ingresa un nombre para el medio de pago');
-  if (!/^#[0-9a-f]{6}$/i.test(data.color)) throw new Error('Selecciona un color válido');
+  if (!data.name.trim()) throw new Error(t('database.paymentNameRequired'));
+  if (!/^#[0-9a-f]{6}$/i.test(data.color)) throw new Error(t('database.invalidColor'));
   if (data.type === 'credit') {
     if (data.billingDay == null || data.billingDay < 1 || data.billingDay > 31) {
-      throw new Error('El día estimado de facturación debe estar entre 1 y 31');
+      throw new Error(t('database.invalidBillingDay'));
     }
   }
 }
@@ -965,7 +967,7 @@ export async function updatePaymentMethod(id: number, data: NewPaymentMethod): P
     'SELECT type FROM payment_methods WHERE id = ?',
     id
   );
-  if (!current) throw new Error('El medio de pago ya no existe');
+  if (!current) throw new Error(t('database.paymentMissing'));
   const immutableTypeData = { ...data, type: current.type };
   validatePaymentMethod(immutableTypeData);
   await db.runAsync(
@@ -998,7 +1000,7 @@ export async function setDefaultPaymentMethod(id: number | null): Promise<void> 
       id
     );
     if (!method || Number(method.active) !== 1) {
-      throw new Error('Solo puedes elegir un medio de pago activo');
+      throw new Error(t('database.activePaymentOnly'));
     }
   }
   await db.runAsync('UPDATE settings SET default_payment_method_id = ? WHERE id = 1', id);
@@ -1027,18 +1029,18 @@ export async function deletePaymentMethod(id: number): Promise<void> {
     const method = await transaction.getFirstAsync<{ id: number }>(
       'SELECT id FROM payment_methods WHERE id = ?', id
     );
-    if (!method) throw new Error('El medio de pago ya no existe');
+    if (!method) throw new Error(t('database.paymentMissing'));
     const favorite = await transaction.getFirstAsync<{ id: number }>(
       'SELECT id FROM settings WHERE default_payment_method_id = ?', id
     );
     if (favorite) {
-      throw new Error('No puedes eliminar tu medio de pago favorito. Elige otro favorito primero.');
+      throw new Error(t('database.favoritePaymentDelete'));
     }
     const plans = await transaction.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) AS count FROM debt_plans WHERE payment_method_id = ?', id
     );
     if (Number(plans?.count ?? 0) > 0) {
-      throw new Error('No puedes eliminar este medio mientras tenga compras en cuotas asociadas. Elimina primero esas compras.');
+      throw new Error(t('database.paymentDebtDelete'));
     }
     await transaction.runAsync('UPDATE expenses SET payment_method_id = NULL WHERE payment_method_id = ?', id);
     await transaction.runAsync('UPDATE recurring_expenses SET payment_method_id = NULL WHERE payment_method_id = ?', id);
@@ -1051,7 +1053,7 @@ export async function getPaymentMethodTotals(periodId: number): Promise<PaymentM
   return db.getAllAsync<PaymentMethodTotal>(
     `SELECT
        e.payment_method_id AS paymentMethodId,
-       COALESCE(pm.name, 'No especificado') AS paymentMethodName,
+       COALESCE(pm.name, ?) AS paymentMethodName,
        pm.type AS paymentMethodType,
        pm.color AS paymentMethodColor,
        SUM(e.amount) AS total
@@ -1060,6 +1062,7 @@ export async function getPaymentMethodTotals(periodId: number): Promise<PaymentM
      WHERE e.period_id = ?
      GROUP BY e.payment_method_id, pm.name, pm.type, pm.color
      ORDER BY total DESC`,
+    t('common.notSpecified'),
     periodId
   );
 }
@@ -1111,14 +1114,14 @@ export async function createCreditCardCycle(data: NewCreditCardCycle): Promise<v
     'SELECT type FROM payment_methods WHERE id = ?',
     data.paymentMethodId
   );
-  if (method?.type !== 'credit') throw new Error('El medio de pago no es una tarjeta de crédito');
+  if (method?.type !== 'credit') throw new Error(t('database.notCreditCard'));
   const latest = await db.getFirstAsync<{ end_date: string }>(
     `SELECT end_date FROM credit_card_cycles
      WHERE payment_method_id = ? ORDER BY end_date DESC LIMIT 1`,
     data.paymentMethodId
   );
   if (latest && data.endDate <= latest.end_date) {
-    throw new Error('La nueva facturación debe ser posterior a la última registrada');
+    throw new Error(t('database.billingAfterLast'));
   }
   const previous = await db.getFirstAsync<{ end_date: string }>(
     `SELECT end_date FROM credit_card_cycles
@@ -1128,7 +1131,7 @@ export async function createCreditCardCycle(data: NewCreditCardCycle): Promise<v
     data.endDate
   );
   const startDate = previous ? addDaysToIso(previous.end_date, 1) : firstCycleStart(data.endDate);
-  if (startDate > data.endDate) throw new Error('La fecha de facturación no es válida');
+  if (startDate > data.endDate) throw new Error(t('database.invalidBillingDate'));
   await db.runAsync(
     `INSERT INTO credit_card_cycles
       (payment_method_id, start_date, end_date, statement_amount, status)
@@ -1157,7 +1160,8 @@ export async function updateCreditCardCycle(
 
 async function getOrCreateBankFeesCategory(transaction: SQLite.SQLiteDatabase): Promise<number> {
   const existing = await transaction.getFirstAsync<{ id: number }>(
-    "SELECT id FROM categories WHERE name = 'Comisiones Bancarias'"
+    'SELECT id FROM categories WHERE name = ?',
+    t('database.bankFeesCategory')
   );
   if (existing) return existing.id;
   const palette = ['#7c3aed', '#6d28d9', '#5b21b6', '#4338ca', '#3730a3'];
@@ -1174,7 +1178,8 @@ async function getOrCreateBankFeesCategory(transaction: SQLite.SQLiteDatabase): 
   }
   const result = await transaction.runAsync(
     `INSERT INTO categories (name, color, period_limit)
-     VALUES ('Comisiones Bancarias', ?, NULL)`,
+     VALUES (?, ?, NULL)`,
+    t('database.bankFeesCategory'),
     color
   );
   return result.lastInsertRowId;
@@ -1185,10 +1190,10 @@ export async function reconcileCreditCardCycle(
   data: ReconcileCreditCardCycle
 ): Promise<void> {
   if (!Number.isFinite(data.statementAmount) || data.statementAmount < 0) {
-    throw new Error('Ingresa el monto real facturado');
+    throw new Error(t('database.actualBillingRequired'));
   }
   if (!Number.isFinite(data.bankChargeAmount) || data.bankChargeAmount < 0) {
-    throw new Error('El cargo bancario no es válido');
+    throw new Error(t('database.invalidBankCharge'));
   }
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
@@ -1214,15 +1219,15 @@ export async function reconcileCreditCardCycle(
        GROUP BY cycle.id`,
       id
     );
-    if (!cycle) throw new Error('El ciclo ya no existe');
-    if (cycle.status === 'reconciled') throw new Error('Este ciclo ya está consolidado');
+    if (!cycle) throw new Error(t('database.cycleMissing'));
+    if (cycle.status === 'reconciled') throw new Error(t('database.cycleReconciled'));
 
     const period = await transaction.getFirstAsync<{ id: number }>(
       'SELECT id FROM periods WHERE start_date <= ? AND end_date >= ? ORDER BY start_date DESC LIMIT 1',
       cycle.end_date,
       cycle.end_date
     );
-    if (!period) throw new Error('No existe un período que incluya la fecha de facturación');
+    if (!period) throw new Error(t('database.noBillingPeriod'));
     const categoryId = await getOrCreateBankFeesCategory(transaction);
     let bankChargeExpenseId: number | null = null;
     if (data.bankChargeAmount > 0) {
@@ -1230,7 +1235,8 @@ export async function reconcileCreditCardCycle(
         `INSERT INTO expenses
           (name, amount, category_id, period_id, date, original_amount, split_percentage,
            payment_method_id, recurring_expense_id)
-         VALUES ('Mantención / Comisiones', ?, ?, ?, ?, NULL, NULL, ?, NULL)`,
+         VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL)`,
+        t('database.maintenance'),
         data.bankChargeAmount,
         categoryId,
         period.id,
@@ -1247,7 +1253,8 @@ export async function reconcileCreditCardCycle(
         `INSERT INTO expenses
           (name, amount, category_id, period_id, date, original_amount, split_percentage,
            payment_method_id, recurring_expense_id)
-         VALUES ('Diferencia de Facturación / Intereses', ?, ?, ?, ?, NULL, NULL, ?, NULL)`,
+         VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL)`,
+        t('database.billingDifference'),
         adjustmentAmount,
         categoryId,
         period.id,
@@ -1282,7 +1289,7 @@ export async function unreconcileCreditCardCycle(id: number): Promise<void> {
        FROM credit_card_cycles WHERE id = ?`,
       id
     );
-    if (!cycle) throw new Error('El estado de cuenta ya no existe');
+    if (!cycle) throw new Error(t('database.statementMissing'));
     if (cycle.status !== 'reconciled') return;
 
     await transaction.runAsync(
@@ -1313,14 +1320,14 @@ function installmentAmounts(totalAmount: number, count: number, regularAmount?: 
 }
 
 export async function createInstallmentPurchase(data: NewInstallmentPurchase): Promise<number> {
-  if (!data.name.trim()) throw new Error('Ingresa el nombre de la compra');
-  if (!Number.isInteger(data.totalAmount) || data.totalAmount <= 0) throw new Error('Ingresa un monto total válido');
+  if (!data.name.trim()) throw new Error(t('database.purchaseNameRequired'));
+  if (!Number.isInteger(data.totalAmount) || data.totalAmount <= 0) throw new Error(t('database.invalidTotal'));
   if (!Number.isInteger(data.totalInstallments) || data.totalInstallments < 2 || data.totalInstallments > 600) {
-    throw new Error('El número de cuotas debe estar entre 2 y 600');
+    throw new Error(t('installments.invalidCount'));
   }
   const db = await getDb();
   const method = await db.getFirstAsync<{ type: string }>('SELECT type FROM payment_methods WHERE id = ?', data.paymentMethodId);
-  if (method?.type !== 'credit') throw new Error('Las compras en cuotas requieren una tarjeta de crédito');
+  if (method?.type !== 'credit') throw new Error(t('database.installmentRequiresCredit'));
   let planId = 0;
   await withExclusiveTransaction(db, async (transaction) => {
     const amounts = installmentAmounts(data.totalAmount, data.totalInstallments);
@@ -1421,7 +1428,7 @@ async function postInstallment(
       (name, amount, category_id, period_id, date, original_amount, split_percentage,
        payment_method_id, recurring_expense_id, debt_plan_id, debt_installment_id)
      VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, ?, ?)`,
-    `${plan.name} · Cuota ${installment.installment_number}/${plan.total_installments}`,
+    t('database.installment', { name: plan.name, number: installment.installment_number, total: plan.total_installments }),
     installment.projected_amount, plan.category_id, period.id, date,
     plan.payment_method_id, plan.id, installment.id
   );
@@ -1433,28 +1440,28 @@ async function postInstallment(
 }
 
 export async function activateInstallmentPlan(id: number, periodId: number, actualAmount: number): Promise<void> {
-  if (!Number.isInteger(actualAmount) || actualAmount <= 0) throw new Error('Ingresa el monto real de la cuota');
+  if (!Number.isInteger(actualAmount) || actualAmount <= 0) throw new Error(t('database.actualInstallmentRequired'));
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
     const plan = await transaction.getFirstAsync<{
       id: number; name: string; total_amount: number; category_id: number | null; payment_method_id: number;
       total_installments: number; status: string;
     }>('SELECT * FROM debt_plans WHERE id = ?', id);
-    if (!plan) throw new Error('La compra en cuotas ya no existe');
-    if (plan.status !== 'projected') throw new Error('Esta compra ya fue activada');
+    if (!plan) throw new Error(t('database.planMissing'));
+    if (plan.status !== 'projected') throw new Error(t('database.planAlreadyActive'));
     if (plan.total_installments === 1 && actualAmount !== plan.total_amount) {
-      throw new Error('En una sola cuota, el monto real debe coincidir con el total pactado');
+      throw new Error(t('database.singleInstallmentMismatch'));
     }
     const lastAmount = plan.total_amount - actualAmount * (plan.total_installments - 1);
-    if (lastAmount <= 0) throw new Error('Ese monto no permite mantener el total pactado; usa un valor menor');
+    if (lastAmount <= 0) throw new Error(t('database.installmentAmountTooHigh'));
     const period = await transaction.getFirstAsync<{ id: number; start_date: string; end_date: string }>(
       'SELECT id, start_date, end_date FROM periods WHERE id = ?', periodId
     );
-    if (!period) throw new Error('El período seleccionado ya no existe');
+    if (!period) throw new Error(t('database.periodMissing'));
     const originalFirst = await transaction.getFirstAsync<{ due_date: string }>(
       'SELECT due_date FROM debt_installments WHERE debt_plan_id = ? AND installment_number = 1', id
     );
-    if (!originalFirst) throw new Error('No se encontró la primera cuota');
+    if (!originalFirst) throw new Error(t('database.firstInstallmentMissing'));
     const anchorDate = originalFirst.due_date >= period.start_date && originalFirst.due_date <= period.end_date
       ? originalFirst.due_date
       : period.end_date;
@@ -1473,9 +1480,9 @@ export async function activateInstallmentPlan(id: number, periodId: number, actu
     const first = await transaction.getFirstAsync<{ id: number; installment_number: number; due_date: string; projected_amount: number }>(
       'SELECT id, installment_number, due_date, projected_amount FROM debt_installments WHERE debt_plan_id = ? AND installment_number = 1', id
     );
-    if (!first) throw new Error('No se encontró la primera cuota');
+    if (!first) throw new Error(t('database.firstInstallmentMissing'));
     const posted = await postInstallment(transaction, plan, { ...first, projected_amount: actualAmount }, period);
-    if (!posted) throw new Error('El período elegido pertenece a un estado de cuenta consolidado. Desconsolídalo antes de activar la cuota.');
+    if (!posted) throw new Error(t('database.consolidatedActivation'));
     await transaction.runAsync(
       `UPDATE debt_plans SET status = 'active', installment_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       actualAmount, id
@@ -1529,19 +1536,19 @@ export async function restoreRemovedInstallment(installmentId: number, periodId:
        WHERE i.id = ? AND i.status = 'projected' AND i.manually_removed = 1`,
       installmentId
     );
-    if (!installment) throw new Error('La cuota no está disponible para volver a registrarla');
+    if (!installment) throw new Error(t('database.installmentUnavailable'));
     const period = await transaction.getFirstAsync<{ id: number; start_date: string; end_date: string }>(
       'SELECT id, start_date, end_date FROM periods WHERE id = ?',
       periodId
     );
-    if (!period) throw new Error('El período seleccionado ya no existe');
+    if (!period) throw new Error(t('database.periodMissing'));
     const posted = await postInstallment(
       transaction,
       { id: installment.debt_plan_id, name: installment.name, category_id: installment.category_id, payment_method_id: installment.payment_method_id, total_installments: installment.total_installments },
       installment,
       period
     );
-    if (!posted) throw new Error('El estado de cuenta de ese período está consolidado. Desconsolídalo antes de volver a registrar la cuota.');
+    if (!posted) throw new Error(t('database.consolidatedRestore'));
     await transaction.runAsync('UPDATE debt_installments SET manually_removed = 0 WHERE id = ?', installmentId);
     await transaction.runAsync(
       `UPDATE debt_plans SET status = 'completed', updated_at = CURRENT_TIMESTAMP
@@ -1559,12 +1566,12 @@ export async function deleteInstallmentPlan(id: number): Promise<void> {
     const plan = await transaction.getFirstAsync<{ id: number }>(
       'SELECT id FROM debt_plans WHERE id = ?', id
     );
-    if (!plan) throw new Error('La compra en cuotas ya no existe');
+    if (!plan) throw new Error(t('database.planMissing'));
     const expenses = await transaction.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) AS count FROM expenses WHERE debt_plan_id = ?', id
     );
     if (Number(expenses?.count ?? 0) > 0) {
-      throw new Error('No puedes eliminar la compra mientras tenga gastos registrados. Elimina primero sus cuotas o liquidaciones desde Gastos.');
+      throw new Error(t('database.planHasExpenses'));
     }
     await transaction.runAsync('DELETE FROM debt_plans WHERE id = ?', id);
   });
@@ -1575,7 +1582,7 @@ export async function cancelFutureInstallments(id: number): Promise<void> {
   await withExclusiveTransaction(db, async (transaction) => {
     await transaction.runAsync("UPDATE debt_installments SET status = 'cancelled', manually_removed = 0 WHERE debt_plan_id = ? AND status = 'projected'", id);
     const result = await transaction.runAsync("UPDATE debt_plans SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status IN ('projected', 'active')", id);
-    if (result.changes === 0) throw new Error('La compra ya no tiene cuotas futuras');
+    if (result.changes === 0) throw new Error(t('database.noFutureInstallments'));
   });
 }
 
@@ -1585,22 +1592,22 @@ export async function settleInstallmentPlan(id: number, periodId: number): Promi
     const plan = await transaction.getFirstAsync<{ id: number; name: string; category_id: number | null; payment_method_id: number }>(
       "SELECT id, name, category_id, payment_method_id FROM debt_plans WHERE id = ? AND status = 'active'", id
     );
-    if (!plan) throw new Error('La compra no tiene cuotas activas para liquidar');
+    if (!plan) throw new Error(t('database.noActiveInstallments'));
     const remaining = await transaction.getFirstAsync<{ total: number }>(
       "SELECT COALESCE(SUM(projected_amount), 0) AS total FROM debt_installments WHERE debt_plan_id = ? AND status = 'projected'", id
     );
-    if (!remaining || remaining.total <= 0) throw new Error('No queda saldo pendiente');
+    if (!remaining || remaining.total <= 0) throw new Error(t('database.noRemainingBalance'));
     const period = await transaction.getFirstAsync<{ id: number; start_date: string; end_date: string }>(
       'SELECT id, start_date, end_date FROM periods WHERE id = ?', periodId
     );
-    if (!period) throw new Error('El período seleccionado ya no existe');
+    if (!period) throw new Error(t('database.periodMissing'));
     await assertCreditCardCycleIsEditable(transaction, plan.payment_method_id, period.end_date);
     await transaction.runAsync(
       `INSERT INTO expenses
         (name, amount, category_id, period_id, date, original_amount, split_percentage,
          payment_method_id, recurring_expense_id, debt_plan_id, debt_installment_id)
        VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, ?, NULL)`,
-      `${plan.name} · Liquidación de cuotas`, remaining.total, plan.category_id,
+      t('database.settlement', { name: plan.name }), remaining.total, plan.category_id,
       period.id, period.end_date, plan.payment_method_id, id
     );
     await transaction.runAsync("UPDATE debt_installments SET status = 'cancelled', manually_removed = 0 WHERE debt_plan_id = ? AND status = 'projected'", id);
@@ -1723,7 +1730,7 @@ async function assertCreditCardCycleIsEditable(
     date
   );
   if (reconciledCycle) {
-    throw new Error('Este gasto pertenece a un estado de cuenta consolidado y no se puede modificar');
+    throw new Error(t('database.reconciledExpense'));
   }
 }
 
@@ -1778,7 +1785,7 @@ export async function updateExpense(
     'SELECT period_id, date, payment_method_id, recurring_expense_id FROM expenses WHERE id = ?',
     id
   );
-  if (!expense) throw new Error('El gasto ya no existe');
+  if (!expense) throw new Error(t('database.expenseMissing'));
   await assertDateBelongsToPeriod(db, expense.period_id, data.date);
   await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
   await assertCreditCardCycleIsEditable(db, data.paymentMethodId, data.date);
@@ -1832,7 +1839,7 @@ export async function updateExpense(
         id
       );
       if (collision) {
-        throw new Error('La recurrencia ya tiene otra ejecución en la nueva fecha');
+        throw new Error(t('database.duplicateRecurrenceDate'));
       }
       await transaction.runAsync(
         `UPDATE recurring_expense_occurrences
@@ -1936,19 +1943,19 @@ export async function deleteExpense(
 }
 
 function validateRecurringExpense(data: NewRecurringExpense): void {
-  if (!data.name.trim()) throw new Error('Ingresa un nombre para el gasto recurrente');
-  if (!Number.isFinite(data.amount) || data.amount <= 0) throw new Error('Ingresa un monto válido');
+  if (!data.name.trim()) throw new Error(t('database.recurringExpenseName'));
+  if (!Number.isFinite(data.amount) || data.amount <= 0) throw new Error(t('validation.invalidAmount'));
   if (data.frequency === 'custom' && (!Number.isInteger(data.intervalMonths) || data.intervalMonths < 1)) {
-    throw new Error('El intervalo personalizado debe ser de al menos un mes');
+    throw new Error(t('database.customInterval'));
   }
   if (
     (data.frequency === 'monthly' || data.frequency === 'custom') &&
     (data.executionDay == null || !Number.isInteger(data.executionDay) || data.executionDay < 1 || data.executionDay > 31)
   ) {
-    throw new Error('Ingresa un día de ejecución válido');
+    throw new Error(t('database.invalidExecutionDay'));
   }
   if (data.endDate && data.endDate < data.startDate) {
-    throw new Error('La fecha de fin no puede ser anterior al inicio');
+    throw new Error(t('database.endBeforeStart'));
   }
 }
 
@@ -2097,7 +2104,7 @@ export async function createRecurringExpense(data: NewRecurringExpense): Promise
         'SELECT date FROM expenses WHERE id = ?',
         data.sourceExpenseId
       );
-      if (!source) throw new Error('El gasto de origen ya no existe');
+      if (!source) throw new Error(t('database.sourceExpenseMissing'));
       sourceDate = source.date;
     }
     const result = await transaction.runAsync(RECURRING_INSERT_SQL, ...recurringInsertValues(data));
@@ -2131,7 +2138,7 @@ export async function createExpenseWithRecurrence(
   const recurrence: NewRecurringExpense = { ...expense, ...schedule, sourceExpenseId: null };
   validateRecurringExpense(recurrence);
   if (schedule.startDate !== expense.date) {
-    throw new Error('La recurrencia debe comenzar en la fecha del gasto');
+    throw new Error(t('database.recurrenceStartMismatch'));
   }
   const db = await getDb();
   await assertDateBelongsToPeriod(db, periodId, expense.date);
@@ -2180,7 +2187,7 @@ export async function updateRecurringExpense(id: number, data: NewRecurringExpen
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
     const current = await transaction.getFirstAsync('SELECT id FROM recurring_expenses WHERE id = ?', id);
-    if (!current) throw new Error('El gasto recurrente ya no existe');
+    if (!current) throw new Error(t('database.recurringExpenseMissing'));
     await transaction.runAsync(
       `UPDATE recurring_expenses SET
         frequency = ?, interval_months = ?, execution_basis = ?,
@@ -2212,7 +2219,7 @@ export async function setRecurringExpenseActive(id: number, active: boolean): Pr
     active ? 1 : 0,
     id
   );
-  if (result.changes === 0) throw new Error('El gasto recurrente ya no existe');
+  if (result.changes === 0) throw new Error(t('database.recurringExpenseMissing'));
 }
 
 export async function deleteRecurringExpense(id: number): Promise<void> {
@@ -2227,7 +2234,7 @@ export async function deleteRecurringExpense(id: number): Promise<void> {
       id
     );
     const result = await transaction.runAsync('DELETE FROM recurring_expenses WHERE id = ?', id);
-    if (result.changes === 0) throw new Error('El gasto recurrente ya no existe');
+    if (result.changes === 0) throw new Error(t('database.recurringExpenseMissing'));
   });
 }
 
@@ -2346,11 +2353,11 @@ export async function approveRecurringOccurrence(
     getRecurringRows(db).then((items) => items.find((item) => item.id === recurringExpenseId)),
     getPeriods(),
   ]);
-  if (!rule) throw new Error('El gasto recurrente ya no existe');
+  if (!rule) throw new Error(t('database.recurringExpenseMissing'));
   const period = periods.find(
     (item) => scheduledDate >= item.startDate && scheduledDate <= item.endDate
   );
-  if (!period) throw new Error('No existe un período que incluya la fecha programada');
+  if (!period) throw new Error(t('database.noScheduledPeriod'));
   let generatedExpenseId = 0;
   await withExclusiveTransaction(db, async (transaction) => {
     const current = await transaction.getFirstAsync<{
@@ -2366,7 +2373,7 @@ export async function approveRecurringOccurrence(
       generatedExpenseId = current.expense_id;
       return;
     }
-    if (current?.status === 'skipped') throw new Error('Esta ejecución fue omitida');
+    if (current?.status === 'skipped') throw new Error(t('database.occurrenceSkipped'));
     const expenseId = await insertGeneratedRecurringExpense(transaction, rule, scheduledDate, period.id);
     generatedExpenseId = expenseId;
     await transaction.runAsync(
@@ -2415,7 +2422,7 @@ export async function dismissSkippedOccurrence(
     scheduledDate
   );
   if (result.changes === 0) {
-    throw new Error('La notificación omitida ya no está disponible');
+    throw new Error(t('database.skippedNotificationMissing'));
   }
 }
 
@@ -2449,7 +2456,7 @@ export async function restoreRecurringOccurrence(
     scheduledDate
   );
   if (result.changes === 0) {
-    throw new Error('La ejecución omitida ya no está disponible');
+    throw new Error(t('database.skippedOccurrenceMissing'));
   }
 }
 
@@ -2623,8 +2630,8 @@ export async function createRecurringIncomeFromSource(
     const source = await transaction.getFirstAsync<{ id: number; name: string; amount: number; date: string; recurring_income_id: number | null }>(
       'SELECT id, name, amount, date, recurring_income_id FROM incomes WHERE id = ?', sourceIncomeId
     );
-    if (!source) throw new Error('El ingreso de origen ya no existe');
-    if (source.recurring_income_id != null) throw new Error('Este ingreso ya tiene una recurrencia');
+    if (!source) throw new Error(t('database.sourceIncomeMissing'));
+    if (source.recurring_income_id != null) throw new Error(t('database.incomeAlreadyRecurring'));
     const rule = { ...schedule, name: source.name, amount: source.amount, startDate: source.date };
     const nextDate = getNextOccurrenceDate(rule, source.date);
     const result = await transaction.runAsync(
@@ -2684,7 +2691,7 @@ export async function updateRecurringIncome(id: number, data: NewRecurringIncome
     data.name.trim(), data.amount, data.frequency, data.frequency === 'custom' ? data.intervalMonths : 1,
     data.executionDay, data.registrationMode, data.startDate, data.endDate, nextDate, data.active ? 1 : 0, id
   );
-  if (result.changes === 0) throw new Error('El ingreso recurrente ya no existe');
+  if (result.changes === 0) throw new Error(t('database.recurringIncomeMissing'));
   await db.runAsync(
     `DELETE FROM recurring_income_occurrences
      WHERE recurring_income_id = ? AND status IN ('scheduled', 'pending')`,
@@ -2695,7 +2702,7 @@ export async function updateRecurringIncome(id: number, data: NewRecurringIncome
 export async function setRecurringIncomeActive(id: number, active: boolean): Promise<void> {
   const db = await getDb();
   const result = await db.runAsync('UPDATE recurring_incomes SET active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', active ? 1 : 0, id);
-  if (result.changes === 0) throw new Error('El ingreso recurrente ya no existe');
+  if (result.changes === 0) throw new Error(t('database.recurringIncomeMissing'));
 }
 
 export async function deleteRecurringIncome(id: number): Promise<void> {
@@ -2704,7 +2711,7 @@ export async function deleteRecurringIncome(id: number): Promise<void> {
     await transaction.runAsync('UPDATE incomes SET recurring_income_id = NULL WHERE recurring_income_id = ?', id);
     await transaction.runAsync('DELETE FROM recurring_income_occurrences WHERE recurring_income_id = ?', id);
     const result = await transaction.runAsync('DELETE FROM recurring_incomes WHERE id = ?', id);
-    if (result.changes === 0) throw new Error('El ingreso recurrente ya no existe');
+    if (result.changes === 0) throw new Error(t('database.recurringIncomeMissing'));
   });
 }
 
@@ -2809,12 +2816,12 @@ export async function approveRecurringIncomeOccurrence(
     const rule = await transaction.getFirstAsync<{ name: string; amount: number }>(
       'SELECT name, amount FROM recurring_incomes WHERE id = ?', recurringIncomeId
     );
-    if (!rule) throw new Error('El ingreso recurrente ya no existe');
+    if (!rule) throw new Error(t('database.recurringIncomeMissing'));
     const period = await transaction.getFirstAsync<{ id: number }>(
       'SELECT id FROM periods WHERE start_date <= ? AND end_date >= ? ORDER BY start_date DESC LIMIT 1',
       scheduledDate, scheduledDate
     );
-    if (!period) throw new Error('No existe un período que incluya la fecha programada');
+    if (!period) throw new Error(t('database.noScheduledPeriod'));
     const current = await transaction.getFirstAsync<{
       status: RecurringOccurrenceStatus;
       income_id: number | null;
@@ -2827,7 +2834,7 @@ export async function approveRecurringIncomeOccurrence(
       generatedIncomeId = current.income_id;
       return;
     }
-    if (current?.status === 'skipped') throw new Error('Esta ejecución fue omitida');
+    if (current?.status === 'skipped') throw new Error(t('database.occurrenceSkipped'));
     const income = await transaction.runAsync(
       'INSERT INTO incomes (name, amount, period_id, date, recurring_income_id) VALUES (?, ?, ?, ?, ?)',
       rule.name, rule.amount, period.id, scheduledDate, recurringIncomeId
@@ -2874,7 +2881,7 @@ export async function dismissSkippedIncomeOccurrence(
      WHERE recurring_income_id = ? AND scheduled_date = ? AND status = 'skipped'`,
     recurringIncomeId, scheduledDate
   );
-  if (result.changes === 0) throw new Error('La notificación omitida ya no está disponible');
+  if (result.changes === 0) throw new Error(t('database.skippedNotificationMissing'));
 }
 
 export async function markRecurringIncomeOccurrencePending(
@@ -2904,7 +2911,7 @@ export async function restoreRecurringIncomeOccurrence(
      WHERE recurring_income_id = ? AND scheduled_date = ? AND status = 'skipped'`,
     recurringIncomeId, scheduledDate
   );
-  if (result.changes === 0) throw new Error('La ejecución omitida ya no está disponible');
+  if (result.changes === 0) throw new Error(t('database.skippedOccurrenceMissing'));
 }
 
 export async function updateIncome(
@@ -2917,7 +2924,7 @@ export async function updateIncome(
     'SELECT period_id FROM incomes WHERE id = ?',
     id
   );
-  if (!income) throw new Error('El ingreso ya no existe');
+  if (!income) throw new Error(t('database.incomeMissing'));
   await assertDateBelongsToPeriod(db, income.period_id, data.date);
 
   await db.runAsync(
@@ -3007,7 +3014,7 @@ export async function getPeriodCategoryExpensesTotals(
 
     SELECT
       NULL as categoryId,
-      'Sin categoría' as categoryName,
+      ? as categoryName,
       '#95a5a6' as categoryColor,
       NULL as periodLimit,
       COALESCE(SUM(e.amount), 0) as total
@@ -3016,7 +3023,8 @@ export async function getPeriodCategoryExpensesTotals(
 
     ORDER BY total DESC, categoryName ASC
     `,
-    periodId
+    periodId,
+    t('common.notSpecified')
   );
   return rows as PeriodCategoryExpensesTotals[];
 }
@@ -3120,7 +3128,7 @@ async function getCurrentPeriodId(): Promise<number> {
   const settings = await getSettings();
 
   if (!settings.currentPeriodId) {
-    throw new Error('No existe un período actual');
+    throw new Error(t('database.noCurrentPeriod'));
   }
 
   return settings.currentPeriodId;
@@ -3149,7 +3157,7 @@ export async function setPeriodStartDate(
     startDate > row.end_date
   ) {
     throw new Error(
-      'La fecha inicial no puede ser mayor'
+      t('database.startAfterEnd')
     );
   }
 
@@ -3187,7 +3195,7 @@ export async function setPeriodEndDate(
     endDate < row.start_date
   ) {
     throw new Error(
-      'La fecha final no puede ser menor'
+      t('database.endBeforeStartShort')
     );
   }
 
@@ -3208,7 +3216,7 @@ export async function closeCurrentPeriod(): Promise<Period> {
   const settings = await getSettings();
 
   if (!settings.currentPeriod) {
-    throw new Error('No existe un período actual');
+    throw new Error(t('database.noCurrentPeriod'));
   }
 
   const current = settings.currentPeriod;
@@ -3369,7 +3377,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
         if (categoryId === null) {
           return {
             categoryId: null,
-            categoryName: 'Sin categoría',
+            categoryName: t('common.notSpecified'),
             categoryColor: '#95a5a6',
             periodLimit: null,
             total,
@@ -3378,7 +3386,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
         const cat = categories.find(c => c.id === categoryId);
         return {
           categoryId,
-          categoryName: cat ? cat.name : "Sin nombre",
+          categoryName: cat ? cat.name : t('database.unnamed'),
           categoryColor: cat ? cat.color : "#CCC",
           periodLimit: cat?.period_limit ?? null,
           total
@@ -3396,7 +3404,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
         const method = paymentMethods.find(item => item.id === paymentMethodId);
         return {
           paymentMethodId,
-          paymentMethodName: method?.name ?? 'No especificado',
+          paymentMethodName: method?.name ?? t('common.notSpecified'),
           paymentMethodColor: method?.color ?? '#95a5a6',
           paymentMethodType: method?.type ?? null,
           billingDay: method?.billing_day ?? null,

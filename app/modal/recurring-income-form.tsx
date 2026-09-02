@@ -10,13 +10,14 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { parseAmount } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import type { NewRecurringSchedule } from '@/lib/types';
 
 function showResult(message: string) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
   } else {
-    Alert.alert('Listo', message, [{ text: 'Aceptar' }]);
+    Alert.alert(t('common.done'), message, [{ text: t('common.accept') }]);
   }
 }
 
@@ -34,11 +35,11 @@ export default function RecurringIncomeFormScreen() {
   } : { frequency: 'monthly', intervalMonths: 1, executionDay: new Date().getDate(), startDate: '', endDate: null, active: true, registrationMode: 'confirmation' });
   const [saving, setSaving] = useState(false);
 
-  if (!recurring) return <SafeAreaView style={styles.safe}><ThemedText style={styles.empty}>El ingreso recurrente ya no existe.</ThemedText></SafeAreaView>;
+  if (!recurring) return <SafeAreaView style={styles.safe}><ThemedText style={styles.empty}>{t('recurrence.missingIncome')}</ThemedText></SafeAreaView>;
 
   const save = async () => {
     const amount = parseAmount(amountText);
-    if (!name.trim() || amount == null) return Alert.alert('Faltan datos', 'Ingresa un nombre y monto válidos.');
+    if (!name.trim() || amount == null) return Alert.alert(t('validation.missingData'), t('recurrence.invalidNameAmount'));
     setSaving(true);
     try {
       await editRecurringIncome(recurring.id, {
@@ -47,18 +48,18 @@ export default function RecurringIncomeFormScreen() {
         executionDay: schedule.executionDay, startDate: schedule.startDate,
         endDate: schedule.endDate, active: schedule.active, registrationMode: schedule.registrationMode,
       });
-      showResult('Recurrencia actualizada');
+      showResult(t('recurrence.updated'));
       router.back();
-    } catch (error) { Alert.alert('No se pudo guardar', error instanceof Error ? error.message : 'Inténtalo nuevamente.'); }
+    } catch (error) { Alert.alert(t('errors.couldNotSave'), error instanceof Error ? error.message : t('common.tryAgain')); }
     finally { setSaving(false); }
   };
 
   return <SafeAreaView style={styles.safe} edges={['bottom']}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <ThemedText style={styles.label}>Nombre</ThemedText><TextInput value={name} onChangeText={setName} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
-    <ThemedText style={styles.label}>Monto</ThemedText><TextInput value={amountText} onChangeText={setAmountText} keyboardType="number-pad" style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
+    <ThemedText style={styles.label}>{t('common.name')}</ThemedText><TextInput value={name} onChangeText={setName} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
+    <ThemedText style={styles.label}>{t('filters.amount')}</ThemedText><TextInput value={amountText} onChangeText={setAmountText} keyboardType="number-pad" style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
     <RecurringScheduleFields value={schedule} onChange={setSchedule} showActiveToggle fixedStartDate={recurring.startDate} storedNextDate={recurring.nextDate} movementKind="ingreso" />
-    <Pressable disabled={saving} onPress={save} style={styles.save}><ThemedText style={styles.saveText}>{saving ? 'Guardando...' : 'Guardar cambios'}</ThemedText></Pressable>
-    <Pressable disabled={saving} onPress={() => Alert.alert('Eliminar recurrencia', 'Los ingresos registrados anteriormente se conservarán.', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Eliminar', style: 'destructive', onPress: () => removeRecurringIncome(recurring.id).then(() => { showResult('Recurrencia eliminada'); router.back(); }).catch((error) => Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Inténtalo nuevamente.')) }])} style={styles.remove}><ThemedText style={styles.removeText}>Eliminar recurrencia</ThemedText></Pressable>
+    <Pressable disabled={saving} onPress={save} style={styles.save}><ThemedText style={styles.saveText}>{saving ? t('common.saving') : t('common.saveChanges')}</ThemedText></Pressable>
+    <Pressable disabled={saving} onPress={() => Alert.alert(t('recurrence.delete'), t('recurrence.keepPreviousIncomes'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => removeRecurringIncome(recurring.id).then(() => { showResult(t('recurrence.deleted')); router.back(); }).catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain'))) }])} style={styles.remove}><ThemedText style={styles.removeText}>{t('recurrence.delete')}</ThemedText></Pressable>
   </ScrollView></SafeAreaView>;
 }
 

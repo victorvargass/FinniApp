@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { ColorSchemeName, useColorScheme as useSystemColorScheme } from 'react-native';
+import { t } from '@/lib/i18n';
 
 const THEME_PREFERENCE_KEY = '@finniapp/theme-preference';
 
@@ -58,7 +59,7 @@ export function ThemePreferenceProvider({ children }: PropsWithChildren) {
 export function useThemePreference() {
   const value = useContext(ThemeContext);
   if (!value) {
-    throw new Error('useThemePreference debe usarse dentro de ThemePreferenceProvider');
+    throw new Error(t('errors.themeProvider'));
   }
   return value;
 }

@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatDate } from '@/lib/format';
+import { t } from '@/lib/i18n';
 
 function formatPeriodDate(value: string) {
   return formatDate(new Date(`${value}T12:00:00`));
@@ -31,7 +32,7 @@ export function PeriodSelector() {
         { backgroundColor: colors.surface, borderColor: colors.border },
       ]}>
       <Pressable
-        accessibilityLabel="Ver período anterior"
+        accessibilityLabel={t('accessibility.previousPeriod')}
         disabled={!previousPeriod}
         hitSlop={8}
         onPress={() => previousPeriod && selectPeriod(previousPeriod.id)}
@@ -42,7 +43,7 @@ export function PeriodSelector() {
       <View style={styles.copy}>
         <View style={styles.labelRow}>
           <ThemedText type="defaultSemiBold">
-            {isCurrent ? 'Período actual' : 'Período histórico'}
+            {isCurrent ? t('period.current') : t('period.historical')}
           </ThemedText>
         </View>
         <ThemedText style={styles.dates}>
@@ -51,7 +52,7 @@ export function PeriodSelector() {
       </View>
 
       <Pressable
-        accessibilityLabel="Ver período siguiente"
+        accessibilityLabel={t('accessibility.nextPeriod')}
         disabled={!nextPeriod}
         hitSlop={8}
         onPress={() => nextPeriod && selectPeriod(nextPeriod.id)}

@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatDate } from '@/lib/format';
+import { APP_LOCALE, t } from '@/lib/i18n';
 import { addIsoDays, addIsoMonths, getOccurrenceDates, parseIsoDate, toIsoDate } from '@/lib/recurrence';
 import type {
   NewRecurringSchedule,
@@ -24,10 +25,10 @@ type Props = {
 };
 
 const FREQUENCIES: { value: RecurringFrequency; label: string }[] = [
-  { value: 'weekly', label: 'Semanal' },
-  { value: 'monthly', label: 'Mensual' },
-  { value: 'annual', label: 'Anual' },
-  { value: 'custom', label: 'Personalizado' },
+  { value: 'weekly', label: t('recurrence.weekly') },
+  { value: 'monthly', label: t('recurrence.monthly') },
+  { value: 'annual', label: t('recurrence.annual') },
+  { value: 'custom', label: t('recurrence.custom') },
 ];
 
 function Options<T extends string>({
@@ -98,12 +99,12 @@ export function RecurringScheduleFields({
 
   return (
     <View style={styles.container}>
-      <ThemedText style={styles.label}>Frecuencia</ThemedText>
+      <ThemedText style={styles.label}>{t('recurrence.frequency')}</ThemedText>
       <Options options={FREQUENCIES} value={value.frequency} onChange={changeFrequency} />
 
       {value.frequency === 'custom' && (
         <>
-          <ThemedText style={styles.label}>Cada cuántos meses</ThemedText>
+          <ThemedText style={styles.label}>{t('recurrence.intervalMonths')}</ThemedText>
           <TextInput
             keyboardType="number-pad"
             maxLength={2}
@@ -119,7 +120,7 @@ export function RecurringScheduleFields({
 
       {usesExecutionDay && (
         <>
-          <ThemedText style={styles.label}>Día del mes</ThemedText>
+          <ThemedText style={styles.label}>{t('recurrence.dayOfMonth')}</ThemedText>
           <TextInput
             keyboardType="number-pad"
             maxLength={2}
@@ -129,28 +130,28 @@ export function RecurringScheduleFields({
           />
           {(value.executionDay ?? 0) >= 29 && (
             <ThemedText style={styles.hint}>
-              Si un mes es más corto, se usará su último día.
+              {t('recurrence.shortMonthHint')}
             </ThemedText>
           )}
         </>
       )}
 
-      <ThemedText style={styles.label}>Próxima ejecución</ThemedText>
+      <ThemedText style={styles.label}>{t('recurrence.nextExecution')}</ThemedText>
       <Pressable
         disabled={fixedStartDate != null}
         onPress={() => setDatePicker('start')}
         style={[styles.input, { borderColor: colors.border }]}>
         <ThemedText>
-          {nextExecutionDate ? formatDate(parseIsoDate(nextExecutionDate)) : 'Sin próximas ejecuciones'}
+          {nextExecutionDate ? formatDate(parseIsoDate(nextExecutionDate)) : t('recurrence.noNextExecutions')}
         </ThemedText>
       </Pressable>
       {value.frequency === 'weekly' && (
         <ThemedText style={styles.hint}>
-          Se ejecutará cada {parseIsoDate(referenceDate).toLocaleDateString('es-CL', { weekday: 'long' })}.
+          {t('recurrence.weeklyHint', { weekday: parseIsoDate(referenceDate).toLocaleDateString(APP_LOCALE, { weekday: 'long' }) })}
         </ThemedText>
       )}
       {value.frequency === 'annual' && (
-        <ThemedText style={styles.hint}>Se repetirá una vez al año en esta fecha.</ThemedText>
+        <ThemedText style={styles.hint}>{t('recurrence.annualHint')}</ThemedText>
       )}
       {fixedStartDate == null && datePicker === 'start' && (
         <>
@@ -169,33 +170,33 @@ export function RecurringScheduleFields({
           />
           {Platform.OS === 'ios' && (
             <Pressable onPress={() => setDatePicker(null)} style={styles.doneDate}>
-              <ThemedText type="link">Listo</ThemedText>
+              <ThemedText type="link">{t('common.done')}</ThemedText>
             </Pressable>
           )}
         </>
       )}
 
       {!hideRegistrationMode && <>
-      <ThemedText style={styles.label}>Modo de registro</ThemedText>
+      <ThemedText style={styles.label}>{t('recurrence.registrationMode')}</ThemedText>
       <Options<RecurringRegistrationMode>
         options={[
-          { value: 'confirmation', label: 'Con confirmación' },
-          { value: 'automatic', label: 'Automático' },
+          { value: 'confirmation', label: t('recurrence.confirmation') },
+          { value: 'automatic', label: t('common.automatic') },
         ]}
         value={value.registrationMode}
         onChange={(registrationMode) => update({ registrationMode })}
       />
       <ThemedText style={styles.hint}>
         {value.registrationMode === 'automatic'
-          ? `El ${movementKind} se registrará automáticamente cuando llegue la fecha programada.`
-          : `Recibirás una notificación para aprobar u omitir el ${movementKind}.`}
+          ? t('recurrence.automaticHint', { movement: movementKind })
+          : t('recurrence.confirmationHint', { movement: movementKind })}
       </ThemedText>
       </>}
 
       <View style={styles.switchRow}>
         <View style={styles.switchCopy}>
-          <ThemedText type="defaultSemiBold">Fecha de fin</ThemedText>
-          <ThemedText style={styles.hint}>{value.endDate ? `Después de esta fecha, el ${movementKind} no se seguirá registrando de manera recurrente` : 'Sin fecha de término'}</ThemedText>
+          <ThemedText type="defaultSemiBold">{t('recurrence.endDate')}</ThemedText>
+          <ThemedText style={styles.hint}>{value.endDate ? t('recurrence.endDateHint', { movement: movementKind }) : t('recurrence.noEndDate')}</ThemedText>
         </View>
         <Switch
           value={value.endDate != null}
@@ -225,7 +226,7 @@ export function RecurringScheduleFields({
               />
               {Platform.OS === 'ios' && (
                 <Pressable onPress={() => setDatePicker(null)} style={styles.doneDate}>
-                  <ThemedText type="link">Listo</ThemedText>
+                  <ThemedText type="link">{t('common.done')}</ThemedText>
                 </Pressable>
               )}
             </>
@@ -236,8 +237,8 @@ export function RecurringScheduleFields({
       {showActiveToggle && (
         <View style={styles.switchRow}>
           <View style={styles.switchCopy}>
-            <ThemedText type="defaultSemiBold">Activo</ThemedText>
-            <ThemedText style={styles.hint}>Permite crear los próximos movimientos recurrentes</ThemedText>
+            <ThemedText type="defaultSemiBold">{t('common.active')}</ThemedText>
+            <ThemedText style={styles.hint}>{t('recurrence.activeHint')}</ThemedText>
           </View>
           <Switch
             value={value.active}

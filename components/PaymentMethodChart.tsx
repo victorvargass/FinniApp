@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
+import { t } from '@/lib/i18n';
 
 type PaymentMethodChartItem = {
   paymentMethodId: number | null;
@@ -42,7 +43,7 @@ export function PaymentMethodChart({
   if (withSpending.length === 0) {
     return (
       <View style={styles.empty}>
-        <ThemedText style={styles.emptyText}>Sin gastos durante este período</ThemedText>
+        <ThemedText style={styles.emptyText}>{t('breakdown.emptyExpenses')}</ThemedText>
       </View>
     );
   }
@@ -76,7 +77,7 @@ export function PaymentMethodChart({
         centerLabelComponent={() => (
           <View style={styles.centerLabel}>
             <ThemedText style={[styles.centerAmount, { color: colors.text }]}>{formatCLP(total)}</ThemedText>
-            <ThemedText style={[styles.centerSub, { color: colors.textSecondary }]}>Total gastos</ThemedText>
+            <ThemedText style={[styles.centerSub, { color: colors.textSecondary }]}>{t('expenses.total')}</ThemedText>
           </View>
         )}
         onPress={(item: any) => handlePress(item)}

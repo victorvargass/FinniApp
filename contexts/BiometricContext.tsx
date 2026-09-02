@@ -11,6 +11,8 @@ import React, {
 } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
+import { t } from '@/lib/i18n';
+
 const BIOMETRIC_ENABLED_KEY = '@finniapp/biometric-lock-enabled';
 const BACKGROUND_GRACE_PERIOD_MS = 60_000;
 
@@ -30,15 +32,15 @@ function getAuthenticationType(types: LocalAuthentication.AuthenticationType[]) 
   // Android reports supported hardware, not the method the system prompt will
   // ultimately use. It can still choose a fingerprint or the device PIN.
   if (Platform.OS === 'android') {
-    return 'la biometría de tu dispositivo';
+    return t('biometric.deviceBiometrics');
   }
   if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-    return 'Face ID';
+    return t('biometric.faceId');
   }
   if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-    return 'Touch ID';
+    return t('biometric.touchId');
   }
-  return 'biometría';
+  return t('biometric.generic');
 }
 
 export function BiometricProvider({ children }: PropsWithChildren) {
@@ -46,7 +48,7 @@ export function BiometricProvider({ children }: PropsWithChildren) {
   const [isAvailable, setIsAvailable] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
-  const [authenticationType, setAuthenticationType] = useState('biometría');
+  const [authenticationType, setAuthenticationType] = useState(t('biometric.generic'));
   const enabledRef = useRef(false);
   const isLockedRef = useRef(false);
   const authenticatingRef = useRef(false);
@@ -64,10 +66,10 @@ export function BiometricProvider({ children }: PropsWithChildren) {
     authenticatingRef.current = true;
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Comprueba que eres tú',
-        promptSubtitle: 'Confirma tu identidad para ver tus datos',
-        cancelLabel: 'Cancelar',
-        fallbackLabel: 'Usar código del dispositivo',
+        promptMessage: t('biometric.prompt'),
+        promptSubtitle: t('biometric.subtitle'),
+        cancelLabel: t('biometric.cancel'),
+        fallbackLabel: t('biometric.fallback'),
         biometricsSecurityLevel: 'strong',
       });
 
@@ -198,6 +200,6 @@ export function BiometricProvider({ children }: PropsWithChildren) {
 
 export function useBiometric() {
   const value = useContext(BiometricContext);
-  if (!value) throw new Error('useBiometric debe usarse dentro de BiometricProvider');
+  if (!value) throw new Error(t('errors.biometricProvider'));
   return value;
 }

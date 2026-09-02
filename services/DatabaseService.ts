@@ -7,6 +7,7 @@ import {
   initDatabase,
   resetDatabaseConnection,
 } from '@/lib/db';
+import { t } from '@/lib/i18n';
 
 const DATABASE_NAME = 'gastos.db';
 
@@ -35,7 +36,7 @@ export class DatabaseService {
   static async validateBackupFile(file: File): Promise<void> {
     const bytes = await file.bytes();
     if (bytes.length < 100) {
-      throw new Error('El archivo de respaldo está vacío o incompleto.');
+      throw new Error(t('errors.emptyBackup'));
     }
 
     const tempDirectory = new Directory(
@@ -60,7 +61,7 @@ export class DatabaseService {
       );
 
       if (integrity?.integrity_check !== 'ok') {
-        throw new Error('El respaldo de SQLite no pasó la comprobación de integridad.');
+        throw new Error(t('errors.invalidBackupIntegrity'));
       }
 
       const requiredTables = ['settings', 'periods', 'categories', 'expenses', 'incomes'];
@@ -71,7 +72,7 @@ export class DatabaseService {
 
       const found = new Set(tables.map((table) => table.name));
       if (requiredTables.some((table) => !found.has(table))) {
-        throw new Error('El respaldo no pertenece a una versión válida de FinniApp.');
+        throw new Error(t('errors.invalidBackupVersion'));
       }
     } finally {
       await candidate.closeAsync();

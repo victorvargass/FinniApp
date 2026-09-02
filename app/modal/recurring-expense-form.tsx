@@ -13,6 +13,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, toDateString } from '@/lib/format';
 import { parseIsoDate } from '@/lib/recurrence';
+import { t } from '@/lib/i18n';
 import type { NewRecurringSchedule } from '@/lib/types';
 import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
@@ -32,7 +33,7 @@ function showResult(message: string) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
   } else {
-    Alert.alert('Listo', message, [{ text: 'Aceptar' }]);
+    Alert.alert(t('common.done'), message, [{ text: t('common.accept') }]);
   }
 }
 
@@ -80,20 +81,19 @@ export default function RecurringExpenseFormScreen() {
   const [useStoredNextDate, setUseStoredNextDate] = useState(recurring != null);
 
   useEffect(() => {
-    navigation.setOptions({ title: recurring ? 'Editar recurrencia' : 'Nueva recurrencia' });
+    navigation.setOptions({ title: recurring ? t('recurrence.edit') : t('recurrence.new') });
   }, [navigation, recurring]);
 
   const expenseDetails = recurring ?? requestedSource;
 
   const save = async () => {
     if (!expenseDetails) {
-      return Alert.alert('Selecciona un gasto', 'Elige el gasto al que deseas agregar la recurrencia.');
+      return Alert.alert(t('recurrence.selectExpense'), t('recurrence.selectExpenseHint'));
     }
     const notificationsGranted = await ensureRecurringNotificationPermission();
     if (!notificationsGranted && schedule.registrationMode === 'confirmation') {
       return Alert.alert(
-        'Notificaciones desactivadas',
-        'Activa las notificaciones del sistema para usar el modo con confirmación.'
+        t('expenses.notificationsDisabled'), t('expenses.notificationsDisabledHint')
       );
     }
     setSaving(true);
@@ -110,10 +110,10 @@ export default function RecurringExpenseFormScreen() {
       };
       if (recurring) await editRecurringExpense(recurring.id, data);
       else await addRecurringExpense(data);
-      showResult(recurring ? 'Recurrencia actualizada' : 'Recurrencia creada');
+      showResult(recurring ? t('recurrence.updated') : t('recurrence.created'));
       router.back();
     } catch (error) {
-      Alert.alert('No se pudo guardar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+      Alert.alert(t('errors.couldNotSave'), error instanceof Error ? error.message : t('common.tryAgain'));
     } finally {
       setSaving(false);
     }
@@ -122,23 +122,21 @@ export default function RecurringExpenseFormScreen() {
   const confirmRemove = () => {
     if (!recurring) return;
     Alert.alert(
-      'Eliminar recurrencia',
-      'Se eliminará la programación. Los gastos registrados anteriormente se conservarán.',
+      t('recurrence.delete'), t('recurrence.deleteExpenseSchedule'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             setRemoving(true);
             try {
               await removeRecurringExpense(recurring.id);
-              showResult('Recurrencia eliminada');
+              showResult(t('recurrence.deleted'));
               router.back();
             } catch (error) {
               Alert.alert(
-                'No se pudo eliminar',
-                error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+                t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain')
               );
             } finally {
               setRemoving(false);
@@ -157,25 +155,25 @@ export default function RecurringExpenseFormScreen() {
           <ThemedView style={[styles.detailsCard, { borderColor: colors.border }]}>
             <View style={styles.detailsHeader}>
               <View style={styles.sourceCopy}>
-                <ThemedText style={styles.hint}>Gasto</ThemedText>
+                <ThemedText style={styles.hint}>{t('navigation.expense')}</ThemedText>
                 <ThemedText type="defaultSemiBold">{expenseDetails.name}</ThemedText>
               </View>
               <ThemedText type="defaultSemiBold">{formatCLP(expenseDetails.amount)}</ThemedText>
             </View>
             <View style={styles.metadataChips}>
               <MetadataChip
-                label={expenseDetails.categoryName ?? 'Sin categoría'}
+                label={expenseDetails.categoryName ?? t('expenses.noCategory')}
                 color={expenseDetails.categoryColor ?? '#95a5a6'}
               />
               <MetadataChip
-                label={expenseDetails.paymentMethodName ?? 'Sin medio de pago'}
+                label={expenseDetails.paymentMethodName ?? t('expenses.noPaymentMethod')}
                 color={expenseDetails.paymentMethodColor ?? '#95a5a6'}
               />
             </View>
             {recurring?.sourceExpenseId != null && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Editar gasto de origen"
+                accessibilityLabel={t('recurrence.editSourceExpense')}
                 onPress={() => router.push({
                   pathname: '/modal/expense-form',
                   params: { id: String(recurring.sourceExpenseId) },
@@ -187,13 +185,13 @@ export default function RecurringExpenseFormScreen() {
                 ]}>
                 <Ionicons name="create-outline" size={18} color={colors.primary} />
                 <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
-                  Editar gasto de origen
+                  {t('recurrence.editSourceExpense')}
                 </ThemedText>
               </Pressable>
             )}
           </ThemedView>
         ) : (
-          <ThemedText style={styles.emptyHint}>Selecciona un gasto para configurar su recurrencia.</ThemedText>
+          <ThemedText style={styles.emptyHint}>{t('recurrence.selectExpenseEmpty')}</ThemedText>
         )}
 
         <View style={[styles.divider, { borderTopColor: colors.border }]} />
@@ -218,7 +216,7 @@ export default function RecurringExpenseFormScreen() {
           disabled={saving || removing}
           onPress={save}
           style={[styles.save, (saving || removing) && styles.disabled]}>
-          <ThemedText style={styles.saveText}>{recurring ? 'Guardar cambios' : 'Crear recurrencia'}</ThemedText>
+          <ThemedText style={styles.saveText}>{recurring ? t('common.saveChanges') : t('recurrence.create')}</ThemedText>
         </Pressable>
 
         {recurring && (
@@ -227,7 +225,7 @@ export default function RecurringExpenseFormScreen() {
             onPress={confirmRemove}
             style={[styles.remove, (saving || removing) && styles.disabled]}>
             <ThemedText style={styles.removeText}>
-              {removing ? 'Eliminando...' : 'Eliminar recurrencia'}
+              {removing ? t('recurrence.deleting') : t('recurrence.delete')}
             </ThemedText>
           </Pressable>
         )}

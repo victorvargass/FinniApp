@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 
 import { getPeriodStatement } from '@/lib/db';
 import { formatCLP } from '@/lib/format';
+import { APP_LOCALE, t } from '@/lib/i18n';
 import type {
   ExpenseWithCategory,
   Income,
@@ -44,31 +45,18 @@ function parseLocalDate(value: string): Date {
 }
 
 function formatReportDate(value: string): string {
-  const date = parseLocalDate(value);
-  const months = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-  ];
-  return `${String(date.getDate()).padStart(2, '0')} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  return new Intl.DateTimeFormat(APP_LOCALE, { day: '2-digit', month: 'long', year: 'numeric' }).format(parseLocalDate(value));
 }
 
 function formatShortDate(value: string): string {
-  const date = parseLocalDate(value);
-  const months = [
-    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-  ];
-  return `${String(date.getDate()).padStart(2, '0')} - ${months[date.getMonth()]}`;
+  const parts = new Intl.DateTimeFormat(APP_LOCALE, { day: '2-digit', month: 'short' }).formatToParts(parseLocalDate(value));
+  return `${parts.find((part) => part.type === 'day')?.value ?? ''} - ${(parts.find((part) => part.type === 'month')?.value ?? '').replace('.', '')}`;
 }
 
 function formatFileDate(value: string): string {
   const date = parseLocalDate(value);
   const day = String(date.getDate()).padStart(2, '0');
-  const months = [
-    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-    'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
-  ];
-  const month = months[date.getMonth()];
+  const month = new Intl.DateTimeFormat(APP_LOCALE, { month: 'short' }).format(date).replace('.', '');
   const year = String(date.getFullYear()).slice(-2);
   return `${day}-${month}-${year}`;
 }
@@ -76,7 +64,7 @@ function formatFileDate(value: string): string {
 export function getPeriodReportFileName(
   period: Pick<PeriodHistory, 'startDate' | 'endDate'>
 ): string {
-  return `Reporte periodo ${formatFileDate(period.startDate)} al ${formatFileDate(period.endDate)}.pdf`;
+  return t('report.fileName', { start: formatFileDate(period.startDate), end: formatFileDate(period.endDate) });
 }
 
 function total(items: { amount: number }[]): number {
@@ -84,14 +72,12 @@ function total(items: { amount: number }[]): number {
 }
 
 const PAYMENT_METHOD_TYPE_LABELS: Record<PaymentMethodType, string> = {
-  cash: 'Efectivo',
-  debit: 'Débito',
-  prepaid: 'Prepago',
-  credit: 'Crédito',
+  cash: t('paymentMethods.cash'), debit: t('paymentMethods.debit'),
+  prepaid: t('paymentMethods.prepaid'), credit: t('paymentMethods.credit'),
 };
 
 function paymentMethodTypeLabel(type: PaymentMethodType | null): string {
-  return type ? PAYMENT_METHOD_TYPE_LABELS[type] : 'Sin tipo';
+  return type ? PAYMENT_METHOD_TYPE_LABELS[type] : t('report.noType');
 }
 
 function categoryRows(
@@ -99,7 +85,7 @@ function categoryRows(
   expensesTotal: number
 ): string {
   if (categories.length === 0) {
-    return '<div class="empty">No hubo gastos en este período.</div>';
+    return `<div class="empty">${t('report.noExpenses')}</div>`;
   }
 
   return categories
@@ -160,14 +146,14 @@ function donutChart(
   return `
     <div class="donut-column">
       <div class="donut-wrap">
-        <svg class="donut" viewBox="0 0 120 120" role="img" aria-label="Distribución de gastos por categoría">
+        <svg class="donut" viewBox="0 0 120 120" role="img" aria-label="${t('report.categoryDistribution')}">
           <circle cx="60" cy="60" r="${radius}" fill="none" stroke="#e8eeee" stroke-width="18" />
           ${segments}
           <circle cx="60" cy="60" r="31" fill="white" />
         </svg>
         <div class="donut-center">
           <strong>${formatCLP(expensesTotal)}</strong>
-          <span>Gastos totales</span>
+          <span>${t('report.totalExpenses')}</span>
         </div>
       </div>
     </div>`;
@@ -179,7 +165,7 @@ function paymentMethodRows(
   expensesTotal: number
 ): string {
   if (methods.length === 0) {
-    return '<div class="empty">No hubo medios de pago asociados a los gastos de este período.</div>';
+    return `<div class="empty">${t('report.noPaymentMethods')}</div>`;
   }
 
   const movementCounts = expenses.reduce((counts, expense) => {
@@ -199,13 +185,13 @@ function paymentMethodRows(
         ? method.paymentMethodColor
         : '#95a5a6';
       const details = method.paymentMethodId == null
-        ? 'Sin información registrada'
+        ? t('report.noInformation')
         : [
             paymentMethodTypeLabel(method.paymentMethodType),
             method.paymentMethodType === 'credit' && method.billingDay
-              ? `factura aprox. el día ${method.billingDay}`
+              ? t('report.approximateBillingDay', { day: method.billingDay })
               : null,
-            method.active === false ? 'Desactivado' : 'Activo',
+            method.active === false ? t('report.disabled') : t('common.active'),
           ].filter(Boolean).join(' - ');
 
       return `
@@ -214,7 +200,7 @@ function paymentMethodRows(
             <div class="method-name"><span class="dot" style="background:${safeColor}"></span><strong>${escapeHtml(method.paymentMethodName)}</strong></div>
             <div class="row-note">${escapeHtml(details)}</div>
           </td>
-          <td class="movement-count">${count} ${count === 1 ? 'movimiento' : 'movimientos'}</td>
+          <td class="movement-count">${count} ${count === 1 ? t('report.movementOne') : t('report.movementOther')}</td>
           <td class="percentage">${percentage}%</td>
           <td class="amount">${formatCLP(method.total)}</td>
         </tr>`;
@@ -224,7 +210,7 @@ function paymentMethodRows(
 
 function expenseRows(expenses: ExpenseWithCategory[]): string {
   if (expenses.length === 0) {
-    return '<tr><td colspan="5" class="empty-cell">No hubo gastos en este período.</td></tr>';
+    return `<tr><td colspan="5" class="empty-cell">${t('report.noExpenses')}</td></tr>`;
   }
 
   return expenses
@@ -245,8 +231,8 @@ function expenseRows(expenses: ExpenseWithCategory[]): string {
         <tr>
           <td class="date">${formatShortDate(expense.date)}</td>
           <td><strong>${escapeHtml(expense.name)}</strong>${splitNote}</td>
-          <td class="category-cell"><span class="tag" style="border-color:${categoryColor}">${escapeHtml(expense.categoryName ?? 'Sin categoría')}</span></td>
-          <td class="payment-method-cell"><span class="tag" style="border-color:${paymentMethodColor}">${escapeHtml(expense.paymentMethodName ?? 'No especificado')}</span>${paymentMethodNote}</td>
+          <td class="category-cell"><span class="tag" style="border-color:${categoryColor}">${escapeHtml(expense.categoryName ?? t('expenses.noCategory'))}</span></td>
+          <td class="payment-method-cell"><span class="tag" style="border-color:${paymentMethodColor}">${escapeHtml(expense.paymentMethodName ?? t('common.notSpecified'))}</span>${paymentMethodNote}</td>
           <td class="amount expense">-${formatCLP(expense.amount)}</td>
         </tr>`;
     })
@@ -255,7 +241,7 @@ function expenseRows(expenses: ExpenseWithCategory[]): string {
 
 function incomeRows(incomes: Income[]): string {
   if (incomes.length === 0) {
-    return '<tr><td colspan="3" class="empty-cell">No hubo ingresos en este período.</td></tr>';
+    return `<tr><td colspan="3" class="empty-cell">${t('report.noIncomes')}</td></tr>`;
   }
 
   return incomes
@@ -276,7 +262,7 @@ export function buildPeriodReportHtml(
   const expensesTotal = total(expenses);
   const incomesTotal = total(incomes);
   const balance = incomesTotal - expensesTotal;
-  const generatedAt = new Intl.DateTimeFormat('es-CL', {
+  const generatedAt = new Intl.DateTimeFormat(APP_LOCALE, {
     dateStyle: 'long',
     timeStyle: 'short',
   }).format(new Date());
@@ -358,32 +344,32 @@ export function buildPeriodReportHtml(
     <body>
       <header class="header">
         <div>
-          <div class="eyebrow">Reporte financiero</div>
+          <div class="eyebrow">${t('report.financialReport')}</div>
           <div class="brand">Finni<span>App</span></div>
         </div>
         <div>
           <div class="period">${formatReportDate(period.startDate)} - ${formatReportDate(period.endDate)}</div>
-          <div class="generated">Generado el ${escapeHtml(generatedAt)}</div>
+          <div class="generated">${t('report.generatedOn', { date: escapeHtml(generatedAt) })}</div>
         </div>
       </header>
 
       <section class="summary">
         <div class="summary-card">
           <div class="summary-icon income-icon"><svg viewBox="0 0 24 24"><path d="M4 17l6-6 4 4 6-8"/><path d="M15 7h5v5"/></svg></div>
-          <div class="summary-copy"><div class="label">Ingresos</div><div class="value income">${formatCLP(incomesTotal)}</div></div>
+          <div class="summary-copy"><div class="label">${t('navigation.incomes')}</div><div class="value income">${formatCLP(incomesTotal)}</div></div>
         </div>
         <div class="summary-card">
           <div class="summary-icon expense-icon"><svg viewBox="0 0 24 24"><path d="M4 7l6 6 4-4 6 8"/><path d="M15 17h5v-5"/></svg></div>
-          <div class="summary-copy"><div class="label">Gastos</div><div class="value expense">${formatCLP(expensesTotal)}</div></div>
+          <div class="summary-copy"><div class="label">${t('navigation.expenses')}</div><div class="value expense">${formatCLP(expensesTotal)}</div></div>
         </div>
         <div class="summary-card balance">
           <div class="summary-icon"><svg viewBox="0 0 24 24"><path d="M4 7h14a2 2 0 0 1 2 2v9H6a2 2 0 0 1-2-2V7z"/><path d="M4 7l2-3h10l2 3"/><path d="M15 12h5v4h-5a2 2 0 1 1 0-4z"/></svg></div>
-          <div class="summary-copy"><div class="label">Saldo del período</div><div class="value">${formatCLP(balance)}</div></div>
+          <div class="summary-copy"><div class="label">${t('report.periodBalance')}</div><div class="value">${formatCLP(balance)}</div></div>
         </div>
       </section>
 
       <section class="section category-section">
-        <h2 class="section-title">Resumen de gastos</h2>
+        <h2 class="section-title">${t('report.expenseSummary')}</h2>
         <div class="category-overview">
           ${donutChart(period.categories, expensesTotal)}
           <div class="category-grid">${categoryRows(period.categories, expensesTotal)}</div>
@@ -391,35 +377,35 @@ export function buildPeriodReportHtml(
       </section>
 
       <section class="section payment-method-section">
-        <h2 class="section-title">Gastos por medio de pago</h2>
-        <div class="section-subtitle">Distribución, configuración y uso durante el período</div>
+        <h2 class="section-title">${t('report.expensesByPayment')}</h2>
+        <div class="section-subtitle">${t('report.paymentSubtitle')}</div>
         <table>
-          <thead><tr><th>Medio de pago</th><th>Uso</th><th style="text-align:right">Porcentaje</th><th style="text-align:right">Total</th></tr></thead>
+          <thead><tr><th>${t('navigation.paymentMethod')}</th><th>${t('report.usage')}</th><th style="text-align:right">${t('report.percentage')}</th><th style="text-align:right">${t('filters.amount')}</th></tr></thead>
           <tbody>${paymentMethodRows(period.paymentMethods ?? [], expenses, expensesTotal)}</tbody>
         </table>
       </section>
 
       <section class="section transactions${expenses.length <= 8 ? ' keep-together' : ''}">
-        <h2 class="section-title">Detalle de gastos</h2>
+        <h2 class="section-title">${t('report.detailExpenses')}</h2>
         <div class="section-subtitle">${expenses.length} ${expenses.length === 1 ? 'movimiento' : 'movimientos'}</div>
         <table>
-          <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Medio de pago</th><th style="text-align:right">Monto</th></tr></thead>
+          <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th>${t('navigation.category')}</th><th>${t('navigation.paymentMethod')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
           <tbody>${expenseRows(expenses)}</tbody>
         </table>
-        <div class="table-total"><span>Total gastos</span><span class="expense">${formatCLP(expensesTotal)}</span></div>
+        <div class="table-total"><span>${t('expenses.total')}</span><span class="expense">${formatCLP(expensesTotal)}</span></div>
       </section>
 
       <section class="section transactions${incomes.length <= 8 ? ' keep-together' : ''}">
-        <h2 class="section-title">Detalle de ingresos</h2>
+        <h2 class="section-title">${t('report.detailIncomes')}</h2>
         <div class="section-subtitle">${incomes.length} ${incomes.length === 1 ? 'movimiento' : 'movimientos'}</div>
         <table>
-          <thead><tr><th>Fecha</th><th>Descripción</th><th style="text-align:right">Monto</th></tr></thead>
+          <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
           <tbody>${incomeRows(incomes)}</tbody>
         </table>
-        <div class="table-total"><span>Total ingresos</span><span class="income">${formatCLP(incomesTotal)}</span></div>
+        <div class="table-total"><span>${t('incomes.total')}</span><span class="income">${formatCLP(incomesTotal)}</span></div>
       </section>
 
-      <footer class="footer">Este reporte fue generado desde FinniApp.</footer>
+      <footer class="footer">${t('report.generatedFrom')}</footer>
     </body>
   </html>`;
 }
@@ -450,7 +436,7 @@ export async function exportPeriodReport(period: PeriodHistory): Promise<void> {
   }
 
   await Sharing.shareAsync(namedFile.uri, {
-    dialogTitle: 'Compartir reporte del período',
+    dialogTitle: t('report.shareTitle'),
     mimeType: 'application/pdf',
     UTI: 'com.adobe.pdf',
   });

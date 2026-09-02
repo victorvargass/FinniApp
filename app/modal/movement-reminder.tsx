@@ -9,10 +9,11 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { APP_LOCALE, t } from '@/lib/i18n';
 
 const DAYS = [
-  [1, 'Domingo'], [2, 'Lunes'], [3, 'Martes'], [4, 'Miércoles'],
-  [5, 'Jueves'], [6, 'Viernes'], [7, 'Sábado'],
+  [1, t('reminder.sunday')], [2, t('reminder.monday')], [3, t('reminder.tuesday')], [4, t('reminder.wednesday')],
+  [5, t('reminder.thursday')], [6, t('reminder.friday')], [7, t('reminder.saturday')],
 ] as const;
 
 export default function MovementReminderScreen() {
@@ -35,26 +36,26 @@ export default function MovementReminderScreen() {
         movementReminderMinute: time.getMinutes(),
       });
       if (Platform.OS === 'android') {
-        ToastAndroid.show('Recordatorio guardado', ToastAndroid.SHORT);
+        ToastAndroid.show(t('reminder.saved'), ToastAndroid.SHORT);
       } else {
-        Alert.alert('Listo', 'Recordatorio guardado');
+        Alert.alert(t('common.done'), t('reminder.saved'));
       }
       router.back();
     } catch (error) {
-      Alert.alert('No se pudo guardar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+      Alert.alert(t('errors.couldNotSave'), error instanceof Error ? error.message : t('common.tryAgain'));
     } finally { setSaving(false); }
   };
 
   return <SafeAreaView style={styles.safe} edges={['bottom']}><ScrollView contentContainerStyle={styles.content}>
-    <ThemedText style={styles.hint}>Configura cuándo quieres recibir el aviso.</ThemedText>
-    <ThemedText style={styles.label}>Periodicidad</ThemedText>
-    <View style={styles.options}>{([['daily', 'Diariamente'], ['weekly', 'Una vez por semana']] as const).map(([value, label]) => <Pressable key={value} onPress={() => setFrequency(value)} style={[styles.option, { borderColor: colors.border }, frequency === value && styles.selected]}><ThemedText style={frequency === value ? styles.selectedText : undefined}>{label}</ThemedText></Pressable>)}</View>
-    {frequency === 'weekly' && <><ThemedText style={styles.label}>Día de la semana</ThemedText><View style={styles.days}>{DAYS.map(([value, label]) => <Pressable key={value} onPress={() => setWeekday(value)} style={[styles.day, { borderColor: colors.border }, weekday === value && styles.selected]}><ThemedText style={weekday === value ? styles.selectedText : undefined}>{label}</ThemedText></Pressable>)}</View></>}
-    <ThemedText style={styles.label}>Hora</ThemedText>
-    <Pressable onPress={() => setShowTime(true)} style={[styles.time, { borderColor: colors.border }]}><ThemedText type="defaultSemiBold">{time.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</ThemedText></Pressable>
+    <ThemedText style={styles.hint}>{t('reminder.hint')}</ThemedText>
+    <ThemedText style={styles.label}>{t('reminder.frequency')}</ThemedText>
+    <View style={styles.options}>{([['daily', t('reminder.daily')], ['weekly', t('reminder.weekly')]] as const).map(([value, label]) => <Pressable key={value} onPress={() => setFrequency(value)} style={[styles.option, { borderColor: colors.border }, frequency === value && styles.selected]}><ThemedText style={frequency === value ? styles.selectedText : undefined}>{label}</ThemedText></Pressable>)}</View>
+    {frequency === 'weekly' && <><ThemedText style={styles.label}>{t('reminder.dayOfWeek')}</ThemedText><View style={styles.days}>{DAYS.map(([value, label]) => <Pressable key={value} onPress={() => setWeekday(value)} style={[styles.day, { borderColor: colors.border }, weekday === value && styles.selected]}><ThemedText style={weekday === value ? styles.selectedText : undefined}>{label}</ThemedText></Pressable>)}</View></>}
+    <ThemedText style={styles.label}>{t('reminder.hour')}</ThemedText>
+    <Pressable onPress={() => setShowTime(true)} style={[styles.time, { borderColor: colors.border }]}><ThemedText type="defaultSemiBold">{time.toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })}</ThemedText></Pressable>
     {showTime && <DateTimePicker value={time} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_, value) => { if (Platform.OS === 'android') setShowTime(false); if (value) setTime(value); }} />}
-    {Platform.OS === 'ios' && showTime && <Pressable onPress={() => setShowTime(false)} style={styles.done}><ThemedText type="link">Listo</ThemedText></Pressable>}
-    <Pressable disabled={saving} onPress={save} style={[styles.save, saving && { opacity: 0.6 }]}><ThemedText style={styles.saveText}>{saving ? 'Guardando...' : 'Guardar recordatorio'}</ThemedText></Pressable>
+    {Platform.OS === 'ios' && showTime && <Pressable onPress={() => setShowTime(false)} style={styles.done}><ThemedText type="link">{t('common.done')}</ThemedText></Pressable>}
+    <Pressable disabled={saving} onPress={save} style={[styles.save, saving && { opacity: 0.6 }]}><ThemedText style={styles.saveText}>{saving ? t('common.saving') : t('reminder.save')}</ThemedText></Pressable>
   </ScrollView></SafeAreaView>;
 }
 

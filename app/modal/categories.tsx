@@ -10,6 +10,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
+import { t } from '@/lib/i18n';
 
 export default function CategoriesScreen() {
   const { categories } = useDatabase();
@@ -23,12 +24,12 @@ export default function CategoriesScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <ThemedText style={styles.empty}>
-            Crea categorías para organizar tus gastos.
+            {t('categories.empty')}
           </ThemedText>
         }
         renderItem={({ item }) => (
           <Pressable
-            accessibilityLabel={`Configurar ${item.name}`}
+            accessibilityLabel={t('categories.configure', { name: item.name })}
             accessibilityRole="button"
             onPress={() => router.push({ pathname: '/modal/category-form', params: { id: String(item.id) } })}
             style={({ pressed }) => pressed && styles.pressed}>
@@ -39,7 +40,7 @@ export default function CategoriesScreen() {
                   <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
                   {item.periodLimit != null && (
                     <ThemedText style={styles.limit}>
-                      Límite: {formatCLP(item.periodLimit)}/período
+                      {t('categories.limitPerPeriod', { amount: formatCLP(item.periodLimit) })}
                     </ThemedText>
                   )}
                 </View>
@@ -51,7 +52,7 @@ export default function CategoriesScreen() {
       />
       <FloatingActionButton
         href="/modal/category-form"
-        accessibilityLabel="Agregar categoría"
+        accessibilityLabel={t('accessibility.addCategory')}
         avoidBottomInset
       />
     </SafeAreaView>

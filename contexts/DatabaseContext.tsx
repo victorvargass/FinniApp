@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { ActivityIndicator, View } from 'react-native';
 
 import * as db from '@/lib/db';
+import { t } from '@/lib/i18n';
 import type {
   Category,
   CreditCardCycle,
@@ -296,7 +297,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     async (id: number, detachExpenses = false) => {
       const count = await db.getExpenseCountByCategory(id);
       if (count > 0 && !detachExpenses) {
-        throw new Error('No se puede eliminar una categoría con gastos asociados');
+        throw new Error(t('errors.categoryHasExpenses'));
       }
       await db.deleteCategory(id, detachExpenses);
       await refresh();
@@ -502,7 +503,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const addExpense = useCallback(
     async (data: NewExpense, recurringSchedule?: NewRecurringSchedule) => {
-      if (selectedPeriodId == null) throw new Error('No hay un período seleccionado');
+      if (selectedPeriodId == null) throw new Error(t('errors.noSelectedPeriod'));
       if (recurringSchedule) {
         await db.createExpenseWithRecurrence(data, recurringSchedule, selectedPeriodId);
       } else {
@@ -531,7 +532,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const addIncome = useCallback(
     async (data: NewIncome, recurringSchedule?: NewRecurringSchedule) => {
-      if (selectedPeriodId == null) throw new Error('No hay un período seleccionado');
+      if (selectedPeriodId == null) throw new Error(t('errors.noSelectedPeriod'));
       if (recurringSchedule) {
         await db.createIncomeWithRecurrence(data, recurringSchedule, selectedPeriodId);
       } else {
@@ -598,7 +599,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const setMovementReminder = useCallback(async (data: MovementReminderSettings) => {
     const scheduled = await syncMovementReminder(data);
     if (data.movementReminderEnabled && !scheduled) {
-      throw new Error('Debes permitir las notificaciones para activar el recordatorio');
+      throw new Error(t('errors.notificationPermissionRequired'));
     }
     await db.updateMovementReminderSettings(data);
     await refresh();
@@ -759,7 +760,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 export function useDatabase() {
   const context = useContext(DatabaseContext);
   if (!context) {
-    throw new Error('useDatabase debe usarse dentro de DatabaseProvider');
+    throw new Error(t('errors.databaseProvider'));
   }
   return context;
 }

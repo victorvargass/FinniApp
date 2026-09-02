@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { t } from '@/lib/i18n';
 
 export type BreakdownMode = 'category' | 'paymentMethod';
 
@@ -29,18 +30,18 @@ export function BreakdownSection({
 
   return (
     <ThemedView style={[styles.container, { backgroundColor }, style]}>
-      <ThemedText type="title" style={styles.title}>Desglose</ThemedText>
+      <ThemedText type="title" style={styles.title}>{t('breakdown.title')}</ThemedText>
 
       <View style={[styles.toggle, { borderColor: colors.border, backgroundColor: colors.screen }]}>
         <ToggleOption
-          label="Por categoría"
+          label={t('filters.groupByCategory')}
           selected={mode === 'category'}
           onPress={() => onChange('category')}
           activeColor={colors.primary}
           activeTextColor={colors.onPrimary}
         />
         <ToggleOption
-          label="Por medio de pago"
+          label={t('filters.groupByPaymentMethod')}
           selected={mode === 'paymentMethod'}
           onPress={() => onChange('paymentMethod')}
           activeColor={colors.primary}

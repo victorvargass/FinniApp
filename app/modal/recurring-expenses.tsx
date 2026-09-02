@@ -12,12 +12,13 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import { describeRecurrence, parseIsoDate } from '@/lib/recurrence';
+import { t } from '@/lib/i18n';
 
 function showResult(message: string) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
   } else {
-    Alert.alert('Listo', message, [{ text: 'Aceptar' }]);
+    Alert.alert(t('common.done'), message, [{ text: t('common.accept') }]);
   }
 }
 
@@ -37,7 +38,7 @@ export default function RecurringExpensesScreen() {
 
   const tabs = (
     <View style={[styles.tabs, { borderColor: colors.border }]}> 
-      {([['incomes', 'Ingresos'], ['expenses', 'Gastos']] as const).map(([value, label]) => (
+      {([['incomes', t('navigation.incomes')], ['expenses', t('navigation.expenses')]] as const).map(([value, label]) => (
         <Pressable key={value} onPress={() => setSection(value)} style={[styles.tab, section === value && styles.selectedTab]}>
           <ThemedText style={section === value ? styles.selectedTabText : undefined}>{label}</ThemedText>
         </Pressable>
@@ -56,8 +57,8 @@ export default function RecurringExpensesScreen() {
       else await skipRecurringOccurrence(kind, recurringId, scheduledDate);
     } catch (error) {
       Alert.alert(
-        'No se pudo completar',
-        error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+        t('errors.couldNotComplete'),
+        error instanceof Error ? error.message : t('common.tryAgain')
       );
     }
   };
@@ -70,7 +71,7 @@ export default function RecurringExpensesScreen() {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.list}
           ListHeaderComponent={tabs}
-          ListEmptyComponent={<ThemedText style={styles.empty}>Aún no tienes ingresos recurrentes. Puedes crearlos desde un ingreso.</ThemedText>}
+          ListEmptyComponent={<ThemedText style={styles.empty}>{t('recurrence.emptyIncomes')}</ThemedText>}
           renderItem={({ item }) => (
             <ThemedView style={[styles.card, !item.active && styles.inactive]}>
               <View style={styles.cardHeader}>
@@ -80,25 +81,25 @@ export default function RecurringExpensesScreen() {
                     <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
                     <ThemedText style={styles.amount}>{formatCLP(item.amount)}</ThemedText>
                     <ThemedText style={styles.secondary}>{describeRecurrence(item)}</ThemedText>
-                    <ThemedText style={styles.secondary}>{item.nextDate ? `Próximo: ${formatDate(parseIsoDate(item.nextDate))}` : 'Sin próximas ejecuciones'}</ThemedText>
+                    <ThemedText style={styles.secondary}>{item.nextDate ? t('recurrence.next', { date: formatDate(parseIsoDate(item.nextDate)) }) : t('recurrence.noNextExecutions')}</ThemedText>
                   </View>
                 </Pressable>
-                <Switch value={item.active} onValueChange={(active) => setRecurringIncomeActive(item.id, active).catch((error) => Alert.alert('No se pudo cambiar', error instanceof Error ? error.message : 'Inténtalo nuevamente.'))} trackColor={{ true: '#2e9d63' }} />
+                <Switch value={item.active} onValueChange={(active) => setRecurringIncomeActive(item.id, active).catch((error) => Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain')))} trackColor={{ true: '#2e9d63' }} />
               </View>
               <View style={styles.metaRow}>
                 <View style={[styles.modeBadge, { borderColor: colors.border }]}>
                   <Ionicons name={item.registrationMode === 'automatic' ? 'flash-outline' : 'notifications-outline'} size={14} color={colors.icon} />
-                  <ThemedText style={styles.modeText}>{item.registrationMode === 'automatic' ? 'Automático' : 'Con confirmación'}</ThemedText>
+                  <ThemedText style={styles.modeText}>{item.registrationMode === 'automatic' ? t('common.automatic') : t('recurrence.confirmation')}</ThemedText>
                 </View>
-                {item.pendingCount > 0 && <ThemedText style={styles.pending}>{item.pendingCount} {item.pendingCount === 1 ? 'pendiente' : 'pendientes'}</ThemedText>}
-                <Pressable onPress={() => Alert.alert('Eliminar recurrencia', `¿Eliminar la recurrencia de ${item.name}? Los ingresos anteriores se conservarán.`, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Eliminar', style: 'destructive', onPress: () => removeRecurringIncome(item.id).then(() => showResult('Recurrencia eliminada')).catch((error) => Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Inténtalo nuevamente.')) }])}>
-                  <ThemedText style={styles.removeLink}>Eliminar</ThemedText>
+                {item.pendingCount > 0 && <ThemedText style={styles.pending}>{t('recurrence.pendingCount', { count: item.pendingCount, label: item.pendingCount === 1 ? t('recurrence.pendingOne') : t('recurrence.pendingOther') })}</ThemedText>}
+                <Pressable onPress={() => Alert.alert(t('recurrence.delete'), t('recurrence.removeIncomeQuestion', { name: item.name }), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => removeRecurringIncome(item.id).then(() => showResult(t('recurrence.deleted'))).catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain'))) }])}>
+                  <ThemedText style={styles.removeLink}>{t('common.delete')}</ThemedText>
                 </Pressable>
               </View>
               {item.pendingCount > 0 && item.nextDate && (
                 <View style={styles.pendingActions}>
-                  <Pressable onPress={() => runOccurrenceAction('skip', 'income', item.id, item.nextDate!)} style={[styles.action, { borderColor: colors.border }]}><ThemedText type="defaultSemiBold">Omitir</ThemedText></Pressable>
-                  <Pressable onPress={() => runOccurrenceAction('approve', 'income', item.id, item.nextDate!)} style={[styles.action, styles.approve]}><ThemedText style={styles.approveText}>Aprobar</ThemedText></Pressable>
+                  <Pressable onPress={() => runOccurrenceAction('skip', 'income', item.id, item.nextDate!)} style={[styles.action, { borderColor: colors.border }]}><ThemedText type="defaultSemiBold">{t('common.skip')}</ThemedText></Pressable>
+                  <Pressable onPress={() => runOccurrenceAction('approve', 'income', item.id, item.nextDate!)} style={[styles.action, styles.approve]}><ThemedText style={styles.approveText}>{t('common.approve')}</ThemedText></Pressable>
                 </View>
               )}
             </ThemedView>
@@ -110,20 +111,20 @@ export default function RecurringExpensesScreen() {
 
   const confirmRemove = (id: number, name: string) => {
     Alert.alert(
-      'Eliminar recurrencia',
-      `¿Eliminar la recurrencia de ${name}? Los gastos anteriores se conservarán.`,
+      t('recurrence.delete'),
+      t('recurrence.removeExpenseQuestion', { name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             removeRecurringExpense(id)
-              .then(() => showResult('Recurrencia eliminada'))
+              .then(() => showResult(t('recurrence.deleted')))
               .catch((error) => {
                 Alert.alert(
-                  'No se pudo eliminar',
-                  error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+                  t('errors.couldNotDelete'),
+                  error instanceof Error ? error.message : t('common.tryAgain')
                 );
               });
           },
@@ -141,7 +142,7 @@ export default function RecurringExpensesScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={tabs}
         ListEmptyComponent={(
-          <ThemedText style={styles.empty}>Aún no tienes gastos recurrentes. Puedes crearlos desde un gasto.</ThemedText>
+          <ThemedText style={styles.empty}>{t('recurrence.emptyExpenses')}</ThemedText>
         )}
         renderItem={({ item }) => (
           <ThemedView style={[styles.card, !item.active && styles.inactive]}>
@@ -161,17 +162,17 @@ export default function RecurringExpensesScreen() {
                   <ThemedText style={styles.secondary}>{describeRecurrence(item)}</ThemedText>
                   <ThemedText style={styles.secondary}>
                     {item.nextDate
-                      ? `Próximo: ${formatDate(parseIsoDate(item.nextDate))}`
-                      : 'Sin próximas ejecuciones'}
+                      ? t('recurrence.next', { date: formatDate(parseIsoDate(item.nextDate)) })
+                      : t('recurrence.noNextExecutions')}
                   </ThemedText>
                 </View>
               </Pressable>
               <Switch
-                accessibilityLabel={`${item.active ? 'Desactivar' : 'Activar'} ${item.name}`}
+                accessibilityLabel={t('recurrence.toggle', { action: item.active ? t('recurrence.deactivate') : t('recurrence.activate'), name: item.name })}
                 value={item.active}
                 onValueChange={(active) => {
                   setRecurringExpenseActive(item.id, active).catch((error) => {
-                    Alert.alert('No se pudo cambiar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+                    Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain'));
                   });
                 }}
                 trackColor={{ true: colors.primary }}
@@ -186,19 +187,19 @@ export default function RecurringExpensesScreen() {
                   color={colors.icon}
                 />
                 <ThemedText style={styles.modeText}>
-                  {item.registrationMode === 'automatic' ? 'Automático' : 'Con confirmación'}
+                  {item.registrationMode === 'automatic' ? t('common.automatic') : t('recurrence.confirmation')}
                 </ThemedText>
               </View>
               {item.pendingCount > 0 && (
                 <ThemedText style={styles.pending}>
-                  {item.pendingCount} {item.pendingCount === 1 ? 'pendiente' : 'pendientes'}
+                  {t('recurrence.pendingCount', { count: item.pendingCount, label: item.pendingCount === 1 ? t('recurrence.pendingOne') : t('recurrence.pendingOther') })}
                 </ThemedText>
               )}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Eliminar recurrencia de ${item.name}`}
+                accessibilityLabel={t('recurrence.removeAccessibility', { name: item.name })}
                 onPress={() => confirmRemove(item.id, item.name)}>
-                <ThemedText style={styles.removeLink}>Eliminar</ThemedText>
+                <ThemedText style={styles.removeLink}>{t('common.delete')}</ThemedText>
               </Pressable>
             </View>
 
@@ -207,12 +208,12 @@ export default function RecurringExpensesScreen() {
                 <Pressable
                   onPress={() => runOccurrenceAction('skip', 'expense', item.id, item.nextDate!)}
                   style={[styles.action, { borderColor: colors.border }]}>
-                  <ThemedText type="defaultSemiBold">Omitir</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('common.skip')}</ThemedText>
                 </Pressable>
                 <Pressable
                   onPress={() => runOccurrenceAction('approve', 'expense', item.id, item.nextDate!)}
                   style={[styles.action, styles.approve]}>
-                  <ThemedText style={styles.approveText}>Aprobar</ThemedText>
+                  <ThemedText style={styles.approveText}>{t('common.approve')}</ThemedText>
                 </Pressable>
               </View>
             )}

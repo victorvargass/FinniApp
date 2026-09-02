@@ -22,6 +22,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import type { Income } from '@/lib/types';
 
 type SortOption =
@@ -33,12 +34,12 @@ type SortOption =
   | 'date-desc';
 
 const SORT_OPTIONS: { value: SortOption; label: string; group: string }[] = [
-  { value: 'date-desc', label: 'Más reciente', group: 'Fecha' },
-  { value: 'date-asc', label: 'Más antigua', group: 'Fecha' },
-  { value: 'name-asc', label: 'A → Z', group: 'Nombre' },
-  { value: 'name-desc', label: 'Z → A', group: 'Nombre' },
-  { value: 'amount-desc', label: 'Mayor a menor', group: 'Monto' },
-  { value: 'amount-asc', label: 'Menor a mayor', group: 'Monto' },
+  { value: 'date-desc', label: t('filters.newest'), group: t('filters.date') },
+  { value: 'date-asc', label: t('filters.oldest'), group: t('filters.date') },
+  { value: 'name-asc', label: 'A → Z', group: t('filters.name') },
+  { value: 'name-desc', label: 'Z → A', group: t('filters.name') },
+  { value: 'amount-desc', label: t('filters.highest'), group: t('filters.amount') },
+  { value: 'amount-asc', label: t('filters.lowest'), group: t('filters.amount') },
 ];
 
 const SORT_LABELS = Object.fromEntries(
@@ -100,7 +101,7 @@ function OptionModal({ visible, title, onClose, children }: OptionModalProps) {
             <Pressable
               style={[styles.modalCloseButton, { borderColor: colors.icon }]}
               onPress={onClose}>
-              <ThemedText type="defaultSemiBold">Cerrar</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('common.close')}</ThemedText>
             </Pressable>
           </ThemedView>
         </Pressable>
@@ -172,17 +173,17 @@ export default function IncomesScreen() {
   const isSortActive = sortBy !== 'date-desc';
 
   const handleDelete = (id: number, name: string) => {
-    Alert.alert('Eliminar ingreso', `¿Eliminar "${name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t('incomes.delete'), t('incomes.deleteQuestion', { name }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Eliminar',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: () => {
           removeIncome(id)
           if (Platform.OS === 'android') {
-            ToastAndroid.show('Ingreso eliminado', ToastAndroid.SHORT);
+            ToastAndroid.show(t('incomes.deleted'), ToastAndroid.SHORT);
           } else {
-            Alert.alert('Eliminado', 'Ingreso eliminado');
+            Alert.alert(t('common.deleted'), t('incomes.deleted'));
           }
         }
       },
@@ -199,7 +200,7 @@ export default function IncomesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ThemedView style={styles.header}>
-        <ThemedText type="title">Ingresos</ThemedText>
+        <ThemedText type="title">{t('navigation.incomes')}</ThemedText>
       </ThemedView>
 
       <ThemedView style={styles.filters}>
@@ -209,7 +210,7 @@ export default function IncomesScreen() {
             style={[styles.searchInput, { color: colors.text }]}
             value={search}
             onChangeText={setSearch}
-            placeholder="Buscar por nombre..."
+            placeholder={t('expenses.searchPlaceholder')}
             placeholderTextColor={colors.icon}
             autoCorrect={false}
             clearButtonMode="while-editing"
@@ -231,7 +232,7 @@ export default function IncomesScreen() {
             onPress={() => setSortModalVisible(true)}>
             <Ionicons name="swap-vertical" size={18} color={isSortActive ? '#0a7ea4' : colors.icon} />
             <View style={styles.toolbarButtonText}>
-              <ThemedText type="defaultSemiBold">Orden</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('filters.order')}</ThemedText>
               <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
                 {SORT_LABELS[sortBy]}
               </ThemedText>
@@ -242,7 +243,7 @@ export default function IncomesScreen() {
 
       <OptionModal
         visible={sortModalVisible}
-        title="Ordenar por"
+        title={t('filters.sortBy')}
         onClose={() => setSortModalVisible(false)}>
         {sortGroups.map((group) => (
           <View key={group} style={styles.modalGroup}>
@@ -268,8 +269,8 @@ export default function IncomesScreen() {
         ListEmptyComponent={
           <ThemedText style={styles.empty}>
             {incomes.length === 0
-              ? 'No hay ingresos registrados. Toca el botón + para agregar uno.'
-              : 'No hay ingresos que coincidan con los filtros.'}
+              ? t('incomes.empty')
+              : t('incomes.emptyFiltered')}
           </ThemedText>
         }
         renderItem={({ item }) => (
@@ -303,7 +304,7 @@ export default function IncomesScreen() {
                   <View style={styles.incomeNameRow}>
                     <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{item.name}</ThemedText>
                     {item.recurringIncomeId != null && activeRecurringIncomeIds.has(item.recurringIncomeId) && (
-                      <Ionicons name="sync-circle-outline" size={18} color={colors.primary} accessibilityLabel="Ingreso recurrente" />
+                      <Ionicons name="sync-circle-outline" size={18} color={colors.primary} accessibilityLabel={t('accessibility.recurringIncome')} />
                     )}
                   </View>
                   <ThemedText style={[styles.meta, { fontSize: 12 }]}>{formatDate(new Date(`${item.date}T12:00:00`))}</ThemedText>
@@ -316,7 +317,7 @@ export default function IncomesScreen() {
       />
       <FloatingActionButton
         href="/modal/income-form"
-        accessibilityLabel="Agregar ingreso"
+        accessibilityLabel={t('accessibility.addIncome')}
       />
     </SafeAreaView>
   );

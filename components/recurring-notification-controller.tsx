@@ -6,6 +6,7 @@ import { Platform, ToastAndroid } from 'react-native';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { Alert } from '@/lib/alert';
 import { formatCLP } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import {
   configureRecurringNotifications,
   getRecurringNotificationData,
@@ -16,7 +17,7 @@ function showResult(message: string) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
   } else {
-    Alert.alert('Listo', message);
+    Alert.alert(t('common.done'), message);
   }
 }
 
@@ -58,28 +59,28 @@ export function RecurringNotificationController() {
         const recurring = (data.kind === 'expense' ? recurringExpenses : recurringIncomes).find(
           (item) => item.id === data.recurringId
         );
-        const noun = data.kind === 'expense' ? 'gasto' : 'ingreso';
+        const noun = data.kind === 'expense' ? t('navigation.expense').toLocaleLowerCase() : t('navigation.income').toLocaleLowerCase();
         const description = recurring
-          ? `${recurring.name} por ${formatCLP(recurring.amount)}`
-          : `el ${noun} recurrente programado`;
+          ? t('notifications.scheduledDescription', { name: recurring.name, amount: formatCLP(recurring.amount) })
+          : t('notifications.fallbackDescription', { movement: noun });
 
         const confirmMovement = async () => {
           try {
             await approveRecurringOccurrence(data.kind, data.recurringId, data.scheduledDate);
-            showResult(`${noun === 'gasto' ? 'Gasto' : 'Ingreso'} recurrente creado`);
+            showResult(t(data.kind === 'expense' ? 'notifications.resultExpense' : 'notifications.resultIncome'));
             router.replace(data.kind === 'expense' ? '/(tabs)/expenses' : '/(tabs)/incomes');
           } catch (error) {
-            const message = error instanceof Error ? error.message : 'Inténtalo nuevamente.';
+            const message = error instanceof Error ? error.message : t('common.tryAgain');
             Alert.alert(
-              `No se pudo crear el ${noun}`,
-              `${message}\n\nLa ejecución seguirá pendiente para que puedas intentarlo nuevamente.`,
+              t('notifications.createFailed', { movement: noun }),
+              t('notifications.remainsPending', { message }),
               [
                 {
-                  text: 'Ver pendientes',
+                  text: t('notifications.viewPending'),
                   onPress: () => router.push('/modal/recurring-confirmations'),
                 },
                 {
-                  text: 'Reintentar',
+                  text: t('common.retry'),
                   onPress: () => void confirmMovement(),
                 },
               ]
@@ -90,26 +91,26 @@ export function RecurringNotificationController() {
         const omitMovement = async () => {
           try {
             await skipRecurringOccurrence(data.kind, data.recurringId, data.scheduledDate);
-            showResult('Omitido. Puedes reintentarlo desde Notificaciones');
+            showResult(t('notifications.omitted'));
           } catch (error) {
             Alert.alert(
-              'No se pudo omitir',
-              error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+              t('notifications.omitFailed'),
+              error instanceof Error ? error.message : t('common.tryAgain')
             );
           }
         };
 
         Alert.alert(
-          `Registrar ${noun} recurrente`,
-          `FinniApp quiere registrar ${description}.`,
+          t('notifications.registerRecurring', { movement: noun }),
+          t('notifications.wantsToRegister', { description }),
           [
             {
-              text: 'Omitir',
+              text: t('common.skip'),
               style: 'destructive',
               onPress: () => void omitMovement(),
             },
             {
-              text: 'Confirmar',
+              text: t('common.confirm'),
               onPress: () => void confirmMovement(),
             },
           ]
@@ -125,8 +126,8 @@ export function RecurringNotificationController() {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       handleResponse(response).catch((error) => {
         Alert.alert(
-          'No se pudo completar',
-          error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+          t('errors.couldNotComplete'),
+          error instanceof Error ? error.message : t('common.tryAgain')
         );
       });
     });
@@ -136,8 +137,8 @@ export function RecurringNotificationController() {
       })
       .catch((error) => {
         Alert.alert(
-          'No se pudo completar',
-          error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+          t('errors.couldNotComplete'),
+          error instanceof Error ? error.message : t('common.tryAgain')
         );
       });
     return () => subscription.remove();

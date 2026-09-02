@@ -10,10 +10,11 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import type { DebtPlan } from '@/lib/types';
 
 const STATUS_LABEL: Record<DebtPlan['status'], string> = {
-  projected: 'Pendiente de activar', active: 'Activa', completed: 'Completada', cancelled: 'Cancelada',
+  projected: t('installments.statusProjected'), active: t('installments.statusActive'), completed: t('installments.statusCompleted'), cancelled: t('installments.statusCancelled'),
 };
 
 export default function DebtsScreen() {
@@ -29,15 +30,15 @@ export default function DebtsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">{method ? `Cuotas · ${method.name}` : 'Deudas y cuotas'}</ThemedText>
+        <ThemedText type="title">{method ? t('installments.titleForMethod', { name: method.name }) : t('navigation.debts')}</ThemedText>
         <ThemedText style={styles.intro}>
-          Aquí puedes activar compras proyectadas, revisar su avance y administrar el saldo pendiente.
+          {t('installments.intro')}
         </ThemedText>
         {plans.length === 0 && (
           <ThemedView style={styles.empty}>
             <Ionicons name="wallet-outline" size={34} color={colors.icon} />
-            <ThemedText>No hay compras en cuotas para mostrar.</ThemedText>
-            <ThemedText style={styles.secondary}>Se crean desde Nuevo gasto al elegir una tarjeta de crédito.</ThemedText>
+            <ThemedText>{t('installments.noPurchases')}</ThemedText>
+            <ThemedText style={styles.secondary}>{t('installments.createHint')}</ThemedText>
           </ThemedView>
         )}
         {plans.map((plan) => (
@@ -51,8 +52,8 @@ export default function DebtsScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={21} color={colors.icon} />
               </View>
-              <View style={styles.row}><ThemedText>Avance</ThemedText><ThemedText type="defaultSemiBold">{plan.postedInstallments} de {plan.totalInstallments}</ThemedText></View>
-              <View style={styles.row}><ThemedText>Saldo proyectado</ThemedText><ThemedText>{formatCLP(plan.remainingAmount)}</ThemedText></View>
+              <View style={styles.row}><ThemedText>{t('installments.progress')}</ThemedText><ThemedText type="defaultSemiBold">{t('installments.progressValue', { posted: plan.postedInstallments, total: plan.totalInstallments })}</ThemedText></View>
+              <View style={styles.row}><ThemedText>{t('installments.projectedBalance')}</ThemedText><ThemedText>{formatCLP(plan.remainingAmount)}</ThemedText></View>
               <ThemedText style={[styles.status, { color: plan.status === 'active' ? '#2e9d63' : colors.primary }]}>{STATUS_LABEL[plan.status]}</ThemedText>
             </ThemedView>
           </Pressable>

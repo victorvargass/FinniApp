@@ -1,6 +1,8 @@
 import { File, Paths } from 'expo-file-system';
 import { fetch, type FetchRequestInit } from 'expo/fetch';
 
+import { t } from '@/lib/i18n';
+
 const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3/files';
 const BACKUP_NAME = 'gastosapp-backup.db';
@@ -30,9 +32,10 @@ export class GoogleDriveService {
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
-      throw new Error(
-        `Google Drive respondió ${response.status}${body ? `: ${body}` : ''}`
-      );
+      throw new Error(t('errors.googleDriveResponse', {
+        status: response.status,
+        details: body ? `: ${body}` : '',
+      }));
     }
 
     return response;

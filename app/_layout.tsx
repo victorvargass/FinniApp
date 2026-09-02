@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 
 import { BiometricGate } from '@/components/biometric-gate';
 import { RecurringNotificationController } from '@/components/recurring-notification-controller';
+import { t } from '@/lib/i18n';
 import { BiometricProvider } from '@/contexts/BiometricContext';
 import { DatabaseProvider } from '@/contexts/DatabaseContext';
 import { ThemePreferenceProvider } from '@/contexts/ThemeContext';
@@ -29,59 +30,59 @@ function AppContent() {
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
                   name="modal/income-form"
-                  options={{ presentation: 'modal', title: 'Ingreso' }}
+                  options={{ presentation: 'modal', title: t('navigation.income') }}
                 />
                 <Stack.Screen
                   name="modal/expense-form"
-                  options={{ presentation: 'modal', title: 'Gasto' }}
+                  options={{ presentation: 'modal', title: t('navigation.expense') }}
                 />
                 <Stack.Screen
                   name="modal/category-form"
-                  options={{ presentation: 'modal', title: 'Categoría' }}
+                  options={{ presentation: 'modal', title: t('navigation.category') }}
                 />
                 <Stack.Screen
                   name="modal/categories"
-                  options={{ presentation: 'fullScreenModal', title: 'Categorías' }}
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.categories') }}
                 />
                 <Stack.Screen
                   name="modal/payment-methods"
-                  options={{ presentation: 'fullScreenModal', title: 'Medios de pago' }}
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.paymentMethods') }}
                 />
                 <Stack.Screen
                   name="modal/payment-method-form"
-                  options={{ presentation: 'modal', title: 'Medio de pago' }}
+                  options={{ presentation: 'modal', title: t('navigation.paymentMethod') }}
                 />
                 <Stack.Screen
                   name="modal/card-cycles"
-                  options={{ presentation: 'fullScreenModal', title: 'Conciliación' }}
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.reconciliation') }}
                 />
                 <Stack.Screen
                   name="modal/recurring-expenses"
-                  options={{ presentation: 'fullScreenModal', title: 'Movimientos recurrentes' }}
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.recurringMovements') }}
                 />
                 <Stack.Screen
                   name="modal/recurring-confirmations"
-                  options={{ presentation: 'fullScreenModal', title: 'Notificaciones' }}
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.notifications') }}
                 />
                 <Stack.Screen
                   name="modal/recurring-expense-form"
-                  options={{ presentation: 'modal', title: 'Gasto recurrente' }}
+                  options={{ presentation: 'modal', title: t('navigation.recurringExpense') }}
                 />
                 <Stack.Screen
                   name="modal/recurring-income-form"
-                  options={{ presentation: 'modal', title: 'Ingreso recurrente' }}
+                  options={{ presentation: 'modal', title: t('navigation.recurringIncome') }}
                 />
                 <Stack.Screen
                   name="modal/debts"
-                  options={{ presentation: 'fullScreenModal', title: 'Deudas y cuotas' }}
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.debts') }}
                 />
                 <Stack.Screen
                   name="modal/debt-detail"
-                  options={{ presentation: 'fullScreenModal', title: 'Detalle de cuotas' }}
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.installmentDetail') }}
                 />
                 <Stack.Screen
                   name="modal/movement-reminder"
-                  options={{ presentation: 'modal', title: 'Recordatorio de movimientos' }}
+                  options={{ presentation: 'modal', title: t('navigation.movementReminder') }}
                 />
               </Stack>
               <StatusBar style="auto" />

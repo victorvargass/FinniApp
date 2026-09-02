@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { formatCLP } from '@/lib/format';
+import { t } from '@/lib/i18n';
 
 type LimitProgressBarProps = {
   name: string;
@@ -40,7 +41,7 @@ export function LimitProgressBar({ name, color, spent, limit }: LimitProgressBar
       </View>
       {overLimit && (
         <ThemedText style={styles.warning}>
-          Excedido en {formatCLP(spent - limit)}
+          {t('limits.exceededBy', { amount: formatCLP(spent - limit) })}
         </ThemedText>
       )}
     </View>

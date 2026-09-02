@@ -1,4 +1,5 @@
 import type { RecurringExpense, RecurringFrequency } from './types';
+import { t } from './i18n';
 
 type RecurrenceRule = Pick<
   RecurringExpense,
@@ -92,18 +93,22 @@ export function getOccurrenceDates(
 }
 
 const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
-  weekly: 'Semanal',
-  monthly: 'Mensual',
-  annual: 'Anual',
-  custom: 'Personalizado',
+  weekly: t('recurrence.weekly'),
+  monthly: t('recurrence.monthly'),
+  annual: t('recurrence.annual'),
+  custom: t('recurrence.custom'),
 };
 
 export function describeRecurrence(rule: RecurrenceRule): string {
   if (rule.frequency === 'custom') {
-    return `Cada ${rule.intervalMonths} ${rule.intervalMonths === 1 ? 'mes' : 'meses'}`;
+    return rule.intervalMonths === 1
+      ? t('recurrence.everyMonth')
+      : t('recurrence.everyMonths', { count: rule.intervalMonths });
   }
   if (rule.frequency === 'monthly') {
-    return `Mensual · día ${rule.executionDay ?? parseIsoDate(rule.startDate).getDate()}`;
+    return t('recurrence.monthlyDay', {
+      day: rule.executionDay ?? parseIsoDate(rule.startDate).getDate(),
+    });
   }
   return FREQUENCY_LABELS[rule.frequency];
 }

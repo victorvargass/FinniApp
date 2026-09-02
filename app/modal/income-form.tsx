@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { IncomeForm } from '@/components/forms';
+import { t } from '@/lib/i18n';
 import { ThemedView } from '@/components/themed-view';
 import { useDatabase } from '@/contexts/DatabaseContext';
 
@@ -15,7 +16,7 @@ export default function IncomeFormModal() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: income ? 'Editar ingreso' : 'Nuevo ingreso',
+      title: income ? t('incomes.edit') : t('incomes.new'),
     });
   }, [navigation, income]);
 

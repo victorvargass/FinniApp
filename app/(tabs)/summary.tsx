@@ -5,6 +5,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
+import { APP_LOCALE, t } from '@/lib/i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
@@ -18,14 +19,14 @@ import {
 import { BarChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // Utils
-const shortMonths = [
-  'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
-];
-
 function formatDayShortMonth(isoDate: string) {
-  const [, m, d] = isoDate.split('-').map(Number);
-  return `${d.toString().padStart(2, '0')}-${shortMonths[m - 1] || '?'}`;
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 12);
+  const shortMonth = new Intl.DateTimeFormat(APP_LOCALE, { month: 'short' })
+    .format(date)
+    .replace('.', '')
+    .replace(/^./, (letter) => letter.toUpperCase());
+  return `${day.toString().padStart(2, '0')}-${shortMonth}`;
 }
 
 export default function HistoricalSummaryScreen() {
@@ -132,7 +133,7 @@ export default function HistoricalSummaryScreen() {
     if (years.length === 0) {
       return (
         <Text style={[styles.label, { color: colors.text }]}>
-          Sin años
+          {t('history.noYears')}
         </Text>
       );
     }
@@ -169,18 +170,18 @@ export default function HistoricalSummaryScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <ThemedView style={styles.header}>
-          <ThemedText type="title">Resumen Histórico</ThemedText>
+          <ThemedText type="title">{t('history.summary')}</ThemedText>
         </ThemedView>
 
         {stackData.length > 0 && categories.length > 0 ? (
           <ThemedView style={styles.card}>
-            <ThemedText style={styles.label}>Año</ThemedText>
+            <ThemedText style={styles.label}>{t('history.year')}</ThemedText>
             <YearPicker />
 
             {/* Mostrar total histórico gastado en formato CLP */}
             <View style={{ marginTop: 2 }}>
               <ThemedText style={{ fontWeight: '600', fontSize: 15, color: colors.text }}>
-                Total gastado año: <Text style={{ fontWeight: 'bold' }}>{formatCLP(totalGastado)}</Text>
+                {t('history.totalSpentYear')} <Text style={{ fontWeight: 'bold' }}>{formatCLP(totalGastado)}</Text>
               </ThemedText>
             </View>
 
@@ -223,7 +224,7 @@ export default function HistoricalSummaryScreen() {
 
             {categories.length > 0 && (
               <View style={styles.categoryContainer}>
-                <ThemedText style={styles.label}>Categorías</ThemedText>
+                <ThemedText style={styles.label}>{t('history.categories')}</ThemedText>
                 {categories.map(category => (
                   <View
                     key={category.categoryId ?? 'uncategorized'}
@@ -244,7 +245,7 @@ export default function HistoricalSummaryScreen() {
         ) : (
           <ThemedView style={styles.card}>
             <View style={styles.center}>
-              <ThemedText>Aún no hay datos históricos.</ThemedText>
+              <ThemedText>{t('history.empty')}</ThemedText>
             </View>
           </ThemedView>
         )}

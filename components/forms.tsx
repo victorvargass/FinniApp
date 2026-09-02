@@ -24,6 +24,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import type { Category, Expense, Income, NewRecurringSchedule } from '@/lib/types';
 import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
@@ -91,7 +92,7 @@ function NameSuggestions({ suggestions, onSelect }: NameSuggestionsProps) {
 
   return (
     <View style={[styles.nameSuggestions, { borderColor: colors.icon }]}>
-      <ThemedText style={styles.nameSuggestionsLabel}>Sugerencias</ThemedText>
+      <ThemedText style={styles.nameSuggestionsLabel}>{t('common.suggestions')}</ThemedText>
       {suggestions.map((suggestion) => (
         <Pressable
           key={suggestion}
@@ -188,7 +189,7 @@ function ColorSelect({
               <Pressable
                 onPress={() => setVisible(false)}
                 style={[styles.selectClose, { borderColor: colors.border }]}>
-                <ThemedText type="defaultSemiBold">Cancelar</ThemedText>
+                <ThemedText type="defaultSemiBold">{t('common.cancel')}</ThemedText>
               </Pressable>
             </ThemedView>
           </Pressable>
@@ -217,17 +218,17 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Ingresa un nombre para la categoría');
+      Alert.alert(t('common.error'), t('categories.missingName'));
       return;
     }
     if (!/^#[0-9a-f]{6}$/i.test(color)) {
-      Alert.alert('Error', 'El color debe ser un hex válido (ej: #0a7ea4)');
+      Alert.alert(t('common.error'), t('validation.invalidCategoryColor'));
       return;
     }
 
     const periodLimit = limitText.trim() ? parseAmount(limitText) : null;
     if (limitText.trim() && periodLimit == null) {
-      Alert.alert('Error', 'Ingresa un límite de período válido');
+      Alert.alert(t('common.error'), t('validation.invalidCategoryLimit'));
       return;
     }
 
@@ -237,21 +238,21 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
       if (category) {
         await editCategory(category.id, data);
         if (Platform.OS === 'android') {
-          ToastAndroid.show('Categoría actualizada correctamente', ToastAndroid.SHORT);
+          ToastAndroid.show(t('categories.updated'), ToastAndroid.SHORT);
         } else {
-          Alert.alert('Guardado', 'Categoría actualizada correctamente');
+          Alert.alert(t('common.saved'), t('categories.updated'));
         }
       } else {
         await addCategory(data);
         if (Platform.OS === 'android') {
-          ToastAndroid.show('Categoría creada correctamente', ToastAndroid.SHORT);
+          ToastAndroid.show(t('categories.created'), ToastAndroid.SHORT);
         } else {
-          Alert.alert('Guardado', 'Categoría creada correctamente');
+          Alert.alert(t('common.saved'), t('categories.created'));
         }
       }
       onSuccess();
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo guardar');
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.couldNotSave'));
     } finally {
       setSaving(false);
     }
@@ -264,35 +265,40 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
     try {
       expenseCount = await getCategoryExpenseCount(category.id);
     } catch {
-      Alert.alert('Error', 'No se pudo comprobar si la categoría está en uso.');
+      Alert.alert(t('common.error'), t('categories.usageCheckError'));
       return;
     }
 
     const hasExpenses = expenseCount > 0;
     const message = hasExpenses
-      ? `Hay ${expenseCount} ${expenseCount === 1 ? 'gasto asociado' : 'gastos asociados'} a "${category.name}". Si eliminas la categoría, ${expenseCount === 1 ? 'el gasto quedará' : 'los gastos quedarán'} sin categoría.\n\n¿Deseas eliminarla de todas formas?`
-      : `¿Eliminar "${category.name}"?`;
+      ? t('categories.deleteWithExpenses', {
+          count: expenseCount,
+          expenseLabel: expenseCount === 1 ? t('categories.associatedExpense') : t('categories.associatedExpenses'),
+          name: category.name,
+          result: expenseCount === 1 ? t('categories.expenseWillRemain') : t('categories.expensesWillRemain'),
+        })
+      : t('categories.deleteQuestion', { name: category.name });
 
     Alert.alert(
-      'Eliminar categoría',
+      t('categories.delete'),
       message,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: hasExpenses ? 'Eliminar igualmente' : 'Eliminar',
+          text: hasExpenses ? t('categories.deleteAnyway') : t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             setSaving(true);
             try {
               await removeCategory(category.id, hasExpenses);
               const successMessage = hasExpenses
-                ? 'Categoría eliminada. Los gastos asociados quedaron sin categoría.'
-                : 'Categoría eliminada';
+                ? t('categories.deletedDetached')
+                : t('categories.deleted');
               if (Platform.OS === 'android') ToastAndroid.show(successMessage, ToastAndroid.LONG);
-              else Alert.alert('Eliminada', successMessage);
+              else Alert.alert(t('common.deleted'), successMessage);
               onSuccess();
             } catch (error) {
-              Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo eliminar');
+              Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.couldNotDelete'));
             } finally {
               setSaving(false);
             }
@@ -305,24 +311,24 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <ThemedText style={styles.label}>Nombre</ThemedText>
+      <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
         onChangeText={setName}
-        placeholder="Ej: Supermercado"
+        placeholder={t('categories.placeholderName')}
         placeholderTextColor={colors.icon}
       />
 
-      <ThemedText style={styles.label}>Color</ThemedText>
+      <ThemedText style={styles.label}>{t('categories.color')}</ThemedText>
       <ColorPicker value={color} onChange={setColor} />
 
-      <ThemedText style={styles.label}>Límite período (opcional)</ThemedText>
+      <ThemedText style={styles.label}>{t('categories.limitOptional')}</ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={limitText}
         onChangeText={setLimitText}
-        placeholder="Ej: 150000"
+        placeholder={t('categories.placeholderLimit')}
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />
@@ -332,7 +338,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
         onPress={handleSave}
         disabled={saving}>
         <ThemedText style={styles.buttonText}>
-          {category ? 'Actualizar' : 'Guardar'}
+          {category ? t('common.update') : t('common.save')}
         </ThemedText>
       </Pressable>
       {category && (
@@ -340,7 +346,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
           style={[styles.deleteButton, saving && styles.buttonDisabled]}
           onPress={handleDelete}
           disabled={saving}>
-          <ThemedText style={styles.deleteButtonText}>Eliminar categoría</ThemedText>
+          <ThemedText style={styles.deleteButtonText}>{t('categories.delete')}</ThemedText>
         </Pressable>
       )}
     </ScrollView>
@@ -455,12 +461,18 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         );
         if (actualCycle) {
           setBillingCycleHint(
-            `${method.active ? '' : `El medio de pago ${method.name} está desactivado, pero sigue asociado a este gasto. `}Pertenece al ciclo que factura el ${formatDate(parseDateString(actualCycle.endDate))}.`
+            t('paymentMethods.belongsToCycle', {
+              prefix: method.active ? '' : t('paymentMethods.inactiveAssociated', { name: method.name }),
+              date: formatDate(parseDateString(actualCycle.endDate)),
+            })
           );
           return;
         }
         setBillingCycleHint(
-          `${method.active ? '' : `El medio de pago ${method.name} está desactivado, pero sigue asociado a este gasto. `}Se estima para la facturación del ${formatDate(getEstimatedBillingDate(date, method.billingDay!))}. La fecha real se confirma al registrar el ciclo.`
+          t('paymentMethods.estimatedCycle', {
+            prefix: method.active ? '' : t('paymentMethods.inactiveAssociated', { name: method.name }),
+            date: formatDate(getEstimatedBillingDate(date, method.billingDay!)),
+          })
         );
       })
       .catch(() => setBillingCycleHint(null));
@@ -480,23 +492,23 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Ingresa un nombre para el gasto');
+      Alert.alert(t('common.error'), t('validation.invalidExpenseName'));
       return;
     }
     if (isSplitAmount && !hasValidPercentage) {
-      Alert.alert('Error', 'Ingresa un porcentaje entre 1% y 100%');
+      Alert.alert(t('common.error'), t('validation.invalidPercentage'));
       return;
     }
     if (amountToSave == null || amountToSave <= 0) {
-      Alert.alert('Error', 'Ingresa un monto válido');
+      Alert.alert(t('common.error'), t('validation.invalidAmount'));
       return;
     }
     if (!expense && makeRecurring) {
       const granted = await ensureRecurringNotificationPermission();
       if (!granted && recurringSchedule.registrationMode === 'confirmation') {
         Alert.alert(
-          'Notificaciones desactivadas',
-          'Activa las notificaciones del sistema para usar el modo con confirmación.'
+          t('expenses.notificationsDisabled'),
+          t('expenses.notificationsDisabledHint')
         );
         return;
       }
@@ -512,8 +524,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       const maxDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
       if (selectedDate < minDate || selectedDate > maxDate) {
         Alert.alert(
-          'Error',
-          `La fecha del gasto debe estar dentro del período seleccionado (${formatDate(startDate)} al ${formatDate(endDate)}).`
+          t('common.error'),
+          t('expenses.dateOutsidePeriod', { start: formatDate(startDate), end: formatDate(endDate) })
         );
         return;
       }
@@ -533,17 +545,17 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       if (expense) {
         await editExpense(expense.id, data);
         if (Platform.OS === 'android') {
-          ToastAndroid.show('Gasto actualizado correctamente', ToastAndroid.SHORT);
+          ToastAndroid.show(t('expenses.updated'), ToastAndroid.SHORT);
         } else {
-          Alert.alert('Guardado', 'Gasto actualizado correctamente');
+          Alert.alert(t('common.saved'), t('expenses.updated'));
         }
       } else {
         if (isInstallmentPurchase) {
           if (!Number.isInteger(installmentCount) || installmentCount < 2 || installmentCount > 600) {
-            throw new Error('El número de cuotas debe estar entre 2 y 600');
+            throw new Error(t('installments.invalidCount'));
           }
           if (!estimatedFirstDueDate || paymentMethodId == null || totalAmount == null) {
-            throw new Error('No se pudo calcular la primera cuota');
+            throw new Error(t('installments.calculateFirstError'));
           }
           await addInstallmentPurchase({
             name: data.name,
@@ -564,21 +576,21 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         }
         if (Platform.OS === 'android') {
           ToastAndroid.show(
-            isInstallmentPurchase ? 'Compra proyectada en cuotas' : makeRecurring ? 'Gasto y recurrencia creados' : 'Gasto creado correctamente',
+            isInstallmentPurchase ? t('installments.projectedToast') : makeRecurring ? t('expenses.createdWithRecurrence') : t('expenses.created'),
             ToastAndroid.SHORT
           );
         } else {
           Alert.alert(
-            'Guardado',
-            isInstallmentPurchase ? 'Compra proyectada. Activa la primera cuota desde Deudas y cuotas.' : makeRecurring ? 'Gasto y recurrencia creados' : 'Gasto creado correctamente',
-            [{ text: 'Aceptar' }],
+            t('common.saved'),
+            isInstallmentPurchase ? t('installments.projectedMessage') : makeRecurring ? t('expenses.createdWithRecurrence') : t('expenses.created'),
+            [{ text: t('common.accept') }],
             { cancelable: true }
           );
         }
       }
       onSuccess();
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo guardar');
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.couldNotSave'));
     } finally {
       setSaving(false);
     }
@@ -587,7 +599,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   return (
     <View style={styles.formShell}>
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <ThemedText style={styles.label}>Nombre</ThemedText>
+      <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
@@ -597,7 +609,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         }}
         onFocus={() => setIsNameFocused(true)}
         onBlur={() => setIsNameFocused(false)}
-        placeholder="Ej: Compra Jumbo"
+        placeholder={t('expenses.namePlaceholder')}
         placeholderTextColor={colors.icon}
       />
       <NameSuggestions
@@ -609,25 +621,25 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       />
 
       <View style={styles.formRemainder} onTouchStart={() => setIsNameFocused(false)}>
-      <ThemedText style={styles.label}>Monto total (CLP)</ThemedText>
+      <ThemedText style={styles.label}>{t('expenses.amountTotal')}</ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
         onChangeText={setAmountText}
-        placeholder="Ej: 25000"
+        placeholder={t('forms.amountPlaceholder')}
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />
       {!isInstallmentPurchase && <View style={styles.shareSection}>
         <View style={styles.shareToggleRow}>
           <View style={styles.shareToggleCopy}>
-            <ThemedText style={styles.shareLabel}>Dividir monto</ThemedText>
+            <ThemedText style={styles.shareLabel}>{t('forms.splitAmount')}</ThemedText>
             <ThemedText style={styles.shareDescription}>
-              Registra solamente el porcentaje que pagaste tú
+              {t('expenses.splitDescription')}
             </ThemedText>
           </View>
           <Switch
-            accessibilityLabel="Dividir monto del gasto"
+            accessibilityLabel={t('accessibility.toggleExpenseSplit')}
             onValueChange={setIsSplitAmount}
             trackColor={{ true: colors.tint }}
             value={isSplitAmount}
@@ -671,7 +683,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                       ? styles.shareButtonTextSelected
                       : undefined
                   }>
-                  Otro
+                  {t('expenses.otherPercentage')}
                 </ThemedText>
               </Pressable>
             </View>
@@ -679,18 +691,18 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             {usesCustomPercentage && (
               <View style={styles.manualPercentageRow}>
                 <ThemedText style={styles.manualPercentageLabel}>
-                  Tu porcentaje
+                  {t('expenses.customPercentage')}
                 </ThemedText>
                 <View style={[styles.percentageInputContainer, { borderColor: colors.icon }]}>
                   <TextInput
-                    accessibilityLabel="Porcentaje manual"
+                    accessibilityLabel={t('forms.manualPercentage')}
                     autoFocus
                     keyboardType="decimal-pad"
                     maxLength={6}
                     onChangeText={(value) =>
                       setPercentageText(value.replace(/[^0-9.,]/g, '').replace(',', '.'))
                     }
-                    placeholder="Ej: 33"
+                    placeholder={t('forms.percentagePlaceholder')}
                     placeholderTextColor={colors.icon}
                     selectTextOnFocus
                     style={[styles.percentageInput, { color: colors.text }]}
@@ -705,17 +717,17 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
         {isSplitAmount && amountToSave != null && (
           <ThemedText style={styles.shareResult}>
-            Se registrará {formatCLP(amountToSave)} como tu gasto.
+            {t('expenses.splitResult', { amount: formatCLP(amountToSave) })}
           </ThemedText>
         )}
       </View>}
 
       <ColorSelect
-        label="Categoría (opcional)"
+        label={t('expenses.categoryOptional')}
         value={categoryId}
         onChange={setCategoryId}
         options={[
-          { value: null, label: 'Sin categoría', color: '#95a5a6' },
+          { value: null, label: t('expenses.noCategory'), color: '#95a5a6' },
           ...categories.map((category) => ({
             value: category.id,
             label: category.name,
@@ -725,11 +737,11 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       />
 
       <ColorSelect
-        label="Medio de pago (opcional)"
+        label={t('expenses.paymentMethodOptional')}
         value={paymentMethodId}
         onChange={setPaymentMethodId}
         options={[
-          { value: null, label: 'No especificado', color: '#95a5a6' },
+          { value: null, label: t('common.notSpecified'), color: '#95a5a6' },
           ...visiblePaymentMethods.map((method) => ({
             value: method.id,
             label: `${method.name}${method.active ? '' : ' (desactivado)'}`,
@@ -747,11 +759,11 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         <View style={[styles.installmentBox, { borderColor: colors.border }]}> 
           <View style={styles.installmentHeader}>
             <View style={styles.shareToggleCopy}>
-              <ThemedText type="defaultSemiBold">Compra en cuotas</ThemedText>
-              <ThemedText style={styles.shareDescription}>Proyecta la deuda y activa la primera cuota cuando sea facturada</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('installments.installmentPurchase')}</ThemedText>
+              <ThemedText style={styles.shareDescription}>{t('installments.projectDescription')}</ThemedText>
             </View>
             <Switch
-              accessibilityLabel="Registrar compra en cuotas"
+              accessibilityLabel={t('installments.registerPurchase')}
               value={isInstallmentPurchase}
               onValueChange={(value) => {
                 setIsInstallmentPurchase(value);
@@ -766,7 +778,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           {isInstallmentPurchase && (
             <View style={[styles.installmentBody, { borderTopColor: colors.border }]}> 
               <ColorSelect
-                label="Número de cuotas"
+                label={t('installments.number')}
                 value={installmentPreset}
                 showColor={false}
                 onChange={(value) => {
@@ -775,19 +787,19 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   else setInstallmentCountText('');
                 }}
                 options={[
-                  ...[2, 3, 6, 12, 24, 36, 48].map((count) => ({ value: count, label: `${count} cuotas`, color: colors.primary })),
-                  { value: null, label: 'Personalizado', color: colors.primary },
+                  ...[2, 3, 6, 12, 24, 36, 48].map((count) => ({ value: count, label: t('installments.countLabel', { count }), color: colors.primary })),
+                  { value: null, label: t('recurrence.custom'), color: colors.primary },
                 ]}
               />
               {installmentPreset == null && (
                 <View style={styles.customInstallments}>
-                  <ThemedText style={styles.customInstallmentsLabel}>Cantidad personalizada</ThemedText>
+                  <ThemedText style={styles.customInstallmentsLabel}>{t('installments.customCount')}</ThemedText>
                   <TextInput
-                    accessibilityLabel="Número personalizado de cuotas"
+                    accessibilityLabel={t('installments.customCountAccessibility')}
                     autoFocus
                     keyboardType="number-pad"
                     maxLength={3}
-                    placeholder="2 a 600"
+                    placeholder={t('installments.countRange')}
                     placeholderTextColor={colors.icon}
                     value={installmentCountText}
                     onChangeText={(value) => setInstallmentCountText(value.replace(/\D/g, ''))}
@@ -801,11 +813,11 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                 </View>
               )}
               {estimatedInstallmentAmount != null && (
-                <ThemedText style={styles.shareResult}>Estimado desde {formatCLP(estimatedInstallmentAmount)} por cuota. La diferencia se reparte en las últimas cuotas.</ThemedText>
+                <ThemedText style={styles.shareResult}>{t('installments.estimatedAmount', { amount: formatCLP(estimatedInstallmentAmount) })}</ThemedText>
               )}
-              <ThemedText style={styles.installmentSectionLabel}>Primera cuota</ThemedText>
+              <ThemedText style={styles.installmentSectionLabel}>{t('installments.firstInstallment')}</ThemedText>
               <View style={styles.shareOptions}>
-                {([['current', 'Este cierre'], ['next', 'Próximo cierre']] as const).map(([value, label]) => (
+                {([['current', t('installments.currentClosing')], ['next', t('installments.nextClosing')]] as const).map(([value, label]) => (
                   <Pressable
                     key={value}
                     onPress={() => setFirstInstallmentTiming(value)}
@@ -814,13 +826,13 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   </Pressable>
                 ))}
               </View>
-              {estimatedFirstDueDate && <ThemedText style={styles.paymentHint}>Fecha estimada: {formatDate(estimatedFirstDueDate)}</ThemedText>}
+              {estimatedFirstDueDate && <ThemedText style={styles.paymentHint}>{t('installments.estimatedDate', { date: formatDate(estimatedFirstDueDate) })}</ThemedText>}
             </View>
           )}
         </View>
       )}
 
-      <ThemedText style={styles.label}>Fecha</ThemedText>
+      <ThemedText style={styles.label}>{t('forms.date')}</ThemedText>
       <Pressable
         style={[styles.dateButton, { borderColor: colors.icon }]}
         onPress={() => setShowDatePicker(true)}>
@@ -842,7 +854,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       )}
       {Platform.OS === 'ios' && showDatePicker && (
         <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>
-          <ThemedText type="link">Listo</ThemedText>
+          <ThemedText type="link">{t('common.done')}</ThemedText>
         </Pressable>
       )}
 
@@ -854,9 +866,9 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             onPress={() => setMakeRecurring((current) => !current)}
             style={styles.recurringHeader}>
             <View style={styles.recurringHeaderCopy}>
-              <ThemedText type="defaultSemiBold">Hacer recurrente</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('expenses.makeRecurring')}</ThemedText>
               <ThemedText style={styles.shareDescription}>
-                Programa la creación de este gasto de manera recurrente
+                {t('expenses.recurringDescription')}
               </ThemedText>
             </View>
             <Ionicons
@@ -890,7 +902,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
               style={[styles.secondaryAction, { borderColor: colors.border }]}> 
               <Ionicons name="repeat-outline" size={19} color={colors.primary} />
               <ThemedText type="defaultSemiBold">
-                {expense.recurringExpenseId ? 'Editar recurrencia' : 'Hacer recurrente'}
+                {expense.recurringExpenseId ? t('recurrence.edit') : t('expenses.makeRecurring')}
               </ThemedText>
             </Pressable>
           )}
@@ -899,7 +911,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
               onPress={() => router.push({ pathname: '/modal/debt-detail', params: { id: String(expense.debtPlanId) } })}
               style={[styles.secondaryAction, { borderColor: colors.border }]}> 
               <Ionicons name="card-outline" size={19} color={colors.primary} />
-              <ThemedText type="defaultSemiBold">Ver detalle de cuotas</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('installments.viewDetail')}</ThemedText>
             </Pressable>
           )}
         </View>
@@ -913,7 +925,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         onPress={handleSave}
         disabled={saving}>
         <ThemedText style={styles.buttonText}>
-          {expense ? 'Actualizar' : 'Guardar'}
+          {expense ? t('common.update') : t('common.save')}
         </ThemedText>
       </Pressable>
     </View>
@@ -957,12 +969,12 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Ingresa un nombre para el ingreso');
+      Alert.alert(t('common.error'), t('validation.invalidIncomeName'));
       return;
     }
     const amount = parseAmount(amountText as string);
     if (amount == null) {
-      Alert.alert('Error', 'Ingresa un monto válido');
+      Alert.alert(t('common.error'), t('validation.invalidAmount'));
       return;
     }
 
@@ -981,8 +993,11 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         inputDateOnly.getTime() > endDateOnly.getTime()
       ) {
         Alert.alert(
-          'Error',
-          `La fecha del ingreso debe estar dentro del período seleccionado (${formatDate(new Date(`${selectedPeriod.startDate}T12:00:00`))} al ${formatDate(new Date(`${selectedPeriod.endDate}T12:00:00`))}).`
+          t('common.error'),
+          t('incomes.dateOutsidePeriod', {
+            start: formatDate(new Date(`${selectedPeriod.startDate}T12:00:00`)),
+            end: formatDate(new Date(`${selectedPeriod.endDate}T12:00:00`)),
+          })
         );
         return;
       }
@@ -1004,9 +1019,9 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
           });
         }
         if (Platform.OS === 'android') {
-          ToastAndroid.show(makeIncomeRecurring ? 'Ingreso actualizado y recurrencia creada' : 'Ingreso actualizado correctamente', ToastAndroid.SHORT);
+          ToastAndroid.show(makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'), ToastAndroid.SHORT);
         } else {
-          Alert.alert('Guardado', makeIncomeRecurring ? 'Ingreso actualizado y recurrencia creada' : 'Ingreso actualizado correctamente');
+          Alert.alert(t('common.saved'), makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'));
         }
       } else {
         await addIncome(data, makeIncomeRecurring ? {
@@ -1018,14 +1033,14 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
           registrationMode: incomeSchedule.registrationMode,
         } : undefined);
         if (Platform.OS === 'android') {
-          ToastAndroid.show('Ingreso creado correctamente', ToastAndroid.SHORT);
+          ToastAndroid.show(t('incomes.created'), ToastAndroid.SHORT);
         } else {
-          Alert.alert('Guardado', 'Ingreso creado correctamente');
+          Alert.alert(t('common.saved'), t('incomes.created'));
         }
       }
       onSuccess();
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo guardar');
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.couldNotSaveShort'));
     } finally {
       setSaving(false);
     }
@@ -1034,7 +1049,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
   return (
     <View style={styles.formShell}>
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <ThemedText style={styles.label}>Nombre</ThemedText>
+      <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
@@ -1044,7 +1059,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         }}
         onFocus={() => setIsNameFocused(true)}
         onBlur={() => setIsNameFocused(false)}
-        placeholder="Ej: Sueldo"
+        placeholder={t('incomes.namePlaceholder')}
         placeholderTextColor={colors.icon}
       />
       <NameSuggestions
@@ -1056,17 +1071,17 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       />
 
       <View style={styles.formRemainder} onTouchStart={() => setIsNameFocused(false)}>
-      <ThemedText style={styles.label}>Monto (CLP)</ThemedText>
+      <ThemedText style={styles.label}>{t('incomes.amount')}</ThemedText>
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
         onChangeText={setAmountText}
-        placeholder="Ej: 25000"
+        placeholder={t('forms.amountPlaceholder')}
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />
 
-      <ThemedText style={styles.label}>Fecha</ThemedText>
+      <ThemedText style={styles.label}>{t('forms.date')}</ThemedText>
       <Pressable
         style={[styles.dateButton, { borderColor: colors.icon }]}
         onPress={() => setShowDatePicker(true)}>
@@ -1090,7 +1105,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       )}
       {Platform.OS === 'ios' && showDatePicker && (
         <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>
-          <ThemedText type="link">Listo</ThemedText>
+          <ThemedText type="link">{t('common.done')}</ThemedText>
         </Pressable>
       )}
 
@@ -1098,8 +1113,8 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         <View style={[styles.recurringBox, { borderColor: colors.border }]}> 
           <Pressable onPress={() => setMakeIncomeRecurring((current) => !current)} style={styles.recurringHeader}>
             <View style={styles.recurringHeaderCopy}>
-              <ThemedText type="defaultSemiBold">Hacer recurrente</ThemedText>
-              <ThemedText style={styles.shareDescription}>Registra automáticamente este ingreso en las próximas fechas</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('expenses.makeRecurring')}</ThemedText>
+              <ThemedText style={styles.shareDescription}>{t('incomes.recurringDescription')}</ThemedText>
             </View>
             <Ionicons name={makeIncomeRecurring ? 'chevron-up' : 'chevron-down'} size={21} color={colors.icon} />
           </Pressable>
@@ -1121,7 +1136,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
           onPress={() => router.push({ pathname: '/modal/recurring-income-form', params: { id: String(income.recurringIncomeId) } })}
           style={[styles.secondaryAction, { borderColor: colors.border }]}> 
           <Ionicons name="repeat-outline" size={19} color={colors.primary} />
-          <ThemedText type="defaultSemiBold">Editar recurrencia</ThemedText>
+          <ThemedText type="defaultSemiBold">{t('recurrence.edit')}</ThemedText>
         </Pressable>
       )}
 
@@ -1132,7 +1147,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         style={[styles.button, styles.footerButton, saving && styles.buttonDisabled]}
         onPress={handleSave}
         disabled={saving}>
-        <ThemedText style={styles.buttonText}>{income ? 'Actualizar' : 'Guardar'}</ThemedText>
+        <ThemedText style={styles.buttonText}>{income ? t('common.update') : t('common.save')}</ThemedText>
       </Pressable>
     </View>
     </View>

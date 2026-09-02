@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { formatCLP } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import { parseIsoDate } from '@/lib/recurrence';
 import type {
   GeneratedRecurringExpenseNotification,
@@ -28,8 +29,8 @@ export async function configureRecurringNotifications(): Promise<void> {
   if (Platform.OS === 'web') return;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(RECURRING_CHANNEL, {
-      name: 'Movimientos recurrentes',
-      description: 'Avisos de gastos e ingresos programados',
+      name: t('navigation.recurringMovements'),
+      description: t('notifications.recurringChannelDescription'),
       importance: Notifications.AndroidImportance.HIGH,
       sound: 'default',
     });
@@ -63,8 +64,11 @@ export async function notifyGeneratedRecurringExpenses(
   for (const expense of expenses) {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Gasto recurrente registrado',
-        body: `${expense.name} por ${formatCLP(expense.amount)} fue agregado automáticamente.`,
+        title: t('notifications.recurringExpenseRegistered'),
+        body: t('notifications.generatedExpenseBody', {
+          name: expense.name,
+          amount: formatCLP(expense.amount),
+        }),
         sound: 'default',
         data: {
           kind: 'recurring-expense-generated',
@@ -110,11 +114,14 @@ export async function syncRecurringNotifications(
     .sort((first, second) => first.scheduledDate.localeCompare(second.scheduledDate))
     .slice(0, 50);
   for (const schedule of limited) {
-    const noun = schedule.kind === 'expense' ? 'gasto' : 'ingreso';
+    const noun = schedule.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: `FinniApp quiere registrar un ${noun} recurrente`,
-        body: `${schedule.name} · ${formatCLP(schedule.amount)}. Toca para revisarlo.`,
+        title: t('notifications.recurringReviewTitle', { movement: noun }),
+        body: t('notifications.recurringReviewBody', {
+          name: schedule.name,
+          amount: formatCLP(schedule.amount),
+        }),
         sound: 'default',
         data: {
           kind: `recurring-${schedule.kind}`,

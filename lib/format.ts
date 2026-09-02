@@ -1,5 +1,7 @@
+import { APP_LOCALE } from './i18n';
+
 export function formatCLP(amount: number): string {
-  return new Intl.NumberFormat('es-CL', {
+  return new Intl.NumberFormat(APP_LOCALE, {
     style: 'currency',
     currency: 'CLP',
     maximumFractionDigits: 0,
@@ -7,7 +9,7 @@ export function formatCLP(amount: number): string {
 }
 
 export function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('es-CL', {
+  return new Intl.DateTimeFormat(APP_LOCALE, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -39,20 +41,9 @@ export function formatMonth(month: string | null): string {
 
   const [year, monthNumber] = month.split('-');
 
-  const names = [
-    'ene',
-    'feb',
-    'mar',
-    'abr',
-    'may',
-    'jun',
-    'jul',
-    'ago',
-    'sep',
-    'oct',
-    'nov',
-    'dic',
-  ];
-
-  return `${names[Number(monthNumber) - 1]}-${year.slice(2)}`;
+  const date = new Date(Number(year), Number(monthNumber) - 1, 1, 12);
+  const formattedMonth = new Intl.DateTimeFormat(APP_LOCALE, { month: 'short' })
+    .format(date)
+    .replace('.', '');
+  return `${formattedMonth}-${year.slice(2)}`;
 }

@@ -10,16 +10,17 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { t } from '@/lib/i18n';
 import type { PaymentMethodType } from '@/lib/types';
 
 const TYPE_LABELS: Record<PaymentMethodType, string> = {
-  cash: 'Efectivo', debit: 'Débito', prepaid: 'Prepago', credit: 'Crédito',
+  cash: t('paymentMethods.cash'), debit: t('paymentMethods.debit'), prepaid: t('paymentMethods.prepaid'), credit: t('paymentMethods.credit'),
 };
 
 function showDefaultConfirmation(name: string) {
-  const message = `${name} es ahora tu medio de pago predeterminado.`;
+  const message = t('paymentMethods.defaultConfirmation', { name });
   if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert('Medio predeterminado', message);
+  else Alert.alert(t('paymentMethods.defaultTitle'), message);
 }
 
 export default function PaymentMethodsScreen() {
@@ -34,7 +35,7 @@ export default function PaymentMethodsScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <ThemedText style={styles.intro}>
-            Los gastos antiguos quedan como “No especificado”. Puedes desactivar un medio sin perder su historial.
+            {t('paymentMethods.intro')}
           </ThemedText>
         }
         renderItem={({ item }) => (
@@ -46,14 +47,14 @@ export default function PaymentMethodsScreen() {
               <View style={styles.copy}>
                 <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
                 <ThemedText style={styles.secondary}>
-                  {TYPE_LABELS[item.type]}{item.billingDay ? ` · factura aprox. el ${item.billingDay}` : ''}
+                  {TYPE_LABELS[item.type]}{item.billingDay ? t('paymentMethods.approximateBilling', { day: item.billingDay }) : ''}
                 </ThemedText>
               </View>
             </Pressable>
             <Pressable
               accessibilityLabel={settings.defaultPaymentMethodId === item.id
-                ? `Quitar ${item.name} como predeterminado`
-                : `Usar ${item.name} como predeterminado`}
+                ? t('paymentMethods.removeDefault', { name: item.name })
+                : t('paymentMethods.useAsDefault', { name: item.name })}
               accessibilityRole="button"
               disabled={!item.active}
               onPress={() => {
@@ -63,8 +64,8 @@ export default function PaymentMethodsScreen() {
                     if (willBeDefault) showDefaultConfirmation(item.name);
                   })
                   .catch((error) => Alert.alert(
-                    'No se pudo cambiar',
-                    error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+                    t('errors.couldNotChange'),
+                    error instanceof Error ? error.message : t('common.tryAgain')
                   ));
               }}
               style={[styles.star, !item.active && styles.starDisabled]}>
@@ -76,7 +77,7 @@ export default function PaymentMethodsScreen() {
             </Pressable>
             {item.type === 'credit' && (
               <Pressable
-                accessibilityLabel={`Ver estados de cuenta de ${item.name}`}
+                accessibilityLabel={t('paymentMethods.viewStatements', { name: item.name })}
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: '/modal/card-cycles', params: { id: String(item.id) } })}
                 style={styles.statementButton}>
@@ -84,7 +85,7 @@ export default function PaymentMethodsScreen() {
               </Pressable>
             )}
             <Pressable
-              accessibilityLabel={`Configurar ${item.name}`}
+              accessibilityLabel={t('paymentMethods.configure', { name: item.name })}
               onPress={() => router.push({ pathname: '/modal/payment-method-form', params: { id: String(item.id) } })}
               style={styles.chevron}>
               <Ionicons name="chevron-forward" size={21} color={colors.icon} />
@@ -92,7 +93,7 @@ export default function PaymentMethodsScreen() {
           </ThemedView>
         )}
       />
-      <FloatingActionButton href="/modal/payment-method-form" accessibilityLabel="Agregar medio de pago" avoidBottomInset />
+      <FloatingActionButton href="/modal/payment-method-form" accessibilityLabel={t('paymentMethods.add')} avoidBottomInset />
     </SafeAreaView>
   );
 }

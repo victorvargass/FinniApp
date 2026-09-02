@@ -21,24 +21,22 @@ import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useGoogle } from '@/hooks/useGoogle';
 import { Alert } from '@/lib/alert';
+import { APP_LOCALE, t } from '@/lib/i18n';
 
 // Utils
 const WEEKDAY_LABELS: Record<number, string> = {
-  1: 'domingos',
-  2: 'lunes',
-  3: 'martes',
-  4: 'miércoles',
-  5: 'jueves',
-  6: 'viernes',
-  7: 'sábados',
+  1: t('settings.weekdays.sunday'), 2: t('settings.weekdays.monday'),
+  3: t('settings.weekdays.tuesday'), 4: t('settings.weekdays.wednesday'),
+  5: t('settings.weekdays.thursday'), 6: t('settings.weekdays.friday'),
+  7: t('settings.weekdays.saturday'),
 };
 
 function formatBackupDate(date: string | undefined): string {
-  if (!date) return 'Nunca';
+  if (!date) return t('settings.never');
   const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return 'Desconocido';
+  if (Number.isNaN(parsed.getTime())) return t('settings.unknown');
 
-  return parsed.toLocaleString('es-CL', {
+  return parsed.toLocaleString(APP_LOCALE, {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
@@ -111,7 +109,7 @@ export default function UserScreen() {
   const runBackup = async () => {
     try {
       await backup();
-      Alert.alert('Respaldo completado', 'Tus datos fueron respaldados en Google Drive.');
+      Alert.alert(t('settings.backupCompleted'), t('settings.backupCompletedMessage'));
     } catch {
       // El hook ya expone el error.
     }
@@ -121,8 +119,7 @@ export default function UserScreen() {
     try {
       await restore();
       Alert.alert(
-        'Restauración completada',
-        'La base de datos fue restaurada correctamente.'
+        t('settings.restoreCompleted'), t('settings.restoreCompletedMessage')
       );
     } catch {
       // El hook ya expone el error.
@@ -131,11 +128,10 @@ export default function UserScreen() {
 
   const confirmRestore = () => {
     Alert.alert(
-      'Restaurar datos',
-      'La restauración reemplazará los datos actuales de FinniApp por el último respaldo. Esta acción no se puede deshacer.',
+      t('settings.restoreData'), t('settings.restoreWarning'),
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Restaurar', style: 'destructive', onPress: runRestore },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.restore'), style: 'destructive', onPress: runRestore },
       ]
     );
   };
@@ -149,11 +145,11 @@ export default function UserScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <ThemedView style={styles.header}>
-          <ThemedText type="title">Configuración</ThemedText>
+          <ThemedText type="title">{t('settings.title')}</ThemedText>
           <Pressable
             accessibilityLabel={pendingConfirmations > 0
-              ? `Notificaciones, ${pendingConfirmations} pendientes`
-              : 'Notificaciones'}
+              ? t('settings.notificationsPending', { count: pendingConfirmations })
+              : t('navigation.notifications')}
             accessibilityRole="button"
             onPress={() => router.push('/modal/recurring-confirmations')}
             hitSlop={10}
@@ -174,7 +170,7 @@ export default function UserScreen() {
 
         <ThemedView style={styles.card}>
           <Pressable
-            accessibilityLabel="Configurar categorías"
+            accessibilityLabel={t('accessibility.configureCategories')}
             accessibilityRole="button"
             onPress={() => router.push('/modal/categories')}
             style={({ pressed }) => [
@@ -182,9 +178,9 @@ export default function UserScreen() {
               pressed && styles.buttonPressed,
             ]}>
             <View style={styles.settingCopy}>
-              <ThemedText type="subtitle">Categorías</ThemedText>
+              <ThemedText type="subtitle">{t('navigation.categories')}</ThemedText>
               <ThemedText style={styles.description}>
-                Crea categorías y configura sus límites por período
+                {t('settings.categoriesHint')}
               </ThemedText>
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />
@@ -193,14 +189,14 @@ export default function UserScreen() {
 
         <ThemedView style={styles.card}>
           <Pressable
-            accessibilityLabel="Configurar medios de pago"
+            accessibilityLabel={t('accessibility.configurePaymentMethods')}
             accessibilityRole="button"
             onPress={() => router.push('/modal/payment-methods')}
             style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
             <View style={styles.settingCopy}>
-              <ThemedText type="subtitle">Medios de pago</ThemedText>
+              <ThemedText type="subtitle">{t('navigation.paymentMethods')}</ThemedText>
               <ThemedText style={styles.description}>
-                Configura efectivo, tarjetas y sus ciclos de facturación
+                {t('settings.paymentMethodsHint')}
               </ThemedText>
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />
@@ -209,14 +205,14 @@ export default function UserScreen() {
 
         <ThemedView style={styles.card}>
           <Pressable
-            accessibilityLabel="Configurar movimientos recurrentes"
+            accessibilityLabel={t('accessibility.configureRecurrences')}
             accessibilityRole="button"
             onPress={() => router.push('/modal/recurring-expenses')}
             style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
             <View style={styles.settingCopy}>
-              <ThemedText type="subtitle">Movimientos recurrentes</ThemedText>
+              <ThemedText type="subtitle">{t('navigation.recurringMovements')}</ThemedText>
               <ThemedText style={styles.description}>
-                Gestiona gastos e ingresos programados
+                {t('settings.recurrencesHint')}
               </ThemedText>
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />
@@ -225,14 +221,14 @@ export default function UserScreen() {
 
         <ThemedView style={styles.card}>
           <Pressable
-            accessibilityLabel="Gestionar deudas y cuotas"
+            accessibilityLabel={t('accessibility.manageDebts')}
             accessibilityRole="button"
             onPress={() => router.push('/modal/debts')}
             style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
             <View style={styles.settingCopy}>
-              <ThemedText type="subtitle">Deudas y cuotas</ThemedText>
+              <ThemedText type="subtitle">{t('navigation.debts')}</ThemedText>
               <ThemedText style={styles.description}>
-                Activa compras en cuotas y revisa saldos pendientes
+                {t('settings.debtsHint')}
               </ThemedText>
             </View>
             <Ionicons name="wallet-outline" size={22} color={colors.icon} />
@@ -242,21 +238,21 @@ export default function UserScreen() {
         <ThemedView style={styles.card}>
           <View style={styles.settingRow}>
             <Pressable
-              accessibilityLabel="Configurar periodicidad del recordatorio"
+              accessibilityLabel={t('accessibility.configureReminder')}
               accessibilityRole="button"
               onPress={() => router.push('/modal/movement-reminder')}
               style={({ pressed }) => [styles.reminderLink, pressed && styles.buttonPressed]}>
               <View style={styles.settingCopy}>
-                <ThemedText type="subtitle">Recordatorio de movimientos</ThemedText>
+                <ThemedText type="subtitle">{t('settings.movementReminder')}</ThemedText>
                 <ThemedText style={styles.description}>
                   {settings.movementReminderFrequency === 'daily'
-                    ? 'Todos los días'
-                    : `Todos los ${WEEKDAY_LABELS[settings.movementReminderWeekday] ?? 'domingos'}`} · {String(settings.movementReminderHour).padStart(2, '0')}:{String(settings.movementReminderMinute).padStart(2, '0')}
+                    ? t('settings.everyDay')
+                    : t('settings.everyWeekday', { weekday: WEEKDAY_LABELS[settings.movementReminderWeekday] ?? t('settings.weekdays.sunday') })} · {String(settings.movementReminderHour).padStart(2, '0')}:{String(settings.movementReminderMinute).padStart(2, '0')}
                 </ThemedText>
               </View>
             </Pressable>
             <Switch
-              accessibilityLabel="Activar recordatorio de movimientos"
+              accessibilityLabel={t('accessibility.toggleReminder')}
               value={settings.movementReminderEnabled}
               onValueChange={(movementReminderEnabled) => {
                 setMovementReminder({
@@ -266,13 +262,13 @@ export default function UserScreen() {
                   movementReminderHour: settings.movementReminderHour,
                   movementReminderMinute: settings.movementReminderMinute,
                 }).catch((toggleError) => {
-                  Alert.alert('No se pudo actualizar', toggleError instanceof Error ? toggleError.message : 'Inténtalo nuevamente.');
+                  Alert.alert(t('errors.couldNotUpdate'), toggleError instanceof Error ? toggleError.message : t('common.tryAgain'));
                 });
               }}
               trackColor={{ true: colors.primary }}
             />
             <Pressable
-              accessibilityLabel="Configurar periodicidad del recordatorio"
+              accessibilityLabel={t('accessibility.configureReminder')}
               accessibilityRole="button"
               hitSlop={8}
               onPress={() => router.push('/modal/movement-reminder')}
@@ -285,16 +281,16 @@ export default function UserScreen() {
         <ThemedView style={styles.card}>
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
-              <ThemedText type="subtitle">Tema oscuro</ThemedText>
+              <ThemedText type="subtitle">{t('settings.darkTheme')}</ThemedText>
               <ThemedText style={styles.description}>
-                Habilitar el tema oscuro en toda la aplicación
+                {t('settings.darkThemeHint')}
               </ThemedText>
             </View>
             <Switch
-              accessibilityLabel="Activar modo oscuro"
+              accessibilityLabel={t('accessibility.toggleDarkMode')}
               onValueChange={(enabled) => {
                 setThemePreference(enabled ? 'dark' : 'light').catch(() => {
-                  Alert.alert('No se pudo cambiar', 'Inténtalo nuevamente.');
+                  Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
                 });
               }}
               trackColor={{ true: colors.tint }}
@@ -306,19 +302,19 @@ export default function UserScreen() {
         <ThemedView style={styles.card}>
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
-              <ThemedText type="subtitle">Bloqueo biométrico</ThemedText>
+              <ThemedText type="subtitle">{t('settings.biometric')}</ThemedText>
               <ThemedText style={styles.description}>
                 {isBiometricAvailable
-                  ? `Solicitar ${authenticationType} para acceder a la aplicación`
-                  : 'Configura una huella o rostro en tu dispositivo para activar esta opción'}
+                  ? t('settings.biometricHint', { authenticationType })
+                  : t('settings.biometricUnavailable')}
               </ThemedText>
             </View>
             <Switch
-              accessibilityLabel="Activar bloqueo biométrico"
+              accessibilityLabel={t('accessibility.toggleBiometric')}
               disabled={!isBiometricAvailable}
               onValueChange={(value) => {
                 setBiometricEnabled(value).catch(() => {
-                  Alert.alert('No se pudo cambiar', 'Inténtalo nuevamente.');
+                  Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
                 });
               }}
               trackColor={{ true: colors.tint }}
@@ -331,17 +327,16 @@ export default function UserScreen() {
           {isLoading ? (
             <View style={styles.googleLoading}>
               <ActivityIndicator size="small" />
-              <ThemedText>Cargando sesión...</ThemedText>
+              <ThemedText>{t('settings.loadingSession')}</ThemedText>
             </View>
           ) : !isConnected ? (
             <>
-              <ThemedText type="subtitle">Google Drive</ThemedText>
+              <ThemedText type="subtitle">{t('settings.googleDrive')}</ThemedText>
               <ThemedText style={styles.description}>
-                Conecta tu cuenta de Google para guardar y restaurar tu información
-                de forma segura
+                {t('settings.googleDriveHint')}
               </ThemedText>
               <ActionButton
-                title={isWorking ? 'Conectando...' : 'Conectar con Google'}
+                title={isWorking ? t('settings.connecting') : t('settings.connectGoogle')}
                 disabled={isWorking}
                 onPress={() => {
                   login().catch(() => {
@@ -363,40 +358,40 @@ export default function UserScreen() {
                 </View>
                 <View style={styles.profileInfo}>
                   <ThemedText type="subtitle">
-                    {user?.name ?? 'Usuario Google'}
+                    {user?.name ?? t('settings.googleUser')}
                   </ThemedText>
                   <ThemedText style={styles.secondary}>
-                    {user?.email ?? 'Correo no disponible'}
+                    {user?.email ?? t('settings.emailUnavailable')}
                   </ThemedText>
                 </View>
               </View>
               <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Estado</ThemedText>
-                <ThemedText style={styles.connected}>Conectado con Google</ThemedText>
+                <ThemedText style={styles.infoLabel}>{t('settings.state')}</ThemedText>
+                <ThemedText style={styles.connected}>{t('settings.connectedGoogle')}</ThemedText>
               </View>
               <View style={styles.infoRow}>
-                <ThemedText style={styles.infoLabel}>Último respaldo</ThemedText>
+                <ThemedText style={styles.infoLabel}>{t('settings.lastBackup')}</ThemedText>
                 <ThemedText style={styles.infoValue}>
                   {formatBackupDate(lastBackup?.modifiedTime)}
                 </ThemedText>
               </View>
               <View style={styles.actions}>
                 <ActionButton
-                  title={isWorking ? 'Respaldando...' : 'Respaldar'}
+                  title={isWorking ? t('settings.backingUp') : t('settings.backup')}
                   disabled={isWorking}
                   onPress={runBackup}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
                   textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
                 <ActionButton
-                  title={isWorking ? 'Restaurando...' : 'Restaurar'}
+                  title={isWorking ? t('settings.restoring') : t('settings.restore')}
                   disabled={isWorking || !lastBackup}
                   onPress={confirmRestore}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
                   textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
                 <ActionButton
-                  title="Cerrar sesión"
+                  title={t('settings.signOut')}
                   disabled={isWorking}
                   onPress={runLogout}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
@@ -409,14 +404,14 @@ export default function UserScreen() {
           {isWorking && (
             <View style={styles.progress}>
               <ActivityIndicator size="small" />
-              <ThemedText>Procesando...</ThemedText>
+              <ThemedText>{t('common.processing')}</ThemedText>
             </View>
           )}
 
           {error && (
             <>
               {Alert.alert(
-                'Error',
+                t('common.error'),
                 error,
                 [{ text: 'OK' }],
                 { cancelable: true }

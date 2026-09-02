@@ -12,6 +12,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import type { CreditCardCycle } from '@/lib/types';
 
 function parseDate(value: string) {
@@ -63,21 +64,21 @@ function CycleCard({
     : amount - cycle.recordedTotal - bankCharge;
 
   const consolidate = () => {
-    if (amount == null) return Alert.alert('Falta el monto real', 'Ingresa el total que aparece en el estado de cuenta del banco.');
-    if (bankCharge == null) return Alert.alert('Monto no válido', 'Revisa los cargos bancarios.');
+    if (amount == null) return Alert.alert(t('cardCycles.missingAmount'), t('cardCycles.missingAmountHint'));
+    if (bankCharge == null) return Alert.alert(t('cardCycles.invalidAmount'), t('cardCycles.invalidBankCharge'));
     Alert.alert(
-      'Consolidar período',
-      'Se crearán los ajustes necesarios y este ciclo quedará protegido contra cambios. ¿Continuar?',
+      t('cardCycles.consolidateTitle'),
+      t('cardCycles.consolidateDescription'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Consolidar',
+          text: t('cardCycles.consolidate'),
           onPress: async () => {
             setSaving(true);
             try {
               await onConsolidate(amount, bankCharge);
             } catch (error) {
-              Alert.alert('No se pudo consolidar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+              Alert.alert(t('cardCycles.consolidateError'), error instanceof Error ? error.message : t('common.tryAgain'));
             } finally {
               setSaving(false);
             }
@@ -89,19 +90,19 @@ function CycleCard({
 
   if (cycle.status === 'reconciled') {
     const confirmUnreconcile = () => Alert.alert(
-      'Desconsolidar período',
-      'Se eliminarán únicamente los ajustes automáticos creados al consolidar. Tus compras se conservarán y volverán a quedar editables.',
+      t('cardCycles.unreconcileTitle'),
+      t('cardCycles.unreconcileDescription'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Desconsolidar',
+          text: t('cardCycles.unreconcile'),
           style: 'destructive',
           onPress: async () => {
             setSaving(true);
             try {
               await onUnreconcile();
             } catch (error) {
-              Alert.alert('No se pudo desconsolidar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+              Alert.alert(t('cardCycles.unreconcileError'), error instanceof Error ? error.message : t('common.tryAgain'));
             } finally {
               setSaving(false);
             }
@@ -117,16 +118,16 @@ function CycleCard({
             <ThemedText type="defaultSemiBold">
               {formatDate(parseDate(cycle.startDate))} – {formatDate(parseDate(cycle.endDate))}
             </ThemedText>
-            <ThemedText style={styles.reconciledText}>Consolidado · historial protegido</ThemedText>
+            <ThemedText style={styles.reconciledText}>{t('cardCycles.reconciledStatus')}</ThemedText>
           </View>
         </View>
-        <View style={styles.row}><ThemedText>Total real del banco</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(cycle.statementAmount ?? 0)}</ThemedText></View>
-        <View style={styles.row}><ThemedText>Compras registradas</ThemedText><ThemedText>{formatCLP(cycle.recordedTotal - cycle.bankChargeAmount - cycle.adjustmentAmount)}</ThemedText></View>
-        <View style={styles.row}><ThemedText>Mantención / comisiones</ThemedText><ThemedText>{formatCLP(cycle.bankChargeAmount)}</ThemedText></View>
-        {cycle.adjustmentAmount !== 0 && <View style={styles.row}><ThemedText>Diferencia / intereses</ThemedText><ThemedText>{formatCLP(cycle.adjustmentAmount)}</ThemedText></View>}
+        <View style={styles.row}><ThemedText>{t('cardCycles.bankTotal')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(cycle.statementAmount ?? 0)}</ThemedText></View>
+        <View style={styles.row}><ThemedText>{t('cardCycles.registeredPurchases')}</ThemedText><ThemedText>{formatCLP(cycle.recordedTotal - cycle.bankChargeAmount - cycle.adjustmentAmount)}</ThemedText></View>
+        <View style={styles.row}><ThemedText>{t('cardCycles.maintenance')}</ThemedText><ThemedText>{formatCLP(cycle.bankChargeAmount)}</ThemedText></View>
+        {cycle.adjustmentAmount !== 0 && <View style={styles.row}><ThemedText>{t('cardCycles.difference')}</ThemedText><ThemedText>{formatCLP(cycle.adjustmentAmount)}</ThemedText></View>}
         <Pressable disabled={saving} onPress={confirmUnreconcile} style={styles.secondaryButton}>
           <Ionicons name="lock-open-outline" size={19} color={colors.primary} />
-          <ThemedText style={[styles.secondaryButtonText, { color: colors.primary }]}>Desconsolidar</ThemedText>
+          <ThemedText style={[styles.secondaryButtonText, { color: colors.primary }]}>{t('cardCycles.unreconcile')}</ThemedText>
         </Pressable>
       </ThemedView>
     );
@@ -137,26 +138,26 @@ function CycleCard({
       <View style={styles.closeNotice}>
         <Ionicons name="card-outline" size={22} color={colors.primary} />
         <View style={styles.statusCopy}>
-          <ThemedText type="defaultSemiBold">Período cerrado</ThemedText>
+          <ThemedText type="defaultSemiBold">{t('cardCycles.closed')}</ThemedText>
           <ThemedText style={styles.secondary}>
-            Facturación estimada: {formatCLP(cycle.recordedTotal)}
+            {t('cardCycles.estimatedBilling', { amount: formatCLP(cycle.recordedTotal) })}
           </ThemedText>
         </View>
       </View>
       <ThemedText style={styles.cycleDates}>
         {formatDate(parseDate(cycle.startDate))} – {formatDate(parseDate(cycle.endDate))}
       </ThemedText>
-      <ThemedText type="defaultSemiBold">2. Confirma el estado de cuenta</ThemedText>
-      <ThemedText style={styles.label}>Monto real facturado</ThemedText>
+      <ThemedText type="defaultSemiBold">{t('cardCycles.confirmStatement')}</ThemedText>
+      <ThemedText style={styles.label}>{t('cardCycles.actualAmount')}</ThemedText>
       <TextInput
         keyboardType="number-pad"
-        placeholder={`Ej: ${cycle.recordedTotal}`}
+        placeholder={t('cardCycles.exampleAmount', { amount: cycle.recordedTotal })}
         placeholderTextColor={colors.icon}
         value={amountText}
         onChangeText={setAmountText}
         style={[styles.input, { color: colors.text, borderColor: colors.border }]}
       />
-      <ThemedText style={styles.label}>Mantención, comisiones o cargos (opcional)</ThemedText>
+      <ThemedText style={styles.label}>{t('cardCycles.optionalCharges')}</ThemedText>
       <TextInput
         keyboardType="number-pad"
         placeholder="0"
@@ -167,7 +168,7 @@ function CycleCard({
       />
       {adjustment != null && (
         <View style={styles.adjustmentBox}>
-          <ThemedText style={styles.secondary}>Ajuste automático restante</ThemedText>
+          <ThemedText style={styles.secondary}>{t('cardCycles.remainingAdjustment')}</ThemedText>
           <ThemedText type="defaultSemiBold" style={{ color: adjustment === 0 ? '#2e9d63' : '#d97706' }}>
             {formatCLP(adjustment)}
           </ThemedText>
@@ -175,7 +176,7 @@ function CycleCard({
       )}
       <Pressable disabled={saving} onPress={consolidate} style={[styles.primary, saving && { opacity: 0.6 }]}>
         <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-        <ThemedText style={styles.primaryText}>{saving ? 'Consolidando...' : 'Consolidar período'}</ThemedText>
+        <ThemedText style={styles.primaryText}>{saving ? t('cardCycles.consolidating') : t('cardCycles.consolidateTitle')}</ThemedText>
       </Pressable>
     </ThemedView>
   );
@@ -210,7 +211,7 @@ export default function CardCyclesScreen() {
       await addCreditCardCycle({ paymentMethodId: methodId, endDate: toDateString(billingDate), statementAmount: null, status: 'pending' });
       await load();
     } catch (error) {
-      Alert.alert('No se pudo crear el ciclo', error instanceof Error ? error.message : 'Revisa la fecha elegida.');
+      Alert.alert(t('cardCycles.createError'), error instanceof Error ? error.message : t('cardCycles.invalidDate'));
     } finally {
       setSaving(false);
     }
@@ -219,12 +220,12 @@ export default function CardCyclesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">{method?.name ?? 'Tarjeta'}</ThemedText>
-        <ThemedText style={styles.explanation}>Cierra el ciclo, compara con tu estado de cuenta y consolídalo. FinniApp registrará cualquier diferencia sin modificar tus compras.</ThemedText>
+        <ThemedText type="title">{method?.name ?? t('cardCycles.defaultCard')}</ThemedText>
+        <ThemedText style={styles.explanation}>{t('cardCycles.explanation')}</ThemedText>
 
         <ThemedView style={styles.card}>
-          <ThemedText type="subtitle">1. Registrar cierre</ThemedText>
-          <ThemedText style={styles.label}>Fecha real de facturación</ThemedText>
+          <ThemedText type="subtitle">{t('cardCycles.registerClose')}</ThemedText>
+          <ThemedText style={styles.label}>{t('cardCycles.actualBillingDate')}</ThemedText>
           <Pressable onPress={() => setShowPicker(true)} style={[styles.input, { borderColor: colors.border }]}>
             <ThemedText>{formatDate(billingDate)}</ThemedText>
           </Pressable>
@@ -240,12 +241,12 @@ export default function CardCyclesScreen() {
             />
           )}
           <Pressable disabled={saving} onPress={addCycle} style={[styles.primary, saving && { opacity: 0.6 }]}>
-            <ThemedText style={styles.primaryText}>Crear cierre estimado</ThemedText>
+            <ThemedText style={styles.primaryText}>{t('cardCycles.createEstimated')}</ThemedText>
           </Pressable>
         </ThemedView>
 
-        <ThemedText type="subtitle">Estados de cuenta</ThemedText>
-        {cycles.length === 0 && <ThemedText style={styles.empty}>Aún no has registrado facturaciones.</ThemedText>}
+        <ThemedText type="subtitle">{t('cardCycles.statements')}</ThemedText>
+        {cycles.length === 0 && <ThemedText style={styles.empty}>{t('cardCycles.empty')}</ThemedText>}
         {cycles.map((cycle) => (
           <CycleCard
             key={cycle.id}

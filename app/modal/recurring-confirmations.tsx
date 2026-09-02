@@ -11,13 +11,14 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import { parseIsoDate } from '@/lib/recurrence';
+import { t } from '@/lib/i18n';
 import type { RecurringDecisionItem } from '@/lib/types';
 
 function showResult(message: string) {
   if (Platform.OS === 'android') {
     ToastAndroid.show(message, ToastAndroid.SHORT);
   } else {
-    Alert.alert('Listo', message);
+    Alert.alert(t('common.done'), message);
   }
 }
 
@@ -33,41 +34,43 @@ export default function RecurringConfirmationsScreen() {
   const pending = recurringDecisions.filter((item) => item.status === 'pending');
   const skipped = recurringDecisions.filter((item) => item.status === 'skipped');
   const sections = [
-    { title: 'Pendientes por confirmar', data: pending },
-    { title: 'Omitidos', data: skipped },
+    { title: t('recurrence.pendingSection'), data: pending },
+    { title: t('recurrence.skippedSection'), data: skipped },
   ].filter((section) => section.data.length > 0);
 
   const confirmMovement = async (item: RecurringDecisionItem) => {
-    const noun = item.kind === 'expense' ? 'gasto' : 'ingreso';
+    const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
+    const nounTitle = item.kind === 'expense' ? t('navigation.expense') : t('navigation.income');
     try {
       await approveRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate);
-      showResult(`${noun === 'gasto' ? 'Gasto' : 'Ingreso'} recurrente creado`);
+      showResult(t('recurrence.createdMovement', { movement: nounTitle }));
       router.replace(item.kind === 'expense' ? '/(tabs)/expenses' : '/(tabs)/incomes');
     } catch (error) {
       Alert.alert(
-        `No se pudo crear el ${noun}`,
-        `${error instanceof Error ? error.message : 'Inténtalo nuevamente.'}\n\nLa ejecución seguirá pendiente.`
+        t('recurrence.createErrorTitle', { movement: noun }),
+        t('recurrence.pendingAfterError', { message: error instanceof Error ? error.message : t('common.tryAgain') })
       );
     }
   };
 
   const omitMovement = (item: RecurringDecisionItem) => {
-    const noun = item.kind === 'expense' ? 'gasto' : 'ingreso';
+    const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
+    const nounTitle = item.kind === 'expense' ? t('navigation.expense') : t('navigation.income');
     Alert.alert(
-      `Omitir este ${noun}`,
-      `No se creará el ${noun}. Podrás reintentarlo más adelante desde la sección Omitidos.`,
+      t('recurrence.skipTitle', { movement: noun }),
+      t('recurrence.skipDescription', { movement: noun }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Omitir',
+          text: t('common.skip'),
           style: 'destructive',
           onPress: () => {
             skipRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate)
-              .then(() => showResult(`${noun === 'gasto' ? 'Gasto' : 'Ingreso'} recurrente omitido`))
+              .then(() => showResult(t('recurrence.omittedMovement', { movement: nounTitle })))
               .catch((error) => {
                 Alert.alert(
-                  'No se pudo omitir',
-                  error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+                  t('recurrence.skipError'),
+                  error instanceof Error ? error.message : t('common.tryAgain')
                 );
               });
           },
@@ -77,24 +80,25 @@ export default function RecurringConfirmationsScreen() {
   };
 
   const retryMovement = (item: RecurringDecisionItem) => {
-    const noun = item.kind === 'expense' ? 'gasto' : 'ingreso';
+    const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
+    const nounTitle = item.kind === 'expense' ? t('navigation.expense') : t('navigation.income');
     Alert.alert(
-      `Reintentar ${noun}`,
-      `¿Crear el ${noun} recurrente "${item.name}" en este período?`,
+      t('recurrence.retryTitle', { movement: noun }),
+      t('recurrence.retryQuestion', { movement: noun, name: item.name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: `Crear ${noun}`,
+          text: t('recurrence.createMovement', { movement: noun }),
           onPress: () => {
             retryRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate)
               .then(() => {
-                showResult(`${noun === 'gasto' ? 'Gasto' : 'Ingreso'} recurrente creado`);
+                showResult(t('recurrence.createdMovement', { movement: nounTitle }));
                 router.replace(item.kind === 'expense' ? '/(tabs)/expenses' : '/(tabs)/incomes');
               })
               .catch((error) => {
                 Alert.alert(
-                  `No se pudo crear el ${noun}`,
-                  `${error instanceof Error ? error.message : 'Inténtalo nuevamente.'}\n\nLa ejecución quedó pendiente.`
+                  t('recurrence.createErrorTitle', { movement: noun }),
+                  t('recurrence.pendingAfterRetryError', { message: error instanceof Error ? error.message : t('common.tryAgain') })
                 );
               });
           },
@@ -104,22 +108,22 @@ export default function RecurringConfirmationsScreen() {
   };
 
   const deleteSkippedNotification = (item: RecurringDecisionItem) => {
-    const noun = item.kind === 'expense' ? 'gasto' : 'ingreso';
+    const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
     Alert.alert(
-      'Eliminar notificación',
-      `Se quitará de Omitidos la notificación de "${item.name}". El ${noun} seguirá marcado como omitido y no se creará.`,
+      t('recurrence.deleteNotification'),
+      t('recurrence.deleteNotificationDescription', { name: item.name, movement: noun }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             dismissSkippedOccurrence(item.kind, item.recurringId, item.scheduledDate)
-              .then(() => showResult('Notificación eliminada'))
+              .then(() => showResult(t('recurrence.notificationDeleted')))
               .catch((error) => {
                 Alert.alert(
-                  'No se pudo eliminar',
-                  error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+                  t('errors.couldNotDelete'),
+                  error instanceof Error ? error.message : t('common.tryAgain')
                 );
               });
           },
@@ -135,7 +139,7 @@ export default function RecurringConfirmationsScreen() {
         keyExtractor={(item) => `${item.kind}-${item.recurringId}-${item.scheduledDate}`}
         contentContainerStyle={styles.list}
         ListEmptyComponent={(
-          <ThemedText style={styles.empty}>No tienes confirmaciones pendientes ni omitidas.</ThemedText>
+          <ThemedText style={styles.empty}>{t('recurrence.decisionsEmpty')}</ThemedText>
         )}
         renderSectionHeader={({ section }) => (
           <ThemedText type="subtitle" style={styles.sectionTitle}>{section.title}</ThemedText>
@@ -160,10 +164,10 @@ export default function RecurringConfirmationsScreen() {
                 <Pressable
                   onPress={() => omitMovement(item)}
                   style={[styles.action, { borderColor: colors.border }]}>
-                  <ThemedText type="defaultSemiBold">Omitir</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('common.skip')}</ThemedText>
                 </Pressable>
                 <Pressable onPress={() => void confirmMovement(item)} style={[styles.action, styles.primary]}>
-                  <ThemedText style={styles.primaryText}>Confirmar</ThemedText>
+                  <ThemedText style={styles.primaryText}>{t('common.confirm')}</ThemedText>
                 </Pressable>
               </View>
             ) : (
@@ -171,12 +175,12 @@ export default function RecurringConfirmationsScreen() {
                 <Pressable
                   onPress={() => deleteSkippedNotification(item)}
                   style={[styles.action, { borderColor: '#dc2626' }]}>
-                  <ThemedText type="defaultSemiBold" style={styles.deleteText}>Eliminar</ThemedText>
+                  <ThemedText type="defaultSemiBold" style={styles.deleteText}>{t('common.delete')}</ThemedText>
                 </Pressable>
                 <Pressable
                   onPress={() => retryMovement(item)}
                   style={[styles.action, { borderColor: colors.primary }]}>
-                  <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>Reintentar</ThemedText>
+                  <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>{t('common.retry')}</ThemedText>
                 </Pressable>
               </View>
             )}

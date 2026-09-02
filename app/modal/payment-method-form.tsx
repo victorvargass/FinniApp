@@ -9,24 +9,23 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { t } from '@/lib/i18n';
 import type { PaymentMethodType } from '@/lib/types';
 
 const TYPES: { value: PaymentMethodType; label: string }[] = [
-  { value: 'cash', label: 'Efectivo' },
-  { value: 'debit', label: 'Débito' },
-  { value: 'prepaid', label: 'Prepago' },
-  { value: 'credit', label: 'Crédito' },
+  { value: 'cash', label: t('paymentMethods.cash') }, { value: 'debit', label: t('paymentMethods.debit') },
+  { value: 'prepaid', label: t('paymentMethods.prepaid') }, { value: 'credit', label: t('paymentMethods.credit') },
 ];
 
 function showDefaultConfirmation(name: string) {
-  const message = `${name} es ahora tu medio de pago predeterminado.`;
+  const message = t('paymentMethods.defaultConfirmation', { name });
   if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert('Medio predeterminado', message);
+  else Alert.alert(t('paymentMethods.defaultTitle'), message);
 }
 
 function showResult(message: string) {
   if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert('Listo', message);
+  else Alert.alert(t('common.done'), message);
 }
 
 export default function PaymentMethodFormScreen() {
@@ -52,19 +51,19 @@ export default function PaymentMethodFormScreen() {
 
   const save = async () => {
     const day = Number(billingDay);
-    if (!name.trim()) return Alert.alert('Falta el nombre', 'Escribe un nombre para el medio de pago.');
+    if (!name.trim()) return Alert.alert(t('paymentMethods.missingName'), t('paymentMethods.missingNameHint'));
     if (type === 'credit' && (!Number.isInteger(day) || day < 1 || day > 31)) {
-      return Alert.alert('Día no válido', 'El día estimado de facturación debe estar entre 1 y 31.');
+      return Alert.alert(t('paymentMethods.invalidDay'), t('paymentMethods.invalidDayHint'));
     }
     setSaving(true);
     try {
       const data = { name: name.trim(), type, billingDay: type === 'credit' ? day : null, color };
       if (method) await editPaymentMethod(method.id, data);
       else await addPaymentMethod(data);
-      showResult(method ? 'Medio de pago actualizado' : 'Medio de pago guardado');
+      showResult(method ? t('paymentMethods.updated') : t('paymentMethods.saved'));
       router.back();
     } catch (error) {
-      Alert.alert('No se pudo guardar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+      Alert.alert(t('errors.couldNotSave'), error instanceof Error ? error.message : t('common.tryAgain'));
     } finally {
       setSaving(false);
     }
@@ -74,8 +73,7 @@ export default function PaymentMethodFormScreen() {
     if (!method) return;
     if (settings.defaultPaymentMethodId === method.id) {
       Alert.alert(
-        'No se puede eliminar',
-        'Este es tu medio de pago favorito. Marca otro como favorito antes de eliminarlo.'
+        t('expenses.cannotDelete'), t('paymentMethods.favoriteBlockedHint')
       );
       return;
     }
@@ -83,32 +81,31 @@ export default function PaymentMethodFormScreen() {
       const info = await getPaymentMethodDeletionInfo(method.id);
       if (info.debtPlanCount > 0) {
         Alert.alert(
-          'No se puede eliminar',
-          `Este medio tiene ${info.debtPlanCount === 1 ? 'una compra en cuotas asociada' : `${info.debtPlanCount} compras en cuotas asociadas`}. Elimina primero esas compras.`
+          t('expenses.cannotDelete'),
+          t(info.debtPlanCount === 1 ? 'paymentMethods.debtDeleteOne' : 'paymentMethods.debtDeleteMany', { count: info.debtPlanCount })
         );
         return;
       }
       const expenseWarning = info.expenseCount > 0
-        ? ` Los ${info.expenseCount} gastos asociados quedarán con medio de pago “No especificado”.`
+        ? t('paymentMethods.expenseDeleteWarning', { count: info.expenseCount })
         : '';
       Alert.alert(
-        'Eliminar medio de pago',
-        `¿Eliminar “${method.name}”?${expenseWarning}`,
+        t('paymentMethods.delete'),
+        t('paymentMethods.deleteQuestion', { name: method.name, warning: expenseWarning }),
         [
-          { text: 'Cancelar', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Eliminar',
+            text: t('common.delete'),
             style: 'destructive',
             onPress: () => {
               setSaving(true);
               removePaymentMethod(method.id)
                 .then(() => {
-                  showResult('Medio de pago eliminado');
+                  showResult(t('paymentMethods.deleted'));
                   router.back();
                 })
                 .catch((error) => Alert.alert(
-                  'No se pudo eliminar',
-                  error instanceof Error ? error.message : 'Inténtalo nuevamente.'
+                  t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain')
                 ))
                 .finally(() => setSaving(false));
             },
@@ -116,22 +113,22 @@ export default function PaymentMethodFormScreen() {
         ]
       );
     } catch (error) {
-      Alert.alert('No se pudo revisar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+      Alert.alert(t('paymentMethods.reviewError'), error instanceof Error ? error.message : t('common.tryAgain'));
     }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <ThemedText style={styles.label}>Nombre</ThemedText>
+      <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
       <TextInput
         autoFocus={!method}
-        placeholder="Ej: Visa Banco"
+        placeholder={t('paymentMethods.namePlaceholder')}
         placeholderTextColor={colors.icon}
         value={name}
         onChangeText={setName}
         style={[styles.input, { borderColor: colors.border, color: colors.text }]}
       />
-      <ThemedText style={styles.label}>Tipo</ThemedText>
+      <ThemedText style={styles.label}>{t('paymentMethods.type')}</ThemedText>
       {method ? (
         <View style={styles.types}>
           <View
@@ -163,11 +160,11 @@ export default function PaymentMethodFormScreen() {
           ))}
         </View>
       )}
-      <ThemedText style={styles.label}>Color</ThemedText>
+      <ThemedText style={styles.label}>{t('categories.color')}</ThemedText>
       <ColorPicker value={color} onChange={setColor} />
       {type === 'credit' && (
         <>
-          <ThemedText style={styles.label}>Día estimado de facturación</ThemedText>
+          <ThemedText style={styles.label}>{t('paymentMethods.billingDay')}</ThemedText>
           <TextInput
             keyboardType="number-pad"
             maxLength={2}
@@ -176,7 +173,7 @@ export default function PaymentMethodFormScreen() {
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
           />
           <ThemedText style={styles.hint}>
-            Es una referencia para anticipar el ciclo. Al llegar la facturación podrás registrar su fecha real.
+            {t('paymentMethods.billingHint')}
           </ThemedText>
         </>
       )}
@@ -184,13 +181,13 @@ export default function PaymentMethodFormScreen() {
         <View style={styles.preferences}>
           <View style={[styles.preferenceCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <View style={styles.preferenceCopy}>
-              <ThemedText type="defaultSemiBold">Activo</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('common.active')}</ThemedText>
             </View>
             <Switch
               value={method.active}
               onValueChange={(active) => {
                 setPaymentMethodActive(method.id, active).catch(() => {
-                  Alert.alert('No se pudo cambiar', 'Inténtalo nuevamente.');
+                  Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
                 });
               }}
               trackColor={{ true: colors.primary }}
@@ -198,12 +195,12 @@ export default function PaymentMethodFormScreen() {
           </View>
           <View style={[styles.preferenceCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <View style={styles.preferenceCopy}>
-              <ThemedText type="defaultSemiBold">Medio de pago predeterminado</ThemedText>
+              <ThemedText type="defaultSemiBold">{t('paymentMethods.defaultMethod')}</ThemedText>
             </View>
             <Pressable
               accessibilityLabel={settings.defaultPaymentMethodId === method.id
-                ? `Quitar ${method.name} como favorito`
-                : `Marcar ${method.name} como favorito`}
+                ? t('paymentMethods.removeFavorite', { name: method.name })
+                : t('paymentMethods.markFavorite', { name: method.name })}
               accessibilityRole="button"
               disabled={!method.active}
               onPress={() => {
@@ -213,7 +210,7 @@ export default function PaymentMethodFormScreen() {
                     if (favorite) showDefaultConfirmation(method.name);
                   })
                   .catch((error) => {
-                    Alert.alert('No se pudo cambiar', error instanceof Error ? error.message : 'Inténtalo nuevamente.');
+                    Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain'));
                   });
               }}
               style={[styles.favoriteButton, !method.active && styles.favoriteDisabled]}>
@@ -227,13 +224,13 @@ export default function PaymentMethodFormScreen() {
         </View>
       )}
       <Pressable disabled={saving} onPress={save} style={[styles.save, saving && { opacity: 0.6 }]}>
-        <ThemedText style={styles.saveText}>{method ? 'Guardar cambios' : 'Agregar medio de pago'}</ThemedText>
+        <ThemedText style={styles.saveText}>{method ? t('common.saveChanges') : t('paymentMethods.add')}</ThemedText>
       </Pressable>
       {method?.type === 'credit' && (
         <Pressable
           onPress={() => router.push({ pathname: '/modal/card-cycles', params: { id: String(method.id) } })}
           style={[styles.cyclesButton, { borderColor: colors.border }]}>
-          <ThemedText type="defaultSemiBold">Ver ciclos y conciliar</ThemedText>
+          <ThemedText type="defaultSemiBold">{t('paymentMethods.cycles')}</ThemedText>
         </Pressable>
       )}
       {method && (
@@ -242,7 +239,7 @@ export default function PaymentMethodFormScreen() {
           onPress={() => void confirmDelete()}
           style={[styles.deleteButton, settings.defaultPaymentMethodId === method.id && styles.deleteDisabled]}>
           <ThemedText style={styles.deleteText}>
-            {settings.defaultPaymentMethodId === method.id ? 'No se puede eliminar el favorito' : 'Eliminar medio de pago'}
+            {settings.defaultPaymentMethodId === method.id ? t('paymentMethods.favoriteDeleteBlocked') : t('paymentMethods.delete')}
           </ThemedText>
         </Pressable>
       )}
@@ -251,7 +248,7 @@ export default function PaymentMethodFormScreen() {
           onPress={() => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } })}
           style={[styles.secondaryButton, { borderColor: colors.border }]}> 
           <Ionicons name="wallet-outline" size={20} color={colors.primary} />
-          <ThemedText type="defaultSemiBold">Compras en cuotas</ThemedText>
+          <ThemedText type="defaultSemiBold">{t('paymentMethods.installmentPurchases')}</ThemedText>
         </Pressable>
       )}
     </ScrollView>

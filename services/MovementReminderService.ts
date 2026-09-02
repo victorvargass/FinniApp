@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import type { MovementReminderSettings } from '@/lib/types';
+import { t } from '@/lib/i18n';
 
 const CHANNEL = 'movement-reminders';
 const KIND = 'movement-reminder';
@@ -21,8 +22,8 @@ export async function syncMovementReminder(settings: MovementReminderSettings): 
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL, {
-      name: 'Recordatorio de movimientos',
-      description: 'Recordatorios para registrar gastos e ingresos',
+      name: t('navigation.movementReminder'),
+      description: t('notifications.movementReminderChannelDescription'),
       importance: Notifications.AndroidImportance.DEFAULT,
       sound: 'default',
     });
@@ -38,8 +39,8 @@ export async function syncMovementReminder(settings: MovementReminderSettings): 
   };
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Registra tus movimientos',
-      body: '¿Olvidaste registrar tus gastos o ingresos de hoy?',
+      title: t('notifications.movementReminderTitle'),
+      body: t('notifications.movementReminderBody'),
       sound: 'default',
       data: { kind: KIND, url: MOVEMENT_REMINDER_URL },
     },

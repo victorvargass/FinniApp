@@ -9,6 +9,7 @@ import { BackupService, type BackupMetadata } from '@/services/BackupService';
 import { RestoreService } from '@/services/RestoreService';
 import { GoogleDriveService, type DriveBackup } from '@/services/GoogleDriveService';
 import { useDatabase } from '@/contexts/DatabaseContext';
+import { t } from '@/lib/i18n';
 
 type GoogleState = {
   user: GoogleUser | null;
@@ -20,7 +21,7 @@ type GoogleState = {
 
 function toMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
-  return 'Ocurrió un error inesperado. Inténtalo nuevamente.';
+  return t('errors.unexpected');
 }
 
 export function useGoogle() {

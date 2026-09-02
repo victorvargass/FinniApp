@@ -4,6 +4,8 @@ import {
 } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 
+import { t } from '@/lib/i18n';
+
 export const GOOGLE_WEB_CLIENT_ID =
   '310919587145-jq3tit5t1shu4vomuskc7j3m0todgkvg.apps.googleusercontent.com';
 
@@ -20,9 +22,7 @@ let configured = false;
 export class GoogleAuthService {
   private static assertIosConfigured(): void {
     if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) {
-      throw new Error(
-        'Google Drive todavía no está configurado para iOS. Agrega EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID en EAS.'
-      );
+      throw new Error(t('errors.googleIosNotConfigured'));
     }
   }
 
@@ -52,7 +52,7 @@ export class GoogleAuthService {
     const response = await GoogleSignin.signIn();
 
     if (response.type !== 'success') {
-      throw new Error('Inicio de sesión cancelado');
+      throw new Error(t('errors.googleSignInCancelled'));
     }
 
     await this.requestDriveAccess();
@@ -67,7 +67,7 @@ export class GoogleAuthService {
     });
 
     if (response?.type === 'cancelled') {
-      throw new Error('Se canceló el permiso para Google Drive');
+      throw new Error(t('errors.googleDrivePermissionCancelled'));
     }
   }
 

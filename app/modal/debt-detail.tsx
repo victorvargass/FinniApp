@@ -11,6 +11,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, parseAmount } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import type { DebtPlan } from '@/lib/types';
 
 function parseDate(value: string) {
@@ -20,7 +21,7 @@ function parseDate(value: string) {
 
 function showResult(message: string) {
   if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert('Listo', message);
+  else Alert.alert(t('common.done'), message);
 }
 
 export default function DebtDetailScreen() {
@@ -40,41 +41,41 @@ export default function DebtDetailScreen() {
   }, [getDebtPlan, planId]);
   useFocusEffect(useCallback(() => { load().catch(() => undefined); }, [load]));
 
-  if (!plan) return <SafeAreaView style={styles.safe}><View style={styles.center}><ThemedText>Cargando compra...</ThemedText></View></SafeAreaView>;
+  if (!plan) return <SafeAreaView style={styles.safe}><View style={styles.center}><ThemedText>{t('installments.loadingPurchase')}</ThemedText></View></SafeAreaView>;
   const actualAmount = parseAmount(amountText);
   const selectedPeriod = periods.find((period) => period.id === periodId) ?? null;
 
   const run = async (action: () => Promise<void>, errorTitle: string, successMessage?: string) => {
     setSaving(true);
     try { await action(); await load(); if (successMessage) showResult(successMessage); }
-    catch (error) { Alert.alert(errorTitle, error instanceof Error ? error.message : 'Inténtalo nuevamente.'); }
+    catch (error) { Alert.alert(errorTitle, error instanceof Error ? error.message : t('common.tryAgain')); }
     finally { setSaving(false); }
   };
 
   const deletePlan = () => {
     if (plan.linkedExpenseCount > 0) {
       Alert.alert(
-        'No se puede eliminar todavía',
-        'Esta compra conserva gastos registrados. Elimina primero todas sus cuotas o liquidaciones desde Gastos.'
+        t('installments.deleteBlockedTitle'),
+        t('installments.deleteBlockedDescription')
       );
       return;
     }
     Alert.alert(
-      'Eliminar compra en cuotas',
-      'Se eliminarán la compra y todas sus cuotas proyectadas. Esta acción no se puede deshacer.',
+      t('installments.deletePurchase'),
+      t('installments.deleteDescription'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             setSaving(true);
             removeInstallmentPlan(plan.id)
               .then(() => {
-                showResult('Compra en cuotas eliminada');
+                showResult(t('installments.deletedPurchase'));
                 router.back();
               })
-              .catch((error) => Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Inténtalo nuevamente.'))
+              .catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain')))
               .finally(() => setSaving(false));
           },
         },
@@ -86,43 +87,43 @@ export default function DebtDetailScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText type="title">{plan.name}</ThemedText>
-        <ThemedText style={styles.secondary}>{plan.paymentMethodName} · Total pactado {formatCLP(plan.totalAmount)}</ThemedText>
+        <ThemedText style={styles.secondary}>{t('installments.totalAgreed', { method: plan.paymentMethodName, amount: formatCLP(plan.totalAmount) })}</ThemedText>
 
         {plan.status === 'projected' && (
           <ThemedView style={styles.card}>
-            <ThemedText type="subtitle">Activar primera cuota</ThemedText>
-            <ThemedText style={styles.secondary}>Confirma el monto real facturado y el período donde deseas registrarla. Las siguientes usarán este monto; la última ajustará la diferencia.</ThemedText>
-            <ThemedText style={styles.label}>Monto real de la cuota</ThemedText>
+            <ThemedText type="subtitle">{t('installments.activateFirst')}</ThemedText>
+            <ThemedText style={styles.secondary}>{t('installments.activateDescription')}</ThemedText>
+            <ThemedText style={styles.label}>{t('installments.actualAmount')}</ThemedText>
             <TextInput keyboardType="number-pad" value={amountText} onChangeText={setAmountText} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
-            <ThemedText style={styles.label}>Registrar en el período</ThemedText>
+            <ThemedText style={styles.label}>{t('installments.registerInPeriod')}</ThemedText>
             <Pressable onPress={() => setPeriodPickerAction('select')} style={[styles.periodSelect, { borderColor: colors.border }]}>
-              <ThemedText>{selectedPeriod ? `${formatDate(parseDate(selectedPeriod.startDate))} – ${formatDate(parseDate(selectedPeriod.endDate))}` : 'Seleccionar período'}</ThemedText>
+              <ThemedText>{selectedPeriod ? `${formatDate(parseDate(selectedPeriod.startDate))} – ${formatDate(parseDate(selectedPeriod.endDate))}` : t('common.selectPeriod')}</ThemedText>
               <Ionicons name="chevron-down" size={20} color={colors.icon} />
             </Pressable>
             <Pressable disabled={saving} onPress={() => {
-              if (periodId == null || actualAmount == null) return Alert.alert('Faltan datos', 'Selecciona un período e ingresa el monto real.');
-              run(() => activateInstallmentPlan(plan.id, periodId, actualAmount), 'No se pudo activar', 'Primera cuota registrada');
+              if (periodId == null || actualAmount == null) return Alert.alert(t('validation.missingData'), t('installments.missingActivationData'));
+              run(() => activateInstallmentPlan(plan.id, periodId, actualAmount), t('installments.activateError'), t('installments.firstRegistered'));
             }} style={styles.primary}>
               <ThemedText style={styles.primaryText}>
-                Activar plan de cuotas
+                {t('installments.activatePlan')}
               </ThemedText>
             </Pressable>
           </ThemedView>
         )}
 
-        <ThemedText type="subtitle">Historial y proyección</ThemedText>
+        <ThemedText type="subtitle">{t('installments.detail')}</ThemedText>
         {plan.installments?.map((installment) => (
           <View key={installment.id}>
             <ThemedView style={styles.installment}>
               <View style={[styles.icon, installment.status === 'posted' ? styles.posted : installment.status === 'cancelled' || installment.manuallyRemoved ? styles.cancelled : styles.projected]}>
                 <Ionicons name={installment.status === 'posted' ? 'checkmark' : installment.status === 'cancelled' || installment.manuallyRemoved ? 'close' : 'time-outline'} size={17} color="#fff" />
               </View>
-              <View style={styles.copy}><ThemedText type="defaultSemiBold">Cuota {installment.number} de {plan.totalInstallments}</ThemedText><ThemedText style={styles.secondary}>{formatDate(parseDate(installment.dueDate))} · {installment.manuallyRemoved ? 'Eliminada manualmente' : installment.status === 'posted' ? 'Registrada' : installment.status === 'cancelled' ? 'Cancelada' : 'Proyectada'}</ThemedText></View>
+              <View style={styles.copy}><ThemedText type="defaultSemiBold">{t('installments.installmentNumber', { number: installment.number, total: plan.totalInstallments })}</ThemedText><ThemedText style={styles.secondary}>{formatDate(parseDate(installment.dueDate))} · {installment.manuallyRemoved ? t('installments.manuallyRemoved') : installment.status === 'posted' ? t('installments.posted') : installment.status === 'cancelled' ? t('installments.cancelled') : t('installments.projected')}</ThemedText></View>
               <ThemedText>{formatCLP(installment.projectedAmount)}</ThemedText>
             </ThemedView>
             {installment.expenseId != null && (
               <Pressable onPress={() => router.push({ pathname: '/modal/expense-form', params: { id: String(installment.expenseId) } })} style={styles.inlineAction}>
-                <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>Editar cuota</ThemedText>
+                <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>{t('installments.editInstallment')}</ThemedText>
               </Pressable>
             )}
             {installment.manuallyRemoved && (
@@ -131,7 +132,7 @@ export default function DebtDetailScreen() {
                 onPress={() => setPeriodPickerAction(installment.id)}
                 style={[styles.restoreButton, { borderColor: colors.primary }]}>
                 <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                <ThemedText style={[styles.restoreButtonText, { color: colors.primary }]}>Registrar cuota</ThemedText>
+                <ThemedText style={[styles.restoreButtonText, { color: colors.primary }]}>{t('installments.register')}</ThemedText>
               </Pressable>
             )}
           </View>
@@ -139,30 +140,30 @@ export default function DebtDetailScreen() {
 
         {plan.status === 'active' && (
           <ThemedView style={styles.card}>
-            <ThemedText type="subtitle">Gestionar saldo</ThemedText>
-            <ThemedText>Saldo proyectado: {formatCLP(plan.remainingAmount)}</ThemedText>
-            <ThemedText style={styles.label}>Registrar liquidación en</ThemedText>
+            <ThemedText type="subtitle">{t('installments.manageBalance')}</ThemedText>
+            <ThemedText>{t('installments.projectedBalanceValue', { amount: formatCLP(plan.remainingAmount) })}</ThemedText>
+            <ThemedText style={styles.label}>{t('installments.registerSettlementIn')}</ThemedText>
             <Pressable onPress={() => setPeriodPickerAction('select')} style={[styles.periodSelect, { borderColor: colors.border }]}>
-              <ThemedText>{selectedPeriod ? `${formatDate(parseDate(selectedPeriod.startDate))} – ${formatDate(parseDate(selectedPeriod.endDate))}` : 'Seleccionar período'}</ThemedText>
+              <ThemedText>{selectedPeriod ? `${formatDate(parseDate(selectedPeriod.startDate))} – ${formatDate(parseDate(selectedPeriod.endDate))}` : t('common.selectPeriod')}</ThemedText>
               <Ionicons name="chevron-down" size={20} color={colors.icon} />
             </Pressable>
-            <Pressable disabled={saving || periodId == null} onPress={() => Alert.alert('Liquidar cuotas restantes', `Se registrará ${formatCLP(plan.remainingAmount)} en el período seleccionado y se cerrará la deuda.`, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Liquidar', onPress: () => run(() => settleInstallmentPlan(plan.id, periodId!), 'No se pudo liquidar', 'Cuotas liquidadas correctamente') }])} style={styles.primary}><ThemedText style={styles.primaryText}>Liquidar cuotas restantes</ThemedText></Pressable>
-            <Pressable disabled={saving} onPress={() => Alert.alert('Cancelar cuotas futuras', 'Las cuotas ya registradas se conservarán y las proyectadas serán canceladas.', [{ text: 'Volver', style: 'cancel' }, { text: 'Cancelar futuras', style: 'destructive', onPress: () => run(() => cancelFutureInstallments(plan.id), 'No se pudo cancelar', 'Cuotas futuras canceladas') }])} style={styles.danger}><ThemedText style={styles.dangerText}>Cancelar cuotas futuras</ThemedText></Pressable>
+            <Pressable disabled={saving || periodId == null} onPress={() => Alert.alert(t('installments.settleRemaining'), t('installments.settlementDescription', { amount: formatCLP(plan.remainingAmount) }), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('installments.settle'), onPress: () => run(() => settleInstallmentPlan(plan.id, periodId!), t('installments.settleError'), t('installments.settled')) }])} style={styles.primary}><ThemedText style={styles.primaryText}>{t('installments.settleRemaining')}</ThemedText></Pressable>
+            <Pressable disabled={saving} onPress={() => Alert.alert(t('installments.cancelFuture'), t('installments.cancelFutureDescription'), [{ text: t('common.goBack'), style: 'cancel' }, { text: t('installments.cancelFutureAction'), style: 'destructive', onPress: () => run(() => cancelFutureInstallments(plan.id), t('installments.cancelError'), t('installments.futureCancelled')) }])} style={styles.danger}><ThemedText style={styles.dangerText}>{t('installments.cancelFuture')}</ThemedText></Pressable>
           </ThemedView>
         )}
         {plan.status === 'projected' && (
-          <Pressable disabled={saving} onPress={() => Alert.alert('Cancelar proyección', 'La compra quedará en el historial, pero ninguna cuota será registrada.', [{ text: 'Volver', style: 'cancel' }, { text: 'Cancelar proyección', style: 'destructive', onPress: () => run(() => cancelFutureInstallments(plan.id), 'No se pudo cancelar', 'Compra proyectada cancelada') }])} style={styles.danger}>
-            <ThemedText style={styles.dangerText}>Cancelar compra proyectada</ThemedText>
+          <Pressable disabled={saving} onPress={() => Alert.alert(t('installments.cancelProjection'), t('installments.cancelProjectionDescription'), [{ text: t('common.goBack'), style: 'cancel' }, { text: t('installments.cancelProjection'), style: 'destructive', onPress: () => run(() => cancelFutureInstallments(plan.id), t('installments.cancelError'), t('installments.projectionCancelled')) }])} style={styles.danger}>
+            <ThemedText style={styles.dangerText}>{t('installments.cancelProjectedPurchase')}</ThemedText>
           </Pressable>
         )}
         <View style={styles.deleteSection}>
           {plan.linkedExpenseCount > 0 && (
             <ThemedText style={styles.deleteHint}>
-              Para eliminar esta compra, primero elimina sus cuotas o liquidaciones registradas desde Gastos.
+              {t('installments.deleteHint')}
             </ThemedText>
           )}
           <Pressable disabled={saving || plan.linkedExpenseCount > 0} onPress={deletePlan} style={[styles.danger, plan.linkedExpenseCount > 0 && styles.disabled]}>
-            <ThemedText style={styles.dangerText}>Eliminar compra en cuotas</ThemedText>
+            <ThemedText style={styles.dangerText}>{t('installments.deletePurchase')}</ThemedText>
           </Pressable>
         </View>
       </ScrollView>
@@ -170,8 +171,8 @@ export default function DebtDetailScreen() {
         <Pressable style={styles.modalOverlay} onPress={() => setPeriodPickerAction(null)}>
           <Pressable style={[styles.modalSheet, { backgroundColor: colors.background }]} onPress={(event) => event.stopPropagation()}>
             <View style={styles.modalHeader}>
-              <ThemedText type="subtitle">{typeof periodPickerAction === 'number' ? 'Registrar cuota en' : 'Seleccionar período'}</ThemedText>
-              <Pressable accessibilityLabel="Cerrar selector" hitSlop={8} onPress={() => setPeriodPickerAction(null)}>
+              <ThemedText type="subtitle">{typeof periodPickerAction === 'number' ? t('installments.registerInstallmentIn') : t('common.selectPeriod')}</ThemedText>
+              <Pressable accessibilityLabel={t('accessibility.closePeriodPicker')} hitSlop={8} onPress={() => setPeriodPickerAction(null)}>
                 <Ionicons name="close" size={23} color={colors.icon} />
               </Pressable>
             </View>
@@ -184,7 +185,7 @@ export default function DebtDetailScreen() {
                     setPeriodId(period.id);
                     setPeriodPickerAction(null);
                     if (typeof action === 'number') {
-                      void run(() => restoreRemovedInstallment(action, period.id), 'No se pudo registrar la cuota', 'Cuota registrada');
+                      void run(() => restoreRemovedInstallment(action, period.id), t('installments.registerError'), t('installments.registered'));
                     }
                   }}
                   style={[styles.periodOption, { borderColor: colors.border }, period.id === periodId && styles.selectedOption]}>

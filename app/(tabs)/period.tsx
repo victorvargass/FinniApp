@@ -15,6 +15,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
 
 // Parse a date string like "2026-07-23" as a local date
@@ -62,10 +63,10 @@ export default function PeriodScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <PeriodSelector />
         <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
-          <ThemedText type="title">Resumen Período</ThemedText>
+          <ThemedText type="title">{t('period.summary')}</ThemedText>
           <View style={styles.dateRangeContainer}>
             <View style={styles.dateContainer}>
-              <ThemedText>Desde</ThemedText>
+              <ThemedText>{t('period.start')}</ThemedText>
               <Pressable
                 style={[
                   styles.dateButton,
@@ -93,14 +94,14 @@ export default function PeriodScreen() {
                       const selectedDateStr = toDateString(selected);
                       // Chequea que la fecha seleccionada no sea mayor a la fecha de término
                       if (endDate && selected > endDate) {
-                        Alert.alert('Error', "La fecha de inicio no puede ser mayor a la fecha de término.");
+                        Alert.alert(t('common.error'), t('period.invalidStart'));
                         return;
                       }
                       try {
                         await setPeriodStartDate(selectedDateStr);
                         setStartDate(selected);
                       } catch (e: any) {
-                        Alert.alert('Error', e.message || "Error al actualizar fecha de inicio");
+                        Alert.alert(t('common.error'), e.message || t('period.updateStartError'));
                       }
                     }
                   }}
@@ -108,13 +109,13 @@ export default function PeriodScreen() {
               )}
               {Platform.OS === 'ios' && showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
                 <Pressable style={styles.doneDate} onPress={() => setShowStartDatePicker(false)}>
-                  <ThemedText type="link">Listo</ThemedText>
+                  <ThemedText type="link">{t('common.done')}</ThemedText>
                 </Pressable>
               )}
             </View>
    
             <View style={styles.dateContainer}>
-              <ThemedText>Hasta</ThemedText>
+              <ThemedText>{t('period.end')}</ThemedText>
               <Pressable
                 style={[styles.dateButton, { borderColor: colors.icon }, !isCurrentPeriod && { opacity: 0.5 }]}
                 disabled={!isCurrentPeriod}
@@ -133,14 +134,14 @@ export default function PeriodScreen() {
                       const selectedDateStr = toDateString(selected);
                       // Chequea que la fecha seleccionada no sea menor a la fecha de inicio
                       if (startDate && selected < startDate) {
-                        Alert.alert('Error', "La fecha de término no puede ser menor a la fecha de inicio.");
+                        Alert.alert(t('common.error'), t('period.invalidEnd'));
                         return;
                       }
                       try {
                         await setPeriodEndDate(selectedDateStr);
                         setEndDate(selected);
                       } catch (e: any) {
-                        Alert.alert('Error', e.message || "Error al actualizar fecha de término");
+                        Alert.alert(t('common.error'), e.message || t('period.updateEndError'));
                       }
                     }
                   }}
@@ -148,7 +149,7 @@ export default function PeriodScreen() {
               )}
               {Platform.OS === 'ios' && showEndDatePicker && (
                 <Pressable style={styles.doneDate} onPress={() => setShowEndDatePicker(false)}>
-                  <ThemedText type="link">Listo</ThemedText>
+                  <ThemedText type="link">{t('common.done')}</ThemedText>
                 </Pressable>
               )}
             </View>
@@ -157,17 +158,17 @@ export default function PeriodScreen() {
 
         <View style={styles.totalsContainer}>
           <ThemedView style={[{ flex: 1, backgroundColor: colors.surface }, styles.card, styles.centered]}>
-            <ThemedText type="subtitle">Ingresos</ThemedText>
+            <ThemedText type="subtitle">{t('navigation.incomes')}</ThemedText>
             <ThemedText style={styles.totalIncomes}>{formatCLP(periodIncomesTotal)}</ThemedText>
           </ThemedView>
           <ThemedView style={[{ flex: 1, backgroundColor: colors.surface }, styles.card, styles.centered]}>
-            <ThemedText type="subtitle">Gastos</ThemedText>
+            <ThemedText type="subtitle">{t('navigation.expenses')}</ThemedText>
             <ThemedText style={styles.totalExpenses}>{formatCLP(periodExpensesTotal)}</ThemedText>
           </ThemedView>
         </View>
    
         <ThemedView style={[styles.card, styles.centered, { backgroundColor: colors.surface }]}>
-          <ThemedText type="subtitle">Saldo</ThemedText>
+          <ThemedText type="subtitle">{t('period.balance')}</ThemedText>
           <ThemedText style={periodIncomesTotal > periodExpensesTotal ? styles.totalPositiveBalance : styles.totalNegativeBalance}>{formatCLP(periodIncomesTotal - periodExpensesTotal)}</ThemedText>
         </ThemedView>
 
@@ -195,7 +196,7 @@ export default function PeriodScreen() {
 
               {withLimits.length > 0 && (
                 <View style={[styles.limitsSection, { borderTopColor: colors.border }]}>
-                  <ThemedText type="subtitle">Límites de gastos</ThemedText>
+                  <ThemedText type="subtitle">{t('period.expenseLimits')}</ThemedText>
                   <View style={styles.limits}>
                     {withLimits.map((item) => (
                       <LimitProgressBar
@@ -253,32 +254,32 @@ export default function PeriodScreen() {
               }
 
               Alert.alert(
-                'Finalizar período actual',
-                `Se creará un nuevo período desde el ${proximoInicio} hasta el ${proximoTermino}.\n\nPodrás volver a este período y modificar sus movimientos cuando lo necesites.`,
+                t('period.finishTitle'),
+                t('period.finishMessage', { start: proximoInicio, end: proximoTermino }),
                 [
                   {
-                    text: 'Cancelar',
+                    text: t('common.cancel'),
                     style: 'cancel',
                   },
                   {
-                    text: 'Finalizar y continuar',
+                    text: t('period.finishAction'),
                     style: 'destructive',
                     onPress: async () => {
                       try {
                         await closeCurrentPeriod();
 
                         const message =
-                          'El período fue finalizado y se inició el siguiente.';
+                          t('period.finished');
 
                         if (Platform.OS === 'android') {
                           ToastAndroid.show(message, ToastAndroid.LONG);
                         } else {
-                          Alert.alert('Nuevo período iniciado', message);
+                          Alert.alert(t('period.newStarted'), message);
                         }
                       } catch {
                         Alert.alert(
-                          'No se pudo finalizar',
-                          'Ocurrió un problema al crear el siguiente período. Inténtalo nuevamente.'
+                          t('period.finishErrorTitle'),
+                          t('period.finishError')
                         );
                       }
                     },
@@ -290,7 +291,7 @@ export default function PeriodScreen() {
             }}
           >
             <ThemedText type="defaultSemiBold" style={{ color: '#fff' }}>
-              Cerrar período
+              {t('period.close')}
             </ThemedText>
           </Pressable>
         </View>
