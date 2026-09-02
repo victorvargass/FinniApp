@@ -260,7 +260,7 @@ export default function ExpensesScreen() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>([]);
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<PaymentMethodFilter>([]);
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
-  const [groupBy, setGroupBy] = useState<GroupBy>('none');
+  const [groupBy, setGroupBy] = useState<GroupBy>('category');
   const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<string[]>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -289,7 +289,7 @@ export default function ExpensesScreen() {
     setCategoryFilter([]);
     setPaymentMethodFilter([]);
     setSortBy('date-desc');
-    setGroupBy('none');
+    setGroupBy('category');
     setCollapsedGroupKeys([]);
     setSortModalVisible(false);
     setFilterModalVisible(false);
@@ -585,11 +585,6 @@ export default function ExpensesScreen() {
         title="Agrupar gastos"
         onClose={() => setGroupModalVisible(false)}>
         <ModalOption
-          label="Sin agrupar"
-          selected={groupBy === 'none'}
-          onPress={() => { setGroupBy('none'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
-        />
-        <ModalOption
           label="Por categoría"
           selected={groupBy === 'category'}
           onPress={() => { setGroupBy('category'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
@@ -598,6 +593,11 @@ export default function ExpensesScreen() {
           label="Por medio de pago"
           selected={groupBy === 'payment-method'}
           onPress={() => { setGroupBy('payment-method'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
+        />
+        <ModalOption
+          label="Sin agrupar"
+          selected={groupBy === 'none'}
+          onPress={() => { setGroupBy('none'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
         />
       </OptionModal>
 

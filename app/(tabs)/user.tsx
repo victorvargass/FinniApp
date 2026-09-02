@@ -144,18 +144,6 @@ export default function UserScreen() {
     await logout();
   };
 
-  // Loading
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.loading}>
-          <ActivityIndicator size="large" />
-          <ThemedText>Cargando sesión...</ThemedText>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // Main content
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -340,7 +328,12 @@ export default function UserScreen() {
         </ThemedView>
 
         <ThemedView style={styles.card}>
-          {!isConnected ? (
+          {isLoading ? (
+            <View style={styles.googleLoading}>
+              <ActivityIndicator size="small" />
+              <ThemedText>Cargando sesión...</ThemedText>
+            </View>
+          ) : !isConnected ? (
             <>
               <ThemedText type="subtitle">Google Drive</ThemedText>
               <ThemedText style={styles.description}>
@@ -485,6 +478,13 @@ const styles = StyleSheet.create({
     padding: 18,
     elevation: 2,
     gap: 18,
+  },
+  googleLoading: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   description: {
     lineHeight: 21,
