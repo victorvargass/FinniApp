@@ -81,6 +81,14 @@ function AppContent() {
                   options={{ presentation: 'fullScreenModal', title: t('navigation.installmentDetail') }}
                 />
                 <Stack.Screen
+                  name="modal/savings-goals"
+                  options={{ presentation: 'fullScreenModal', title: t('savings.title') }}
+                />
+                <Stack.Screen
+                  name="modal/savings-goal-form"
+                  options={{ presentation: 'modal', title: t('savings.goal') }}
+                />
+                <Stack.Screen
                   name="modal/movement-reminder"
                   options={{ presentation: 'modal', title: t('navigation.movementReminder') }}
                 />

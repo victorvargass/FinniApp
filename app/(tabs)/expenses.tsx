@@ -23,6 +23,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
 import type { Category, ExpenseWithCategory, PaymentMethod } from '@/lib/types';
 
 type SortOption =
@@ -93,6 +94,7 @@ function getPaymentMethodFilterLabel(
   if (filter.length === 1) {
     const value = filter[0];
     if (value === 'none') return t('common.notSpecified');
+    if (value === VIRTUAL_SAVINGS_PAYMENT_METHOD_ID) return t('savings.withdrawalPaymentMethod');
     return paymentMethods.find((method) => method.id === value)?.name ?? t('navigation.paymentMethod');
   }
   return t('filters.mediaCount', { count: filter.length });
@@ -280,6 +282,7 @@ export default function ExpensesScreen() {
   );
   const hasUncategorizedExpenses = expenses.some((item) => item.categoryId == null);
   const hasUnspecifiedPaymentExpenses = expenses.some((item) => item.paymentMethodId == null);
+  const hasSavingsWithdrawalExpenses = availablePaymentMethodIds.has(VIRTUAL_SAVINGS_PAYMENT_METHOD_ID);
   const availableCategories = categories.filter((item) => availableCategoryIds.has(item.id));
   const availablePaymentMethods = paymentMethods.filter((item) =>
     availablePaymentMethodIds.has(item.id)
@@ -326,7 +329,9 @@ export default function ExpensesScreen() {
     }
 
     const paymentMethodId = Number(requestedPaymentMethod);
-    if (Number.isInteger(paymentMethodId) && paymentMethodId > 0) {
+    if (Number.isInteger(paymentMethodId) && (
+      paymentMethodId > 0 || paymentMethodId === VIRTUAL_SAVINGS_PAYMENT_METHOD_ID
+    )) {
       setPaymentMethodFilter([paymentMethodId]);
       setCategoryFilter([]);
       setSearch('');
@@ -655,6 +660,14 @@ export default function ExpensesScreen() {
             onPress={() => togglePaymentMethodFilter('none')}
           />
         )}
+        {hasSavingsWithdrawalExpenses && (
+          <ModalOption
+            label={t('savings.withdrawalPaymentMethod')}
+            color="#8e44ad"
+            selected={paymentMethodFilter.includes(VIRTUAL_SAVINGS_PAYMENT_METHOD_ID)}
+            onPress={() => togglePaymentMethodFilter(VIRTUAL_SAVINGS_PAYMENT_METHOD_ID)}
+          />
+        )}
         {availablePaymentMethods.map((method) => (
           <ModalOption
             key={method.id}
@@ -750,6 +763,14 @@ export default function ExpensesScreen() {
                           accessibilityLabel={t('accessibility.recurringExpense')}
                         />
                       )}
+                      {expense.savingsGoalId != null && (
+                        <Ionicons
+                          name={expense.savingsKind === 'funded_expense' ? 'wallet-outline' : 'flag-outline'}
+                          size={17}
+                          color={expense.savingsGoalColor ?? colors.primary}
+                          accessibilityLabel={t(expense.savingsKind === 'funded_expense' ? 'savings.fundedAccessibility' : 'savings.contributionAccessibility')}
+                        />
+                      )}
                     </View>
                     <ThemedText style={[styles.meta, { fontSize: 12 }]}>
                       {groupBy === 'category'
@@ -757,6 +778,9 @@ export default function ExpensesScreen() {
                         : groupBy === 'payment-method'
                           ? `${expense.categoryName ?? t('expenses.noCategory')} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`
                           : `${expense.categoryName ?? t('expenses.noCategory')} · ${expense.paymentMethodName ?? t('common.notSpecified')} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`}
+                      {expense.savingsGoalName
+                        ? t(expense.savingsKind === 'funded_expense' ? 'savings.expenseFromGoal' : 'savings.expenseGoal', { name: expense.savingsGoalName })
+                        : ''}
                     </ThemedText>
                
                   </View>

@@ -105,6 +105,8 @@ export default function RecurringExpenseFormScreen() {
         splitPercentage: expenseDetails.splitPercentage,
         categoryId: expenseDetails.categoryId,
         paymentMethodId: expenseDetails.paymentMethodId,
+        savingsGoalId: expenseDetails.savingsGoalId,
+        savingsKind: expenseDetails.savingsKind === 'contribution' ? 'contribution' as const : null,
         ...schedule,
         sourceExpenseId: recurring ? recurring.sourceExpenseId : requestedSource?.id ?? null,
       };

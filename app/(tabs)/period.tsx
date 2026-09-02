@@ -8,6 +8,7 @@ import { BreakdownSection, type BreakdownMode } from '@/components/breakdown-sec
 import { LimitProgressBar } from '@/components/LimitProgressBar';
 import { PaymentMethodChart } from '@/components/PaymentMethodChart';
 import { PeriodSelector } from '@/components/period-selector';
+import { SavingsGoalsPeriodCard } from '@/components/SavingsGoalsPeriodCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -29,6 +30,8 @@ export default function PeriodScreen() {
     periodCategoryExpensesTotals,
     periodIncomesTotal,
     periodExpensesTotal,
+    periodSavingsGoalActivity,
+    periodSavingsFundingTotal,
     paymentMethodTotals,
     setPeriodStartDate,
     setPeriodEndDate,
@@ -49,6 +52,9 @@ export default function PeriodScreen() {
   const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>('category');
 
   const withLimits = periodCategoryExpensesTotals.filter((item) => item.periodLimit != null && item.periodLimit > 0);
+  const periodSavingsWithdrawals = periodSavingsGoalActivity.reduce((sum, item) => sum + item.withdrawals, 0);
+  const periodSavingsAvailable = periodSavingsWithdrawals + periodSavingsFundingTotal;
+  const periodBalance = periodIncomesTotal + periodSavingsAvailable - periodExpensesTotal;
 
   // Sync the editable range with the period being viewed.
   useEffect(() => {
@@ -169,8 +175,22 @@ export default function PeriodScreen() {
    
         <ThemedView style={[styles.card, styles.centered, { backgroundColor: colors.surface }]}>
           <ThemedText type="subtitle">{t('period.balance')}</ThemedText>
-          <ThemedText style={periodIncomesTotal > periodExpensesTotal ? styles.totalPositiveBalance : styles.totalNegativeBalance}>{formatCLP(periodIncomesTotal - periodExpensesTotal)}</ThemedText>
+          <ThemedText style={periodBalance >= 0 ? styles.totalPositiveBalance : styles.totalNegativeBalance}>{formatCLP(periodBalance)}</ThemedText>
+          {periodSavingsAvailable > 0 && (
+            <ThemedText style={styles.savingsBalanceNote}>
+              {t('savings.releasedInBalance', { amount: formatCLP(periodSavingsAvailable) })}
+            </ThemedText>
+          )}
         </ThemedView>
+
+        {selectedPeriod && (
+          <SavingsGoalsPeriodCard
+            items={periodSavingsGoalActivity}
+            backgroundColor={colors.surface}
+            asOfDate={selectedPeriod.endDate}
+            onManage={() => router.push('/modal/savings-goals')}
+          />
+        )}
 
         <BreakdownSection
           mode={breakdownMode}
@@ -378,5 +398,10 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
     color: '#e44332',
+  },
+  savingsBalanceNote: {
+    fontSize: 12,
+    textAlign: 'center',
+    opacity: 0.65,
   },
 });

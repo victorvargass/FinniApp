@@ -25,7 +25,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
-import type { Category, Expense, Income, NewRecurringSchedule } from '@/lib/types';
+import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
+import type { Category, Expense, Income, NewRecurringSchedule, SavingsExpenseKind } from '@/lib/types';
 import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
 type ColorSelectOption = {
@@ -366,6 +367,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     addExpense,
     addInstallmentPurchase,
     editExpense,
+    savingsGoals,
+    periods,
     selectedPeriod,
     getCreditCardCycles,
     settings,
@@ -389,6 +392,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     expenseWasSplit && ![50, 25].includes(expense.splitPercentage!)
   );
   const [categoryId, setCategoryId] = useState<number | null>(expense?.categoryId ?? null);
+  const [savingsGoalId, setSavingsGoalId] = useState<number | null>(expense?.savingsGoalId ?? null);
+  const [savingsKind, setSavingsKind] = useState<SavingsExpenseKind | null>(expense?.savingsKind ?? null);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
     expense ? expense.paymentMethodId : settings.defaultPaymentMethodId
   );
@@ -427,8 +432,20 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const visiblePaymentMethods = paymentMethods.filter(
     (method) => method.active || method.id === paymentMethodId
   );
+  const selectedCategory = categories.find((category) => category.id === categoryId);
+  const isSavingsCategory = selectedCategory?.purpose === 'savings';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
-  const isCreditPayment = selectedPaymentMethod?.type === 'credit';
+  const isSavingsRelated = isSavingsCategory || savingsKind != null;
+  const selectablePaymentMethods = visiblePaymentMethods.filter(
+    (method) => !isSavingsRelated || method.type !== 'credit'
+  );
+  const selectableSavingsGoals = savingsGoals.filter(
+    (goal) => goal.status === 'active' || goal.id === savingsGoalId
+  );
+  const formPeriod = expense
+    ? periods.find((period) => period.id === expense.periodId) ?? selectedPeriod
+    : selectedPeriod;
+  const isCreditPayment = !isSavingsRelated && selectedPaymentMethod?.type === 'credit';
   const installmentCount = Number(installmentCountText);
   const estimatedInstallmentAmount = amountToSave != null && Number.isInteger(installmentCount) && installmentCount > 0
     ? Math.floor(amountToSave / installmentCount)
@@ -444,6 +461,27 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   useEffect(() => {
     if (!isCreditPayment) setIsInstallmentPurchase(false);
   }, [isCreditPayment]);
+
+  useEffect(() => {
+    if (isSavingsRelated && selectedPaymentMethod?.type === 'credit') {
+      setPaymentMethodId(null);
+    }
+  }, [isSavingsRelated, selectedPaymentMethod]);
+
+  useEffect(() => {
+    if (isInstallmentPurchase) {
+      setSavingsGoalId(null);
+      setSavingsKind(null);
+      return;
+    }
+    if (isSavingsCategory && savingsKind === 'funded_expense') {
+      setSavingsGoalId(null);
+      setSavingsKind(null);
+    } else if (!isSavingsCategory && savingsKind === 'contribution') {
+      setSavingsGoalId(null);
+      setSavingsKind(null);
+    }
+  }, [isInstallmentPurchase, isSavingsCategory, savingsKind]);
 
   useEffect(() => {
     const method = paymentMethods.find((item) => item.id === paymentMethodId);
@@ -514,9 +552,9 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       }
     }
 
-    if (selectedPeriod) {
-      const startDate = parseDateString(selectedPeriod.startDate);
-      const endDate = parseDateString(selectedPeriod.endDate);
+    if (formPeriod) {
+      const startDate = parseDateString(formPeriod.startDate);
+      const endDate = parseDateString(formPeriod.endDate);
 
       // Limpiar time por si acaso (comparar sólo fechas)
       const selectedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -540,6 +578,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         splitPercentage: isSplitAmount ? percentage : null,
         categoryId,
         paymentMethodId,
+        savingsGoalId,
+        savingsKind,
         date: toDateString(date),
       };
       if (expense) {
@@ -736,19 +776,103 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         ]}
       />
 
-      <ColorSelect
-        label={t('expenses.paymentMethodOptional')}
-        value={paymentMethodId}
-        onChange={setPaymentMethodId}
-        options={[
-          { value: null, label: t('common.notSpecified'), color: '#95a5a6' },
-          ...visiblePaymentMethods.map((method) => ({
-            value: method.id,
-            label: `${method.name}${method.active ? '' : ' (desactivado)'}`,
-            color: method.color,
-          })),
-        ]}
-      />
+      {isSavingsCategory && !isInstallmentPurchase && (
+        <>
+          <ColorSelect
+            label={t('savings.assignContributionOptional')}
+            value={savingsKind === 'contribution' ? savingsGoalId : null}
+            onChange={(value) => {
+              setSavingsGoalId(value);
+              setSavingsKind(value == null ? null : 'contribution');
+            }}
+            options={[
+              { value: null, label: t('savings.noSpecificGoal'), color: '#95a5a6' },
+              ...selectableSavingsGoals.map((goal) => ({
+                value: goal.id,
+                label: goal.name,
+                color: goal.color,
+              })),
+            ]}
+          />
+          <ThemedText style={styles.savingsHint}>
+            {t('savings.contributionHint')}
+          </ThemedText>
+          {selectableSavingsGoals.length === 0 && (
+            <Pressable
+              onPress={() => router.push('/modal/savings-goals')}
+              style={[styles.secondaryAction, { borderColor: colors.border }]}>
+              <Ionicons name="flag-outline" size={19} color={colors.primary} />
+              <ThemedText type="defaultSemiBold">{t('savings.createGoal')}</ThemedText>
+            </Pressable>
+          )}
+        </>
+      )}
+
+      {savingsKind === 'funded_expense' ? (
+        <>
+          <ThemedText style={styles.label}>{t('expenses.paymentMethodOptional')}</ThemedText>
+          <View style={[styles.selectButton, { borderColor: colors.border }]}>
+            <View style={styles.selectValue}>
+              <View style={[styles.selectDot, { backgroundColor: '#8e44ad' }]} />
+              <ThemedText type="defaultSemiBold">{t('savings.withdrawalPaymentMethod')}</ThemedText>
+            </View>
+            <Ionicons name="lock-closed-outline" size={18} color={colors.icon} />
+          </View>
+        </>
+      ) : (
+        <ColorSelect
+          label={t('expenses.paymentMethodOptional')}
+          value={paymentMethodId}
+          onChange={(value) => {
+            if (value === VIRTUAL_SAVINGS_PAYMENT_METHOD_ID) {
+              setPaymentMethodId(null);
+              setSavingsKind('funded_expense');
+              setSavingsGoalId(selectableSavingsGoals[0]?.id ?? null);
+              setMakeRecurring(false);
+              return;
+            }
+            setPaymentMethodId(value);
+          }}
+          options={[
+            { value: null, label: t('common.notSpecified'), color: '#95a5a6' },
+            ...(!isSavingsCategory && !isInstallmentPurchase && selectableSavingsGoals.length > 0
+              ? [{
+                  value: VIRTUAL_SAVINGS_PAYMENT_METHOD_ID,
+                  label: t('savings.withdrawalPaymentMethod'),
+                  color: '#8e44ad',
+                }]
+              : []),
+            ...selectablePaymentMethods.map((method) => ({
+              value: method.id,
+              label: `${method.name}${method.active ? '' : t('paymentMethods.inactiveSuffix')}`,
+              color: method.color,
+            })),
+          ]}
+        />
+      )}
+      {savingsKind === 'funded_expense' && selectableSavingsGoals.length > 0 && (
+        <>
+          <ColorSelect
+            label={t('savings.savingsFund')}
+            value={savingsGoalId}
+            onChange={setSavingsGoalId}
+            options={selectableSavingsGoals.map((goal) => ({
+              value: goal.id,
+              label: `${goal.name} · ${formatCLP(goal.currentAmount)}`,
+              color: goal.color,
+            }))}
+          />
+          <Pressable
+            onPress={() => {
+              setSavingsKind(null);
+              setSavingsGoalId(null);
+            }}
+            style={[styles.secondaryAction, { borderColor: colors.border }]}>
+            <Ionicons name="swap-horizontal-outline" size={19} color={colors.primary} />
+            <ThemedText type="defaultSemiBold">{t('savings.useAnotherPaymentMethod')}</ThemedText>
+          </Pressable>
+        </>
+      )}
       {billingCycleHint && (
         <ThemedText style={[styles.paymentHint, { color: colors.tint }]}>
           {billingCycleHint}
@@ -842,8 +966,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       {showDatePicker && (
         <DateTimePicker
           value={date}
-          minimumDate={selectedPeriod ? parseDateString(selectedPeriod.startDate) : undefined}
-          maximumDate={selectedPeriod ? parseDateString(selectedPeriod.endDate) : undefined}
+          minimumDate={formPeriod ? parseDateString(formPeriod.startDate) : undefined}
+          maximumDate={formPeriod ? parseDateString(formPeriod.endDate) : undefined}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(_, selected) => {
@@ -858,7 +982,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </Pressable>
       )}
 
-      {!expense && !isInstallmentPurchase && (
+      {!expense && !isInstallmentPurchase && savingsKind !== 'funded_expense' && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}>
           <Pressable
             accessibilityRole="button"
@@ -935,18 +1059,35 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
 type IncomeFormProps = {
   income?: Income;
+  initialSavingsGoalId?: number | null;
   onSuccess: () => void;
 };
 
-export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
-  const { incomeNames, addIncome, editIncome, addRecurringIncomeFromSource, selectedPeriod } = useDatabase();
+export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: IncomeFormProps) {
+  const {
+    incomeNames,
+    addIncome,
+    editIncome,
+    addRecurringIncomeFromSource,
+    savingsGoals,
+    periods,
+    selectedPeriod,
+  } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
 
-  const [name, setName] = useState(income?.name ?? '');
+  const initialSavingsGoal = !income && initialSavingsGoalId != null
+    ? savingsGoals.find((goal) => goal.id === initialSavingsGoalId && goal.status === 'active')
+    : undefined;
+  const [name, setName] = useState(
+    income?.name ?? (initialSavingsGoal ? `Retiro de ${initialSavingsGoal.name}` : '')
+  );
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [amountText, setAmountText] = useState<string>(income?.amount ? String(income?.amount) : '');
+  const [savingsGoalId, setSavingsGoalId] = useState<number | null>(
+    income?.savingsGoalId ?? initialSavingsGoal?.id ?? null
+  );
   const [date, setDate] = useState(
     income?.date
       ? parseDateString(income.date)
@@ -966,6 +1107,12 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
   );
   const [saving, setSaving] = useState(false);
   const nameSuggestions = getNameSuggestions(incomeNames, name);
+  const selectableSavingsGoals = savingsGoals.filter(
+    (goal) => goal.status === 'active' || goal.id === savingsGoalId
+  );
+  const formPeriod = income
+    ? periods.find((period) => period.id === income.periodId) ?? selectedPeriod
+    : selectedPeriod;
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -973,17 +1120,17 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       return;
     }
     const amount = parseAmount(amountText as string);
-    if (amount == null) {
+    if (amount == null || amount <= 0) {
       Alert.alert(t('common.error'), t('validation.invalidAmount'));
       return;
     }
 
     // La fecha siempre debe pertenecer al período que el usuario está editando.
-    if (selectedPeriod) {
+    if (formPeriod) {
       // Corrección: la fecha final del periodo puede traer hora 00:00 UTC, así que compara usando las fechas normalizadas a local (sin hora)
       // Establece explícitamente las fechas en local
-      const periodStart = new Date(selectedPeriod.startDate + "T00:00:00");
-      const periodEnd = new Date(selectedPeriod.endDate + "T00:00:00");
+      const periodStart = new Date(formPeriod.startDate + "T00:00:00");
+      const periodEnd = new Date(formPeriod.endDate + "T00:00:00");
       // Elimina la hora para la comparación (local)
       const inputDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       const startDateOnly = new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate());
@@ -995,8 +1142,8 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         Alert.alert(
           t('common.error'),
           t('incomes.dateOutsidePeriod', {
-            start: formatDate(new Date(`${selectedPeriod.startDate}T12:00:00`)),
-            end: formatDate(new Date(`${selectedPeriod.endDate}T12:00:00`)),
+            start: formatDate(new Date(`${formPeriod.startDate}T12:00:00`)),
+            end: formatDate(new Date(`${formPeriod.endDate}T12:00:00`)),
           })
         );
         return;
@@ -1005,7 +1152,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
 
     setSaving(true);
     try {
-      const data = { name: name.trim(), amount, date: toDateString(date) };
+      const data = { name: name.trim(), amount, date: toDateString(date), savingsGoalId };
       if (income) {
         await editIncome(income.id, data);
         if (makeIncomeRecurring && income.recurringIncomeId == null) {
@@ -1019,9 +1166,9 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
           });
         }
         if (Platform.OS === 'android') {
-          ToastAndroid.show(makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'), ToastAndroid.SHORT);
+          ToastAndroid.show(savingsGoalId != null ? t('savings.withdrawalUpdated') : makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'), ToastAndroid.SHORT);
         } else {
-          Alert.alert(t('common.saved'), makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'));
+          Alert.alert(t('common.saved'), savingsGoalId != null ? t('savings.withdrawalUpdated') : makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'));
         }
       } else {
         await addIncome(data, makeIncomeRecurring ? {
@@ -1033,9 +1180,9 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
           registrationMode: incomeSchedule.registrationMode,
         } : undefined);
         if (Platform.OS === 'android') {
-          ToastAndroid.show(t('incomes.created'), ToastAndroid.SHORT);
+          ToastAndroid.show(savingsGoalId != null ? t('savings.withdrawalRegistered') : t('incomes.created'), ToastAndroid.SHORT);
         } else {
-          Alert.alert(t('common.saved'), t('incomes.created'));
+          Alert.alert(t('common.saved'), savingsGoalId != null ? t('savings.withdrawalRegistered') : t('incomes.created'));
         }
       }
       onSuccess();
@@ -1081,6 +1228,36 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         keyboardType="number-pad"
       />
 
+      {income?.recurringIncomeId == null && selectableSavingsGoals.length > 0 && (
+        <>
+          <ColorSelect
+            label={t('savings.withdrawFromGoalOptional')}
+            value={savingsGoalId}
+            onChange={(value) => {
+              setSavingsGoalId(value);
+              if (value != null) {
+                setMakeIncomeRecurring(false);
+                const selectedGoal = selectableSavingsGoals.find((goal) => goal.id === value);
+                if (!name.trim() && selectedGoal) setName(t('savings.withdrawalName', { name: selectedGoal.name }));
+              }
+            }}
+            options={[
+              { value: null, label: t('savings.normalIncome'), color: '#008000' },
+              ...selectableSavingsGoals.map((goal) => ({
+                value: goal.id,
+                label: `${goal.name} · ${formatCLP(goal.currentAmount)}`,
+                color: goal.color,
+              })),
+            ]}
+          />
+          {savingsGoalId != null && (
+            <ThemedText style={styles.savingsHint}>
+              {t('savings.withdrawalHint')}
+            </ThemedText>
+          )}
+        </>
+      )}
+
       <ThemedText style={styles.label}>{t('forms.date')}</ThemedText>
       <Pressable
         style={[styles.dateButton, { borderColor: colors.icon }]}
@@ -1091,8 +1268,8 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
       {showDatePicker && (
         <DateTimePicker
           value={date}
-          minimumDate={selectedPeriod ? parseDateString(selectedPeriod.startDate) : undefined}
-          maximumDate={selectedPeriod ? parseDateString(selectedPeriod.endDate) : undefined}
+          minimumDate={formPeriod ? parseDateString(formPeriod.startDate) : undefined}
+          maximumDate={formPeriod ? parseDateString(formPeriod.endDate) : undefined}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(_, selected) => {
@@ -1109,7 +1286,7 @@ export function IncomeForm({ income, onSuccess }: IncomeFormProps) {
         </Pressable>
       )}
 
-      {(!income || income.recurringIncomeId == null) && (
+      {savingsGoalId == null && (!income || income.recurringIncomeId == null) && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}> 
           <Pressable onPress={() => setMakeIncomeRecurring((current) => !current)} style={styles.recurringHeader}>
             <View style={styles.recurringHeaderCopy}>
@@ -1367,6 +1544,7 @@ const styles = StyleSheet.create({
   recurringHeaderCopy: { flex: 1, gap: 2 },
   recurringFields: { borderTopWidth: 1, padding: 13 },
   recurringExpenseActions: { gap: 8, marginTop: 10 },
+  savingsHint: { fontSize: 13, lineHeight: 18, opacity: 0.68 },
   secondaryAction: {
     flexDirection: 'row',
     alignItems: 'center',

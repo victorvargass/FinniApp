@@ -248,7 +248,7 @@ function incomeRows(incomes: Income[]): string {
     .map((income) => `
       <tr>
         <td class="date">${formatShortDate(income.date)}</td>
-        <td><strong>${escapeHtml(income.name)}</strong></td>
+        <td><strong>${escapeHtml(income.name)}</strong>${income.savingsGoalId != null ? `<div class="row-note">${t('report.savingsTransfer')}</div>` : ''}</td>
         <td class="amount income">+${formatCLP(income.amount)}</td>
       </tr>`)
     .join('');
@@ -260,8 +260,11 @@ export function buildPeriodReportHtml(
   incomes: Income[]
 ): string {
   const expensesTotal = total(expenses);
-  const incomesTotal = total(incomes);
-  const balance = incomesTotal - expensesTotal;
+  const savingsWithdrawals = total(incomes.filter((income) => income.savingsGoalId != null));
+  const incomesTotal = total(incomes.filter((income) => income.savingsGoalId == null));
+  const savingsFunding = period.savingsFundingTotal ?? 0;
+  const savingsAvailable = savingsWithdrawals + savingsFunding;
+  const balance = incomesTotal + savingsAvailable - expensesTotal;
   const generatedAt = new Intl.DateTimeFormat(APP_LOCALE, {
     dateStyle: 'long',
     timeStyle: 'short',
@@ -295,6 +298,7 @@ export function buildPeriodReportHtml(
         .balance .label { color: rgba(255,255,255,.88); }
         .value { margin-top: 5px; font-size: 17px; font-weight: 800; letter-spacing: -.2px; }
         .balance .value { color: white; font-size: 23px; }
+        .balance-note { margin-top: 3px; color: rgba(255,255,255,.78); font-size: 7px; }
         .income { color: ${COLORS.income}; }
         .expense { color: ${COLORS.expense}; }
         .section { margin-top: 20px; break-inside: avoid; }
@@ -364,7 +368,7 @@ export function buildPeriodReportHtml(
         </div>
         <div class="summary-card balance">
           <div class="summary-icon"><svg viewBox="0 0 24 24"><path d="M4 7h14a2 2 0 0 1 2 2v9H6a2 2 0 0 1-2-2V7z"/><path d="M4 7l2-3h10l2 3"/><path d="M15 12h5v4h-5a2 2 0 1 1 0-4z"/></svg></div>
-          <div class="summary-copy"><div class="label">${t('report.periodBalance')}</div><div class="value">${formatCLP(balance)}</div></div>
+          <div class="summary-copy"><div class="label">${t('report.periodBalance')}</div><div class="value">${formatCLP(balance)}</div>${savingsAvailable > 0 ? `<div class="balance-note">${t('report.includesReleasedSavings', { amount: formatCLP(savingsAvailable) })}</div>` : ''}</div>
         </div>
       </section>
 
@@ -402,7 +406,7 @@ export function buildPeriodReportHtml(
           <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
           <tbody>${incomeRows(incomes)}</tbody>
         </table>
-        <div class="table-total"><span>${t('incomes.total')}</span><span class="income">${formatCLP(incomesTotal)}</span></div>
+        <div class="table-total"><span>${t('report.totalEntries')}</span><span class="income">${formatCLP(incomesTotal + savingsWithdrawals)}</span></div>
       </section>
 
       <footer class="footer">${t('report.generatedFrom')}</footer>

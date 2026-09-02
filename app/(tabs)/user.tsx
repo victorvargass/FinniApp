@@ -84,8 +84,10 @@ export default function UserScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { setPreference: setThemePreference } = useThemePreference();
-  const { recurringDecisions, settings, setMovementReminder } = useDatabase();
+  const { recurringDecisions, savingsGoals, settings, setMovementReminder } = useDatabase();
   const pendingConfirmations = recurringDecisions.filter((item) => item.status === 'pending').length;
+  const activeSavingsGoals = savingsGoals.filter((goal) => goal.status === 'active');
+  const totalSavings = savingsGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
   const {
     authenticationType,
     enabled: biometricEnabled,
@@ -232,6 +234,27 @@ export default function UserScreen() {
               </ThemedText>
             </View>
             <Ionicons name="wallet-outline" size={22} color={colors.icon} />
+          </Pressable>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
+          <Pressable
+            accessibilityLabel={t('savings.manageAccessibility')}
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/savings-goals')}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('savings.title')}</ThemedText>
+              <ThemedText style={styles.description}>
+                {savingsGoals.length > 0
+                  ? t(activeSavingsGoals.length === 1 ? 'savings.activeSummaryOne' : 'savings.activeSummaryOther', {
+                      count: activeSavingsGoals.length,
+                      amount: new Intl.NumberFormat(APP_LOCALE, { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(totalSavings),
+                    })
+                  : t('savings.userEmptyHint')}
+              </ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={colors.icon} />
           </Pressable>
         </ThemedView>
 

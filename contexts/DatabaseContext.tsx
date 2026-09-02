@@ -30,6 +30,11 @@ import type {
   RecurringExpense,
   RecurringIncome,
   RecurringMovementKind,
+  NewSavingsGoal,
+  SavingsGoal,
+  SavingsGoalMovement,
+  SavingsGoalPeriodActivity,
+  SavingsGoalStatus,
   Settings,
 } from '@/lib/types';
 import { addIsoDays, toIsoDate } from '@/lib/recurrence';
@@ -46,6 +51,9 @@ type DatabaseContextValue = {
   recurringExpenses: RecurringExpense[];
   recurringDecisions: RecurringDecisionItem[];
   recurringIncomes: RecurringIncome[];
+  savingsGoals: SavingsGoal[];
+  periodSavingsGoalActivity: SavingsGoalPeriodActivity[];
+  periodSavingsFundingTotal: number;
   expenses: ExpenseWithCategory[];
   incomes: Income[];
   expenseNames: string[];
@@ -85,6 +93,11 @@ type DatabaseContextValue = {
   cancelFutureInstallments: (id: number) => Promise<void>;
   restoreRemovedInstallment: (installmentId: number, periodId: number) => Promise<void>;
   removeInstallmentPlan: (id: number) => Promise<void>;
+  addSavingsGoal: (data: NewSavingsGoal) => Promise<void>;
+  editSavingsGoal: (id: number, data: NewSavingsGoal) => Promise<void>;
+  setSavingsGoalStatus: (id: number, status: SavingsGoalStatus) => Promise<void>;
+  removeSavingsGoal: (id: number) => Promise<void>;
+  getSavingsGoalMovements: (id: number) => Promise<SavingsGoalMovement[]>;
   addRecurringExpense: (data: NewRecurringExpense) => Promise<void>;
   editRecurringExpense: (id: number, data: NewRecurringExpense) => Promise<void>;
   setRecurringExpenseActive: (id: number, active: boolean) => Promise<void>;
@@ -133,6 +146,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [recurringDecisions, setRecurringDecisions] = useState<RecurringDecisionItem[]>([]);
   const [recurringIncomes, setRecurringIncomes] = useState<RecurringIncome[]>([]);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [periodSavingsGoalActivity, setPeriodSavingsGoalActivity] = useState<SavingsGoalPeriodActivity[]>([]);
+  const [periodSavingsFundingTotal, setPeriodSavingsFundingTotal] = useState(0);
   const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenseNames, setExpenseNames] = useState<string[]>([]);
@@ -176,7 +192,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       refreshRequestedRef.current = true;
       return refreshPromiseRef.current;
     }
-
     const runRefreshes = async () => {
       do {
         refreshRequestedRef.current = false;
@@ -203,13 +218,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           selectedPeriodIdRef.current = targetPeriodId;
           setSelectedPeriodId(targetPeriodId);
         }
-        const [cats, methods, methodTotals, recurring, decisions, recurringIncomeRows, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
+        const [cats, methods, methodTotals, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
           db.getCategories(),
           db.getPaymentMethods(true),
           db.getPaymentMethodTotals(targetPeriodId),
           db.getRecurringExpenses(),
           db.getRecurringDecisionItems(),
           db.getRecurringIncomes(),
+          db.getSavingsGoals(true),
+          db.getPeriodSavingsGoalActivity(targetPeriodId),
+          db.getPeriodSavingsFundingTotal(targetPeriodId),
           db.getExpenses(targetPeriodId),
           db.getIncomes(targetPeriodId),
           db.getExpenseNames(),
@@ -224,6 +242,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         setRecurringExpenses(recurring);
         setRecurringDecisions(decisions);
         setRecurringIncomes(recurringIncomeRows);
+        setSavingsGoals(goals);
+        setPeriodSavingsGoalActivity(goalActivity);
+        setPeriodSavingsFundingTotal(savingsFundingTotal);
         setExpenses(exps);
         setIncomes(incs);
         setExpenseNames(allExpenseNames);
@@ -405,6 +426,31 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await db.deleteInstallmentPlan(id);
     await refresh();
   }, [refresh]);
+
+  const addSavingsGoal = useCallback(async (data: NewSavingsGoal) => {
+    await db.createSavingsGoal(data);
+    await refresh();
+  }, [refresh]);
+
+  const editSavingsGoal = useCallback(async (id: number, data: NewSavingsGoal) => {
+    await db.updateSavingsGoal(id, data);
+    await refresh();
+  }, [refresh]);
+
+  const setSavingsGoalStatus = useCallback(async (id: number, status: SavingsGoalStatus) => {
+    await db.setSavingsGoalArchived(id, status === 'archived');
+    await refresh();
+  }, [refresh]);
+
+  const removeSavingsGoal = useCallback(async (id: number) => {
+    await db.deleteSavingsGoal(id);
+    await refresh();
+  }, [refresh]);
+
+  const getSavingsGoalMovements = useCallback(
+    (id: number) => db.getSavingsGoalMovements(id),
+    []
+  );
 
   const addRecurringExpense = useCallback(async (data: NewRecurringExpense) => {
     await db.createRecurringExpense(data);
@@ -613,6 +659,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       recurringExpenses,
       recurringDecisions,
       recurringIncomes,
+      savingsGoals,
+      periodSavingsGoalActivity,
+      periodSavingsFundingTotal,
       expenses,
       incomes,
       expenseNames,
@@ -652,6 +701,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       cancelFutureInstallments,
       restoreRemovedInstallment,
       removeInstallmentPlan,
+      addSavingsGoal,
+      editSavingsGoal,
+      setSavingsGoalStatus,
+      removeSavingsGoal,
+      getSavingsGoalMovements,
       addRecurringExpense,
       editRecurringExpense,
       setRecurringExpenseActive,
@@ -682,6 +736,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       recurringExpenses,
       recurringDecisions,
       recurringIncomes,
+      savingsGoals,
+      periodSavingsGoalActivity,
+      periodSavingsFundingTotal,
       expenses,
       incomes,
       expenseNames,
@@ -721,6 +778,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       cancelFutureInstallments,
       restoreRemovedInstallment,
       removeInstallmentPlan,
+      addSavingsGoal,
+      editSavingsGoal,
+      setSavingsGoalStatus,
+      removeSavingsGoal,
+      getSavingsGoalMovements,
       addRecurringExpense,
       editRecurringExpense,
       setRecurringExpenseActive,

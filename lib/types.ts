@@ -4,11 +4,73 @@ export type Period = {
   endDate: string;
 }
 
+export type CategoryPurpose = 'general' | 'savings';
+
+export const VIRTUAL_SAVINGS_PAYMENT_METHOD_ID = -1;
+
 export type Category = {
   id: number;
   name: string;
   color: string;
   periodLimit: number | null;
+  purpose: CategoryPurpose;
+};
+
+export type SavingsGoalStatus = 'active' | 'archived';
+
+export type SavingsGoalMovementKind = 'contribution' | 'withdrawal' | 'funded_expense';
+
+export type SavingsExpenseKind = Extract<
+  SavingsGoalMovementKind,
+  'contribution' | 'funded_expense'
+>;
+
+export type NewSavingsGoal = {
+  name: string;
+  targetAmount: number;
+  initialAmount: number;
+  deadline: string;
+  color: string;
+};
+
+export type SavingsGoal = NewSavingsGoal & {
+  id: number;
+  status: SavingsGoalStatus;
+  currentAmount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SavingsGoalMovement = {
+  id: number;
+  goalId: number;
+  kind: SavingsGoalMovementKind;
+  name: string;
+  amount: number;
+  date: string;
+  expenseId: number | null;
+  incomeId: number | null;
+};
+
+export type SavingsGoalPeriodActivity = {
+  goalId: number;
+  goalName: string;
+  goalColor: string;
+  targetAmount: number;
+  initialAmount: number;
+  deadline: string;
+  status: SavingsGoalStatus;
+  openingAmount: number;
+  contributions: number;
+  withdrawals: number;
+  fundedExpenses: number;
+  closingAmount: number;
+  // Explicit aliases kept for query/report consumers that prefer amount suffixes.
+  balanceAtPeriodEnd: number;
+  contributedAmount: number;
+  withdrawnAmount: number;
+  fundedExpenseAmount: number;
+  netActivity: number;
 };
 
 export type Expense = {
@@ -25,6 +87,8 @@ export type Expense = {
   debtPlanId: number | null;
   installmentNumber: number | null;
   totalInstallments: number | null;
+  savingsGoalId: number | null;
+  savingsKind: SavingsExpenseKind | null;
 };
 
 export type Income = {
@@ -34,6 +98,9 @@ export type Income = {
   periodId: number;
   date: string;
   recurringIncomeId: number | null;
+  savingsGoalId: number | null;
+  savingsGoalName: string | null;
+  savingsGoalColor: string | null;
 };
 
 export type ExpenseWithCategory = Expense & {
@@ -42,6 +109,8 @@ export type ExpenseWithCategory = Expense & {
   paymentMethodName: string | null;
   paymentMethodType: PaymentMethodType | null;
   paymentMethodColor: string | null;
+  savingsGoalName: string | null;
+  savingsGoalColor: string | null;
 };
 
 export type PaymentMethodType = 'cash' | 'debit' | 'prepaid' | 'credit';
@@ -173,6 +242,8 @@ export type PeriodHistory = {
   endDate: string;
   year: number;
   incomesTotal: number;
+  savingsWithdrawalTotal: number;
+  savingsFundingTotal: number;
   categories: PeriodHistoryCategory[];
   paymentMethods: PeriodHistoryPaymentMethod[];
 };
@@ -192,6 +263,7 @@ export type NewCategory = {
   name: string;
   color: string;
   periodLimit: number | null;
+  purpose?: CategoryPurpose;
 };
 
 export type NewExpense = {
@@ -202,6 +274,8 @@ export type NewExpense = {
   categoryId: number | null;
   date: string;
   paymentMethodId: number | null;
+  savingsGoalId?: number | null;
+  savingsKind?: SavingsExpenseKind | null;
 };
 
 export type RecurringFrequency = 'weekly' | 'monthly' | 'annual' | 'custom';
@@ -230,6 +304,8 @@ export type NewRecurringExpense = NewRecurringSchedule & {
   categoryId: number | null;
   paymentMethodId: number | null;
   sourceExpenseId?: number | null;
+  savingsGoalId?: number | null;
+  savingsKind?: Extract<SavingsExpenseKind, 'contribution'> | null;
 };
 
 export type RecurringExpense = NewRecurringExpense & {
@@ -239,6 +315,8 @@ export type RecurringExpense = NewRecurringExpense & {
   categoryColor: string | null;
   paymentMethodName: string | null;
   paymentMethodColor: string | null;
+  savingsGoalId: number | null;
+  savingsKind: Extract<SavingsExpenseKind, 'contribution'> | null;
   nextDate: string | null;
   pendingCount: number;
 };
@@ -287,6 +365,7 @@ export type NewIncome = {
   name: string;
   amount: number;
   date: string;
+  savingsGoalId?: number | null;
 };
 
 export type Settings = {

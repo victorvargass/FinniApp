@@ -75,7 +75,10 @@ export function HistoricalPeriodModal({
     ) ?? 0;
 
   const incomes = period.incomesTotal ?? 0;
-  const balance = incomes - expenses;
+  const savingsWithdrawals = period.savingsWithdrawalTotal ?? 0;
+  const savingsFunding = period.savingsFundingTotal ?? 0;
+  const savingsAvailable = savingsWithdrawals + savingsFunding;
+  const balance = incomes + savingsAvailable - expenses;
   const categories = period.categories ?? [];
   const paymentMethods = period.paymentMethods ?? [];
   const limits = categories.filter(
@@ -142,6 +145,11 @@ export function HistoricalPeriodModal({
               >
                 {formatCLP(balance)}
               </ThemedText>
+              {savingsAvailable > 0 && (
+                <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
+                  {t('savings.releasedInBalance', { amount: formatCLP(savingsAvailable) })}
+                </ThemedText>
+              )}
             </ThemedView>
   
   

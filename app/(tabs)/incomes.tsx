@@ -178,12 +178,19 @@ export default function IncomesScreen() {
       {
         text: t('common.delete'),
         style: 'destructive',
-        onPress: () => {
-          removeIncome(id)
-          if (Platform.OS === 'android') {
-            ToastAndroid.show(t('incomes.deleted'), ToastAndroid.SHORT);
-          } else {
-            Alert.alert(t('common.deleted'), t('incomes.deleted'));
+        onPress: async () => {
+          try {
+            await removeIncome(id);
+            if (Platform.OS === 'android') {
+              ToastAndroid.show(t('incomes.deleted'), ToastAndroid.SHORT);
+            } else {
+              Alert.alert(t('common.deleted'), t('incomes.deleted'));
+            }
+          } catch (error) {
+            Alert.alert(
+              t('expenses.cannotDelete'),
+              error instanceof Error ? error.message : t('incomes.deleteError')
+            );
           }
         }
       },
@@ -306,8 +313,19 @@ export default function IncomesScreen() {
                     {item.recurringIncomeId != null && activeRecurringIncomeIds.has(item.recurringIncomeId) && (
                       <Ionicons name="sync-circle-outline" size={18} color={colors.primary} accessibilityLabel={t('accessibility.recurringIncome')} />
                     )}
+                    {item.savingsGoalId != null && (
+                      <Ionicons
+                        name="flag-outline"
+                        size={17}
+                        color={item.savingsGoalColor ?? colors.primary}
+                        accessibilityLabel={t('savings.withdrawalAccessibility')}
+                      />
+                    )}
                   </View>
-                  <ThemedText style={[styles.meta, { fontSize: 12 }]}>{formatDate(new Date(`${item.date}T12:00:00`))}</ThemedText>
+                  <ThemedText style={[styles.meta, { fontSize: 12 }]}>
+                    {formatDate(new Date(`${item.date}T12:00:00`))}
+                    {item.savingsGoalName ? t('savings.incomeWithdrawalFrom', { name: item.savingsGoalName }) : ''}
+                  </ThemedText>
                 </View>
               </View>
               <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(item.amount)}</ThemedText>
