@@ -20,7 +20,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { NewSavingsGoal, SavingsGoalMovement } from '@/lib/types';
 
@@ -95,10 +95,10 @@ export default function SavingsGoalFormScreen() {
     : undefined;
   const [name, setName] = useState(goal?.name ?? '');
   const [targetText, setTargetText] = useState(
-    goal ? String(goal.targetAmount) : ''
+    goal ? formatCLPInput(goal.targetAmount) : ''
   );
   const [initialText, setInitialText] = useState(
-    goal ? String(goal.initialAmount) : '0'
+    goal ? formatCLPInput(goal.initialAmount) : formatCLPInput(0)
   );
   const [deadline, setDeadline] = useState(
     goal ? parseDate(goal.deadline) : getDefaultDeadline()
@@ -368,7 +368,7 @@ export default function SavingsGoalFormScreen() {
         <ThemedText style={styles.label}>{t('savings.targetAmount')}</ThemedText>
         <TextInput
           keyboardType="number-pad"
-          onChangeText={setTargetText}
+          onChangeText={(value) => setTargetText(formatCLPInput(value))}
           placeholder={t('savings.targetPlaceholder')}
           placeholderTextColor={colors.icon}
           style={[styles.input, { borderColor: colors.border, color: colors.text }]}
@@ -378,7 +378,7 @@ export default function SavingsGoalFormScreen() {
         <ThemedText style={styles.label}>{t('savings.initialAmountClp')}</ThemedText>
         <TextInput
           keyboardType="number-pad"
-          onChangeText={setInitialText}
+          onChangeText={(value) => setInitialText(formatCLPInput(value))}
           placeholder="0"
           placeholderTextColor={colors.icon}
           style={[styles.input, { borderColor: colors.border, color: colors.text }]}

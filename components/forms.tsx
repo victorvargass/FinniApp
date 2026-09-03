@@ -23,7 +23,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
 import type { Category, Expense, Income, NewRecurringSchedule, SavingsExpenseKind } from '@/lib/types';
@@ -213,7 +213,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
   const [name, setName] = useState(category?.name ?? '');
   const [color, setColor] = useState(category?.color ?? '#0a7ea4');
   const [limitText, setLimitText] = useState(
-    category?.periodLimit != null ? String(category.periodLimit) : ''
+    category?.periodLimit != null ? formatCLPInput(category.periodLimit) : ''
   );
   const [saving, setSaving] = useState(false);
 
@@ -328,7 +328,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={limitText}
-        onChangeText={setLimitText}
+        onChangeText={(value) => setLimitText(formatCLPInput(value))}
         placeholder={t('categories.placeholderLimit')}
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
@@ -382,11 +382,15 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const expenseWasSplit =
     expense?.originalAmount != null && expense.splitPercentage != null;
   const [amountText, setAmountText] = useState<string>(
-    expense ? String(expense.originalAmount ?? expense.amount) : ''
+    expense ? formatCLPInput(expense.originalAmount ?? expense.amount) : ''
   );
   const [isSplitAmount, setIsSplitAmount] = useState(expenseWasSplit);
+  const [splitMode, setSplitMode] = useState<'percentage' | 'amount'>('percentage');
   const [percentageText, setPercentageText] = useState(
     expenseWasSplit ? String(expense.splitPercentage) : '50'
+  );
+  const [shareAmountText, setShareAmountText] = useState(
+    expenseWasSplit ? formatCLPInput(expense.amount) : ''
   );
   const [usesCustomPercentage, setUsesCustomPercentage] = useState(
     expenseWasSplit && ![50, 25].includes(expense.splitPercentage!)
@@ -424,10 +428,23 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const percentage = Number(percentageText.replace(',', '.'));
   const hasValidPercentage =
     Number.isFinite(percentage) && percentage > 0 && percentage <= 100;
+  const shareAmount = parseAmount(shareAmountText);
+  const hasValidShareAmount = shareAmount != null
+    && totalAmount != null
+    && shareAmount <= totalAmount;
   const amountToSave =
-    totalAmount == null || (isSplitAmount && !hasValidPercentage)
+    totalAmount == null
       ? null
-      : Math.round(totalAmount * (isSplitAmount ? percentage / 100 : 1));
+      : !isSplitAmount
+        ? totalAmount
+        : splitMode === 'amount'
+          ? (hasValidShareAmount ? shareAmount : null)
+          : (hasValidPercentage ? Math.round(totalAmount * percentage / 100) : null);
+  const splitPercentageToSave = isSplitAmount && totalAmount != null && amountToSave != null
+    ? splitMode === 'percentage'
+      ? percentage
+      : Number(((amountToSave / totalAmount) * 100).toFixed(6))
+    : null;
   const nameSuggestions = getNameSuggestions(expenseNames, name);
   const visiblePaymentMethods = paymentMethods.filter(
     (method) => method.active || method.id === paymentMethodId
@@ -533,8 +550,12 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       Alert.alert(t('common.error'), t('validation.invalidExpenseName'));
       return;
     }
-    if (isSplitAmount && !hasValidPercentage) {
+    if (isSplitAmount && splitMode === 'percentage' && !hasValidPercentage) {
       Alert.alert(t('common.error'), t('validation.invalidPercentage'));
+      return;
+    }
+    if (isSplitAmount && splitMode === 'amount' && !hasValidShareAmount) {
+      Alert.alert(t('common.error'), t('validation.invalidSplitAmount'));
       return;
     }
     if (amountToSave == null || amountToSave <= 0) {
@@ -575,7 +596,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         name: name.trim(),
         amount: amountToSave,
         originalAmount: isSplitAmount ? totalAmount : null,
-        splitPercentage: isSplitAmount ? percentage : null,
+        splitPercentage: splitPercentageToSave,
         categoryId,
         paymentMethodId,
         savingsGoalId,
@@ -665,7 +686,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
-        onChangeText={setAmountText}
+        onChangeText={(value) => setAmountText(formatCLPInput(value))}
         placeholder={t('forms.amountPlaceholder')}
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
@@ -689,67 +710,107 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         {isSplitAmount && (
           <>
             <View style={styles.shareOptions}>
-              {[50, 25].map((preset) => {
-                const selected = !usesCustomPercentage && percentage === preset;
-                return (
-                  <Pressable
-                    key={preset}
-                    onPress={() => {
-                      setUsesCustomPercentage(false);
-                      setPercentageText(String(preset));
-                    }}
-                    style={[
-                      styles.shareButton,
-                      { borderColor: colors.icon },
-                      selected && styles.shareButtonSelected,
-                    ]}>
-                    <ThemedText
-                      style={selected ? styles.shareButtonTextSelected : undefined}>
-                      {preset}%
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
               <Pressable
-                onPress={() => setUsesCustomPercentage(true)}
+                onPress={() => setSplitMode('percentage')}
                 style={[
                   styles.shareButton,
                   { borderColor: colors.icon },
-                  usesCustomPercentage && styles.shareButtonSelected,
+                  splitMode === 'percentage' && styles.shareButtonSelected,
                 ]}>
-                <ThemedText
-                  style={
-                    usesCustomPercentage
-                      ? styles.shareButtonTextSelected
-                      : undefined
-                  }>
-                  {t('expenses.otherPercentage')}
+                <ThemedText style={splitMode === 'percentage' ? styles.shareButtonTextSelected : undefined}>
+                  {t('expenses.byPercentage')}
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (!shareAmountText && amountToSave != null) {
+                    setShareAmountText(formatCLPInput(amountToSave));
+                  }
+                  setSplitMode('amount');
+                }}
+                style={[
+                  styles.shareButton,
+                  { borderColor: colors.icon },
+                  splitMode === 'amount' && styles.shareButtonSelected,
+                ]}>
+                <ThemedText style={splitMode === 'amount' ? styles.shareButtonTextSelected : undefined}>
+                  {t('expenses.byExactAmount')}
                 </ThemedText>
               </Pressable>
             </View>
 
-            {usesCustomPercentage && (
-              <View style={styles.manualPercentageRow}>
-                <ThemedText style={styles.manualPercentageLabel}>
-                  {t('expenses.customPercentage')}
-                </ThemedText>
-                <View style={[styles.percentageInputContainer, { borderColor: colors.icon }]}>
-                  <TextInput
-                    accessibilityLabel={t('forms.manualPercentage')}
-                    autoFocus
-                    keyboardType="decimal-pad"
-                    maxLength={6}
-                    onChangeText={(value) =>
-                      setPercentageText(value.replace(/[^0-9.,]/g, '').replace(',', '.'))
-                    }
-                    placeholder={t('forms.percentagePlaceholder')}
-                    placeholderTextColor={colors.icon}
-                    selectTextOnFocus
-                    style={[styles.percentageInput, { color: colors.text }]}
-                    value={percentageText}
-                  />
-                  <ThemedText style={styles.percentageSuffix}>%</ThemedText>
+            {splitMode === 'percentage' ? (
+              <>
+                <View style={styles.shareOptions}>
+                  {[50, 25].map((preset) => {
+                    const selected = !usesCustomPercentage && percentage === preset;
+                    return (
+                      <Pressable
+                        key={preset}
+                        onPress={() => {
+                          setUsesCustomPercentage(false);
+                          setPercentageText(String(preset));
+                        }}
+                        style={[
+                          styles.shareButton,
+                          { borderColor: colors.icon },
+                          selected && styles.shareButtonSelected,
+                        ]}>
+                        <ThemedText style={selected ? styles.shareButtonTextSelected : undefined}>
+                          {preset}%
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                  <Pressable
+                    onPress={() => setUsesCustomPercentage(true)}
+                    style={[
+                      styles.shareButton,
+                      { borderColor: colors.icon },
+                      usesCustomPercentage && styles.shareButtonSelected,
+                    ]}>
+                    <ThemedText style={usesCustomPercentage ? styles.shareButtonTextSelected : undefined}>
+                      {t('expenses.otherPercentage')}
+                    </ThemedText>
+                  </Pressable>
                 </View>
+
+                {usesCustomPercentage && (
+                  <View style={styles.manualPercentageRow}>
+                    <ThemedText style={styles.manualPercentageLabel}>
+                      {t('expenses.customPercentage')}
+                    </ThemedText>
+                    <View style={[styles.percentageInputContainer, { borderColor: colors.icon }]}>
+                      <TextInput
+                        accessibilityLabel={t('forms.manualPercentage')}
+                        keyboardType="decimal-pad"
+                        maxLength={6}
+                        onChangeText={(value) =>
+                          setPercentageText(value.replace(/[^0-9.,]/g, '').replace(',', '.'))
+                        }
+                        placeholder={t('forms.percentagePlaceholder')}
+                        placeholderTextColor={colors.icon}
+                        selectTextOnFocus
+                        style={[styles.percentageInput, { color: colors.text }]}
+                        value={percentageText}
+                      />
+                      <ThemedText style={styles.percentageSuffix}>%</ThemedText>
+                    </View>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.exactAmountField}>
+                <ThemedText style={styles.manualPercentageLabel}>{t('expenses.yourAmount')}</ThemedText>
+                <TextInput
+                  accessibilityLabel={t('expenses.yourAmount')}
+                  keyboardType="number-pad"
+                  onChangeText={(value) => setShareAmountText(formatCLPInput(value))}
+                  placeholder={t('forms.amountPlaceholder')}
+                  placeholderTextColor={colors.icon}
+                  style={[styles.input, styles.exactAmountInput, { color: colors.text, borderColor: colors.icon }]}
+                  value={shareAmountText}
+                />
               </View>
             )}
           </>
@@ -1084,7 +1145,7 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
     income?.name ?? (initialSavingsGoal ? `Retiro de ${initialSavingsGoal.name}` : '')
   );
   const [isNameFocused, setIsNameFocused] = useState(false);
-  const [amountText, setAmountText] = useState<string>(income?.amount ? String(income?.amount) : '');
+  const [amountText, setAmountText] = useState<string>(income?.amount ? formatCLPInput(income.amount) : '');
   const [savingsGoalId, setSavingsGoalId] = useState<number | null>(
     income?.savingsGoalId ?? initialSavingsGoal?.id ?? null
   );
@@ -1222,7 +1283,7 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
       <TextInput
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
-        onChangeText={setAmountText}
+        onChangeText={(value) => setAmountText(formatCLPInput(value))}
         placeholder={t('forms.amountPlaceholder')}
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
@@ -1433,6 +1494,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginTop: 2,
+  },
+  exactAmountField: {
+    gap: 7,
+    marginTop: 2,
+  },
+  exactAmountInput: {
+    width: '100%',
   },
   percentageInputContainer: {
     width: 120,

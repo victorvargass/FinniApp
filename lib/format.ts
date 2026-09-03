@@ -8,6 +8,13 @@ export function formatCLP(amount: number): string {
   }).format(amount);
 }
 
+/** Formats the raw digits of a monetary input while it is being edited. */
+export function formatCLPInput(value: string | number | null | undefined): string {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  return formatCLP(Number(digits));
+}
+
 export function formatDate(date: Date): string {
   return new Intl.DateTimeFormat(APP_LOCALE, {
     day: 'numeric',
@@ -30,7 +37,7 @@ export function toDateString(date: Date): string {
 }
 
 export function parseAmount(value: string): number | null {
-  const cleaned = value.replace(/\./g, '').replace(/,/g, '').trim();
+  const cleaned = value.replace(/\D/g, '');
   if (!cleaned) return null;
   const num = parseInt(cleaned, 10);
   return Number.isNaN(num) || num <= 0 ? null : num;
