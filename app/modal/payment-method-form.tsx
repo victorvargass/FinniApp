@@ -177,6 +177,21 @@ export default function PaymentMethodFormScreen() {
           </ThemedText>
         </>
       )}
+      {method?.type === 'credit' && (
+        <View style={styles.creditActions}>
+          <Pressable
+            onPress={() => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } })}
+            style={[styles.secondaryButton, { borderColor: colors.border }]}>
+            <Ionicons name="wallet-outline" size={20} color={colors.primary} />
+            <ThemedText type="defaultSemiBold">{t('paymentMethods.installmentPurchases')}</ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push({ pathname: '/modal/card-cycles', params: { id: String(method.id) } })}
+            style={[styles.cyclesButton, { borderColor: colors.border }]}>
+            <ThemedText type="defaultSemiBold">{t('paymentMethods.cycles')}</ThemedText>
+          </Pressable>
+        </View>
+      )}
       {method && (
         <View style={styles.preferences}>
           <View style={[styles.preferenceCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -226,29 +241,12 @@ export default function PaymentMethodFormScreen() {
       <Pressable disabled={saving} onPress={save} style={[styles.save, saving && { opacity: 0.6 }]}>
         <ThemedText style={styles.saveText}>{method ? t('common.saveChanges') : t('paymentMethods.add')}</ThemedText>
       </Pressable>
-      {method?.type === 'credit' && (
+      {method && settings.defaultPaymentMethodId !== method.id && (
         <Pressable
-          onPress={() => router.push({ pathname: '/modal/card-cycles', params: { id: String(method.id) } })}
-          style={[styles.cyclesButton, { borderColor: colors.border }]}>
-          <ThemedText type="defaultSemiBold">{t('paymentMethods.cycles')}</ThemedText>
-        </Pressable>
-      )}
-      {method && (
-        <Pressable
-          disabled={saving || settings.defaultPaymentMethodId === method.id}
+          disabled={saving}
           onPress={() => void confirmDelete()}
-          style={[styles.deleteButton, settings.defaultPaymentMethodId === method.id && styles.deleteDisabled]}>
-          <ThemedText style={styles.deleteText}>
-            {settings.defaultPaymentMethodId === method.id ? t('paymentMethods.favoriteDeleteBlocked') : t('paymentMethods.delete')}
-          </ThemedText>
-        </Pressable>
-      )}
-      {method?.type === 'credit' && (
-        <Pressable
-          onPress={() => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } })}
-          style={[styles.secondaryButton, { borderColor: colors.border }]}> 
-          <Ionicons name="wallet-outline" size={20} color={colors.primary} />
-          <ThemedText type="defaultSemiBold">{t('paymentMethods.installmentPurchases')}</ThemedText>
+          style={styles.deleteButton}>
+          <ThemedText style={styles.deleteText}>{t('paymentMethods.delete')}</ThemedText>
         </Pressable>
       )}
     </ScrollView>
@@ -271,8 +269,8 @@ const styles = StyleSheet.create({
   save: { marginTop: 18, borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0a7ea4' },
   saveText: { color: '#fff', fontWeight: '700' },
   cyclesButton: { borderWidth: 1, borderRadius: 10, padding: 13, alignItems: 'center' },
+  creditActions: { gap: 10, marginTop: 8 },
   secondaryButton: { borderWidth: 1, borderRadius: 10, padding: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   deleteButton: { borderWidth: 1, borderColor: '#dc2626', borderRadius: 10, padding: 13, alignItems: 'center' },
-  deleteDisabled: { opacity: 0.45 },
   deleteText: { color: '#dc2626', fontWeight: '700' },
 });

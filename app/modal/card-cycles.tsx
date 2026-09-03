@@ -11,7 +11,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { CreditCardCycle } from '@/lib/types';
 
@@ -21,7 +21,7 @@ function parseDate(value: string) {
 }
 
 function parseNonNegativeAmount(value: string): number | null {
-  const cleaned = value.replace(/\./g, '').replace(/,/g, '').trim();
+  const cleaned = value.replace(/\D/g, '');
   if (!cleaned) return 0;
   const amount = Number.parseInt(cleaned, 10);
   return Number.isNaN(amount) || amount < 0 ? null : amount;
@@ -53,7 +53,7 @@ function CycleCard({
   onUnreconcile: () => Promise<void>;
 }) {
   const [amountText, setAmountText] = useState(
-    cycle.statementAmount == null ? '' : String(cycle.statementAmount)
+    cycle.statementAmount == null ? '' : formatCLPInput(cycle.statementAmount)
   );
   const [bankChargeText, setBankChargeText] = useState('');
   const [saving, setSaving] = useState(false);
@@ -154,7 +154,7 @@ function CycleCard({
         placeholder={t('cardCycles.exampleAmount', { amount: cycle.recordedTotal })}
         placeholderTextColor={colors.icon}
         value={amountText}
-        onChangeText={setAmountText}
+        onChangeText={(value) => setAmountText(formatCLPInput(value))}
         style={[styles.input, { color: colors.text, borderColor: colors.border }]}
       />
       <ThemedText style={styles.label}>{t('cardCycles.optionalCharges')}</ThemedText>
@@ -163,7 +163,7 @@ function CycleCard({
         placeholder="0"
         placeholderTextColor={colors.icon}
         value={bankChargeText}
-        onChangeText={setBankChargeText}
+        onChangeText={(value) => setBankChargeText(formatCLPInput(value))}
         style={[styles.input, { color: colors.text, borderColor: colors.border }]}
       />
       {adjustment != null && (

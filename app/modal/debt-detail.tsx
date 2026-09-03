@@ -10,7 +10,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatDate, parseAmount } from '@/lib/format';
+import { formatCLP, formatCLPInput, formatDate, parseAmount } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { DebtPlan } from '@/lib/types';
 
@@ -27,17 +27,18 @@ function showResult(message: string) {
 export default function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const planId = Number(id);
-  const { periods, selectedPeriodId, getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, cancelFutureInstallments, restoreRemovedInstallment, removeInstallmentPlan } = useDatabase();
+  const { periods, selectedPeriodId, getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, restoreRemovedInstallment, removeInstallmentPlan } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [plan, setPlan] = useState<DebtPlan | null>(null);
   const [periodId, setPeriodId] = useState<number | null>(selectedPeriodId);
   const [amountText, setAmountText] = useState('');
   const [saving, setSaving] = useState(false);
   const [periodPickerAction, setPeriodPickerAction] = useState<'select' | number | null>(null);
+  const [pendingPeriodId, setPendingPeriodId] = useState<number | null>(null);
   const load = useCallback(async () => {
     const value = await getDebtPlan(planId);
     setPlan(value);
-    if (value) setAmountText((current) => current || String(value.installmentAmount));
+    if (value) setAmountText((current) => current || formatCLPInput(value.installmentAmount));
   }, [getDebtPlan, planId]);
   useFocusEffect(useCallback(() => { load().catch(() => undefined); }, [load]));
 
@@ -52,14 +53,32 @@ export default function DebtDetailScreen() {
     finally { setSaving(false); }
   };
 
-  const deletePlan = () => {
-    if (plan.linkedExpenseCount > 0) {
-      Alert.alert(
-        t('installments.deleteBlockedTitle'),
-        t('installments.deleteBlockedDescription')
+  const openPeriodPicker = (action: 'select' | number) => {
+    setPendingPeriodId(periodId ?? selectedPeriodId ?? periods[0]?.id ?? null);
+    setPeriodPickerAction(action);
+  };
+
+  const closePeriodPicker = () => {
+    setPeriodPickerAction(null);
+    setPendingPeriodId(null);
+  };
+
+  const confirmPeriodSelection = () => {
+    if (periodPickerAction == null || pendingPeriodId == null) return;
+    const action = periodPickerAction;
+    const selectedId = pendingPeriodId;
+    setPeriodId(selectedId);
+    closePeriodPicker();
+    if (typeof action === 'number') {
+      void run(
+        () => restoreRemovedInstallment(action, selectedId),
+        t('installments.registerError'),
+        t('installments.registered')
       );
-      return;
     }
+  };
+
+  const deletePlan = () => {
     Alert.alert(
       t('installments.deletePurchase'),
       t('installments.deleteDescription'),
@@ -94,9 +113,9 @@ export default function DebtDetailScreen() {
             <ThemedText type="subtitle">{t('installments.activateFirst')}</ThemedText>
             <ThemedText style={styles.secondary}>{t('installments.activateDescription')}</ThemedText>
             <ThemedText style={styles.label}>{t('installments.actualAmount')}</ThemedText>
-            <TextInput keyboardType="number-pad" value={amountText} onChangeText={setAmountText} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
+        <TextInput keyboardType="number-pad" value={amountText} onChangeText={(value) => setAmountText(formatCLPInput(value))} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
             <ThemedText style={styles.label}>{t('installments.registerInPeriod')}</ThemedText>
-            <Pressable onPress={() => setPeriodPickerAction('select')} style={[styles.periodSelect, { borderColor: colors.border }]}>
+            <Pressable onPress={() => openPeriodPicker('select')} style={[styles.periodSelect, { borderColor: colors.border }]}>
               <ThemedText>{selectedPeriod ? `${formatDate(parseDate(selectedPeriod.startDate))} – ${formatDate(parseDate(selectedPeriod.endDate))}` : t('common.selectPeriod')}</ThemedText>
               <Ionicons name="chevron-down" size={20} color={colors.icon} />
             </Pressable>
@@ -112,67 +131,67 @@ export default function DebtDetailScreen() {
         )}
 
         <ThemedText type="subtitle">{t('installments.detail')}</ThemedText>
-        {plan.installments?.map((installment) => (
-          <View key={installment.id}>
-            <ThemedView style={styles.installment}>
-              <View style={[styles.icon, installment.status === 'posted' ? styles.posted : installment.status === 'cancelled' || installment.manuallyRemoved ? styles.cancelled : styles.projected]}>
-                <Ionicons name={installment.status === 'posted' ? 'checkmark' : installment.status === 'cancelled' || installment.manuallyRemoved ? 'close' : 'time-outline'} size={17} color="#fff" />
-              </View>
-              <View style={styles.copy}><ThemedText type="defaultSemiBold">{t('installments.installmentNumber', { number: installment.number, total: plan.totalInstallments })}</ThemedText><ThemedText style={styles.secondary}>{formatDate(parseDate(installment.dueDate))} · {installment.manuallyRemoved ? t('installments.manuallyRemoved') : installment.status === 'posted' ? t('installments.posted') : installment.status === 'cancelled' ? t('installments.cancelled') : t('installments.projected')}</ThemedText></View>
-              <ThemedText>{formatCLP(installment.projectedAmount)}</ThemedText>
-            </ThemedView>
-            {installment.expenseId != null && (
-              <Pressable onPress={() => router.push({ pathname: '/modal/expense-form', params: { id: String(installment.expenseId) } })} style={styles.inlineAction}>
-                <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>{t('installments.editInstallment')}</ThemedText>
-              </Pressable>
-            )}
-            {installment.manuallyRemoved && (
-              <Pressable
-                disabled={saving}
-                onPress={() => setPeriodPickerAction(installment.id)}
-                style={[styles.restoreButton, { borderColor: colors.primary }]}>
-                <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                <ThemedText style={[styles.restoreButtonText, { color: colors.primary }]}>{t('installments.register')}</ThemedText>
-              </Pressable>
-            )}
-          </View>
-        ))}
+        {plan.installments?.map((installment) => {
+          const isSettled = installment.status === 'cancelled' && plan.settlementExpenseId != null;
+          const isCompleted = installment.status === 'posted' || isSettled;
+          return (
+            <View key={installment.id}>
+              <ThemedView style={styles.installment}>
+                <View style={[styles.icon, isCompleted ? styles.posted : installment.status === 'cancelled' || installment.manuallyRemoved ? styles.cancelled : styles.projected]}>
+                  <Ionicons name={isCompleted ? 'checkmark' : installment.status === 'cancelled' || installment.manuallyRemoved ? 'close' : 'time-outline'} size={17} color="#fff" />
+                </View>
+                <View style={styles.copy}><ThemedText type="defaultSemiBold">{t('installments.installmentNumber', { number: installment.number, total: plan.totalInstallments })}</ThemedText><ThemedText style={styles.secondary}>{formatDate(parseDate(installment.dueDate))} · {installment.manuallyRemoved ? t('installments.manuallyRemoved') : installment.status === 'posted' ? t('installments.posted') : isSettled ? t('installments.settledInstallment') : installment.status === 'cancelled' ? t('installments.cancelled') : t('installments.projected')}</ThemedText></View>
+                <ThemedText>{formatCLP(installment.projectedAmount)}</ThemedText>
+              </ThemedView>
+              {installment.expenseId != null && (
+                <Pressable onPress={() => router.push({ pathname: '/modal/expense-form', params: { id: String(installment.expenseId) } })} style={styles.inlineAction}>
+                  <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>{t('installments.editInstallment')}</ThemedText>
+                </Pressable>
+              )}
+              {installment.manuallyRemoved && (
+                <Pressable
+                  disabled={saving}
+                  onPress={() => openPeriodPicker(installment.id)}
+                  style={[styles.restoreButton, { borderColor: colors.primary }]}>
+                  <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                  <ThemedText style={[styles.restoreButtonText, { color: colors.primary }]}>{t('installments.register')}</ThemedText>
+                </Pressable>
+              )}
+            </View>
+          );
+        })}
+        {plan.settlementExpenseId != null && (
+          <Pressable onPress={() => router.push({ pathname: '/modal/expense-form', params: { id: String(plan.settlementExpenseId) } })} style={styles.inlineAction}>
+            <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>{t('installments.editSettlement')}</ThemedText>
+          </Pressable>
+        )}
 
         {plan.status === 'active' && (
           <ThemedView style={styles.card}>
             <ThemedText type="subtitle">{t('installments.manageBalance')}</ThemedText>
             <ThemedText>{t('installments.projectedBalanceValue', { amount: formatCLP(plan.remainingAmount) })}</ThemedText>
             <ThemedText style={styles.label}>{t('installments.registerSettlementIn')}</ThemedText>
-            <Pressable onPress={() => setPeriodPickerAction('select')} style={[styles.periodSelect, { borderColor: colors.border }]}>
+            <Pressable onPress={() => openPeriodPicker('select')} style={[styles.periodSelect, { borderColor: colors.border }]}>
               <ThemedText>{selectedPeriod ? `${formatDate(parseDate(selectedPeriod.startDate))} – ${formatDate(parseDate(selectedPeriod.endDate))}` : t('common.selectPeriod')}</ThemedText>
               <Ionicons name="chevron-down" size={20} color={colors.icon} />
             </Pressable>
             <Pressable disabled={saving || periodId == null} onPress={() => Alert.alert(t('installments.settleRemaining'), t('installments.settlementDescription', { amount: formatCLP(plan.remainingAmount) }), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('installments.settle'), onPress: () => run(() => settleInstallmentPlan(plan.id, periodId!), t('installments.settleError'), t('installments.settled')) }])} style={styles.primary}><ThemedText style={styles.primaryText}>{t('installments.settleRemaining')}</ThemedText></Pressable>
-            <Pressable disabled={saving} onPress={() => Alert.alert(t('installments.cancelFuture'), t('installments.cancelFutureDescription'), [{ text: t('common.goBack'), style: 'cancel' }, { text: t('installments.cancelFutureAction'), style: 'destructive', onPress: () => run(() => cancelFutureInstallments(plan.id), t('installments.cancelError'), t('installments.futureCancelled')) }])} style={styles.danger}><ThemedText style={styles.dangerText}>{t('installments.cancelFuture')}</ThemedText></Pressable>
           </ThemedView>
         )}
-        {plan.status === 'projected' && (
-          <Pressable disabled={saving} onPress={() => Alert.alert(t('installments.cancelProjection'), t('installments.cancelProjectionDescription'), [{ text: t('common.goBack'), style: 'cancel' }, { text: t('installments.cancelProjection'), style: 'destructive', onPress: () => run(() => cancelFutureInstallments(plan.id), t('installments.cancelError'), t('installments.projectionCancelled')) }])} style={styles.danger}>
-            <ThemedText style={styles.dangerText}>{t('installments.cancelProjectedPurchase')}</ThemedText>
-          </Pressable>
+        {plan.linkedExpenseCount === 0 && (
+          <View style={styles.deleteSection}>
+            <Pressable disabled={saving} onPress={deletePlan} style={styles.danger}>
+              <ThemedText style={styles.dangerText}>{t('installments.deletePurchase')}</ThemedText>
+            </Pressable>
+          </View>
         )}
-        <View style={styles.deleteSection}>
-          {plan.linkedExpenseCount > 0 && (
-            <ThemedText style={styles.deleteHint}>
-              {t('installments.deleteHint')}
-            </ThemedText>
-          )}
-          <Pressable disabled={saving || plan.linkedExpenseCount > 0} onPress={deletePlan} style={[styles.danger, plan.linkedExpenseCount > 0 && styles.disabled]}>
-            <ThemedText style={styles.dangerText}>{t('installments.deletePurchase')}</ThemedText>
-          </Pressable>
-        </View>
       </ScrollView>
-      <Modal transparent animationType="slide" visible={periodPickerAction != null} onRequestClose={() => setPeriodPickerAction(null)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setPeriodPickerAction(null)}>
+      <Modal transparent animationType="slide" visible={periodPickerAction != null} onRequestClose={closePeriodPicker}>
+        <Pressable style={styles.modalOverlay} onPress={closePeriodPicker}>
           <Pressable style={[styles.modalSheet, { backgroundColor: colors.background }]} onPress={(event) => event.stopPropagation()}>
             <View style={styles.modalHeader}>
               <ThemedText type="subtitle">{typeof periodPickerAction === 'number' ? t('installments.registerInstallmentIn') : t('common.selectPeriod')}</ThemedText>
-              <Pressable accessibilityLabel={t('accessibility.closePeriodPicker')} hitSlop={8} onPress={() => setPeriodPickerAction(null)}>
+              <Pressable accessibilityLabel={t('accessibility.closePeriodPicker')} hitSlop={8} onPress={closePeriodPicker}>
                 <Ionicons name="close" size={23} color={colors.icon} />
               </Pressable>
             </View>
@@ -180,20 +199,19 @@ export default function DebtDetailScreen() {
               {periods.map((period) => (
                 <Pressable
                   key={period.id}
-                  onPress={() => {
-                    const action = periodPickerAction;
-                    setPeriodId(period.id);
-                    setPeriodPickerAction(null);
-                    if (typeof action === 'number') {
-                      void run(() => restoreRemovedInstallment(action, period.id), t('installments.registerError'), t('installments.registered'));
-                    }
-                  }}
-                  style={[styles.periodOption, { borderColor: colors.border }, period.id === periodId && styles.selectedOption]}>
-                  <ThemedText style={period.id === periodId ? styles.selectedOptionText : undefined}>{formatDate(parseDate(period.startDate))} – {formatDate(parseDate(period.endDate))}</ThemedText>
-                  {period.id === periodId && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+                  onPress={() => setPendingPeriodId(period.id)}
+                  style={[styles.periodOption, { borderColor: colors.border }, period.id === pendingPeriodId && styles.selectedOption]}>
+                  <ThemedText style={period.id === pendingPeriodId ? styles.selectedOptionText : undefined}>{formatDate(parseDate(period.startDate))} – {formatDate(parseDate(period.endDate))}</ThemedText>
+                  {period.id === pendingPeriodId && <Ionicons name="checkmark" size={20} color={colors.primary} />}
                 </Pressable>
               ))}
             </ScrollView>
+            <Pressable
+              disabled={pendingPeriodId == null || saving}
+              onPress={confirmPeriodSelection}
+              style={[styles.primary, (pendingPeriodId == null || saving) && styles.disabled]}>
+              <ThemedText style={styles.primaryText}>{t('common.select')}</ThemedText>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -211,7 +229,7 @@ const styles = StyleSheet.create({
   restoreButton: { alignSelf: 'center', minHeight: 42, marginTop: 10, marginBottom: 4, borderWidth: 1, borderRadius: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 16, paddingVertical: 9 },
   restoreButtonText: { fontSize: 14, lineHeight: 20, fontWeight: '700' },
   danger: { borderWidth: 1, borderColor: '#dc2626', borderRadius: 9, padding: 12, alignItems: 'center' }, dangerText: { color: '#dc2626', fontWeight: '700' },
-  disabled: { opacity: 0.4 }, deleteSection: { gap: 8, marginTop: 4 }, deleteHint: { opacity: 0.65, fontSize: 13, lineHeight: 18 },
+  disabled: { opacity: 0.4 }, deleteSection: { gap: 8, marginTop: 4 },
   modalOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, backgroundColor: 'rgba(0,0,0,0.45)' },
   modalSheet: { width: '100%', maxHeight: '70%', borderRadius: 18, padding: 20, gap: 14 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
