@@ -81,6 +81,22 @@ function AppContent() {
                   options={{ presentation: 'fullScreenModal', title: t('navigation.installmentDetail') }}
                 />
                 <Stack.Screen
+                  name="modal/manual-debt-form"
+                  options={{ presentation: 'modal', title: t('manualDebts.debt') }}
+                />
+                <Stack.Screen
+                  name="modal/manual-debt-detail"
+                  options={{ presentation: 'fullScreenModal', title: t('manualDebts.debtDetail') }}
+                />
+                <Stack.Screen
+                  name="modal/manual-debt-payment"
+                  options={{ presentation: 'modal', title: t('manualDebts.payment') }}
+                />
+                <Stack.Screen
+                  name="modal/manual-debt-balance"
+                  options={{ presentation: 'modal', title: t('manualDebts.updateBalance') }}
+                />
+                <Stack.Screen
                   name="modal/savings-goals"
                   options={{ presentation: 'fullScreenModal', title: t('savings.title') }}
                 />

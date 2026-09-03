@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   AppState,
   AppStateStatus,
   Pressable,
@@ -11,6 +10,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { Colors } from '@/constants/theme';
 import { useBiometric } from '@/contexts/BiometricContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -49,11 +49,7 @@ export function BiometricGate({ children }: React.PropsWithChildren) {
   }, [appState, authenticate, isLocked]);
 
   if (isChecking) {
-    return (
-      <ThemedView style={styles.centered}>
-        <ActivityIndicator size="large" />
-      </ThemedView>
-    );
+    return <AppLoadingScreen />;
   }
 
   if (isLocked) {
