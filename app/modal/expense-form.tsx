@@ -43,6 +43,17 @@ export default function ExpenseFormModal() {
     });
   }, [navigation, expense]);
 
+  useEffect(() => {
+    if (expense?.manualDebtEntryId == null || expense.manualDebtId == null) return;
+    router.replace({
+      pathname: '/modal/manual-debt-payment',
+      params: {
+        debtId: String(expense.manualDebtId),
+        entryId: String(expense.manualDebtEntryId),
+      },
+    });
+  }, [expense]);
+
   if (loading) {
     return (
       <ThemedView style={[styles.container, styles.center]}>
@@ -56,6 +67,15 @@ export default function ExpenseFormModal() {
     return (
       <ThemedView style={[styles.container, styles.center]}>
         <ThemedText>{t('expenses.originMissing')}</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (expense?.manualDebtEntryId != null) {
+    return (
+      <ThemedView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" />
+        <ThemedText>{t('manualDebts.loadingPayment')}</ThemedText>
       </ThemedView>
     );
   }

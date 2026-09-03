@@ -85,6 +85,8 @@ export type Expense = {
   paymentMethodId: number | null;
   recurringExpenseId: number | null;
   debtPlanId: number | null;
+  manualDebtId: number | null;
+  manualDebtEntryId: number | null;
   installmentNumber: number | null;
   totalInstallments: number | null;
   savingsGoalId: number | null;
@@ -205,8 +207,70 @@ export type DebtPlan = NewInstallmentPurchase & {
   categoryColor: string | null;
   postedInstallments: number;
   linkedExpenseCount: number;
+  settlementExpenseId: number | null;
   remainingAmount: number;
   installments?: DebtInstallment[];
+};
+
+export type ManualDebtType = 'fixed' | 'variable';
+export type ManualDebtStatus = 'active' | 'paid' | 'archived';
+export type ManualDebtFrequency = 'weekly' | 'monthly' | 'annual';
+
+export type NewManualDebt = {
+  type: ManualDebtType;
+  name: string;
+  creditor: string | null;
+  initialAmount: number;
+  installmentAmount: number | null;
+  frequency: ManualDebtFrequency | null;
+  firstDueDate: string | null;
+  categoryId: number | null;
+  paymentMethodId: number | null;
+  notes: string | null;
+};
+
+export type ManualDebtEntry = {
+  id: number;
+  debtId: number;
+  kind: 'payment' | 'adjustment';
+  amount: number;
+  date: string;
+  periodId: number | null;
+  expenseId: number | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  paymentMethodId: number | null;
+  paymentMethodName: string | null;
+  note: string | null;
+};
+
+export type ManualDebt = NewManualDebt & {
+  id: number;
+  status: ManualDebtStatus;
+  currentBalance: number;
+  paidAmount: number;
+  paymentCount: number;
+  entryCount: number;
+  totalInstallments: number | null;
+  nextDueDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  entries?: ManualDebtEntry[];
+};
+
+export type NewManualDebtPayment = {
+  amount: number;
+  date: string;
+  periodId: number;
+  categoryId: number | null;
+  paymentMethodId: number | null;
+  note: string | null;
+};
+
+export type NewManualDebtBalance = {
+  balance: number;
+  date: string;
+  note: string | null;
 };
 
 // Ver, pensar en Periods

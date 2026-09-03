@@ -10,11 +10,16 @@ import type {
   ExpenseWithCategory,
   GeneratedRecurringExpenseNotification,
   Income,
+  ManualDebt,
+  ManualDebtEntry,
   NewCategory,
   NewCreditCardCycle,
   NewExpense,
   NewIncome,
   NewInstallmentPurchase,
+  NewManualDebt,
+  NewManualDebtBalance,
+  NewManualDebtPayment,
   NewPaymentMethod,
   NewPeriod,
   NewRecurringExpense,
@@ -653,6 +658,40 @@ async function initializeDatabase(): Promise<void> {
       FOREIGN KEY(income_id) REFERENCES incomes(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS manual_debts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL CHECK (type IN ('fixed', 'variable')),
+      name TEXT NOT NULL,
+      creditor TEXT,
+      initial_amount INTEGER NOT NULL CHECK (initial_amount > 0),
+      installment_amount INTEGER,
+      frequency TEXT CHECK (frequency IN ('weekly', 'monthly', 'annual')),
+      first_due_date TEXT,
+      category_id INTEGER,
+      payment_method_id INTEGER,
+      notes TEXT,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paid', 'archived')),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL,
+      FOREIGN KEY(payment_method_id) REFERENCES payment_methods(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS manual_debt_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      debt_id INTEGER NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('payment', 'adjustment')),
+      amount INTEGER NOT NULL CHECK (amount != 0),
+      date TEXT NOT NULL,
+      period_id INTEGER,
+      expense_id INTEGER UNIQUE,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(debt_id) REFERENCES manual_debts(id) ON DELETE CASCADE,
+      FOREIGN KEY(period_id) REFERENCES periods(id),
+      FOREIGN KEY(expense_id) REFERENCES expenses(id) ON DELETE CASCADE
+    );
+
   `);
 
   // Existing databases can have an older expenses/incomes schema. Migrate it
@@ -859,6 +898,8 @@ async function initializeDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_savings_goals_status ON savings_goals(status, deadline);
     CREATE INDEX IF NOT EXISTS idx_savings_movements_goal ON savings_goal_movements(goal_id);
     CREATE INDEX IF NOT EXISTS idx_recurring_savings_goal ON recurring_expenses(savings_goal_id);
+    CREATE INDEX IF NOT EXISTS idx_manual_debt_entries_debt ON manual_debt_entries(debt_id, date);
+    CREATE INDEX IF NOT EXISTS idx_manual_debt_entries_expense ON manual_debt_entries(expense_id);
 
     INSERT OR IGNORE INTO periods (id, start_date, end_date)
     VALUES (
@@ -945,6 +986,53 @@ export function initDatabase(): Promise<void> {
     });
   }
   return initializationPromise;
+}
+
+export async function resetLocalData(): Promise<void> {
+  const database = await getDb();
+  await withExclusiveTransaction(database, async (transaction) => {
+    await transaction.execAsync(`
+      DELETE FROM savings_goal_movements;
+      DELETE FROM manual_debt_entries;
+      DELETE FROM recurring_expense_occurrences;
+      DELETE FROM recurring_income_occurrences;
+      DELETE FROM credit_card_cycles;
+      DELETE FROM debt_installments;
+      DELETE FROM expenses;
+      DELETE FROM incomes;
+      DELETE FROM recurring_expenses;
+      DELETE FROM recurring_incomes;
+      DELETE FROM debt_plans;
+      DELETE FROM manual_debts;
+      DELETE FROM savings_goals;
+      DELETE FROM settings;
+      DELETE FROM categories;
+      DELETE FROM payment_methods;
+      DELETE FROM periods;
+      DELETE FROM sqlite_sequence;
+
+      INSERT INTO periods (start_date, end_date)
+      VALUES (date('now', '-1 month'), date('now'));
+
+      INSERT INTO settings (id, current_period_id)
+      VALUES (1, last_insert_rowid());
+    `);
+
+    await transaction.runAsync(
+      `INSERT INTO payment_methods (name, type, billing_day, color, active)
+       VALUES (?, 'cash', NULL, '#27ae60', 1)`,
+      t('paymentMethods.cash')
+    );
+    for (const category of DEFAULT_CATEGORIES) {
+      await transaction.runAsync(
+        'INSERT INTO categories (name, color, period_limit, purpose) VALUES (?, ?, ?, ?)',
+        category.name,
+        category.color,
+        category.periodLimit,
+        category.purpose ?? 'general'
+      );
+    }
+  });
 }
 
 export async function getPeriods(): Promise<Period[]> {
@@ -1464,6 +1552,21 @@ function validateExpense(data: NewExpense): void {
   if (!data.name.trim()) throw new Error(t('validation.invalidExpenseName'));
   if (!Number.isInteger(data.amount) || data.amount <= 0) {
     throw new Error(t('validation.invalidAmount'));
+  }
+  const hasOriginalAmount = data.originalAmount != null;
+  const hasSplitPercentage = data.splitPercentage != null;
+  if (hasOriginalAmount !== hasSplitPercentage) {
+    throw new Error(t('validation.invalidSplitAmount'));
+  }
+  if (data.originalAmount != null && data.splitPercentage != null && (
+    !Number.isInteger(data.originalAmount)
+    || data.originalAmount <= 0
+    || data.amount > data.originalAmount
+    || !Number.isFinite(data.splitPercentage)
+    || data.splitPercentage <= 0
+    || data.splitPercentage > 100
+  )) {
+    throw new Error(t('validation.invalidSplitAmount'));
   }
 }
 
@@ -2176,6 +2279,9 @@ export async function getDebtPlans(paymentMethodId?: number): Promise<DebtPlan[]
       c.name AS category_name, c.color AS category_color,
       SUM(CASE WHEN i.status = 'posted' THEN 1 ELSE 0 END) AS posted_installments,
       (SELECT COUNT(*) FROM expenses e WHERE e.debt_plan_id = p.id) AS linked_expense_count,
+      (SELECT e.id FROM expenses e
+       WHERE e.debt_plan_id = p.id AND e.debt_installment_id IS NULL
+       ORDER BY e.id DESC LIMIT 1) AS settlement_expense_id,
       COALESCE(SUM(CASE WHEN i.status = 'projected' THEN i.projected_amount ELSE 0 END), 0) AS remaining_amount
      FROM debt_plans p
      INNER JOIN payment_methods pm ON pm.id = p.payment_method_id
@@ -2197,6 +2303,7 @@ export async function getDebtPlans(paymentMethodId?: number): Promise<DebtPlan[]
     categoryColor: row.category_color == null ? null : String(row.category_color),
     postedInstallments: Number(row.posted_installments),
     linkedExpenseCount: Number(row.linked_expense_count),
+    settlementExpenseId: row.settlement_expense_id == null ? null : Number(row.settlement_expense_id),
     remainingAmount: Number(row.remaining_amount),
   }));
 }
@@ -2222,6 +2329,290 @@ export async function getDebtPlan(id: number): Promise<DebtPlan | null> {
       manuallyRemoved: item.manuallyRemoved === 1,
     })) as DebtPlan['installments'],
   };
+}
+
+function validateManualDebt(data: NewManualDebt): void {
+  if (!data.name.trim()) throw new Error(t('database.manualDebtNameRequired'));
+  if (!Number.isInteger(data.initialAmount) || data.initialAmount <= 0) {
+    throw new Error(t('database.manualDebtInitialAmountRequired'));
+  }
+  if (data.installmentAmount != null && data.installmentAmount > data.initialAmount) {
+    throw new Error(t('database.manualDebtInstallmentTooHigh'));
+  }
+  if (data.type === 'fixed') {
+    if (data.installmentAmount == null || !Number.isInteger(data.installmentAmount) || data.installmentAmount <= 0) {
+      throw new Error(t('database.manualDebtInstallmentRequired'));
+    }
+    if (!data.frequency || !data.firstDueDate) {
+      throw new Error(t('database.manualDebtScheduleRequired'));
+    }
+  } else if (data.installmentAmount != null && (!Number.isInteger(data.installmentAmount) || data.installmentAmount <= 0 || !data.firstDueDate)) {
+    throw new Error(t('database.manualDebtVariableEstimateInvalid'));
+  }
+}
+
+function nextManualDebtDueDate(
+  firstDueDate: string | null,
+  frequency: ManualDebt['frequency'],
+  paymentCount: number
+): string | null {
+  if (!firstDueDate || !frequency) return null;
+  if (frequency === 'weekly') return addIsoDays(firstDueDate, paymentCount * 7);
+  if (frequency === 'annual') return addIsoMonths(firstDueDate, paymentCount * 12);
+  return addIsoMonths(firstDueDate, paymentCount);
+}
+
+function mapManualDebt(row: Record<string, unknown>): ManualDebt {
+  const initialAmount = Number(row.initial_amount);
+  const currentBalance = Math.max(0, Number(row.current_balance));
+  const installmentAmount = row.installment_amount == null ? null : Number(row.installment_amount);
+  const paymentCount = Number(row.payment_count);
+  const storedStatus = String(row.status) as ManualDebt['status'];
+  const status = storedStatus === 'archived' ? 'archived' : currentBalance === 0 ? 'paid' : 'active';
+  return {
+    id: Number(row.id),
+    type: row.type as ManualDebt['type'],
+    name: String(row.name),
+    creditor: row.creditor == null ? null : String(row.creditor),
+    initialAmount,
+    installmentAmount,
+    frequency: row.frequency == null ? null : row.frequency as ManualDebt['frequency'],
+    firstDueDate: row.first_due_date == null ? null : String(row.first_due_date),
+    categoryId: row.category_id == null ? null : Number(row.category_id),
+    paymentMethodId: row.payment_method_id == null ? null : Number(row.payment_method_id),
+    notes: row.notes == null ? null : String(row.notes),
+    status,
+    currentBalance,
+    paidAmount: Number(row.paid_amount),
+    paymentCount,
+    entryCount: Number(row.entry_count),
+    totalInstallments: row.type === 'fixed' && installmentAmount != null ? Math.ceil(initialAmount / installmentAmount) : null,
+    nextDueDate: status === 'active'
+      ? nextManualDebtDueDate(
+          row.first_due_date == null ? null : String(row.first_due_date),
+          row.frequency == null ? null : row.frequency as ManualDebt['frequency'],
+          paymentCount
+        )
+      : null,
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+export async function getManualDebts(): Promise<ManualDebt[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<Record<string, unknown>>(`
+    SELECT d.*,
+      COUNT(entry.id) AS entry_count,
+      COALESCE(SUM(CASE WHEN entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0) AS paid_amount,
+      COALESCE(SUM(CASE WHEN entry.kind = 'payment' THEN 1 ELSE 0 END), 0) AS payment_count,
+      d.initial_amount
+        + COALESCE(SUM(CASE WHEN entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0)
+        - COALESCE(SUM(CASE WHEN entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0)
+        AS current_balance
+    FROM manual_debts d
+    LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
+    GROUP BY d.id
+    ORDER BY CASE d.status WHEN 'archived' THEN 2 ELSE 0 END, d.updated_at DESC, d.id DESC
+  `);
+  return rows.map(mapManualDebt);
+}
+
+export async function getManualDebt(id: number): Promise<ManualDebt | null> {
+  const debt = (await getManualDebts()).find((item) => item.id === id);
+  if (!debt) return null;
+  const db = await getDb();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT entry.*, expense.category_id, category.name AS category_name,
+      expense.payment_method_id, payment.name AS payment_method_name
+     FROM manual_debt_entries entry
+     LEFT JOIN expenses expense ON expense.id = entry.expense_id
+     LEFT JOIN categories category ON category.id = expense.category_id
+     LEFT JOIN payment_methods payment ON payment.id = expense.payment_method_id
+     WHERE entry.debt_id = ?
+     ORDER BY entry.date DESC, entry.id DESC`,
+    id
+  );
+  const entries: ManualDebtEntry[] = rows.map((row) => ({
+    id: Number(row.id), debtId: Number(row.debt_id), kind: row.kind as ManualDebtEntry['kind'],
+    amount: Number(row.amount), date: String(row.date),
+    periodId: row.period_id == null ? null : Number(row.period_id),
+    expenseId: row.expense_id == null ? null : Number(row.expense_id),
+    categoryId: row.category_id == null ? null : Number(row.category_id),
+    categoryName: row.category_name == null ? null : String(row.category_name),
+    paymentMethodId: row.payment_method_id == null ? null : Number(row.payment_method_id),
+    paymentMethodName: row.payment_method_name == null ? null : String(row.payment_method_name),
+    note: row.note == null ? null : String(row.note),
+  }));
+  return { ...debt, entries };
+}
+
+export async function createManualDebt(data: NewManualDebt): Promise<number> {
+  validateManualDebt(data);
+  const db = await getDb();
+  const result = await db.runAsync(
+    `INSERT INTO manual_debts
+      (type, name, creditor, initial_amount, installment_amount, frequency,
+       first_due_date, category_id, payment_method_id, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    data.type, data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
+    data.installmentAmount,
+    data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
+    data.installmentAmount != null ? data.firstDueDate : null,
+    data.categoryId, data.paymentMethodId, data.notes?.trim() || null
+  );
+  return result.lastInsertRowId;
+}
+
+export async function updateManualDebt(id: number, data: NewManualDebt): Promise<void> {
+  validateManualDebt(data);
+  const db = await getDb();
+  const existing = await db.getFirstAsync<{ type: string; initial_amount: number; entry_count: number }>(
+    `SELECT d.type, d.initial_amount, COUNT(entry.id) AS entry_count
+     FROM manual_debts d LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
+     WHERE d.id = ? GROUP BY d.id`, id
+  );
+  if (!existing) throw new Error(t('database.manualDebtMissing'));
+  if (existing.type !== data.type) throw new Error(t('database.manualDebtTypeLocked'));
+  if (existing.entry_count > 0 && existing.initial_amount !== data.initialAmount) {
+    throw new Error(t('database.manualDebtInitialLocked'));
+  }
+  await db.runAsync(
+    `UPDATE manual_debts SET name = ?, creditor = ?, initial_amount = ?, installment_amount = ?,
+      frequency = ?, first_due_date = ?, category_id = ?, payment_method_id = ?, notes = ?,
+      updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
+    data.installmentAmount,
+    data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
+    data.installmentAmount != null ? data.firstDueDate : null,
+    data.categoryId, data.paymentMethodId, data.notes?.trim() || null, id
+  );
+}
+
+async function getManualDebtBalance(db: SQLite.SQLiteDatabase, id: number): Promise<number> {
+  const row = await db.getFirstAsync<{ balance: number }>(
+    `SELECT d.initial_amount
+      + COALESCE(SUM(CASE WHEN entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0)
+      - COALESCE(SUM(CASE WHEN entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0) AS balance
+     FROM manual_debts d LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
+     WHERE d.id = ? GROUP BY d.id`, id
+  );
+  if (!row) throw new Error(t('database.manualDebtMissing'));
+  return Math.max(0, Number(row.balance));
+}
+
+async function assertManualDebtPaymentMethod(db: SQLite.SQLiteDatabase, id: number | null): Promise<void> {
+  if (id == null) return;
+  const method = await db.getFirstAsync<{ type: string }>('SELECT type FROM payment_methods WHERE id = ?', id);
+  if (!method) throw new Error(t('database.paymentMethodMissing'));
+  if (method.type === 'credit') throw new Error(t('database.manualDebtCreditNotAllowed'));
+}
+
+export async function createManualDebtPayment(debtId: number, data: NewManualDebtPayment): Promise<void> {
+  if (!Number.isInteger(data.amount) || data.amount <= 0) throw new Error(t('validation.invalidAmount'));
+  const db = await getDb();
+  await assertDateBelongsToPeriod(db, data.periodId, data.date);
+  await assertManualDebtPaymentMethod(db, data.paymentMethodId);
+  await withExclusiveTransaction(db, async (transaction) => {
+    const debt = await transaction.getFirstAsync<{ name: string }>('SELECT name FROM manual_debts WHERE id = ?', debtId);
+    if (!debt) throw new Error(t('database.manualDebtMissing'));
+    const balance = await getManualDebtBalance(transaction, debtId);
+    if (data.amount > balance) throw new Error(t('database.manualDebtPaymentTooHigh'));
+    const expense = await transaction.runAsync(
+      `INSERT INTO expenses
+        (name, amount, category_id, period_id, date, original_amount, split_percentage, payment_method_id)
+       VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)`,
+      t('database.manualDebtPayment', { name: debt.name }), data.amount, data.categoryId,
+      data.periodId, data.date, data.paymentMethodId
+    );
+    await transaction.runAsync(
+      `INSERT INTO manual_debt_entries (debt_id, kind, amount, date, period_id, expense_id, note)
+       VALUES (?, 'payment', ?, ?, ?, ?, ?)`,
+      debtId, data.amount, data.date, data.periodId, expense.lastInsertRowId, data.note?.trim() || null
+    );
+    await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', debtId);
+  });
+}
+
+export async function updateManualDebtPayment(entryId: number, data: NewManualDebtPayment): Promise<void> {
+  if (!Number.isInteger(data.amount) || data.amount <= 0) throw new Error(t('validation.invalidAmount'));
+  const db = await getDb();
+  await assertDateBelongsToPeriod(db, data.periodId, data.date);
+  await assertManualDebtPaymentMethod(db, data.paymentMethodId);
+  await withExclusiveTransaction(db, async (transaction) => {
+    const entry = await transaction.getFirstAsync<{ debt_id: number; expense_id: number; amount: number; name: string }>(
+      `SELECT entry.debt_id, entry.expense_id, entry.amount, debt.name
+       FROM manual_debt_entries entry INNER JOIN manual_debts debt ON debt.id = entry.debt_id
+       WHERE entry.id = ? AND entry.kind = 'payment'`, entryId
+    );
+    if (!entry) throw new Error(t('database.manualDebtPaymentMissing'));
+    const available = await getManualDebtBalance(transaction, entry.debt_id) + entry.amount;
+    if (data.amount > available) throw new Error(t('database.manualDebtPaymentTooHigh'));
+    await transaction.runAsync(
+      `UPDATE expenses SET name = ?, amount = ?, category_id = ?, period_id = ?, date = ?,
+       payment_method_id = ? WHERE id = ?`,
+      t('database.manualDebtPayment', { name: entry.name }), data.amount, data.categoryId,
+      data.periodId, data.date, data.paymentMethodId, entry.expense_id
+    );
+    await transaction.runAsync(
+      `UPDATE manual_debt_entries SET amount = ?, date = ?, period_id = ?, note = ? WHERE id = ?`,
+      data.amount, data.date, data.periodId, data.note?.trim() || null, entryId
+    );
+    await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', entry.debt_id);
+  });
+}
+
+export async function deleteManualDebtPayment(entryId: number): Promise<void> {
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    const entry = await transaction.getFirstAsync<{ debt_id: number; expense_id: number | null }>(
+      "SELECT debt_id, expense_id FROM manual_debt_entries WHERE id = ? AND kind = 'payment'", entryId
+    );
+    if (!entry) return;
+    await transaction.runAsync('DELETE FROM manual_debt_entries WHERE id = ?', entryId);
+    if (entry.expense_id != null) await transaction.runAsync('DELETE FROM expenses WHERE id = ?', entry.expense_id);
+    await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', entry.debt_id);
+  });
+}
+
+export async function addManualDebtBalanceAdjustment(debtId: number, data: NewManualDebtBalance): Promise<void> {
+  if (!Number.isInteger(data.balance) || data.balance < 0) throw new Error(t('database.manualDebtBalanceInvalid'));
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    const debt = await transaction.getFirstAsync<{ type: string }>('SELECT type FROM manual_debts WHERE id = ?', debtId);
+    if (!debt) throw new Error(t('database.manualDebtMissing'));
+    if (debt.type !== 'variable') throw new Error(t('database.manualDebtAdjustmentFixed'));
+    const current = await getManualDebtBalance(transaction, debtId);
+    const difference = data.balance - current;
+    if (difference === 0) throw new Error(t('database.manualDebtBalanceUnchanged'));
+    await transaction.runAsync(
+      `INSERT INTO manual_debt_entries (debt_id, kind, amount, date, note)
+       VALUES (?, 'adjustment', ?, ?, ?)`,
+      debtId, difference, data.date, data.note?.trim() || null
+    );
+    await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', debtId);
+  });
+}
+
+export async function setManualDebtArchived(id: number, archived: boolean): Promise<void> {
+  const db = await getDb();
+  const result = await db.runAsync(
+    "UPDATE manual_debts SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+    archived ? 'archived' : 'active', id
+  );
+  if (result.changes === 0) throw new Error(t('database.manualDebtMissing'));
+}
+
+export async function deleteManualDebt(id: number): Promise<void> {
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    const entries = await transaction.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) AS count FROM manual_debt_entries WHERE debt_id = ?', id
+    );
+    if (Number(entries?.count ?? 0) > 0) throw new Error(t('database.manualDebtHasHistory'));
+    const result = await transaction.runAsync('DELETE FROM manual_debts WHERE id = ?', id);
+    if (result.changes === 0) throw new Error(t('database.manualDebtMissing'));
+  });
 }
 
 async function postInstallment(
@@ -2392,15 +2783,6 @@ export async function deleteInstallmentPlan(id: number): Promise<void> {
   });
 }
 
-export async function cancelFutureInstallments(id: number): Promise<void> {
-  const db = await getDb();
-  await withExclusiveTransaction(db, async (transaction) => {
-    await transaction.runAsync("UPDATE debt_installments SET status = 'cancelled', manually_removed = 0 WHERE debt_plan_id = ? AND status = 'projected'", id);
-    const result = await transaction.runAsync("UPDATE debt_plans SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status IN ('projected', 'active')", id);
-    if (result.changes === 0) throw new Error(t('database.noFutureInstallments'));
-  });
-}
-
 export async function settleInstallmentPlan(id: number, periodId: number): Promise<void> {
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
@@ -2449,6 +2831,8 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
         e.payment_method_id AS paymentMethodId,
         e.recurring_expense_id AS recurringExpenseId,
         e.debt_plan_id AS debtPlanId,
+        (SELECT entry.debt_id FROM manual_debt_entries entry WHERE entry.expense_id = e.id) AS manualDebtId,
+        (SELECT entry.id FROM manual_debt_entries entry WHERE entry.expense_id = e.id) AS manualDebtEntryId,
         installment.installment_number AS installmentNumber,
         plan.total_installments AS totalInstallments,
         savingsGoal.id AS savingsGoalId,
@@ -2511,6 +2895,8 @@ export async function getExpenseById(id: number): Promise<ExpenseWithCategory | 
       e.payment_method_id AS paymentMethodId,
       e.recurring_expense_id AS recurringExpenseId,
       e.debt_plan_id AS debtPlanId,
+      (SELECT entry.debt_id FROM manual_debt_entries entry WHERE entry.expense_id = e.id) AS manualDebtId,
+      (SELECT entry.id FROM manual_debt_entries entry WHERE entry.expense_id = e.id) AS manualDebtEntryId,
       installment.installment_number AS installmentNumber,
       plan.total_installments AS totalInstallments,
       savingsGoal.id AS savingsGoalId,
@@ -2635,6 +3021,10 @@ export async function updateExpense(
     id
   );
   if (!expense) throw new Error(t('database.expenseMissing'));
+  const manualDebtEntry = await db.getFirstAsync<{ id: number; debt_id: number; amount: number }>(
+    "SELECT id, debt_id, amount FROM manual_debt_entries WHERE expense_id = ? AND kind = 'payment'",
+    id
+  );
   const existingMovement = await getExpenseSavingsMovement(db, id);
   const selection = resolveExpenseSavingsSelection(data, existingMovement, true);
   const effectivePaymentMethodId = selection?.kind === 'funded_expense'
@@ -2643,6 +3033,11 @@ export async function updateExpense(
   await assertDateBelongsToPeriod(db, expense.period_id, data.date);
   await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
   await assertCreditCardCycleIsEditable(db, effectivePaymentMethodId, data.date);
+  if (manualDebtEntry) {
+    await assertManualDebtPaymentMethod(db, effectivePaymentMethodId);
+    const available = await getManualDebtBalance(db, manualDebtEntry.debt_id) + manualDebtEntry.amount;
+    if (data.amount > available) throw new Error(t('database.manualDebtPaymentTooHigh'));
+  }
 
   await withExclusiveTransaction(db, async (transaction) => {
     await assertSavingsSelectionMatchesCategory(transaction, data.categoryId, selection);
@@ -2668,6 +3063,17 @@ export async function updateExpense(
     );
 
     await setExpenseSavingsMovement(transaction, id, data.amount, selection);
+
+    if (manualDebtEntry) {
+      await transaction.runAsync(
+        'UPDATE manual_debt_entries SET amount = ?, date = ? WHERE id = ?',
+        data.amount, data.date, manualDebtEntry.id
+      );
+      await transaction.runAsync(
+        'UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        manualDebtEntry.debt_id
+      );
+    }
 
     if (expense.recurring_expense_id == null) return;
     const recurring = await transaction.getFirstAsync<{
@@ -2752,11 +3158,20 @@ export async function deleteExpense(
   id:number
 ): Promise<void> {
   const db = await getDb();
-  const expense = await db.getFirstAsync<{ date: string; payment_method_id: number | null; debt_installment_id: number | null }>(
-    'SELECT date, payment_method_id, debt_installment_id FROM expenses WHERE id = ?',
+  const expense = await db.getFirstAsync<{
+    date: string;
+    payment_method_id: number | null;
+    debt_plan_id: number | null;
+    debt_installment_id: number | null;
+  }>(
+    'SELECT date, payment_method_id, debt_plan_id, debt_installment_id FROM expenses WHERE id = ?',
     id
   );
   if (!expense) return;
+  const manualDebtEntry = await db.getFirstAsync<{ debt_id: number }>(
+    "SELECT debt_id FROM manual_debt_entries WHERE expense_id = ? AND kind = 'payment'",
+    id
+  );
   await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
   await withExclusiveTransaction(db, async (transaction) => {
     const savingsMovement = await getExpenseSavingsMovement(transaction, id);
@@ -2779,7 +3194,14 @@ export async function deleteExpense(
     );
 
     await transaction.runAsync('DELETE FROM savings_goal_movements WHERE expense_id = ?', id);
+    await transaction.runAsync('DELETE FROM manual_debt_entries WHERE expense_id = ?', id);
     await transaction.runAsync('DELETE FROM expenses WHERE id = ?', id);
+    if (manualDebtEntry) {
+      await transaction.runAsync(
+        'UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        manualDebtEntry.debt_id
+      );
+    }
 
     if (savingsMovement?.kind === 'contribution') {
       await assertSavingsGoalBalanceIsNotNegative(transaction, savingsMovement.goal_id);
@@ -2797,6 +3219,27 @@ export async function deleteExpense(
          WHERE id = (SELECT debt_plan_id FROM debt_installments WHERE id = ?)
            AND status = 'completed'`,
         expense.debt_installment_id
+      );
+    } else if (expense.debt_plan_id != null) {
+      await transaction.runAsync(
+        `UPDATE debt_installments
+         SET status = 'projected', expense_id = NULL, manually_removed = 0
+         WHERE debt_plan_id = ? AND status = 'cancelled'`,
+        expense.debt_plan_id
+      );
+      await transaction.runAsync(
+        `UPDATE debt_plans
+         SET status = CASE
+           WHEN EXISTS (
+             SELECT 1 FROM debt_installments
+             WHERE debt_plan_id = ? AND status = 'posted'
+           ) THEN 'active'
+           ELSE 'projected'
+         END,
+         updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND status = 'completed'`,
+        expense.debt_plan_id,
+        expense.debt_plan_id
       );
     }
 

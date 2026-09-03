@@ -1,18 +1,23 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 
 import * as db from '@/lib/db';
 import { t } from '@/lib/i18n';
+import { AppLoadingScreen } from '@/components/app-loading-screen';
 import type {
   Category,
   CreditCardCycle,
   DebtPlan,
   ExpenseWithCategory,
   Income,
+  ManualDebt,
   NewCategory,
   NewExpense,
   NewIncome,
   NewInstallmentPurchase,
+  NewManualDebt,
+  NewManualDebtBalance,
+  NewManualDebtPayment,
   NewCreditCardCycle,
   NewPaymentMethod,
   NewRecurringExpense,
@@ -90,9 +95,18 @@ type DatabaseContextValue = {
   addInstallmentPurchase: (data: NewInstallmentPurchase) => Promise<number>;
   activateInstallmentPlan: (id: number, periodId: number, actualAmount: number) => Promise<void>;
   settleInstallmentPlan: (id: number, periodId: number) => Promise<void>;
-  cancelFutureInstallments: (id: number) => Promise<void>;
   restoreRemovedInstallment: (installmentId: number, periodId: number) => Promise<void>;
   removeInstallmentPlan: (id: number) => Promise<void>;
+  getManualDebts: () => Promise<ManualDebt[]>;
+  getManualDebt: (id: number) => Promise<ManualDebt | null>;
+  addManualDebt: (data: NewManualDebt) => Promise<number>;
+  editManualDebt: (id: number, data: NewManualDebt) => Promise<void>;
+  addManualDebtPayment: (debtId: number, data: NewManualDebtPayment) => Promise<void>;
+  editManualDebtPayment: (entryId: number, data: NewManualDebtPayment) => Promise<void>;
+  removeManualDebtPayment: (entryId: number) => Promise<void>;
+  addManualDebtBalanceAdjustment: (debtId: number, data: NewManualDebtBalance) => Promise<void>;
+  setManualDebtArchived: (id: number, archived: boolean) => Promise<void>;
+  removeManualDebt: (id: number) => Promise<void>;
   addSavingsGoal: (data: NewSavingsGoal) => Promise<void>;
   editSavingsGoal: (id: number, data: NewSavingsGoal) => Promise<void>;
   setSavingsGoalStatus: (id: number, status: SavingsGoalStatus) => Promise<void>;
@@ -120,6 +134,7 @@ type DatabaseContextValue = {
   setPeriodStartDate: (date: string) => Promise<void>;
   setPeriodEndDate: (date: string) => Promise<void>;
   setMovementReminder: (data: MovementReminderSettings) => Promise<void>;
+  resetLocalData: () => Promise<void>;
 };
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
@@ -412,11 +427,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
-  const cancelFutureInstallments = useCallback(async (id: number) => {
-    await db.cancelFutureInstallments(id);
-    await refresh();
-  }, [refresh]);
-
   const restoreRemovedInstallment = useCallback(async (installmentId: number, periodId: number) => {
     await db.restoreRemovedInstallment(installmentId, periodId);
     await refresh();
@@ -424,6 +434,42 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const removeInstallmentPlan = useCallback(async (id: number) => {
     await db.deleteInstallmentPlan(id);
+    await refresh();
+  }, [refresh]);
+
+  const getManualDebts = useCallback(() => db.getManualDebts(), []);
+  const getManualDebt = useCallback((id: number) => db.getManualDebt(id), []);
+  const addManualDebt = useCallback(async (data: NewManualDebt) => {
+    const id = await db.createManualDebt(data);
+    await refresh();
+    return id;
+  }, [refresh]);
+  const editManualDebt = useCallback(async (id: number, data: NewManualDebt) => {
+    await db.updateManualDebt(id, data);
+    await refresh();
+  }, [refresh]);
+  const addManualDebtPayment = useCallback(async (debtId: number, data: NewManualDebtPayment) => {
+    await db.createManualDebtPayment(debtId, data);
+    await refresh();
+  }, [refresh]);
+  const editManualDebtPayment = useCallback(async (entryId: number, data: NewManualDebtPayment) => {
+    await db.updateManualDebtPayment(entryId, data);
+    await refresh();
+  }, [refresh]);
+  const removeManualDebtPayment = useCallback(async (entryId: number) => {
+    await db.deleteManualDebtPayment(entryId);
+    await refresh();
+  }, [refresh]);
+  const addManualDebtBalanceAdjustment = useCallback(async (debtId: number, data: NewManualDebtBalance) => {
+    await db.addManualDebtBalanceAdjustment(debtId, data);
+    await refresh();
+  }, [refresh]);
+  const setManualDebtArchived = useCallback(async (id: number, archived: boolean) => {
+    await db.setManualDebtArchived(id, archived);
+    await refresh();
+  }, [refresh]);
+  const removeManualDebt = useCallback(async (id: number) => {
+    await db.deleteManualDebt(id);
     await refresh();
   }, [refresh]);
 
@@ -651,6 +697,13 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const resetLocalData = useCallback(async () => {
+    await db.resetLocalData();
+    const resetSettings = await db.getSettings();
+    await syncMovementReminder(resetSettings).catch(() => undefined);
+    await refresh();
+  }, [refresh]);
+
   const value = useMemo(
     () => ({
       categories,
@@ -698,9 +751,18 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addInstallmentPurchase,
       activateInstallmentPlan,
       settleInstallmentPlan,
-      cancelFutureInstallments,
       restoreRemovedInstallment,
       removeInstallmentPlan,
+      getManualDebts,
+      getManualDebt,
+      addManualDebt,
+      editManualDebt,
+      addManualDebtPayment,
+      editManualDebtPayment,
+      removeManualDebtPayment,
+      addManualDebtBalanceAdjustment,
+      setManualDebtArchived,
+      removeManualDebt,
       addSavingsGoal,
       editSavingsGoal,
       setSavingsGoalStatus,
@@ -728,6 +790,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setPeriodStartDate,
       setPeriodEndDate,
       setMovementReminder,
+      resetLocalData,
     }),
     [
       categories,
@@ -775,9 +838,18 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addInstallmentPurchase,
       activateInstallmentPlan,
       settleInstallmentPlan,
-      cancelFutureInstallments,
       restoreRemovedInstallment,
       removeInstallmentPlan,
+      getManualDebts,
+      getManualDebt,
+      addManualDebt,
+      editManualDebt,
+      addManualDebtPayment,
+      editManualDebtPayment,
+      removeManualDebtPayment,
+      addManualDebtBalanceAdjustment,
+      setManualDebtArchived,
+      removeManualDebt,
       addSavingsGoal,
       editSavingsGoal,
       setSavingsGoalStatus,
@@ -805,15 +877,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setPeriodStartDate,
       setPeriodEndDate,
       setMovementReminder,
+      resetLocalData,
     ]
   );
 
   if (!isReady) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return <AppLoadingScreen />;
   }
 
   return <DatabaseContext.Provider value={value}>{children}</DatabaseContext.Provider>;

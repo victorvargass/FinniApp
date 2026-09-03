@@ -3,10 +3,12 @@ import { router } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,6 +32,7 @@ const WEEKDAY_LABELS: Record<number, string> = {
   5: t('settings.weekdays.thursday'), 6: t('settings.weekdays.friday'),
   7: t('settings.weekdays.saturday'),
 };
+const RESET_CONFIRMATION_WORD = 'CONFIRMAR';
 
 function formatBackupDate(date: string | undefined): string {
   if (!date) return t('settings.never');
@@ -221,7 +224,10 @@ export default function UserScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { setPreference: setThemePreference } = useThemePreference();
-  const { recurringDecisions, savingsGoals, settings, setMovementReminder } = useDatabase();
+  const { recurringDecisions, savingsGoals, settings, setMovementReminder, resetLocalData } = useDatabase();
+  const [resetModalVisible, setResetModalVisible] = React.useState(false);
+  const [resetConfirmation, setResetConfirmation] = React.useState('');
+  const [isResetting, setIsResetting] = React.useState(false);
   const pendingConfirmations = recurringDecisions.filter((item) => item.status === 'pending').length;
   const activeSavingsGoals = savingsGoals.filter((goal) => goal.status === 'active');
   const totalSavings = savingsGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
@@ -231,6 +237,50 @@ export default function UserScreen() {
     isAvailable: isBiometricAvailable,
     setEnabled: setBiometricEnabled,
   } = useBiometric();
+  const canReset = resetConfirmation.trim() === RESET_CONFIRMATION_WORD;
+
+  const closeResetModal = () => {
+    if (isResetting) return;
+    setResetModalVisible(false);
+    setResetConfirmation('');
+  };
+
+  const requestDataReset = () => {
+    Alert.alert(
+      t('settings.resetWarningTitle'),
+      t('settings.resetWarning'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.continueReset'),
+          style: 'destructive',
+          onPress: () => {
+            setResetConfirmation('');
+            setResetModalVisible(true);
+          },
+        },
+      ]
+    );
+  };
+
+  const confirmDataReset = async () => {
+    if (!canReset || isResetting) return;
+    setIsResetting(true);
+    try {
+      await resetLocalData();
+      setResetModalVisible(false);
+      setResetConfirmation('');
+      Alert.alert(t('settings.resetComplete'), t('settings.resetCompleteMessage'));
+    } catch (resetError) {
+      Alert.alert(
+        t('settings.resetError'),
+        resetError instanceof Error ? resetError.message : t('common.tryAgain')
+      );
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   // Main content
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -322,7 +372,7 @@ export default function UserScreen() {
                 {t('settings.debtsHint')}
               </ThemedText>
             </View>
-            <Ionicons name="wallet-outline" size={22} color={colors.icon} />
+            <Ionicons name="chevron-forward" size={22} color={colors.icon} />
           </Pressable>
         </ThemedView>
 
@@ -436,7 +486,65 @@ export default function UserScreen() {
         </ThemedView>
 
         <GoogleAccountCard />
+
+        <ThemedView style={styles.dangerCard}>
+          <View style={styles.dangerHeader}>
+            <Ionicons name="warning-outline" size={24} color="#dc2626" />
+            <ThemedText type="subtitle" style={styles.dangerTitle}>{t('settings.dangerZone')}</ThemedText>
+          </View>
+          <ThemedText style={styles.description}>{t('settings.dangerZoneHint')}</ThemedText>
+          <ActionButton
+            title={t('settings.resetData')}
+            onPress={requestDataReset}
+            style={styles.dangerButton}
+            textStyle={styles.dangerButtonText}
+          />
+        </ThemedView>
       </ScrollView>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={resetModalVisible}
+        onRequestClose={closeResetModal}>
+        <Pressable style={styles.modalOverlay} onPress={closeResetModal}>
+          <Pressable style={[styles.confirmationDialog, { backgroundColor: colors.background }]} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.dangerHeader}>
+              <Ionicons name="warning" size={25} color="#dc2626" />
+              <ThemedText type="subtitle" style={styles.confirmationTitle}>{t('settings.resetConfirmTitle')}</ThemedText>
+            </View>
+            <ThemedText style={styles.description}>{t('settings.resetConfirmInstruction')}</ThemedText>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+              editable={!isResetting}
+              onChangeText={setResetConfirmation}
+              onSubmitEditing={() => { if (canReset) void confirmDataReset(); }}
+              placeholder={t('settings.resetConfirmPlaceholder')}
+              placeholderTextColor={colors.icon}
+              returnKeyType="done"
+              style={[styles.confirmationInput, { borderColor: colors.border, color: colors.text }]}
+              value={resetConfirmation}
+            />
+            <View style={styles.confirmationActions}>
+              <ActionButton
+                title={t('common.cancel')}
+                disabled={isResetting}
+                onPress={closeResetModal}
+                style={styles.confirmationAction}
+              />
+              <ActionButton
+                title={isResetting ? t('settings.resettingData') : t('settings.resetForever')}
+                disabled={!canReset || isResetting}
+                onPress={() => { void confirmDataReset(); }}
+                style={[styles.confirmationAction, styles.dangerButton]}
+                textStyle={styles.dangerButtonText}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -625,5 +733,56 @@ const styles = StyleSheet.create({
     color: '#444',
     fontWeight: '600',
     fontSize: 16,
+  },
+  dangerCard: {
+    borderRadius: 12,
+    padding: 18,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: '#dc2626',
+  },
+  dangerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  dangerTitle: {
+    color: '#dc2626',
+  },
+  dangerButton: {
+    backgroundColor: '#dc2626',
+    borderColor: '#dc2626',
+  },
+  dangerButtonText: {
+    color: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  confirmationDialog: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 20,
+    gap: 16,
+  },
+  confirmationTitle: {
+    flex: 1,
+  },
+  confirmationInput: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    fontSize: 16,
+  },
+  confirmationActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  confirmationAction: {
+    flex: 1,
   },
 });
