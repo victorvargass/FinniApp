@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -16,11 +15,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { PeriodHistory } from '@/lib/types';
-import { exportPeriodReport } from '@/services/PeriodReportService';
 
 type Props = {
   visible: boolean;
@@ -39,7 +36,6 @@ export function HistoricalPeriodModal({
   onOpenCategory,
   onOpenPaymentMethod,
 }: Props) {
-  const [isExporting, setIsExporting] = useState(false);
   const [categorySelectionReset, setCategorySelectionReset] = useState(0);
   const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>('category');
   const colorScheme = useColorScheme() ?? 'light';
@@ -50,23 +46,6 @@ export function HistoricalPeriodModal({
   }, [period?.periodId, visible]);
 
   if (!period) return null;
-
-  async function handleExport() {
-    if (isExporting || !period) return;
-
-    try {
-      setIsExporting(true);
-      await exportPeriodReport(period);
-    } catch (error) {
-      console.error('No se pudo generar el reporte del período', error);
-      Alert.alert(
-        t('historicalPeriod.exportError'),
-        t('historicalPeriod.exportRetry')
-      );
-    } finally {
-      setIsExporting(false);
-    }
-  }
 
   const expenses =
     period.categories?.reduce(
@@ -217,29 +196,6 @@ export function HistoricalPeriodModal({
             )}
 
             <Pressable
-              style={({ pressed }) => [
-                styles.exportButton,
-                { backgroundColor: colors.primary, borderColor: colors.primary },
-                (pressed || isExporting) && styles.exportButtonPressed,
-              ]}
-              disabled={isExporting}
-              onPress={handleExport}
-            >
-              {isExporting ? (
-                <View style={styles.exportingContent}>
-                  <ActivityIndicator size="small" color="#fff" />
-                  <ThemedText style={styles.exportButtonText}>
-                    {t('historicalPeriod.generatingPdf')}
-                  </ThemedText>
-                </View>
-              ) : (
-                <ThemedText style={styles.exportButtonText}>
-                  {t('historicalPeriod.exportPdf')}
-                </ThemedText>
-              )}
-            </Pressable>
-  
-            <Pressable
               style={[styles.closeButton, { borderColor: colors.border }]}
               onPress={onClose}
             >
@@ -341,15 +297,6 @@ const styles = StyleSheet.create({
     gap: 14,
   },
 
-  exportButton: {
-    marginTop: 8,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#0a7ea4',
-    backgroundColor: '#0a7ea4',
-  },
   openButton: {
     marginTop: 8,
     paddingVertical: 12,
@@ -365,12 +312,6 @@ const styles = StyleSheet.create({
 
   exportButtonPressed: {
     opacity: 0.72,
-  },
-
-  exportingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
 
   closeButton: {

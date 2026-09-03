@@ -1,6 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryChart } from '@/components/CategoryChart';
@@ -17,6 +17,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { exportPeriodReport } from '@/services/PeriodReportService';
 import { useEffect, useState } from 'react';
 
 // Parse a date string like "2026-07-23" as a local date
@@ -30,6 +31,7 @@ export default function PeriodScreen() {
     periodCategoryExpensesTotals,
     periodIncomesTotal,
     periodExpensesTotal,
+    periodHistory,
     periodSavingsGoalActivity,
     periodSavingsFundingTotal,
     paymentMethodTotals,
@@ -50,11 +52,26 @@ export default function PeriodScreen() {
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [categorySelectionReset, setCategorySelectionReset] = useState(0);
   const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>('category');
+  const [isExporting, setIsExporting] = useState(false);
 
   const withLimits = periodCategoryExpensesTotals.filter((item) => item.periodLimit != null && item.periodLimit > 0);
   const periodSavingsWithdrawals = periodSavingsGoalActivity.reduce((sum, item) => sum + item.withdrawals, 0);
   const periodSavingsAvailable = periodSavingsWithdrawals + periodSavingsFundingTotal;
   const periodBalance = periodIncomesTotal + periodSavingsAvailable - periodExpensesTotal;
+  const selectedPeriodReport = periodHistory.find((period) => period.periodId === selectedPeriod?.id);
+
+  async function handleExport() {
+    if (!selectedPeriodReport || isExporting) return;
+    try {
+      setIsExporting(true);
+      await exportPeriodReport(selectedPeriodReport);
+    } catch (error) {
+      console.error('No se pudo generar el reporte del período', error);
+      Alert.alert(t('historicalPeriod.exportError'), t('historicalPeriod.exportRetry'));
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   // Sync the editable range with the period being viewed.
   useEffect(() => {
@@ -251,6 +268,28 @@ export default function PeriodScreen() {
             />
           )}
         />
+
+      {selectedPeriodReport && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.exportButton,
+            { backgroundColor: colors.primary },
+            (pressed || isExporting) && styles.buttonPressed,
+          ]}
+          disabled={isExporting}
+          onPress={handleExport}
+        >
+          {isExporting ? (
+            <View style={styles.exportingContent}>
+              <ActivityIndicator size="small" color="#fff" />
+              <ThemedText style={styles.actionButtonText}>{t('historicalPeriod.generatingPdf')}</ThemedText>
+            </View>
+          ) : (
+            <ThemedText style={styles.actionButtonText}>{t('historicalPeriod.exportPdf')}</ThemedText>
+          )}
+        </Pressable>
+      )}
+
       {isCurrentPeriod && (periodIncomesTotal > 0 && periodExpensesTotal > 0) && (
         <View style={{ marginTop: 24, alignItems: 'center' }}>
           <Pressable
@@ -403,5 +442,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     opacity: 0.65,
+  },
+  exportButton: {
+    minHeight: 48,
+    marginTop: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  exportingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  buttonPressed: {
+    opacity: 0.72,
   },
 });

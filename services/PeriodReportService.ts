@@ -1,9 +1,10 @@
+import { Asset } from 'expo-asset';
 import { File, Paths } from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
-import { getPeriodStatement } from '@/lib/db';
+import { getPeriodSavingsGoalActivity, getPeriodStatement } from '@/lib/db';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import type {
@@ -13,7 +14,10 @@ import type {
   PeriodHistory,
   PeriodHistoryCategory,
   PeriodHistoryPaymentMethod,
+  SavingsGoalPeriodActivity,
 } from '@/lib/types';
+
+const REPORT_LOGO = require('@/assets/images/splash-icon.png');
 
 const COLORS = {
   ink: '#15313b',
@@ -69,6 +73,19 @@ export function getPeriodReportFileName(
 
 function total(items: { amount: number }[]): number {
   return items.reduce((sum, item) => sum + item.amount, 0);
+}
+
+async function loadReportLogoDataUri(): Promise<string | null> {
+  try {
+    const [asset] = await Asset.loadAsync(REPORT_LOGO);
+    if (asset.localUri) {
+      const base64 = await new File(asset.localUri).base64();
+      return `data:image/png;base64,${base64}`;
+    }
+    return asset.uri || null;
+  } catch {
+    return null;
+  }
 }
 
 const PAYMENT_METHOD_TYPE_LABELS: Record<PaymentMethodType, string> = {
@@ -221,16 +238,35 @@ function expenseRows(expenses: ExpenseWithCategory[]): string {
       const paymentMethodColor = expense.paymentMethodColor && /^#[0-9a-f]{3,8}$/i.test(expense.paymentMethodColor)
         ? expense.paymentMethodColor
         : '#95a5a6';
-      const splitNote = expense.originalAmount && expense.splitPercentage
-        ? `<div class="row-note">Tu parte: ${expense.splitPercentage}% de ${formatCLP(expense.originalAmount)}</div>`
-        : '';
+      const notes = [
+        expense.originalAmount && expense.originalAmount !== expense.amount
+          ? t('report.splitShare', { share: formatCLP(expense.amount), total: formatCLP(expense.originalAmount) })
+          : null,
+        expense.savingsGoalId != null && expense.savingsKind === 'contribution'
+          ? t('report.savingsContribution', { goal: expense.savingsGoalName ?? t('savings.goal') })
+          : null,
+        expense.savingsGoalId != null && expense.savingsKind === 'funded_expense'
+          ? t('report.fundedFromSavings', { goal: expense.savingsGoalName ?? t('savings.goal') })
+          : null,
+        expense.debtPlanId != null && expense.installmentNumber != null
+          ? t('report.installmentDetail', {
+              number: expense.installmentNumber,
+              total: expense.totalInstallments ?? '?',
+            })
+          : expense.debtPlanId != null
+            ? t('report.installmentSettlement')
+            : null,
+        expense.manualDebtId != null ? t('report.manualDebtPayment') : null,
+        expense.recurringExpenseId != null ? t('report.recurringMovement') : null,
+      ].filter((note): note is string => Boolean(note));
+      const detailNotes = notes.map((note) => `<div class="row-note">${escapeHtml(note)}</div>`).join('');
       const paymentMethodNote = expense.paymentMethodType
         ? `<div class="row-note">${paymentMethodTypeLabel(expense.paymentMethodType)}</div>`
         : '';
       return `
         <tr>
           <td class="date">${formatShortDate(expense.date)}</td>
-          <td><strong>${escapeHtml(expense.name)}</strong>${splitNote}</td>
+          <td><strong>${escapeHtml(expense.name)}</strong>${detailNotes}</td>
           <td class="category-cell"><span class="tag" style="border-color:${categoryColor}">${escapeHtml(expense.categoryName ?? t('expenses.noCategory'))}</span></td>
           <td class="payment-method-cell"><span class="tag" style="border-color:${paymentMethodColor}">${escapeHtml(expense.paymentMethodName ?? t('common.notSpecified'))}</span>${paymentMethodNote}</td>
           <td class="amount expense">-${formatCLP(expense.amount)}</td>
@@ -248,16 +284,42 @@ function incomeRows(incomes: Income[]): string {
     .map((income) => `
       <tr>
         <td class="date">${formatShortDate(income.date)}</td>
-        <td><strong>${escapeHtml(income.name)}</strong>${income.savingsGoalId != null ? `<div class="row-note">${t('report.savingsTransfer')}</div>` : ''}</td>
+        <td><strong>${escapeHtml(income.name)}</strong>${income.savingsGoalId != null ? `<div class="row-note">${escapeHtml(t('report.savingsTransferFrom', { goal: income.savingsGoalName ?? t('savings.goal') }))}</div>` : ''}${income.recurringIncomeId != null ? `<div class="row-note">${t('report.recurringMovement')}</div>` : ''}</td>
         <td class="amount income">+${formatCLP(income.amount)}</td>
       </tr>`)
+    .join('');
+}
+
+function savingsGoalRows(items: SavingsGoalPeriodActivity[]): string {
+  return items
+    .filter((item) => item.openingAmount !== 0 || item.netActivity !== 0 || item.closingAmount !== 0)
+    .map((item) => {
+      const progress = item.targetAmount > 0
+        ? Math.min(100, Math.max(0, (item.closingAmount / item.targetAmount) * 100))
+        : 0;
+      const activity = [
+        item.contributions > 0 ? t('report.savingsAdded', { amount: formatCLP(item.contributions) }) : null,
+        item.withdrawals + item.fundedExpenses > 0
+          ? t('report.savingsUsed', { amount: formatCLP(item.withdrawals + item.fundedExpenses) })
+          : null,
+      ].filter(Boolean).join(' · ') || t('report.noSavingsActivity');
+      const safeColor = /^#[0-9a-f]{3,8}$/i.test(item.goalColor) ? item.goalColor : COLORS.brand;
+
+      return `<div class="goal-row">
+        <div class="goal-heading"><strong>${escapeHtml(item.goalName)}</strong><span>${formatCLP(item.closingAmount)} / ${formatCLP(item.targetAmount)}</span></div>
+        <div class="goal-track"><div class="goal-progress" style="width:${progress.toFixed(1)}%;background:${safeColor}"></div></div>
+        <div class="row-note">${escapeHtml(activity)}</div>
+      </div>`;
+    })
     .join('');
 }
 
 export function buildPeriodReportHtml(
   period: PeriodHistory,
   expenses: ExpenseWithCategory[],
-  incomes: Income[]
+  incomes: Income[],
+  savingsGoals: SavingsGoalPeriodActivity[] = [],
+  logoDataUri: string | null = null
 ): string {
   const expensesTotal = total(expenses);
   const savingsWithdrawals = total(incomes.filter((income) => income.savingsGoalId != null));
@@ -265,6 +327,7 @@ export function buildPeriodReportHtml(
   const savingsFunding = period.savingsFundingTotal ?? 0;
   const savingsAvailable = savingsWithdrawals + savingsFunding;
   const balance = incomesTotal + savingsAvailable - expensesTotal;
+  const savingsRows = savingsGoalRows(savingsGoals);
   const generatedAt = new Intl.DateTimeFormat(APP_LOCALE, {
     dateStyle: 'long',
     timeStyle: 'short',
@@ -279,6 +342,7 @@ export function buildPeriodReportHtml(
         * { box-sizing: border-box; }
         body { margin: 0; color: ${COLORS.ink}; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 11px; line-height: 1.45; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; padding: 2px 2px 12px; }
+        .brand-logo { display: block; width: 150px; height: auto; }
         .brand { color: ${COLORS.ink}; font-size: 27px; font-weight: 800; letter-spacing: -.8px; }
         .brand span { color: ${COLORS.brand}; }
         .eyebrow { margin-bottom: 5px; color: ${COLORS.brand}; font-size: 8px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
@@ -340,6 +404,13 @@ export function buildPeriodReportHtml(
         .amount { width: 115px; font-weight: 800; text-align: right; white-space: nowrap; }
         .tag { display: inline-block; padding: 2px 7px; color: ${COLORS.muted}; background: #edf3f4; border: 1px solid; border-radius: 99px; font-size: 8px; white-space: nowrap; }
         .row-note { margin-top: 2px; color: ${COLORS.muted}; font-size: 8px; }
+        .goals-section { padding: 15px 16px 12px; border: 1px solid #e5ecee; border-radius: 14px; box-shadow: 0 3px 12px rgba(21,49,59,.055); }
+        .goal-row { padding: 8px 0; border-bottom: 1px solid #edf2f3; break-inside: avoid; }
+        .goal-row:last-child { border-bottom: 0; }
+        .goal-heading { display: flex; justify-content: space-between; gap: 12px; }
+        .goal-heading span { color: ${COLORS.muted}; font-size: 9px; white-space: nowrap; }
+        .goal-track { height: 5px; margin-top: 6px; overflow: hidden; border-radius: 99px; background: #e7eeee; }
+        .goal-progress { height: 100%; border-radius: 99px; }
         .table-total { display: flex; justify-content: flex-end; gap: 15px; padding: 10px 10px 0; font-weight: 750; }
         .empty, .empty-cell { padding: 14px; color: ${COLORS.muted}; text-align: center; }
         .footer { margin-top: 15px; padding-top: 5px; color: #91a0a5; font-size: 7px; text-align: center; }
@@ -349,7 +420,9 @@ export function buildPeriodReportHtml(
       <header class="header">
         <div>
           <div class="eyebrow">${t('report.financialReport')}</div>
-          <div class="brand">Finni<span>App</span></div>
+          ${logoDataUri
+            ? `<img class="brand-logo" src="${escapeHtml(logoDataUri)}" alt="FinniApp" />`
+            : '<div class="brand">Finni<span>App</span></div>'}
         </div>
         <div>
           <div class="period">${formatReportDate(period.startDate)} - ${formatReportDate(period.endDate)}</div>
@@ -371,6 +444,12 @@ export function buildPeriodReportHtml(
           <div class="summary-copy"><div class="label">${t('report.periodBalance')}</div><div class="value">${formatCLP(balance)}</div>${savingsAvailable > 0 ? `<div class="balance-note">${t('report.includesReleasedSavings', { amount: formatCLP(savingsAvailable) })}</div>` : ''}</div>
         </div>
       </section>
+
+      ${savingsRows ? `<section class="section goals-section">
+        <h2 class="section-title">${t('report.savingsGoals')}</h2>
+        <div class="section-subtitle">${t('report.savingsGoalsSubtitle')}</div>
+        ${savingsRows}
+      </section>` : ''}
 
       <section class="section category-section">
         <h2 class="section-title">${t('report.expenseSummary')}</h2>
@@ -415,8 +494,12 @@ export function buildPeriodReportHtml(
 }
 
 export async function exportPeriodReport(period: PeriodHistory): Promise<void> {
-  const { expenses, incomes } = await getPeriodStatement(period.periodId);
-  const html = buildPeriodReportHtml(period, expenses, incomes);
+  const [{ expenses, incomes }, savingsGoals, logoDataUri] = await Promise.all([
+    getPeriodStatement(period.periodId),
+    getPeriodSavingsGoalActivity(period.periodId),
+    loadReportLogoDataUri(),
+  ]);
+  const html = buildPeriodReportHtml(period, expenses, incomes, savingsGoals, logoDataUri);
 
   if (Platform.OS === 'web') {
     await Print.printAsync({ html });
