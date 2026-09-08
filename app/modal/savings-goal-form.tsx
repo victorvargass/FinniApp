@@ -20,7 +20,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { formatCLP, formatCLPInput, formatDate, parseAmount, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { NewSavingsGoal, SavingsGoalMovement } from '@/lib/types';
 
@@ -60,14 +60,6 @@ function getDefaultDeadline(): Date {
   date.setFullYear(date.getFullYear() + 1);
   date.setHours(12, 0, 0, 0);
   return date;
-}
-
-function parseInitialAmount(value: string): number | null {
-  const cleaned = value.replace(/[.,\s]/g, '');
-  if (!cleaned) return 0;
-  if (!/^\d+$/.test(cleaned)) return null;
-  const amount = Number(cleaned);
-  return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
 }
 
 function showToast(message: string) {
@@ -155,7 +147,9 @@ export default function SavingsGoalFormScreen() {
       return;
     }
 
-    const initialAmount = parseInitialAmount(initialText);
+    const initialAmount = initialText.trim()
+      ? parseNonNegativeAmount(initialText)
+      : 0;
     if (initialAmount == null) {
       Alert.alert(t('savings.invalidAmount'), t('savings.invalidInitialHint'));
       return;

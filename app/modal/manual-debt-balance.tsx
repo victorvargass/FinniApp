@@ -10,7 +10,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatCLPInput, formatDate, toDateString } from '@/lib/format';
+import { formatCLP, formatCLPInput, formatDate, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { ManualDebt } from '@/lib/types';
 
@@ -31,11 +31,11 @@ export default function ManualDebtBalanceScreen() {
   const [showDate, setShowDate] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { getManualDebt(debtId).then((value) => { setDebt(value); if (value) setBalance(String(value.currentBalance)); }).catch(() => undefined); }, [debtId, getManualDebt]);
+  useEffect(() => { getManualDebt(debtId).then((value) => { setDebt(value); if (value) setBalance(formatCLPInput(value.currentBalance)); }).catch(() => undefined); }, [debtId, getManualDebt]);
 
   const save = async () => {
-    const parsed = Number(balance.replace(/\./g, '').replace(/,/g, '').trim());
-    if (!Number.isInteger(parsed) || parsed < 0) return Alert.alert(t('manualDebts.invalidBalance'), t('manualDebts.invalidBalanceHint'));
+    const parsed = parseNonNegativeAmount(balance);
+    if (parsed == null) return Alert.alert(t('manualDebts.invalidBalance'), t('manualDebts.invalidBalanceHint'));
     setSaving(true);
     try {
       await addManualDebtBalanceAdjustment(debtId, { balance: parsed, date, note: note.trim() || null });

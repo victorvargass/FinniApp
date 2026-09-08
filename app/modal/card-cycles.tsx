@@ -11,20 +11,13 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { formatCLP, formatCLPInput, formatDate, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { CreditCardCycle } from '@/lib/types';
 
 function parseDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day, 12);
-}
-
-function parseNonNegativeAmount(value: string): number | null {
-  const cleaned = value.replace(/\D/g, '');
-  if (!cleaned) return 0;
-  const amount = Number.parseInt(cleaned, 10);
-  return Number.isNaN(amount) || amount < 0 ? null : amount;
 }
 
 function latestBillingDate(billingDay: number | null) {
@@ -57,8 +50,12 @@ function CycleCard({
   );
   const [bankChargeText, setBankChargeText] = useState('');
   const [saving, setSaving] = useState(false);
-  const amount = amountText.trim() ? parseAmount(amountText) : null;
-  const bankCharge = parseNonNegativeAmount(bankChargeText);
+  const amount = amountText.trim()
+    ? parseNonNegativeAmount(amountText)
+    : null;
+  const bankCharge = bankChargeText.trim()
+    ? parseNonNegativeAmount(bankChargeText)
+    : 0;
   const adjustment = amount == null || bankCharge == null
     ? null
     : amount - cycle.recordedTotal - bankCharge;

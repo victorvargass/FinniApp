@@ -8,9 +8,13 @@ export function formatCLP(amount: number): string {
   }).format(amount);
 }
 
+function extractCurrencyDigits(value: string | number | null | undefined): string {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
 /** Formats the raw digits of a monetary input while it is being edited. */
 export function formatCLPInput(value: string | number | null | undefined): string {
-  const digits = String(value ?? '').replace(/\D/g, '');
+  const digits = extractCurrencyDigits(value);
   if (!digits) return '';
   return formatCLP(Number(digits));
 }
@@ -37,10 +41,16 @@ export function toDateString(date: Date): string {
 }
 
 export function parseAmount(value: string): number | null {
-  const cleaned = value.replace(/\D/g, '');
-  if (!cleaned) return null;
-  const num = parseInt(cleaned, 10);
-  return Number.isNaN(num) || num <= 0 ? null : num;
+  const amount = parseNonNegativeAmount(value);
+  return amount == null || amount === 0 ? null : amount;
+}
+
+/** Parses a formatted CLP input when zero is a valid value. */
+export function parseNonNegativeAmount(value: string): number | null {
+  const digits = extractCurrencyDigits(value);
+  if (!digits) return null;
+  const amount = Number(digits);
+  return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
 }
 
 export function formatMonth(month: string | null): string {
