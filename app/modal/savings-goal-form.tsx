@@ -271,6 +271,21 @@ export default function SavingsGoalFormScreen() {
               currentAmount={goal.currentAmount}
               targetAmount={goal.targetAmount}
             />
+            {goal.status === 'active' && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push({
+                  pathname: '/modal/savings-goal-balance',
+                  params: { savingsGoalId: String(goal.id) },
+                })}
+                style={({ pressed }) => [
+                  styles.withdrawButton,
+                  { borderColor: colors.border },
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText type="defaultSemiBold">{t('savings.updateBalance')}</ThemedText>
+              </Pressable>
+            )}
             {goal.status === 'active' && goal.currentAmount > 0 && (
               <Pressable
                 accessibilityRole="button"
@@ -309,12 +324,15 @@ export default function SavingsGoalFormScreen() {
               <ThemedText style={styles.emptyMovements}>{t('savings.noMovements')}</ThemedText>
             ) : (
               movements.map((movement) => {
-                const contribution = movement.kind === 'contribution';
-                const label = contribution
+                const positive = movement.kind === 'contribution'
+                  || (movement.kind === 'adjustment' && movement.amount > 0);
+                const label = movement.kind === 'contribution'
                   ? t('savings.contribution')
                   : movement.kind === 'withdrawal'
                     ? t('savings.withdrawalToPeriod')
-                    : t('savings.fundedExpense');
+                    : movement.kind === 'funded_expense'
+                      ? t('savings.fundedExpense')
+                      : t('savings.balanceAdjustment');
                 const canOpen = movement.expenseId != null || movement.incomeId != null;
                 return (
                   <Pressable
@@ -338,8 +356,8 @@ export default function SavingsGoalFormScreen() {
                         {label} · {formatMovementDate(movement.date)}
                       </ThemedText>
                     </View>
-                    <ThemedText style={contribution ? styles.positiveMovement : styles.negativeMovement}>
-                      {contribution ? '+' : '−'}{formatCLP(movement.amount)}
+                    <ThemedText style={positive ? styles.positiveMovement : styles.negativeMovement}>
+                      {positive ? '+' : '−'}{formatCLP(Math.abs(movement.amount))}
                     </ThemedText>
                   </Pressable>
                 );

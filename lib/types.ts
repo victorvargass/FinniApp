@@ -18,7 +18,7 @@ export type Category = {
 
 export type SavingsGoalStatus = 'active' | 'archived';
 
-export type SavingsGoalMovementKind = 'contribution' | 'withdrawal' | 'funded_expense';
+export type SavingsGoalMovementKind = 'contribution' | 'withdrawal' | 'funded_expense' | 'adjustment';
 
 export type SavingsExpenseKind = Extract<
   SavingsGoalMovementKind,
@@ -31,6 +31,12 @@ export type NewSavingsGoal = {
   initialAmount: number;
   deadline: string;
   color: string;
+};
+
+export type NewSavingsGoalBalance = {
+  balance: number;
+  date: string;
+  note: string | null;
 };
 
 export type SavingsGoal = NewSavingsGoal & {
@@ -64,12 +70,14 @@ export type SavingsGoalPeriodActivity = {
   contributions: number;
   withdrawals: number;
   fundedExpenses: number;
+  adjustments: number;
   closingAmount: number;
   // Explicit aliases kept for query/report consumers that prefer amount suffixes.
   balanceAtPeriodEnd: number;
   contributedAmount: number;
   withdrawnAmount: number;
   fundedExpenseAmount: number;
+  adjustmentAmount: number;
   netActivity: number;
 };
 

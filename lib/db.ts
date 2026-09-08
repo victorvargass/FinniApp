@@ -26,6 +26,7 @@ import type {
   NewRecurringIncome,
   NewRecurringSchedule,
   NewSavingsGoal,
+  NewSavingsGoalBalance,
   PaymentMethod,
   PaymentMethodTotal,
   Period,
@@ -658,6 +659,17 @@ async function initializeDatabase(): Promise<void> {
       FOREIGN KEY(income_id) REFERENCES incomes(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS savings_goal_adjustments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      goal_id INTEGER NOT NULL,
+      amount INTEGER NOT NULL CHECK (amount != 0),
+      date TEXT NOT NULL,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(goal_id) REFERENCES savings_goals(id) ON DELETE RESTRICT
+    );
+
     CREATE TABLE IF NOT EXISTS manual_debts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       type TEXT NOT NULL CHECK (type IN ('fixed', 'variable')),
@@ -897,6 +909,7 @@ async function initializeDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_recurring_incomes_next ON recurring_incomes(active, next_date);
     CREATE INDEX IF NOT EXISTS idx_savings_goals_status ON savings_goals(status, deadline);
     CREATE INDEX IF NOT EXISTS idx_savings_movements_goal ON savings_goal_movements(goal_id);
+    CREATE INDEX IF NOT EXISTS idx_savings_adjustments_goal ON savings_goal_adjustments(goal_id, date);
     CREATE INDEX IF NOT EXISTS idx_recurring_savings_goal ON recurring_expenses(savings_goal_id);
     CREATE INDEX IF NOT EXISTS idx_manual_debt_entries_debt ON manual_debt_entries(debt_id, date);
     CREATE INDEX IF NOT EXISTS idx_manual_debt_entries_expense ON manual_debt_entries(expense_id);
@@ -993,6 +1006,7 @@ export async function resetLocalData(): Promise<void> {
   await withExclusiveTransaction(database, async (transaction) => {
     await transaction.execAsync(`
       DELETE FROM savings_goal_movements;
+      DELETE FROM savings_goal_adjustments;
       DELETE FROM manual_debt_entries;
       DELETE FROM recurring_expense_occurrences;
       DELETE FROM recurring_income_occurrences;
@@ -1294,7 +1308,12 @@ async function getSavingsGoalBalance(
          WHEN movement.kind = 'withdrawal' THEN -COALESCE(income.amount, 0)
          WHEN movement.kind = 'funded_expense' THEN -COALESCE(expense.amount, 0)
          ELSE 0
-       END), 0) AS balance,
+       END), 0)
+       + COALESCE((
+         SELECT SUM(adjustment.amount)
+         FROM savings_goal_adjustments adjustment
+         WHERE adjustment.goal_id = g.id
+       ), 0) AS balance,
        g.initial_amount,
        g.status,
        date(g.created_at, 'localtime') AS created_date
@@ -1332,7 +1351,12 @@ async function getSavingsGoalBalanceAtDate(
          WHEN movement.kind = 'withdrawal' AND income.date <= ? THEN -COALESCE(income.amount, 0)
          WHEN movement.kind = 'funded_expense' AND expense.date <= ? THEN -COALESCE(expense.amount, 0)
          ELSE 0
-       END), 0) AS balance
+       END), 0)
+       + COALESCE((
+         SELECT SUM(adjustment.amount)
+         FROM savings_goal_adjustments adjustment
+         WHERE adjustment.goal_id = goal.id AND adjustment.date <= ?
+       ), 0) AS balance
      FROM savings_goals goal
      LEFT JOIN savings_goal_movements movement ON movement.goal_id = goal.id
      LEFT JOIN expenses expense ON expense.id = movement.expense_id
@@ -1341,6 +1365,7 @@ async function getSavingsGoalBalanceAtDate(
      GROUP BY goal.id`,
     throughDate,
     excludeMovementId ?? -1,
+    throughDate,
     throughDate,
     throughDate,
     throughDate,
@@ -1408,17 +1433,30 @@ async function assertSavingsGoalBalanceIsNotNegative(
     amount: number;
     movement_date: string;
   }>(
-    `SELECT
-       movement.kind,
-       COALESCE(expense.amount, income.amount) AS amount,
-       COALESCE(expense.date, income.date) AS movement_date
-     FROM savings_goal_movements movement
-     LEFT JOIN expenses expense ON expense.id = movement.expense_id
-     LEFT JOIN incomes income ON income.id = movement.income_id
-     WHERE movement.goal_id = ?
+    `SELECT kind, amount, movement_date
+     FROM (
+       SELECT
+         movement.kind,
+         CASE
+           WHEN movement.kind = 'contribution' THEN COALESCE(expense.amount, 0)
+           ELSE -COALESCE(expense.amount, income.amount, 0)
+         END AS amount,
+         COALESCE(expense.date, income.date) AS movement_date,
+         movement.id AS sort_id
+       FROM savings_goal_movements movement
+       LEFT JOIN expenses expense ON expense.id = movement.expense_id
+       LEFT JOIN incomes income ON income.id = movement.income_id
+       WHERE movement.goal_id = ?
+       UNION ALL
+       SELECT 'adjustment', adjustment.amount, adjustment.date, adjustment.id
+       FROM savings_goal_adjustments adjustment
+       WHERE adjustment.goal_id = ?
+     )
+     WHERE movement_date IS NOT NULL
      ORDER BY movement_date ASC,
-       CASE movement.kind WHEN 'contribution' THEN 0 ELSE 1 END,
-       movement.id ASC`,
+       CASE kind WHEN 'contribution' THEN 0 WHEN 'adjustment' THEN 1 ELSE 2 END,
+       sort_id ASC`,
+    goalId,
     goalId
   );
   let runningBalance = goal.initialAmount;
@@ -1426,7 +1464,7 @@ async function assertSavingsGoalBalanceIsNotNegative(
     if (movement.movement_date < goal.createdDate) {
       throw new Error(t('database.movementBeforeCreation'));
     }
-    runningBalance += movement.kind === 'contribution' ? movement.amount : -movement.amount;
+    runningBalance += movement.amount;
     if (runningBalance < 0) {
       throw new Error(t('database.usedSavingsContribution'));
     }
@@ -1595,7 +1633,12 @@ export async function getSavingsGoals(includeArchived = false): Promise<SavingsG
          WHEN movement.kind = 'withdrawal' THEN -COALESCE(income.amount, 0)
          WHEN movement.kind = 'funded_expense' THEN -COALESCE(expense.amount, 0)
          ELSE 0
-       END), 0) AS current_amount
+       END), 0)
+       + COALESCE((
+         SELECT SUM(adjustment.amount)
+         FROM savings_goal_adjustments adjustment
+         WHERE adjustment.goal_id = goal.id
+       ), 0) AS current_amount
      FROM savings_goals goal
      LEFT JOIN savings_goal_movements movement ON movement.goal_id = goal.id
      LEFT JOIN expenses expense ON expense.id = movement.expense_id
@@ -1610,33 +1653,86 @@ export async function getSavingsGoals(includeArchived = false): Promise<SavingsG
 export async function getSavingsGoalMovements(goalId: number): Promise<SavingsGoalMovement[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<Record<string, unknown>>(
-    `SELECT
-       movement.id,
-       movement.goal_id,
-       movement.kind,
-       movement.expense_id,
-       movement.income_id,
-       COALESCE(expense.name, income.name) AS movement_name,
-       COALESCE(expense.amount, income.amount) AS amount,
-       COALESCE(expense.date, income.date) AS movement_date
-     FROM savings_goal_movements movement
-     LEFT JOIN expenses expense ON expense.id = movement.expense_id
-     LEFT JOIN incomes income ON income.id = movement.income_id
-     WHERE movement.goal_id = ?
-       AND COALESCE(expense.date, income.date) IS NOT NULL
-     ORDER BY movement_date DESC, movement.id DESC`,
+    `SELECT * FROM (
+       SELECT
+         movement.id,
+         movement.goal_id,
+         movement.kind,
+         movement.expense_id,
+         movement.income_id,
+         COALESCE(expense.name, income.name) AS movement_name,
+         COALESCE(expense.amount, income.amount) AS amount,
+         COALESCE(expense.date, income.date) AS movement_date,
+         NULL AS note,
+         'movement' AS source
+       FROM savings_goal_movements movement
+       LEFT JOIN expenses expense ON expense.id = movement.expense_id
+       LEFT JOIN incomes income ON income.id = movement.income_id
+       WHERE movement.goal_id = ?
+         AND COALESCE(expense.date, income.date) IS NOT NULL
+       UNION ALL
+       SELECT
+         adjustment.id,
+         adjustment.goal_id,
+         'adjustment',
+         NULL,
+         NULL,
+         NULL,
+         adjustment.amount,
+         adjustment.date,
+         adjustment.note,
+         'adjustment'
+       FROM savings_goal_adjustments adjustment
+       WHERE adjustment.goal_id = ?
+     )
+     ORDER BY movement_date DESC, id DESC`,
+    goalId,
     goalId
   );
   return rows.map((row) => ({
-    id: Number(row.id),
+    id: row.source === 'adjustment' ? -Number(row.id) : Number(row.id),
     goalId: Number(row.goal_id),
     kind: row.kind as SavingsGoalMovement['kind'],
-    name: String(row.movement_name),
+    name: row.kind === 'adjustment'
+      ? String(row.note || t('savings.balanceAdjustment'))
+      : String(row.movement_name),
     amount: Number(row.amount),
     date: String(row.movement_date),
     expenseId: row.expense_id == null ? null : Number(row.expense_id),
     incomeId: row.income_id == null ? null : Number(row.income_id),
   }));
+}
+
+export async function addSavingsGoalBalanceAdjustment(
+  goalId: number,
+  data: NewSavingsGoalBalance
+): Promise<void> {
+  if (!Number.isInteger(data.balance) || data.balance < 0) {
+    throw new Error(t('database.savingsBalanceInvalid'));
+  }
+  if (!isValidIsoDate(data.date)) throw new Error(t('database.savingsAdjustmentDateInvalid'));
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    const goal = await getSavingsGoalBalance(transaction, goalId);
+    if (!goal) throw new Error(t('database.savingsGoalMissing'));
+    if (goal.status === 'archived') throw new Error(t('database.savingsGoalArchived'));
+    if (data.date < goal.createdDate) throw new Error(t('database.movementBeforeGoal'));
+    const difference = data.balance - goal.balance;
+    if (difference === 0) throw new Error(t('database.savingsBalanceUnchanged'));
+    await transaction.runAsync(
+      `INSERT INTO savings_goal_adjustments (goal_id, amount, date, note)
+       VALUES (?, ?, ?, ?)`,
+      goalId,
+      difference,
+      data.date,
+      data.note?.trim() || null
+    );
+    await assertSavingsGoalBalanceIsNotNegative(transaction, goalId);
+    await transaction.runAsync(
+      'UPDATE savings_goals SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      goalId
+    );
+  });
 }
 
 export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
@@ -1715,14 +1811,16 @@ export async function setSavingsGoalArchived(id: number, archived: boolean): Pro
 export async function deleteSavingsGoal(id: number): Promise<void> {
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
-    const usage = await transaction.getFirstAsync<{ movement_count: number; recurring_count: number }>(
+    const usage = await transaction.getFirstAsync<{ movement_count: number; adjustment_count: number; recurring_count: number }>(
       `SELECT
          (SELECT COUNT(*) FROM savings_goal_movements WHERE goal_id = ?) AS movement_count,
+         (SELECT COUNT(*) FROM savings_goal_adjustments WHERE goal_id = ?) AS adjustment_count,
          (SELECT COUNT(*) FROM recurring_expenses WHERE savings_goal_id = ?) AS recurring_count`,
+      id,
       id,
       id
     );
-    if ((usage?.movement_count ?? 0) > 0 || (usage?.recurring_count ?? 0) > 0) {
+    if ((usage?.movement_count ?? 0) > 0 || (usage?.adjustment_count ?? 0) > 0 || (usage?.recurring_count ?? 0) > 0) {
       throw new Error(t('database.savingsGoalInUse'));
     }
     const result = await transaction.runAsync('DELETE FROM savings_goals WHERE id = ?', id);
@@ -1754,14 +1852,24 @@ export async function getPeriodSavingsGoalActivity(
            WHEN income.date < period.start_date AND movement.kind = 'withdrawal' THEN -income.amount
            WHEN expense.date < period.start_date AND movement.kind = 'funded_expense' THEN -expense.amount
            ELSE 0
-         END), 0) AS opening_amount,
+         END), 0)
+         + COALESCE((
+           SELECT SUM(adjustment.amount)
+           FROM savings_goal_adjustments adjustment
+           WHERE adjustment.goal_id = goal.id AND adjustment.date < period.start_date
+         ), 0) AS opening_amount,
        CASE WHEN date(goal.created_at, 'localtime') <= period.end_date THEN goal.initial_amount ELSE 0 END
          + COALESCE(SUM(CASE
            WHEN expense.date <= period.end_date AND movement.kind = 'contribution' THEN expense.amount
            WHEN income.date <= period.end_date AND movement.kind = 'withdrawal' THEN -income.amount
            WHEN expense.date <= period.end_date AND movement.kind = 'funded_expense' THEN -expense.amount
            ELSE 0
-         END), 0) AS balance_at_period_end,
+         END), 0)
+         + COALESCE((
+           SELECT SUM(adjustment.amount)
+           FROM savings_goal_adjustments adjustment
+           WHERE adjustment.goal_id = goal.id AND adjustment.date <= period.end_date
+         ), 0) AS balance_at_period_end,
        COALESCE(SUM(CASE
          WHEN movement.kind = 'contribution' AND expense.period_id = period.id THEN expense.amount
          ELSE 0 END), 0) AS contributed_amount,
@@ -1770,7 +1878,13 @@ export async function getPeriodSavingsGoalActivity(
          ELSE 0 END), 0) AS withdrawn_amount,
        COALESCE(SUM(CASE
          WHEN movement.kind = 'funded_expense' AND expense.period_id = period.id THEN expense.amount
-         ELSE 0 END), 0) AS funded_expense_amount
+         ELSE 0 END), 0) AS funded_expense_amount,
+       COALESCE((
+         SELECT SUM(adjustment.amount)
+         FROM savings_goal_adjustments adjustment
+         WHERE adjustment.goal_id = goal.id
+           AND adjustment.date BETWEEN period.start_date AND period.end_date
+       ), 0) AS adjustment_amount
      FROM periods period
      CROSS JOIN savings_goals goal
      LEFT JOIN savings_goal_movements movement ON movement.goal_id = goal.id
@@ -1782,6 +1896,11 @@ export async function getPeriodSavingsGoalActivity(
        OR COALESCE(SUM(CASE
          WHEN expense.period_id = period.id OR income.period_id = period.id THEN 1
          ELSE 0 END), 0) > 0
+       OR EXISTS (
+         SELECT 1 FROM savings_goal_adjustments adjustment
+         WHERE adjustment.goal_id = goal.id
+           AND adjustment.date BETWEEN period.start_date AND period.end_date
+       )
      ORDER BY goal.status ASC, goal.deadline ASC, goal.name COLLATE NOCASE ASC`,
     periodId
   );
@@ -1789,6 +1908,7 @@ export async function getPeriodSavingsGoalActivity(
     const contributedAmount = Number(row.contributed_amount);
     const withdrawnAmount = Number(row.withdrawn_amount);
     const fundedExpenseAmount = Number(row.funded_expense_amount);
+    const adjustmentAmount = Number(row.adjustment_amount);
     return {
       goalId: Number(row.goal_id),
       goalName: String(row.name),
@@ -1801,12 +1921,14 @@ export async function getPeriodSavingsGoalActivity(
       contributions: contributedAmount,
       withdrawals: withdrawnAmount,
       fundedExpenses: fundedExpenseAmount,
+      adjustments: adjustmentAmount,
       closingAmount: Number(row.balance_at_period_end),
       balanceAtPeriodEnd: Number(row.balance_at_period_end),
       contributedAmount,
       withdrawnAmount,
       fundedExpenseAmount,
-      netActivity: contributedAmount - withdrawnAmount - fundedExpenseAmount,
+      adjustmentAmount,
+      netActivity: contributedAmount - withdrawnAmount - fundedExpenseAmount + adjustmentAmount,
     };
   });
 }

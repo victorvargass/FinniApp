@@ -36,6 +36,7 @@ import type {
   RecurringIncome,
   RecurringMovementKind,
   NewSavingsGoal,
+  NewSavingsGoalBalance,
   SavingsGoal,
   SavingsGoalMovement,
   SavingsGoalPeriodActivity,
@@ -109,6 +110,7 @@ type DatabaseContextValue = {
   removeDebt: (id: number) => Promise<void>;
   addSavingsGoal: (data: NewSavingsGoal) => Promise<void>;
   editSavingsGoal: (id: number, data: NewSavingsGoal) => Promise<void>;
+  addSavingsGoalBalanceAdjustment: (id: number, data: NewSavingsGoalBalance) => Promise<void>;
   setSavingsGoalStatus: (id: number, status: SavingsGoalStatus) => Promise<void>;
   removeSavingsGoal: (id: number) => Promise<void>;
   getSavingsGoalMovements: (id: number) => Promise<SavingsGoalMovement[]>;
@@ -483,6 +485,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const addSavingsGoalBalanceAdjustment = useCallback(async (id: number, data: NewSavingsGoalBalance) => {
+    await db.addSavingsGoalBalanceAdjustment(id, data);
+    await refresh();
+  }, [refresh]);
+
   const setSavingsGoalStatus = useCallback(async (id: number, status: SavingsGoalStatus) => {
     await db.setSavingsGoalArchived(id, status === 'archived');
     await refresh();
@@ -765,6 +772,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       removeDebt,
       addSavingsGoal,
       editSavingsGoal,
+      addSavingsGoalBalanceAdjustment,
       setSavingsGoalStatus,
       removeSavingsGoal,
       getSavingsGoalMovements,
@@ -852,6 +860,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       removeDebt,
       addSavingsGoal,
       editSavingsGoal,
+      addSavingsGoalBalanceAdjustment,
       setSavingsGoalStatus,
       removeSavingsGoal,
       getSavingsGoalMovements,
