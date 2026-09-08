@@ -7,9 +7,15 @@ import {
   initDatabase,
   resetDatabaseConnection,
 } from '@/lib/db';
+import { withDatabaseLock } from '@/lib/database-lock';
+import {
+  DATABASE_APPLICATION_ID,
+  DATABASE_NAME,
+  DATABASE_SCHEMA_VERSION,
+  MAX_BACKUP_SIZE_BYTES,
+  REQUIRED_BACKUP_TABLES,
+} from '@/lib/database-schema';
 import { t } from '@/lib/i18n';
-
-const DATABASE_NAME = 'gastos.db';
 
 export class DatabaseService {
   /**
@@ -17,8 +23,10 @@ export class DatabaseService {
    * physical WAL files. serializeAsync includes the current database state.
    */
   static async createBackupFile(): Promise<File> {
-    const db = await getDatabase();
-    const bytes = await db.serializeAsync('main');
+    const bytes = await withDatabaseLock(async () => {
+      const db = await getDatabase();
+      return db.serializeAsync('main');
+    });
 
     const backup = new File(
       Paths.cache,
@@ -37,6 +45,14 @@ export class DatabaseService {
     const bytes = await file.bytes();
     if (bytes.length < 100) {
       throw new Error(t('errors.emptyBackup'));
+    }
+    if (bytes.length > MAX_BACKUP_SIZE_BYTES) {
+      throw new Error(t('errors.invalidBackupVersion'));
+    }
+
+    const sqliteHeader = new TextDecoder().decode(bytes.slice(0, 16));
+    if (sqliteHeader !== 'SQLite format 3\u0000') {
+      throw new Error(t('errors.invalidBackupIntegrity'));
     }
 
     const tempDirectory = new Directory(
@@ -64,14 +80,28 @@ export class DatabaseService {
         throw new Error(t('errors.invalidBackupIntegrity'));
       }
 
-      const requiredTables = ['settings', 'periods', 'categories', 'expenses', 'incomes'];
       const tables = await candidate.getAllAsync<{ name: string }>(
         `SELECT name FROM sqlite_master
          WHERE type = 'table' AND name IN ('settings', 'periods', 'categories', 'expenses', 'incomes')`
       );
 
       const found = new Set(tables.map((table) => table.name));
-      if (requiredTables.some((table) => !found.has(table))) {
+      if (REQUIRED_BACKUP_TABLES.some((table) => !found.has(table))) {
+        throw new Error(t('errors.invalidBackupVersion'));
+      }
+
+      const foreignKeyErrors = await candidate.getAllAsync('PRAGMA foreign_key_check');
+      if (foreignKeyErrors.length > 0) {
+        throw new Error(t('errors.invalidBackupIntegrity'));
+      }
+
+      const version = await candidate.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+      if ((version?.user_version ?? 0) > DATABASE_SCHEMA_VERSION) {
+        throw new Error(t('errors.invalidBackupVersion'));
+      }
+
+      const application = await candidate.getFirstAsync<{ application_id: number }>('PRAGMA application_id');
+      if (application?.application_id !== 0 && application?.application_id !== DATABASE_APPLICATION_ID) {
         throw new Error(t('errors.invalidBackupVersion'));
       }
     } finally {
@@ -107,10 +137,10 @@ export class DatabaseService {
       tempDirectory.uri
     );
 
-    let rollback: SQLite.SQLiteDatabase | null = null;
-    let destination: SQLite.SQLiteDatabase | null = null;
-
-    try {
+    await withDatabaseLock(async () => {
+      let rollback: SQLite.SQLiteDatabase | null = null;
+      let destination: SQLite.SQLiteDatabase | null = null;
+      try {
       // Keep a local rollback copy so a failed restore does not leave the
       // application without its previous database.
       const current = await getDatabase();
@@ -177,19 +207,15 @@ export class DatabaseService {
 
         throw restoreError;
       }
-    } finally {
-      await source.closeAsync();
-      if (rollback) {
-        await rollback.closeAsync();
+      } finally {
+        await source.closeAsync();
+        if (rollback) await rollback.closeAsync();
+        if (destination) await destination.closeAsync();
+        sourceFile.delete();
+        tempDirectory.delete();
+        resetDatabaseConnection();
       }
-      if (destination) {
-        await destination.closeAsync();
-      }
-
-      sourceFile.delete();
-      tempDirectory.delete();
-      resetDatabaseConnection();
-    }
+    });
 
     // Apply additive migrations when restoring a backup created by an older
     // app version before the UI starts querying the restored database.

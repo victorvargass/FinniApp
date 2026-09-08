@@ -1,6 +1,12 @@
 import * as SQLite from 'expo-sqlite';
 import { t } from './i18n';
 
+import { withDatabaseLock } from './database-lock';
+import {
+  DATABASE_APPLICATION_ID,
+  DATABASE_NAME,
+  DATABASE_SCHEMA_VERSION,
+} from './database-schema';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
 import type {
@@ -47,7 +53,6 @@ import type {
   Settings,
 } from './types';
 
-const DATABASE_NAME = 'gastos.db';
 const DATABASE_BUSY_TIMEOUT_MS = 5000;
 
 const RESERVED_COLORS = [
@@ -75,6 +80,7 @@ const DEFAULT_CATEGORIES: NewCategory[] = [
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 let initializationPromise: Promise<void> | null = null;
+let closePeriodPromise: Promise<Period> | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
@@ -101,11 +107,13 @@ async function withExclusiveTransaction(
   database: SQLite.SQLiteDatabase,
   task: (transaction: SQLite.SQLiteDatabase) => Promise<void>
 ): Promise<void> {
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    // Expo opens a separate connection for exclusive transactions, so the
-    // connection-level busy timeout must also be configured here.
-    await transaction.execAsync(`PRAGMA busy_timeout = ${DATABASE_BUSY_TIMEOUT_MS}`);
-    await task(transaction);
+  await withDatabaseLock(async () => {
+    await database.withExclusiveTransactionAsync(async (transaction) => {
+      // Expo opens a separate connection for exclusive transactions, so the
+      // connection-level busy timeout must also be configured here.
+      await transaction.execAsync(`PRAGMA busy_timeout = ${DATABASE_BUSY_TIMEOUT_MS}`);
+      await task(transaction);
+    });
   });
 }
 
@@ -445,6 +453,7 @@ async function initializeDatabase(): Promise<void> {
   const db = await getDb();
 
   await db.execAsync(`
+    PRAGMA application_id = ${DATABASE_APPLICATION_ID};
     PRAGMA foreign_keys = ON;
 
     CREATE TABLE IF NOT EXISTS periods (
@@ -991,6 +1000,17 @@ async function initializeDatabase(): Promise<void> {
       );
     }
   }
+
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT OR IGNORE INTO schema_migrations (version, name)
+    VALUES (${DATABASE_SCHEMA_VERSION}, 'baseline-versioned-schema');
+    PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};
+  `);
 }
 
 /**
@@ -5302,59 +5322,59 @@ export async function setPeriodEndDate(
   );
 }
 
-export async function closeCurrentPeriod(): Promise<Period> {
+async function performCloseCurrentPeriod(): Promise<Period> {
   const db = await getDb();
+  let nextPeriod: Period | null = null;
 
-  const settings = await getSettings();
+  await withExclusiveTransaction(db, async (transaction) => {
+    const current = await transaction.getFirstAsync<{
+      id: number;
+      end_date: string;
+    }>(`
+      SELECT periods.id, periods.end_date
+      FROM settings
+      INNER JOIN periods ON periods.id = settings.current_period_id
+      WHERE settings.id = 1
+    `);
 
-  if (!settings.currentPeriod) {
-    throw new Error(t('database.noCurrentPeriod'));
+    if (!current) throw new Error(t('database.noCurrentPeriod'));
+
+    const currentEnd = new Date(`${current.end_date}T12:00:00`);
+    const nextStart = new Date(currentEnd);
+    nextStart.setDate(nextStart.getDate() + 1);
+    const nextEnd = new Date(nextStart);
+    nextEnd.setMonth(nextEnd.getMonth() + 1);
+    const nextStartStr = nextStart.toISOString().split('T')[0];
+    const nextEndStr = nextEnd.toISOString().split('T')[0];
+
+    const result = await transaction.runAsync(
+      'INSERT INTO periods (start_date, end_date) VALUES (?, ?)',
+      nextStartStr,
+      nextEndStr
+    );
+    await transaction.runAsync(
+      'UPDATE settings SET current_period_id = ? WHERE id = 1',
+      result.lastInsertRowId
+    );
+
+    nextPeriod = {
+      id: result.lastInsertRowId,
+      startDate: nextStartStr,
+      endDate: nextEndStr,
+    };
+  });
+
+  if (!nextPeriod) throw new Error(t('database.noCurrentPeriod'));
+  return nextPeriod;
+}
+
+export function closeCurrentPeriod(): Promise<Period> {
+  if (!closePeriodPromise) {
+    closePeriodPromise = performCloseCurrentPeriod().finally(() => {
+      closePeriodPromise = null;
+    });
   }
-
-  const current = settings.currentPeriod;
-
-  const currentEnd = new Date(current.endDate);
-
-  const nextStart = new Date(currentEnd);
-  nextStart.setDate(nextStart.getDate() + 1);
-
-  const nextEnd = new Date(nextStart);
-  nextEnd.setMonth(nextEnd.getMonth() + 1);
-
-  const nextStartStr =
-    nextStart.toISOString().split('T')[0];
-
-  const nextEndStr =
-    nextEnd.toISOString().split('T')[0];
-
-  const result = await db.runAsync(
-    `
-    INSERT INTO periods (
-      start_date,
-      end_date
-    )
-    VALUES (?, ?)
-    `,
-    nextStartStr,
-    nextEndStr
-  );
-
-  const newPeriodId = result.lastInsertRowId;
-
-  await db.runAsync(
-    `
-    UPDATE settings
-    SET current_period_id = ?
-    WHERE id = 1
-    `,
-    newPeriodId
-  );
-
-  return {
-    id: newPeriodId,
-    startDate: nextStartStr,
-    endDate: nextEndStr,
-  };
+  return closePeriodPromise;
 }
 
 export async function getPeriodHistory(): Promise<PeriodHistory[]> {
