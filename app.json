@@ -2,7 +2,16 @@
   "expo": {
     "name": "FinniApp",
     "slug": "GastosApp",
+    "description": "Finanzas personales simples para organizar períodos, movimientos, ahorros y deudas.",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a9844c93-3060-4d37-b5af-a86edc5399a4",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "portrait",
     "icon": "./assets/images/app-icon-v3.png",
     "scheme": "finniapp",
