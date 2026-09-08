@@ -108,6 +108,10 @@ function AppContent() {
                   name="modal/movement-reminder"
                   options={{ presentation: 'modal', title: t('navigation.movementReminder') }}
                 />
+                <Stack.Screen
+                  name="modal/google-drive"
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.googleDrive') }}
+                />
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>

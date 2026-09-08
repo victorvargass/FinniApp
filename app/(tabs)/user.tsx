@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -13,7 +12,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GoogleLogo } from '@/components/google-logo';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -21,7 +19,6 @@ import { useBiometric } from '@/contexts/BiometricContext';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useGoogle } from '@/hooks/useGoogle';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 
@@ -33,17 +30,6 @@ const WEEKDAY_LABELS: Record<number, string> = {
   7: t('settings.weekdays.saturday'),
 };
 const RESET_CONFIRMATION_WORD = 'CONFIRMAR';
-
-function formatBackupDate(date: string | undefined): string {
-  if (!date) return t('settings.never');
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return t('settings.unknown');
-
-  return parsed.toLocaleString(APP_LOCALE, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
 
 // Components
 type ActionButtonProps = {
@@ -81,143 +67,6 @@ function ActionButton({
     </Pressable>
   );
 }
-
-const GoogleAccountCard = React.memo(function GoogleAccountCard() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const {
-    user,
-    isLoading,
-    isWorking,
-    isConnected,
-    lastBackup,
-    error,
-    login,
-    backup,
-    restore,
-    logout,
-  } = useGoogle();
-
-  React.useEffect(() => {
-    if (!error) return;
-    Alert.alert(
-      t('common.error'),
-      error,
-      [{ text: t('common.accept') }],
-      { cancelable: true }
-    );
-  }, [error]);
-
-  const runBackup = async () => {
-    try {
-      await backup();
-      Alert.alert(t('settings.backupCompleted'), t('settings.backupCompletedMessage'));
-    } catch {
-      // El hook expone el error mediante su estado.
-    }
-  };
-
-  const runRestore = async () => {
-    try {
-      await restore();
-      Alert.alert(t('settings.restoreCompleted'), t('settings.restoreCompletedMessage'));
-    } catch {
-      // El hook expone el error mediante su estado.
-    }
-  };
-
-  const confirmRestore = () => {
-    Alert.alert(
-      t('settings.restoreData'),
-      t('settings.restoreWarning'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('settings.restore'), style: 'destructive', onPress: runRestore },
-      ]
-    );
-  };
-
-  return (
-    <ThemedView style={styles.card}>
-      {isLoading ? (
-        <View style={styles.googleLoading}>
-          <ActivityIndicator size="small" />
-          <ThemedText>{t('settings.loadingSession')}</ThemedText>
-        </View>
-      ) : !isConnected ? (
-        <>
-          <ThemedText type="subtitle">{t('settings.googleDrive')}</ThemedText>
-          <ThemedText style={styles.description}>{t('settings.googleDriveHint')}</ThemedText>
-          <ActionButton
-            title={isWorking ? t('settings.connecting') : t('settings.connectGoogle')}
-            disabled={isWorking}
-            onPress={() => {
-              login().catch(() => {
-                // El mensaje se muestra desde el estado del hook.
-              });
-            }}
-            style={styles.googleButtonStyle}
-            textStyle={styles.googleButtonTextStyle}
-            icon={<GoogleLogo />}
-          />
-        </>
-      ) : (
-        <>
-          <View style={styles.profile}>
-            <View style={styles.avatar}>
-              <ThemedText style={styles.avatarText}>
-                {(user?.name?.[0] ?? 'G').toUpperCase()}
-              </ThemedText>
-            </View>
-            <View style={styles.profileInfo}>
-              <ThemedText type="subtitle">{user?.name ?? t('settings.googleUser')}</ThemedText>
-              <ThemedText style={styles.secondary}>
-                {user?.email ?? t('settings.emailUnavailable')}
-              </ThemedText>
-            </View>
-          </View>
-          <View style={styles.infoRow}>
-            <ThemedText style={styles.infoLabel}>{t('settings.state')}</ThemedText>
-            <ThemedText style={styles.connected}>{t('settings.connectedGoogle')}</ThemedText>
-          </View>
-          <View style={styles.infoRow}>
-            <ThemedText style={styles.infoLabel}>{t('settings.lastBackup')}</ThemedText>
-            <ThemedText style={styles.infoValue}>{formatBackupDate(lastBackup?.modifiedTime)}</ThemedText>
-          </View>
-          <View style={styles.actions}>
-            <ActionButton
-              title={isWorking ? t('settings.backingUp') : t('settings.backup')}
-              disabled={isWorking}
-              onPress={runBackup}
-              style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
-              textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
-            />
-            <ActionButton
-              title={isWorking ? t('settings.restoring') : t('settings.restore')}
-              disabled={isWorking || !lastBackup}
-              onPress={confirmRestore}
-              style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
-              textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
-            />
-            <ActionButton
-              title={t('settings.signOut')}
-              disabled={isWorking}
-              onPress={() => { void logout(); }}
-              style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
-              textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
-            />
-          </View>
-        </>
-      )}
-
-      {isWorking && (
-        <View style={styles.progress}>
-          <ActivityIndicator size="small" />
-          <ThemedText>{t('common.processing')}</ThemedText>
-        </View>
-      )}
-    </ThemedView>
-  );
-});
 
 // Main screen
 export default function UserScreen() {
@@ -485,7 +334,21 @@ export default function UserScreen() {
           </View>
         </ThemedView>
 
-        <GoogleAccountCard />
+        <ThemedView style={styles.card}>
+          <Pressable
+            accessibilityLabel={t('accessibility.manageGoogleDrive')}
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/google-drive')}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('settings.googleDrive')}</ThemedText>
+              <ThemedText style={styles.description}>
+                {t('settings.googleDriveMenuHint')}
+              </ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={colors.icon} />
+          </Pressable>
+        </ThemedView>
 
         <ThemedView style={styles.dangerCard}>
           <View style={styles.dangerHeader}>
@@ -599,13 +462,6 @@ const styles = StyleSheet.create({
     elevation: 2,
     gap: 18,
   },
-  googleLoading: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
   description: {
     lineHeight: 21,
   },
@@ -631,51 +487,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  profile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#4285F4',
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  profileInfo: {
-    flex: 1,
-    gap: 3,
-  },
-  secondary: {
-    opacity: 0.7,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 4,
-  },
-  infoLabel: {
-    fontWeight: '600',
-  },
-  infoValue: {
-    flex: 1,
-    textAlign: 'right',
-    opacity: 0.8,
-  },
-  connected: {
-    fontWeight: '700',
-  },
-  actions: {
-    gap: 10,
-  },
   button: {
     minHeight: 46,
     borderRadius: 10,
@@ -693,19 +504,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: '700',
   },
-  darkActionButton: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
-  },
-  darkActionButtonText: {
-    color: '#11181C',
-  },
-  progress: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
   loading: {
     flex: 1,
     alignItems: 'center',
@@ -717,22 +515,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     textAlign: 'center',
-  },
-  googleButtonStyle: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 5,
-    marginTop: 10,
-  },
-  googleButtonTextStyle: {
-    color: '#444',
-    fontWeight: '600',
-    fontSize: 16,
   },
   dangerCard: {
     borderRadius: 12,
