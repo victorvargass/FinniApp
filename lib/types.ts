@@ -325,6 +325,56 @@ export type PeriodStatement = {
   incomes: Income[];
 };
 
+export type PeriodDebtSummary = {
+  debtId: number;
+  name: string;
+  type: DebtType;
+  creditor: string | null;
+  status: DebtStatus;
+  paymentMethodName: string | null;
+  openingBalance: number;
+  payments: number;
+  adjustments: number;
+  closingBalance: number;
+};
+
+export type PeriodInstallmentSummary = {
+  planId: number;
+  name: string;
+  installmentNumber: number;
+  totalInstallments: number;
+  dueDate: string;
+  amount: number;
+  status: InstallmentStatus;
+  categoryName: string | null;
+  paymentMethodName: string;
+};
+
+export type PeriodCreditCycleSummary = {
+  cycleId: number;
+  paymentMethodName: string;
+  startDate: string;
+  endDate: string;
+  statementAmount: number | null;
+  recordedTotal: number;
+  status: CreditCardCycleStatus;
+};
+
+export type PeriodRecurringSummary = {
+  kind: RecurringMovementKind;
+  name: string;
+  amount: number;
+  scheduledDate: string;
+  status: RecurringOccurrenceStatus;
+};
+
+export type PeriodFinancialDetails = {
+  debts: PeriodDebtSummary[];
+  installments: PeriodInstallmentSummary[];
+  creditCycles: PeriodCreditCycleSummary[];
+  recurringMovements: PeriodRecurringSummary[];
+};
+
 
 export type NewPeriod = {
   startDate: string;

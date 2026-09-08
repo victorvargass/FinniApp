@@ -4,7 +4,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
-import { getPeriodSavingsGoalActivity, getPeriodStatement } from '@/lib/db';
+import { getPeriodFinancialDetails, getPeriodSavingsGoalActivity, getPeriodStatement } from '@/lib/db';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import type {
@@ -14,6 +14,7 @@ import type {
   PeriodHistory,
   PeriodHistoryCategory,
   PeriodHistoryPaymentMethod,
+  PeriodFinancialDetails,
   SavingsGoalPeriodActivity,
 } from '@/lib/types';
 
@@ -132,12 +133,18 @@ function categoryRows(
       const safeColor = /^#[0-9a-f]{3,8}$/i.test(category.categoryColor)
         ? category.categoryColor
         : COLORS.muted;
+      const limitUsage = category.periodLimit && category.periodLimit > 0
+        ? t('report.categoryLimitUsage', {
+            limit: formatCLP(category.periodLimit),
+            percentage: Math.round((category.total / category.periodLimit) * 100),
+          })
+        : null;
 
       return `
         <div class="category-row">
           <div class="category-name">
             <span class="dot" style="background:${safeColor}"></span>
-            ${escapeHtml(category.categoryName)}
+            <span>${escapeHtml(category.categoryName)}${limitUsage ? `<span class="row-note">${escapeHtml(limitUsage)}</span>` : ''}</span>
           </div>
           <div class="category-value">${formatCLP(category.total)} - ${percentage}%</div>
         </div>`;
@@ -317,14 +324,12 @@ function savingsGoalRows(items: SavingsGoalPeriodActivity[]): string {
         ? Math.min(100, Math.max(0, (item.closingAmount / item.targetAmount) * 100))
         : 0;
       const activity = [
+        t('report.savingsOpening', { amount: formatCLP(item.openingAmount) }),
         item.contributions > 0 ? t('report.savingsAdded', { amount: formatCLP(item.contributions) }) : null,
-        item.withdrawals + item.fundedExpenses > 0
-          ? t('report.savingsUsed', { amount: formatCLP(item.withdrawals + item.fundedExpenses) })
-          : null,
-        item.adjustments !== 0
-          ? t('report.savingsAdjusted', { amount: formatCLP(item.adjustments) })
-          : null,
-      ].filter(Boolean).join(' · ') || t('report.noSavingsActivity');
+        item.withdrawals > 0 ? t('report.savingsWithdrawn', { amount: formatCLP(item.withdrawals) }) : null,
+        item.fundedExpenses > 0 ? t('report.savingsFunded', { amount: formatCLP(item.fundedExpenses) }) : null,
+        item.adjustments !== 0 ? t('report.savingsAdjusted', { amount: formatCLP(item.adjustments) }) : null,
+      ].filter(Boolean).join(' · ');
       const safeColor = /^#[0-9a-f]{3,8}$/i.test(item.goalColor) ? item.goalColor : COLORS.brand;
 
       return `<div class="goal-row">
@@ -336,11 +341,68 @@ function savingsGoalRows(items: SavingsGoalPeriodActivity[]): string {
     .join('');
 }
 
+const EMPTY_FINANCIAL_DETAILS: PeriodFinancialDetails = {
+  debts: [],
+  installments: [],
+  creditCycles: [],
+  recurringMovements: [],
+};
+
+function debtRows(items: PeriodFinancialDetails['debts']): string {
+  return items.map((item) => {
+    const detail = [
+      item.type === 'fixed' ? t('report.fixedDebt') : t('report.variableDebt'),
+      item.creditor,
+      item.paymentMethodName,
+    ].filter(Boolean).join(' · ');
+    return `<tr>
+      <td><strong>${escapeHtml(item.name)}</strong><div class="row-note">${escapeHtml(detail)}</div></td>
+      <td class="amount">${formatCLP(item.openingBalance)}</td>
+      <td class="amount income">-${formatCLP(item.payments)}</td>
+      <td class="amount ${item.adjustments > 0 ? 'expense' : 'income'}">${item.adjustments > 0 ? '+' : ''}${formatCLP(item.adjustments)}</td>
+      <td class="amount">${formatCLP(item.closingBalance)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function installmentRows(items: PeriodFinancialDetails['installments']): string {
+  return items.map((item) => `<tr>
+    <td class="date">${formatShortDate(item.dueDate)}</td>
+    <td><strong>${escapeHtml(item.name)}</strong><div class="row-note">${escapeHtml(item.categoryName ?? t('expenses.noCategory'))} · ${escapeHtml(item.paymentMethodName)}</div></td>
+    <td>${item.installmentNumber}/${item.totalInstallments}</td>
+    <td><span class="status status-${item.status}">${t(`report.installmentStatus.${item.status}`)}</span></td>
+    <td class="amount">${formatCLP(item.amount)}</td>
+  </tr>`).join('');
+}
+
+function creditCycleRows(items: PeriodFinancialDetails['creditCycles']): string {
+  return items.map((item) => {
+    const difference = item.statementAmount == null ? null : item.statementAmount - item.recordedTotal;
+    return `<tr>
+      <td><strong>${escapeHtml(item.paymentMethodName)}</strong><div class="row-note">${formatShortDate(item.startDate)} - ${formatShortDate(item.endDate)}</div></td>
+      <td><span class="status status-${item.status}">${t(`report.cycleStatus.${item.status}`)}</span></td>
+      <td class="amount">${formatCLP(item.recordedTotal)}</td>
+      <td class="amount">${item.statementAmount == null ? t('common.notSpecified') : formatCLP(item.statementAmount)}</td>
+      <td class="amount ${difference != null && difference > 0 ? 'expense' : 'income'}">${difference == null ? '-' : formatCLP(difference)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function recurringRows(items: PeriodFinancialDetails['recurringMovements']): string {
+  return items.map((item) => `<tr>
+    <td class="date">${formatShortDate(item.scheduledDate)}</td>
+    <td><strong>${escapeHtml(item.name)}</strong><div class="row-note">${t(item.kind === 'income' ? 'navigation.income' : 'navigation.expense')}</div></td>
+    <td><span class="status status-${item.status}">${t(`report.recurringStatus.${item.status}`)}</span></td>
+    <td class="amount ${item.kind}">${item.kind === 'income' ? '+' : '-'}${formatCLP(item.amount)}</td>
+  </tr>`).join('');
+}
+
 export function buildPeriodReportHtml(
   period: PeriodHistory,
   expenses: ExpenseWithCategory[],
   incomes: Income[],
   savingsGoals: SavingsGoalPeriodActivity[] = [],
+  financialDetails: PeriodFinancialDetails = EMPTY_FINANCIAL_DETAILS,
   logoDataUri: string | null = null,
   fonts: { regular: string | null; bold: string | null } = { regular: null, bold: null }
 ): string {
@@ -351,6 +413,9 @@ export function buildPeriodReportHtml(
   const savingsAvailable = savingsWithdrawals + savingsFunding;
   const balance = incomesTotal + savingsAvailable - expensesTotal;
   const savingsRows = savingsGoalRows(savingsGoals);
+  const debtBalance = financialDetails.debts.reduce((sum, debt) => sum + debt.closingBalance, 0);
+  const savingsBalance = savingsGoals.reduce((sum, goal) => sum + goal.closingAmount, 0);
+  const installmentTotal = financialDetails.installments.reduce((sum, installment) => sum + installment.amount, 0);
   const generatedAt = new Intl.DateTimeFormat(APP_LOCALE, {
     dateStyle: 'long',
     timeStyle: 'short',
@@ -407,6 +472,8 @@ export function buildPeriodReportHtml(
         .category-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; padding: 5px 0; border-bottom: 1px solid ${COLORS.border}; break-inside: avoid; }
         .category-row:last-child { border-bottom: 0; }
         .category-name { display: flex; align-items: center; min-width: 0; font-weight: 650; }
+        .category-name > span { min-width: 0; }
+        .category-name .row-note { display: block; }
         .category-value { color: ${COLORS.muted}; white-space: nowrap; font-size: 9px; }
         .payment-method-section { padding: 15px 16px 12px; border: 1px solid ${COLORS.border}; border-radius: 14px; background: ${COLORS.surfaceRaised}; box-shadow: 0 3px 12px rgba(11,49,91,.055); }
         .method-name { display: flex; align-items: center; min-width: 0; }
@@ -436,6 +503,15 @@ export function buildPeriodReportHtml(
         .goal-heading span { color: ${COLORS.muted}; font-size: 9px; white-space: nowrap; }
         .goal-track { height: 5px; margin-top: 6px; overflow: hidden; border-radius: 99px; background: ${COLORS.border}; }
         .goal-progress { height: 100%; border-radius: 99px; }
+        .metric-grid { display: flex; gap: 10px; margin-top: 10px; }
+        .metric-card { flex: 1 1 0; padding: 11px 12px; border: 1px solid ${COLORS.border}; border-radius: 10px; background: ${COLORS.rowAlternate}; }
+        .metric-card span { display: block; color: ${COLORS.muted}; font-size: 8px; }
+        .metric-card strong { display: block; margin-top: 3px; font-size: 14px; }
+        .compact-section { padding: 15px 16px 12px; border: 1px solid ${COLORS.border}; border-radius: 14px; background: ${COLORS.surfaceRaised}; box-shadow: 0 3px 12px rgba(11,49,91,.055); }
+        .status { display: inline-block; padding: 2px 7px; border-radius: 99px; color: ${COLORS.ink}; background: ${COLORS.brandSoft}; font-size: 8px; font-weight: 700; white-space: nowrap; }
+        .status-posted, .status-generated, .status-reconciled { color: ${COLORS.income}; background: ${COLORS.incomeSoft}; }
+        .status-cancelled, .status-skipped { color: ${COLORS.expense}; background: ${COLORS.expenseSoft}; }
+        .status-projected, .status-pending, .status-scheduled { color: ${COLORS.brandDark}; background: ${COLORS.brandSoft}; }
         .table-total { display: flex; justify-content: flex-end; gap: 15px; padding: 10px 10px 0; font-weight: 750; }
         .empty, .empty-cell { padding: 14px; color: ${COLORS.muted}; text-align: center; }
         .footer { margin-top: 15px; padding-top: 5px; color: ${COLORS.muted}; font-size: 7px; text-align: center; }
@@ -474,6 +550,52 @@ export function buildPeriodReportHtml(
         <h2 class="section-title">${t('report.savingsGoals')}</h2>
         <div class="section-subtitle">${t('report.savingsGoalsSubtitle')}</div>
         ${savingsRows}
+      </section>` : ''}
+
+      ${(savingsGoals.length > 0 || financialDetails.debts.length > 0 || financialDetails.installments.length > 0) ? `<section class="section compact-section">
+        <h2 class="section-title">${t('report.financialPosition')}</h2>
+        <div class="section-subtitle">${t('report.financialPositionSubtitle')}</div>
+        <div class="metric-grid">
+          ${savingsGoals.length > 0 ? `<div class="metric-card"><span>${t('report.totalSavings')}</span><strong style="color:${COLORS.savings}">${formatCLP(savingsBalance)}</strong></div>` : ''}
+          ${financialDetails.debts.length > 0 ? `<div class="metric-card"><span>${t('report.outstandingDebt')}</span><strong class="expense">${formatCLP(debtBalance)}</strong></div>` : ''}
+          ${financialDetails.installments.length > 0 ? `<div class="metric-card"><span>${t('report.installmentsInPeriod')}</span><strong>${formatCLP(installmentTotal)}</strong></div>` : ''}
+        </div>
+      </section>` : ''}
+
+      ${financialDetails.debts.length > 0 ? `<section class="section compact-section">
+        <h2 class="section-title">${t('report.debts')}</h2>
+        <div class="section-subtitle">${t('report.debtsSubtitle')}</div>
+        <table>
+          <thead><tr><th>${t('report.description')}</th><th style="text-align:right">${t('report.openingBalance')}</th><th style="text-align:right">${t('report.payments')}</th><th style="text-align:right">${t('report.adjustments')}</th><th style="text-align:right">${t('report.closingBalance')}</th></tr></thead>
+          <tbody>${debtRows(financialDetails.debts)}</tbody>
+        </table>
+      </section>` : ''}
+
+      ${financialDetails.installments.length > 0 ? `<section class="section compact-section">
+        <h2 class="section-title">${t('report.installments')}</h2>
+        <div class="section-subtitle">${t('report.installmentsSubtitle')}</div>
+        <table>
+          <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th>${t('report.installment')}</th><th>${t('report.state')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
+          <tbody>${installmentRows(financialDetails.installments)}</tbody>
+        </table>
+      </section>` : ''}
+
+      ${financialDetails.creditCycles.length > 0 ? `<section class="section compact-section">
+        <h2 class="section-title">${t('report.creditCycles')}</h2>
+        <div class="section-subtitle">${t('report.creditCyclesSubtitle')}</div>
+        <table>
+          <thead><tr><th>${t('navigation.paymentMethod')}</th><th>${t('report.state')}</th><th style="text-align:right">${t('report.recorded')}</th><th style="text-align:right">${t('report.statement')}</th><th style="text-align:right">${t('report.difference')}</th></tr></thead>
+          <tbody>${creditCycleRows(financialDetails.creditCycles)}</tbody>
+        </table>
+      </section>` : ''}
+
+      ${financialDetails.recurringMovements.length > 0 ? `<section class="section compact-section">
+        <h2 class="section-title">${t('report.recurringMovements')}</h2>
+        <div class="section-subtitle">${t('report.recurringMovementsSubtitle')}</div>
+        <table>
+          <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th>${t('report.state')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
+          <tbody>${recurringRows(financialDetails.recurringMovements)}</tbody>
+        </table>
       </section>` : ''}
 
       <section class="section category-section">
@@ -519,14 +641,15 @@ export function buildPeriodReportHtml(
 }
 
 export async function exportPeriodReport(period: PeriodHistory): Promise<void> {
-  const [{ expenses, incomes }, savingsGoals, logoDataUri, regularFont, boldFont] = await Promise.all([
+  const [{ expenses, incomes }, savingsGoals, financialDetails, logoDataUri, regularFont, boldFont] = await Promise.all([
     getPeriodStatement(period.periodId),
     getPeriodSavingsGoalActivity(period.periodId),
+    getPeriodFinancialDetails(period.periodId),
     loadReportLogoDataUri(),
     loadReportFontDataUri(REPORT_FONT_REGULAR),
     loadReportFontDataUri(REPORT_FONT_BOLD),
   ]);
-  const html = buildPeriodReportHtml(period, expenses, incomes, savingsGoals, logoDataUri, {
+  const html = buildPeriodReportHtml(period, expenses, incomes, savingsGoals, financialDetails, logoDataUri, {
     regular: regularFont,
     bold: boldFont,
   });

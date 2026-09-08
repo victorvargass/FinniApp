@@ -32,6 +32,7 @@ import type {
   Period,
   PeriodCategoryExpensesTotals,
   PeriodHistory,
+  PeriodFinancialDetails,
   PeriodStatement,
   ReconcileCreditCardCycle,
   RecurringConfirmationSchedule,
@@ -3403,6 +3404,8 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
         e.payment_method_id AS paymentMethodId,
         e.recurring_expense_id AS recurringExpenseId,
         e.debt_plan_id AS debtPlanId,
+        debtEntry.debt_id AS debtId,
+        debtEntry.id AS debtEntryId,
         (SELECT entry.debt_id FROM manual_debt_entries entry WHERE entry.expense_id = e.id) AS debtId,
         (SELECT entry.id FROM manual_debt_entries entry WHERE entry.expense_id = e.id) AS debtEntryId,
         installment.installment_number AS installmentNumber,
@@ -3427,6 +3430,7 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
         ON pm.id = e.payment_method_id
       LEFT JOIN debt_installments installment ON installment.id = e.debt_installment_id
       LEFT JOIN debt_plans plan ON plan.id = e.debt_plan_id
+      LEFT JOIN manual_debt_entries debtEntry ON debtEntry.expense_id = e.id
       LEFT JOIN savings_goal_movements savingsMovement ON savingsMovement.expense_id = e.id
       LEFT JOIN savings_goals savingsGoal ON savingsGoal.id = savingsMovement.goal_id
 
@@ -5608,6 +5612,129 @@ export async function getPeriodStatement(
   ]);
 
   return { expenses, incomes };
+}
+
+export async function getPeriodFinancialDetails(periodId: number): Promise<PeriodFinancialDetails> {
+  const db = await getDb();
+  const period = await db.getFirstAsync<{ start_date: string; end_date: string }>(
+    'SELECT start_date, end_date FROM periods WHERE id = ?',
+    periodId
+  );
+  if (!period) throw new Error(t('database.periodMissing'));
+
+  const [debts, installments, creditCycles, recurringMovements] = await Promise.all([
+    db.getAllAsync<PeriodFinancialDetails['debts'][number]>(
+      `SELECT
+        debt.id AS debtId,
+        debt.name,
+        debt.type,
+        debt.creditor,
+        debt.status,
+        payment.name AS paymentMethodName,
+        debt.initial_amount
+          + COALESCE(SUM(CASE WHEN entry.date < ? AND entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN entry.date < ? AND entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0)
+          AS openingBalance,
+        COALESCE(SUM(CASE WHEN entry.date BETWEEN ? AND ? AND entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0)
+          AS payments,
+        COALESCE(SUM(CASE WHEN entry.date BETWEEN ? AND ? AND entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0)
+          AS adjustments,
+        debt.initial_amount
+          + COALESCE(SUM(CASE WHEN entry.date <= ? AND entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN entry.date <= ? AND entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0)
+          AS closingBalance
+       FROM manual_debts debt
+       LEFT JOIN manual_debt_entries entry ON entry.debt_id = debt.id
+       LEFT JOIN payment_methods payment ON payment.id = debt.payment_method_id
+       GROUP BY debt.id
+       HAVING SUM(CASE WHEN entry.date BETWEEN ? AND ? THEN 1 ELSE 0 END) > 0
+          OR (date(debt.created_at) <= ? AND closingBalance > 0)
+       ORDER BY closingBalance DESC, debt.name COLLATE NOCASE`,
+      period.start_date,
+      period.start_date,
+      period.start_date,
+      period.end_date,
+      period.start_date,
+      period.end_date,
+      period.end_date,
+      period.end_date,
+      period.start_date,
+      period.end_date,
+      period.end_date
+    ),
+    db.getAllAsync<PeriodFinancialDetails['installments'][number]>(
+      `SELECT
+        plan.id AS planId,
+        plan.name,
+        installment.installment_number AS installmentNumber,
+        plan.total_installments AS totalInstallments,
+        installment.due_date AS dueDate,
+        COALESCE(expense.amount, installment.projected_amount) AS amount,
+        installment.status,
+        category.name AS categoryName,
+        payment.name AS paymentMethodName
+       FROM debt_installments installment
+       INNER JOIN debt_plans plan ON plan.id = installment.debt_plan_id
+       INNER JOIN payment_methods payment ON payment.id = plan.payment_method_id
+       LEFT JOIN categories category ON category.id = plan.category_id
+       LEFT JOIN expenses expense ON expense.id = installment.expense_id
+       WHERE installment.due_date BETWEEN ? AND ? OR expense.period_id = ?
+       ORDER BY installment.due_date, plan.name COLLATE NOCASE`,
+      period.start_date,
+      period.end_date,
+      periodId
+    ),
+    db.getAllAsync<PeriodFinancialDetails['creditCycles'][number]>(
+      `SELECT
+        cycle.id AS cycleId,
+        payment.name AS paymentMethodName,
+        cycle.start_date AS startDate,
+        cycle.end_date AS endDate,
+        cycle.statement_amount AS statementAmount,
+        COALESCE((
+          SELECT SUM(expense.amount)
+          FROM expenses expense
+          WHERE expense.payment_method_id = cycle.payment_method_id
+            AND expense.date BETWEEN cycle.start_date AND cycle.end_date
+        ), 0) AS recordedTotal,
+        cycle.status
+       FROM credit_card_cycles cycle
+       INNER JOIN payment_methods payment ON payment.id = cycle.payment_method_id
+       WHERE cycle.start_date <= ? AND cycle.end_date >= ?
+       ORDER BY cycle.end_date, payment.name COLLATE NOCASE`,
+      period.end_date,
+      period.start_date
+    ),
+    db.getAllAsync<PeriodFinancialDetails['recurringMovements'][number]>(
+      `SELECT kind, name, amount, scheduledDate, status FROM (
+        SELECT
+          'expense' AS kind,
+          recurring.name,
+          recurring.amount,
+          occurrence.scheduled_date AS scheduledDate,
+          occurrence.status
+        FROM recurring_expense_occurrences occurrence
+        INNER JOIN recurring_expenses recurring ON recurring.id = occurrence.recurring_expense_id
+        WHERE occurrence.scheduled_date BETWEEN ? AND ?
+        UNION ALL
+        SELECT
+          'income' AS kind,
+          recurring.name,
+          recurring.amount,
+          occurrence.scheduled_date AS scheduledDate,
+          occurrence.status
+        FROM recurring_income_occurrences occurrence
+        INNER JOIN recurring_incomes recurring ON recurring.id = occurrence.recurring_income_id
+        WHERE occurrence.scheduled_date BETWEEN ? AND ?
+      ) ORDER BY scheduledDate, kind, name COLLATE NOCASE`,
+      period.start_date,
+      period.end_date,
+      period.start_date,
+      period.end_date
+    ),
+  ]);
+
+  return { debts, installments, creditCycles, recurringMovements };
 }
 
 /**
