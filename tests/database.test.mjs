@@ -57,13 +57,12 @@ test('composed SQLite writes roll back together on failure', () => {
       INSERT INTO periods VALUES (1, '2026-01-01', '2026-01-31');
       INSERT INTO settings VALUES (1, 1);
     `);
+    database.exec('BEGIN IMMEDIATE');
     assert.throws(() => database.exec(`
-      BEGIN IMMEDIATE;
       INSERT INTO periods VALUES (2, '2026-02-01', '2026-03-01');
       UPDATE settings SET current_period_id = 999 WHERE id = 1;
-      COMMIT;
     `));
-    if (database.isTransaction) database.exec('ROLLBACK');
+    database.exec('ROLLBACK');
     assert.equal(database.prepare('SELECT COUNT(*) AS count FROM periods').get().count, 1);
     assert.equal(database.prepare('SELECT current_period_id FROM settings').get().current_period_id, 1);
   } finally {
