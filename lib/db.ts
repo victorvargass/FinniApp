@@ -5,8 +5,9 @@ import { withDatabaseLock } from './database-lock';
 import {
   DATABASE_APPLICATION_ID,
   DATABASE_NAME,
-  DATABASE_SCHEMA_VERSION,
 } from './database-schema';
+import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financial-calculations';
+import { recordAppliedSchema } from './schema-migrations';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
 import type {
@@ -1001,16 +1002,7 @@ async function initializeDatabase(): Promise<void> {
     }
   }
 
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      version INTEGER PRIMARY KEY,
-      name TEXT NOT NULL,
-      applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-    INSERT OR IGNORE INTO schema_migrations (version, name)
-    VALUES (${DATABASE_SCHEMA_VERSION}, 'baseline-versioned-schema');
-    PRAGMA user_version = ${DATABASE_SCHEMA_VERSION};
-  `);
+  await recordAppliedSchema(db);
 }
 
 /**
@@ -2791,17 +2783,6 @@ export async function unreconcileCreditCardCycle(id: number): Promise<void> {
   });
 }
 
-function installmentAmounts(totalAmount: number, count: number, regularAmount?: number): number[] {
-  const amount = regularAmount ?? Math.floor(totalAmount / count);
-  const values = Array.from({ length: count }, () => amount);
-  let remainder = totalAmount - amount * count;
-  for (let index = count - 1; index >= 0 && remainder > 0; index -= 1) {
-    values[index] += 1;
-    remainder -= 1;
-  }
-  return values;
-}
-
 export async function createInstallmentPurchase(data: NewInstallmentPurchase): Promise<number> {
   if (!data.name.trim()) throw new Error(t('database.purchaseNameRequired'));
   if (!Number.isInteger(data.totalAmount) || data.totalAmount <= 0) throw new Error(t('database.invalidTotal'));
@@ -2813,7 +2794,7 @@ export async function createInstallmentPurchase(data: NewInstallmentPurchase): P
   if (method?.type !== 'credit') throw new Error(t('database.installmentRequiresCredit'));
   let planId = 0;
   await withExclusiveTransaction(db, async (transaction) => {
-    const amounts = installmentAmounts(data.totalAmount, data.totalInstallments);
+    const amounts = calculateInstallmentAmounts(data.totalAmount, data.totalInstallments);
     const result = await transaction.runAsync(
       `INSERT INTO debt_plans
         (kind, name, total_amount, category_id, payment_method_id, purchase_date,
@@ -5339,13 +5320,8 @@ async function performCloseCurrentPeriod(): Promise<Period> {
 
     if (!current) throw new Error(t('database.noCurrentPeriod'));
 
-    const currentEnd = new Date(`${current.end_date}T12:00:00`);
-    const nextStart = new Date(currentEnd);
-    nextStart.setDate(nextStart.getDate() + 1);
-    const nextEnd = new Date(nextStart);
-    nextEnd.setMonth(nextEnd.getMonth() + 1);
-    const nextStartStr = nextStart.toISOString().split('T')[0];
-    const nextEndStr = nextEnd.toISOString().split('T')[0];
+    const { startDate: nextStartStr, endDate: nextEndStr } =
+      calculateNextPeriodDates(current.end_date);
 
     const result = await transaction.runAsync(
       'INSERT INTO periods (start_date, end_date) VALUES (?, ?)',

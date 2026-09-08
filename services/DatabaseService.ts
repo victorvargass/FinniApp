@@ -12,6 +12,7 @@ import {
   DATABASE_APPLICATION_ID,
   DATABASE_NAME,
   DATABASE_SCHEMA_VERSION,
+  hasValidSQLiteHeader,
   MAX_BACKUP_SIZE_BYTES,
   REQUIRED_BACKUP_TABLES,
 } from '@/lib/database-schema';
@@ -50,8 +51,7 @@ export class DatabaseService {
       throw new Error(t('errors.invalidBackupVersion'));
     }
 
-    const sqliteHeader = new TextDecoder().decode(bytes.slice(0, 16));
-    if (sqliteHeader !== 'SQLite format 3\u0000') {
+    if (!hasValidSQLiteHeader(bytes)) {
       throw new Error(t('errors.invalidBackupIntegrity'));
     }
 

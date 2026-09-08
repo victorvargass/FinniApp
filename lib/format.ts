@@ -1,4 +1,9 @@
 import { APP_LOCALE } from './i18n';
+import {
+  extractCurrencyDigits,
+  parseNonNegativeCurrency,
+  parsePositiveCurrency,
+} from './money';
 
 export function formatCLP(amount: number): string {
   return new Intl.NumberFormat(APP_LOCALE, {
@@ -6,10 +11,6 @@ export function formatCLP(amount: number): string {
     currency: 'CLP',
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-function extractCurrencyDigits(value: string | number | null | undefined): string {
-  return String(value ?? '').replace(/\D/g, '');
 }
 
 /** Formats the raw digits of a monetary input while it is being edited. */
@@ -41,16 +42,12 @@ export function toDateString(date: Date): string {
 }
 
 export function parseAmount(value: string): number | null {
-  const amount = parseNonNegativeAmount(value);
-  return amount == null || amount === 0 ? null : amount;
+  return parsePositiveCurrency(value);
 }
 
 /** Parses a formatted CLP input when zero is a valid value. */
 export function parseNonNegativeAmount(value: string): number | null {
-  const digits = extractCurrencyDigits(value);
-  if (!digits) return null;
-  const amount = Number(digits);
-  return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
+  return parseNonNegativeCurrency(value);
 }
 
 export function formatMonth(month: string | null): string {

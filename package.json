@@ -8,7 +8,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "node --no-warnings --experimental-strip-types --test tests/*.test.mjs",
+    "check": "npm run lint && npx tsc --noEmit && npm test"
   },
   "dependencies": {
     "@expo-google-fonts/quicksand": "^0.4.1",
