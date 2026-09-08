@@ -50,7 +50,7 @@ export function PaymentMethodChart({
 
   const pieData = withSpending.map((item) => ({
     value: item.total,
-    color: item.paymentMethodColor ?? '#95a5a6',
+    color: item.paymentMethodColor ?? '#60758E',
     text: item.paymentMethodName,
     paymentMethodId: item.paymentMethodId,
     key: item.paymentMethodId == null ? 'unspecified' : `payment-${item.paymentMethodId}`,

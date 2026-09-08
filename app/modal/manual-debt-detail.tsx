@@ -93,7 +93,7 @@ export default function DebtDetailScreen() {
           <View style={styles.row}><ThemedText style={styles.secondary}>{t('debts.currentBalance')}</ThemedText><ThemedText type="title">{formatCLP(debt.currentBalance)}</ThemedText></View>
           <View style={styles.row}><ThemedText>{t('debts.estimatedTotalDebt')}</ThemedText><ThemedText>{formatCLP(debt.initialAmount)}</ThemedText></View>
           {debt.type === 'fixed' && <><View style={[styles.track, { backgroundColor: colors.border }]}><View style={[styles.fill, { width: `${progress}%`, backgroundColor: colors.primary }]} /></View><View style={styles.row}><ThemedText style={styles.secondary}>{t('debts.paid')}</ThemedText><ThemedText>{formatCLP(debt.paidAmount)}</ThemedText></View></>}
-          <ThemedText style={[styles.status, { color: isPaid ? '#2e9d63' : isArchived ? '#64748b' : colors.primary }]}>{isPaid ? t('debts.statusPaid') : isArchived ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
+          <ThemedText style={[styles.status, { color: isPaid ? '#1FAF78' : isArchived ? '#60758E' : colors.primary }]}>{isPaid ? t('debts.statusPaid') : isArchived ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
         </ThemedView>
 
         {debt.type === 'fixed' && (
@@ -132,9 +132,9 @@ export default function DebtDetailScreen() {
         {debt.entries?.map((entry) => (
           <Pressable key={entry.id} disabled={entry.kind !== 'payment'} onPress={() => router.push({ pathname: '/modal/manual-debt-payment', params: { debtId: String(debt.id), entryId: String(entry.id) } })}>
             <ThemedView style={styles.entry}>
-              <View style={[styles.entryIcon, { backgroundColor: entry.kind === 'payment' ? '#2e9d63' : entry.amount > 0 ? '#d97706' : '#0a7ea4' }]}><Ionicons name={entry.kind === 'payment' ? 'arrow-down' : 'swap-vertical'} size={17} color="#fff" /></View>
+              <View style={[styles.entryIcon, { backgroundColor: entry.kind === 'payment' ? '#1FAF78' : entry.amount > 0 ? '#D88916' : '#0B315B' }]}><Ionicons name={entry.kind === 'payment' ? 'arrow-down' : 'swap-vertical'} size={17} color="#fff" /></View>
               <View style={styles.entryCopy}><ThemedText type="defaultSemiBold">{entry.kind === 'payment' ? t('debts.payment') : t('debts.balanceAdjustment')}</ThemedText><ThemedText style={styles.entryMeta}>{formatDate(parseIsoDate(entry.date))}{entry.paymentMethodName ? ` · ${entry.paymentMethodName}` : ''}{entry.note ? ` · ${entry.note}` : ''}</ThemedText></View>
-              <ThemedText style={{ color: entry.kind === 'payment' || entry.amount < 0 ? '#2e9d63' : '#d97706' }}>{entry.kind === 'payment' || entry.amount < 0 ? '−' : '+'}{formatCLP(Math.abs(entry.amount))}</ThemedText>
+              <ThemedText style={{ color: entry.kind === 'payment' || entry.amount < 0 ? '#1FAF78' : '#D88916' }}>{entry.kind === 'payment' || entry.amount < 0 ? '−' : '+'}{formatCLP(Math.abs(entry.amount))}</ThemedText>
             </ThemedView>
           </Pressable>
         ))}
@@ -152,8 +152,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, paddingBottom: 45, gap: 14 }, titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, titleCopy: { flex: 1, gap: 3 },
   summary: { borderRadius: 13, padding: 17, gap: 11 }, card: { borderRadius: 12, padding: 15, gap: 11 }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }, secondary: { opacity: 0.65 },
   track: { height: 9, borderRadius: 5, overflow: 'hidden' }, fill: { height: '100%', borderRadius: 5 }, status: { fontSize: 12, fontWeight: '800' }, actions: { gap: 10 },
-  primary: { minHeight: 49, borderRadius: 10, backgroundColor: '#0a7ea4', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, primaryText: { color: '#fff', fontWeight: '700' },
+  primary: { minHeight: 49, borderRadius: 10, backgroundColor: '#0B315B', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, primaryText: { color: '#fff', fontWeight: '700' },
   secondaryButton: { minHeight: 47, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12 }, empty: { borderRadius: 12, padding: 18, alignItems: 'center' },
   entry: { borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, entryIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }, entryCopy: { flex: 1, gap: 2 }, entryMeta: { opacity: 0.62, fontSize: 12 },
-  management: { marginTop: 8, gap: 10 }, danger: { minHeight: 47, borderWidth: 1, borderColor: '#dc2626', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, dangerText: { color: '#dc2626', fontWeight: '700' },
+  management: { marginTop: 8, gap: 10 }, danger: { minHeight: 47, borderWidth: 1, borderColor: '#C93F4B', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, dangerText: { color: '#C93F4B', fontWeight: '700' },
 });

@@ -20,7 +20,7 @@
         "android.permission.SCHEDULE_EXACT_ALARM"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#20BFB8",
+        "backgroundColor": "#20C9B5",
         "foregroundImage": "./assets/images/brand-mark-safe.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -40,10 +40,10 @@
           "image": "./assets/images/brand-mark-safe.png",
           "imageWidth": 220,
           "resizeMode": "contain",
-          "backgroundColor": "#0D3B66",
+          "backgroundColor": "#0B315B",
           "dark": {
             "image": "./assets/images/brand-mark-safe.png",
-            "backgroundColor": "#0D3B66"
+            "backgroundColor": "#0B315B"
           }
         }
       ],
@@ -52,7 +52,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#0A7EA4"
+          "color": "#20C9B5"
         }
       ],
       "@react-native-community/datetimepicker",

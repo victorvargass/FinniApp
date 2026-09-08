@@ -21,7 +21,7 @@ export function SavingsGoalProgress({
   const cappedProgress = Math.min(ratio, 1);
   const percentage = Math.round(ratio * 100);
   const excess = Math.max(safeCurrent - safeTarget, 0);
-  const progressColor = /^#[0-9a-f]{6}$/i.test(color) ? color : '#0a7ea4';
+  const progressColor = /^#[0-9a-f]{6}$/i.test(color) ? color : '#0B315B';
 
   return (
     <View style={styles.container}>
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   achievement: {
-    color: '#2e9d63',
+    color: '#1FAF78',
     fontSize: 12,
     fontWeight: '700',
   },

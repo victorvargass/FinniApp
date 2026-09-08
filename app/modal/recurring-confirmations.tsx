@@ -174,7 +174,7 @@ export default function RecurringConfirmationsScreen() {
               <View style={styles.actions}>
                 <Pressable
                   onPress={() => deleteSkippedNotification(item)}
-                  style={[styles.action, { borderColor: '#dc2626' }]}>
+                  style={[styles.action, { borderColor: '#C93F4B' }]}>
                   <ThemedText type="defaultSemiBold" style={styles.deleteText}>{t('common.delete')}</ThemedText>
                 </Pressable>
                 <Pressable
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   meta: { opacity: 0.65, fontSize: 13 },
   actions: { flexDirection: 'row', gap: 8 },
   action: { flex: 1, borderWidth: 1, borderRadius: 9, padding: 11, alignItems: 'center' },
-  primary: { borderColor: '#0a7ea4', backgroundColor: '#0a7ea4' },
+  primary: { borderColor: '#0B315B', backgroundColor: '#0B315B' },
   primaryText: { color: '#fff', fontWeight: '700' },
-  deleteText: { color: '#dc2626' },
+  deleteText: { color: '#C93F4B' },
 });

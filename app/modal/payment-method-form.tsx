@@ -5,7 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, ToastAn
 
 import { ColorPicker } from '@/components/ColorPicker';
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -46,7 +46,7 @@ export default function PaymentMethodFormScreen() {
   const [name, setName] = useState(method?.name ?? '');
   const [type, setType] = useState<PaymentMethodType>(method?.type ?? 'debit');
   const [billingDay, setBillingDay] = useState(method?.billingDay ? String(method.billingDay) : '25');
-  const [color, setColor] = useState(method?.color ?? '#0a7ea4');
+  const [color, setColor] = useState(method?.color ?? '#0B315B');
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -232,7 +232,7 @@ export default function PaymentMethodFormScreen() {
               <Ionicons
                 name={settings.defaultPaymentMethodId === method.id ? 'star' : 'star-outline'}
                 size={24}
-                color={settings.defaultPaymentMethodId === method.id ? '#f2b705' : colors.icon}
+                color={settings.defaultPaymentMethodId === method.id ? '#D88916' : colors.icon}
               />
             </Pressable>
           </View>
@@ -256,7 +256,7 @@ export default function PaymentMethodFormScreen() {
 const styles = StyleSheet.create({
   container: { padding: 20, gap: 10, paddingBottom: 40 },
   label: { fontWeight: '700', marginTop: 8 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16 },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, fontFamily: Fonts.regular },
   types: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   type: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9 },
   readonlyType: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 3 },
@@ -266,11 +266,11 @@ const styles = StyleSheet.create({
   favoriteButton: { padding: 6 },
   favoriteDisabled: { opacity: 0.35 },
   hint: { opacity: 0.65, fontSize: 13, lineHeight: 18 },
-  save: { marginTop: 18, borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0a7ea4' },
+  save: { marginTop: 18, borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0B315B' },
   saveText: { color: '#fff', fontWeight: '700' },
   cyclesButton: { borderWidth: 1, borderRadius: 10, padding: 13, alignItems: 'center' },
   creditActions: { gap: 10, marginTop: 8 },
   secondaryButton: { borderWidth: 1, borderRadius: 10, padding: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  deleteButton: { borderWidth: 1, borderColor: '#dc2626', borderRadius: 10, padding: 13, alignItems: 'center' },
-  deleteText: { color: '#dc2626', fontWeight: '700' },
+  deleteButton: { borderWidth: 1, borderColor: '#C93F4B', borderRadius: 10, padding: 13, alignItems: 'center' },
+  deleteText: { color: '#C93F4B', fontWeight: '700' },
 });

@@ -16,7 +16,7 @@ import { ColorPicker } from '@/components/ColorPicker';
 import { SavingsGoalProgress } from '@/components/SavingsGoalProgress';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -95,7 +95,7 @@ export default function SavingsGoalFormScreen() {
   const [deadline, setDeadline] = useState(
     goal ? parseDate(goal.deadline) : getDefaultDeadline()
   );
-  const [color, setColor] = useState(goal?.color ?? '#27ae60');
+  const [color, setColor] = useState(goal?.color ?? '#20B9DB');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [movements, setMovements] = useState<SavingsGoalMovement[]>([]);
@@ -529,8 +529,8 @@ const styles = StyleSheet.create({
   },
   movementCopy: { flex: 1, gap: 3 },
   movementMeta: { fontSize: 12, opacity: 0.64 },
-  positiveMovement: { color: '#168f5b', fontWeight: '800' },
-  negativeMovement: { color: '#c0392b', fontWeight: '800' },
+  positiveMovement: { color: '#1FAF78', fontWeight: '800' },
+  negativeMovement: { color: '#C93F4B', fontWeight: '800' },
   emptyMovements: { paddingVertical: 14, textAlign: 'center', opacity: 0.62 },
   withdrawButton: {
     minHeight: 42,
@@ -551,6 +551,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 11,
     fontSize: 16,
+    fontFamily: Fonts.regular,
   },
   hint: {
     fontSize: 12,
@@ -587,12 +588,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#dc2626',
+    borderColor: '#C93F4B',
     borderRadius: 10,
     paddingHorizontal: 14,
   },
   deleteText: {
-    color: '#dc2626',
+    color: '#C93F4B',
     fontWeight: '700',
   },
   footer: {
@@ -606,7 +607,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 10,
     paddingHorizontal: 18,
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#0B315B',
   },
   primaryButtonText: {
     color: '#fff',

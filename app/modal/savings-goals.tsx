@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth,
   },
   savedAmount: {
-    color: '#2e9d63',
+    color: '#1FAF78',
   },
   sectionHeader: {
     minHeight: 34,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     opacity: 0.62,
   },
   overdue: {
-    color: '#dc2626',
+    color: '#C93F4B',
     fontWeight: '700',
     opacity: 1,
   },
@@ -279,20 +279,20 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   completedBadge: {
-    backgroundColor: '#2e9d6318',
+    backgroundColor: '#1FAF7818',
   },
   archivedBadge: {
-    backgroundColor: '#94a3b826',
+    backgroundColor: '#60758E26',
   },
   statusText: {
     fontSize: 11,
     fontWeight: '800',
   },
   completedText: {
-    color: '#2e9d63',
+    color: '#1FAF78',
   },
   archivedText: {
-    color: '#64748b',
+    color: '#60758E',
   },
   empty: {
     borderRadius: 12,

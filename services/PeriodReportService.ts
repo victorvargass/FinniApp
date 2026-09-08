@@ -18,17 +18,26 @@ import type {
 } from '@/lib/types';
 
 const REPORT_LOGO = require('@/assets/images/splash-icon.png');
+const REPORT_FONT_REGULAR = require('@expo-google-fonts/quicksand/400Regular/Quicksand_400Regular.ttf');
+const REPORT_FONT_BOLD = require('@expo-google-fonts/quicksand/700Bold/Quicksand_700Bold.ttf');
 
 const COLORS = {
-  ink: '#15313b',
-  muted: '#64777e',
-  brand: '#087f8c',
-  brandDark: '#075a64',
-  brandSoft: '#e7f5f5',
-  income: '#14845f',
-  expense: '#d14d41',
-  border: '#dce7e9',
-  surface: '#f6f9f9',
+  ink: '#0B315B',
+  muted: '#60758E',
+  brand: '#20C9B5',
+  brandDark: '#174A73',
+  brandSoft: '#E8F9F6',
+  income: '#1FAF78',
+  expense: '#E95353',
+  savings: '#20B9DB',
+  border: '#D8E1E8',
+  surface: '#FAF8F4',
+  surfaceRaised: '#FFFFFF',
+  rowAlternate: '#F5F8FA',
+  incomeSoft: '#E7F7F0',
+  expenseSoft: '#FDEDEC',
+  gradientStart: '#42D6C0',
+  gradientEnd: '#0799A4',
 };
 
 function escapeHtml(value: string): string {
@@ -88,6 +97,16 @@ async function loadReportLogoDataUri(): Promise<string | null> {
   }
 }
 
+async function loadReportFontDataUri(source: number): Promise<string | null> {
+  try {
+    const [asset] = await Asset.loadAsync(source);
+    if (!asset.localUri) return null;
+    return `data:font/ttf;base64,${await new File(asset.localUri).base64()}`;
+  } catch {
+    return null;
+  }
+}
+
 const PAYMENT_METHOD_TYPE_LABELS: Record<PaymentMethodType, string> = {
   cash: t('paymentMethods.cash'), debit: t('paymentMethods.debit'),
   prepaid: t('paymentMethods.prepaid'), credit: t('paymentMethods.credit'),
@@ -112,7 +131,7 @@ function categoryRows(
         : '0.0';
       const safeColor = /^#[0-9a-f]{3,8}$/i.test(category.categoryColor)
         ? category.categoryColor
-        : '#95a5a6';
+        : COLORS.muted;
 
       return `
         <div class="category-row">
@@ -139,7 +158,7 @@ function donutChart(
     .map((category) => {
       const safeColor = /^#[0-9a-f]{3,8}$/i.test(category.categoryColor)
         ? category.categoryColor
-        : '#95a5a6';
+        : COLORS.muted;
       const length = expensesTotal > 0
         ? (category.total / expensesTotal) * circumference
         : 0;
@@ -164,7 +183,7 @@ function donutChart(
     <div class="donut-column">
       <div class="donut-wrap">
         <svg class="donut" viewBox="0 0 120 120" role="img" aria-label="${t('report.categoryDistribution')}">
-          <circle cx="60" cy="60" r="${radius}" fill="none" stroke="#e8eeee" stroke-width="18" />
+          <circle cx="60" cy="60" r="${radius}" fill="none" stroke="${COLORS.border}" stroke-width="18" />
           ${segments}
           <circle cx="60" cy="60" r="31" fill="white" />
         </svg>
@@ -200,7 +219,7 @@ function paymentMethodRows(
         : '0.0';
       const safeColor = /^#[0-9a-f]{3,8}$/i.test(method.paymentMethodColor)
         ? method.paymentMethodColor
-        : '#95a5a6';
+        : COLORS.muted;
       const details = method.paymentMethodId == null
         ? t('report.noInformation')
         : [
@@ -234,10 +253,10 @@ function expenseRows(expenses: ExpenseWithCategory[]): string {
     .map((expense) => {
       const categoryColor = expense.categoryColor && /^#[0-9a-f]{3,8}$/i.test(expense.categoryColor)
         ? expense.categoryColor
-        : '#95a5a6';
+        : COLORS.muted;
       const paymentMethodColor = expense.paymentMethodColor && /^#[0-9a-f]{3,8}$/i.test(expense.paymentMethodColor)
         ? expense.paymentMethodColor
-        : '#95a5a6';
+        : COLORS.muted;
       const notes = [
         expense.originalAmount && expense.originalAmount !== expense.amount
           ? t('report.splitShare', { share: formatCLP(expense.amount), total: formatCLP(expense.originalAmount) })
@@ -322,7 +341,8 @@ export function buildPeriodReportHtml(
   expenses: ExpenseWithCategory[],
   incomes: Income[],
   savingsGoals: SavingsGoalPeriodActivity[] = [],
-  logoDataUri: string | null = null
+  logoDataUri: string | null = null,
+  fonts: { regular: string | null; bold: string | null } = { regular: null, bold: null }
 ): string {
   const expensesTotal = total(expenses);
   const savingsWithdrawals = total(incomes.filter((income) => income.savingsGoalId != null));
@@ -341,9 +361,11 @@ export function buildPeriodReportHtml(
     <head>
       <meta charset="utf-8" />
       <style>
+        ${fonts.regular ? `@font-face { font-family: "Quicksand"; src: url("${fonts.regular}") format("truetype"); font-weight: 400; }` : ''}
+        ${fonts.bold ? `@font-face { font-family: "Quicksand"; src: url("${fonts.bold}") format("truetype"); font-weight: 700; }` : ''}
         @page { size: A4 portrait; margin: 30px 32px 38px; }
         * { box-sizing: border-box; }
-        body { margin: 0; color: ${COLORS.ink}; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-size: 11px; line-height: 1.45; }
+        body { margin: 0; color: ${COLORS.ink}; background: ${COLORS.surface}; font-family: "Quicksand", Arial, sans-serif; font-size: 11px; line-height: 1.45; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; padding: 2px 2px 12px; }
         .brand-logo { display: block; width: 150px; height: auto; }
         .brand { color: ${COLORS.ink}; font-size: 27px; font-weight: 800; letter-spacing: -.8px; }
@@ -352,12 +374,12 @@ export function buildPeriodReportHtml(
         .period { color: ${COLORS.brandDark}; font-size: 13px; font-weight: 750; text-align: right; }
         .generated { margin-top: 5px; color: ${COLORS.muted}; font-size: 8px; text-align: right; }
         .summary { display: flex; gap: 12px; margin: 10px 0 20px; }
-        .summary-card { display: flex; align-items: center; gap: 11px; flex: 1 1 0; min-width: 0; padding: 15px; border: 1px solid #e5ecee; border-radius: 14px; background: white; box-shadow: 0 4px 14px rgba(21,49,59,.08); }
-        .summary-card.balance { color: white; background: linear-gradient(135deg, ${COLORS.brand} 0%, ${COLORS.brandDark} 100%); border-color: transparent; }
+        .summary-card { display: flex; align-items: center; gap: 11px; flex: 1 1 0; min-width: 0; padding: 15px; border: 1px solid ${COLORS.border}; border-radius: 14px; background: ${COLORS.surfaceRaised}; box-shadow: 0 4px 14px rgba(11,49,91,.08); }
+        .summary-card.balance { color: white; background: linear-gradient(135deg, ${COLORS.gradientStart} 0%, ${COLORS.gradientEnd} 100%); border-color: transparent; }
         .summary-icon { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; }
         .summary-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-        .summary-icon.income-icon { color: ${COLORS.income}; background: #e9f6f0; }
-        .summary-icon.expense-icon { color: ${COLORS.expense}; background: #fdeeed; }
+        .summary-icon.income-icon { color: ${COLORS.income}; background: ${COLORS.incomeSoft}; }
+        .summary-icon.expense-icon { color: ${COLORS.expense}; background: ${COLORS.expenseSoft}; }
         .balance .summary-icon { width: 44px; height: 44px; flex-basis: 44px; color: white; background: rgba(255,255,255,.14); }
         .balance .summary-icon svg { width: 24px; height: 24px; }
         .summary-copy { min-width: 0; }
@@ -369,11 +391,11 @@ export function buildPeriodReportHtml(
         .income { color: ${COLORS.income}; }
         .expense { color: ${COLORS.expense}; }
         .section { margin-top: 20px; break-inside: avoid; }
-        .section.transactions { padding: 15px 16px 12px; break-inside: auto; border: 1px solid #e5ecee; border-radius: 14px; box-shadow: 0 3px 12px rgba(21,49,59,.055); }
+        .section.transactions { padding: 15px 16px 12px; break-inside: auto; border: 1px solid ${COLORS.border}; border-radius: 14px; background: ${COLORS.surfaceRaised}; box-shadow: 0 3px 12px rgba(11,49,91,.055); }
         .section.keep-together { break-inside: avoid; }
         .section-title { margin: 0 0 11px; font-size: 15px; font-weight: 800; letter-spacing: -.15px; }
         .section-subtitle { margin-top: -8px; margin-bottom: 11px; color: ${COLORS.muted}; font-size: 8px; }
-        .category-section { padding: 16px 18px 17px; border: 1px solid #e5ecee; border-radius: 14px; box-shadow: 0 3px 12px rgba(21,49,59,.055); }
+        .category-section { padding: 16px 18px 17px; border: 1px solid ${COLORS.border}; border-radius: 14px; background: ${COLORS.surfaceRaised}; box-shadow: 0 3px 12px rgba(11,49,91,.055); }
         .category-overview { display: flex; align-items: center; gap: 28px; }
         .donut-column { display: flex; align-items: center; justify-content: center; flex: 1 1 0; min-width: 0; }
         .donut-wrap { position: relative; width: 190px; height: 190px; flex: 0 0 190px; }
@@ -382,22 +404,22 @@ export function buildPeriodReportHtml(
         .donut-center strong { font-size: 15px; letter-spacing: -.3px; }
         .donut-center span { margin-top: 2px; color: ${COLORS.muted}; font-size: 8px; }
         .category-grid { display: grid; grid-template-columns: 1fr; flex: 1 1 0; min-width: 0; }
-        .category-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; padding: 5px 0; border-bottom: 1px solid #edf2f3; break-inside: avoid; }
+        .category-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; padding: 5px 0; border-bottom: 1px solid ${COLORS.border}; break-inside: avoid; }
         .category-row:last-child { border-bottom: 0; }
         .category-name { display: flex; align-items: center; min-width: 0; font-weight: 650; }
         .category-value { color: ${COLORS.muted}; white-space: nowrap; font-size: 9px; }
-        .payment-method-section { padding: 15px 16px 12px; border: 1px solid #e5ecee; border-radius: 14px; box-shadow: 0 3px 12px rgba(21,49,59,.055); }
+        .payment-method-section { padding: 15px 16px 12px; border: 1px solid ${COLORS.border}; border-radius: 14px; background: ${COLORS.surfaceRaised}; box-shadow: 0 3px 12px rgba(11,49,91,.055); }
         .method-name { display: flex; align-items: center; min-width: 0; }
         .dot { width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; flex: none; }
         table { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; }
         thead { display: table-header-group; }
         tr { break-inside: avoid; }
-        th { padding: 8px 10px; color: ${COLORS.muted}; background: #f3f7f8; border: 0; font-size: 8px; font-weight: 700; letter-spacing: .35px; text-align: left; }
+        th { padding: 8px 10px; color: ${COLORS.muted}; background: ${COLORS.rowAlternate}; border: 0; font-size: 8px; font-weight: 700; letter-spacing: .35px; text-align: left; }
         th:first-child { border-radius: 8px 0 0 8px; }
         th:last-child { border-radius: 0 8px 8px 0; }
-        td { padding: 10px; border-bottom: 1px solid #edf2f3; vertical-align: top; }
+        td { padding: 10px; border-bottom: 1px solid ${COLORS.border}; vertical-align: top; }
         td.date, td.category-cell, td.payment-method-cell, td.movement-count, td.percentage, td.amount { vertical-align: middle; }
-        tbody tr:nth-child(even) td { background: #fbfcfc; }
+        tbody tr:nth-child(even) td { background: ${COLORS.rowAlternate}; }
         tbody tr:last-child td { border-bottom: 0; }
         .date { width: 66px; color: ${COLORS.muted}; white-space: nowrap; }
         .category-cell { width: 112px; }
@@ -405,18 +427,18 @@ export function buildPeriodReportHtml(
         .movement-count { width: 100px; color: ${COLORS.muted}; white-space: nowrap; }
         .percentage { width: 52px; color: ${COLORS.muted}; text-align: right; white-space: nowrap; }
         .amount { width: 115px; font-weight: 800; text-align: right; white-space: nowrap; }
-        .tag { display: inline-block; padding: 2px 7px; color: ${COLORS.muted}; background: #edf3f4; border: 1px solid; border-radius: 99px; font-size: 8px; white-space: nowrap; }
+        .tag { display: inline-block; padding: 2px 7px; color: ${COLORS.muted}; background: ${COLORS.rowAlternate}; border: 1px solid; border-radius: 99px; font-size: 8px; white-space: nowrap; }
         .row-note { margin-top: 2px; color: ${COLORS.muted}; font-size: 8px; }
-        .goals-section { padding: 15px 16px 12px; border: 1px solid #e5ecee; border-radius: 14px; box-shadow: 0 3px 12px rgba(21,49,59,.055); }
-        .goal-row { padding: 8px 0; border-bottom: 1px solid #edf2f3; break-inside: avoid; }
+        .goals-section { padding: 15px 16px 12px; border: 1px solid ${COLORS.border}; border-radius: 14px; background: ${COLORS.surfaceRaised}; box-shadow: 0 3px 12px rgba(11,49,91,.055); }
+        .goal-row { padding: 8px 0; border-bottom: 1px solid ${COLORS.border}; break-inside: avoid; }
         .goal-row:last-child { border-bottom: 0; }
         .goal-heading { display: flex; justify-content: space-between; gap: 12px; }
         .goal-heading span { color: ${COLORS.muted}; font-size: 9px; white-space: nowrap; }
-        .goal-track { height: 5px; margin-top: 6px; overflow: hidden; border-radius: 99px; background: #e7eeee; }
+        .goal-track { height: 5px; margin-top: 6px; overflow: hidden; border-radius: 99px; background: ${COLORS.border}; }
         .goal-progress { height: 100%; border-radius: 99px; }
         .table-total { display: flex; justify-content: flex-end; gap: 15px; padding: 10px 10px 0; font-weight: 750; }
         .empty, .empty-cell { padding: 14px; color: ${COLORS.muted}; text-align: center; }
-        .footer { margin-top: 15px; padding-top: 5px; color: #91a0a5; font-size: 7px; text-align: center; }
+        .footer { margin-top: 15px; padding-top: 5px; color: ${COLORS.muted}; font-size: 7px; text-align: center; }
       </style>
     </head>
     <body>
@@ -497,12 +519,17 @@ export function buildPeriodReportHtml(
 }
 
 export async function exportPeriodReport(period: PeriodHistory): Promise<void> {
-  const [{ expenses, incomes }, savingsGoals, logoDataUri] = await Promise.all([
+  const [{ expenses, incomes }, savingsGoals, logoDataUri, regularFont, boldFont] = await Promise.all([
     getPeriodStatement(period.periodId),
     getPeriodSavingsGoalActivity(period.periodId),
     loadReportLogoDataUri(),
+    loadReportFontDataUri(REPORT_FONT_REGULAR),
+    loadReportFontDataUri(REPORT_FONT_BOLD),
   ]);
-  const html = buildPeriodReportHtml(period, expenses, incomes, savingsGoals, logoDataUri);
+  const html = buildPeriodReportHtml(period, expenses, incomes, savingsGoals, logoDataUri, {
+    regular: regularFont,
+    bold: boldFont,
+  });
 
   if (Platform.OS === 'web') {
     await Print.printAsync({ html });

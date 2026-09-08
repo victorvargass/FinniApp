@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -68,6 +68,6 @@ export default function DebtBalanceScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, paddingBottom: 45, gap: 15 }, description: { opacity: 0.68, lineHeight: 20 },
   card: { borderRadius: 12, padding: 16, gap: 16 }, row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 }, group: { gap: 7 }, label: { fontWeight: '600' },
-  input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 16 }, dateButton: { justifyContent: 'center' }, multiline: { minHeight: 86, paddingTop: 12, textAlignVertical: 'top' },
-  primary: { minHeight: 49, borderRadius: 10, backgroundColor: '#0a7ea4', alignItems: 'center', justifyContent: 'center' }, primaryText: { color: '#fff', fontWeight: '700' }, disabled: { opacity: 0.45 },
+  input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 16, fontFamily: Fonts.regular }, dateButton: { justifyContent: 'center' }, multiline: { minHeight: 86, paddingTop: 12, textAlignVertical: 'top' },
+  primary: { minHeight: 49, borderRadius: 10, backgroundColor: '#0B315B', alignItems: 'center', justifyContent: 'center' }, primaryText: { color: '#fff', fontWeight: '700' }, disabled: { opacity: 0.45 },
 });

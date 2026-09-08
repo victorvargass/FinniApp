@@ -76,7 +76,7 @@ export default function RecurringExpensesScreen() {
             <ThemedView style={[styles.card, !item.active && styles.inactive]}>
               <View style={styles.cardHeader}>
                 <Pressable onPress={() => router.push({ pathname: '/modal/recurring-income-form', params: { id: String(item.id) } })} style={styles.main}>
-                  <View style={[styles.dot, { backgroundColor: '#2e9d63' }]} />
+                  <View style={[styles.dot, { backgroundColor: '#1FAF78' }]} />
                   <View style={styles.copy}>
                     <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
                     <ThemedText style={styles.amount}>{formatCLP(item.amount)}</ThemedText>
@@ -84,7 +84,7 @@ export default function RecurringExpensesScreen() {
                     <ThemedText style={styles.secondary}>{item.nextDate ? t('recurrence.next', { date: formatDate(parseIsoDate(item.nextDate)) }) : t('recurrence.noNextExecutions')}</ThemedText>
                   </View>
                 </Pressable>
-                <Switch value={item.active} onValueChange={(active) => setRecurringIncomeActive(item.id, active).catch((error) => Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain')))} trackColor={{ true: '#2e9d63' }} />
+                <Switch value={item.active} onValueChange={(active) => setRecurringIncomeActive(item.id, active).catch((error) => Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain')))} trackColor={{ true: '#1FAF78' }} />
               </View>
               <View style={styles.metaRow}>
                 <View style={[styles.modeBadge, { borderColor: colors.border }]}>
@@ -239,13 +239,13 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   modeBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 16, paddingHorizontal: 9, paddingVertical: 5 },
   modeText: { fontSize: 12 },
-  pending: { color: '#d97706', fontSize: 13, fontWeight: '700' },
+  pending: { color: '#D88916', fontSize: 13, fontWeight: '700' },
   pendingActions: { flexDirection: 'row', gap: 8 },
   tabs: { flexDirection: 'row', borderWidth: 1, borderRadius: 10, padding: 3, marginBottom: 8 },
   tab: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 7 },
-  selectedTab: { backgroundColor: '#0a7ea4' }, selectedTabText: { color: '#fff', fontWeight: '700' },
-  removeLink: { color: '#dc2626', fontWeight: '700', fontSize: 13 },
+  selectedTab: { backgroundColor: '#0B315B' }, selectedTabText: { color: '#fff', fontWeight: '700' },
+  removeLink: { color: '#C93F4B', fontWeight: '700', fontSize: 13 },
   action: { flex: 1, borderWidth: 1, borderRadius: 9, padding: 10, alignItems: 'center' },
-  approve: { borderColor: '#0a7ea4', backgroundColor: '#0a7ea4' },
+  approve: { borderColor: '#0B315B', backgroundColor: '#0B315B' },
   approveText: { color: '#fff', fontWeight: '700' },
 });

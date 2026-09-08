@@ -17,7 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FloatingActionButton } from '@/components/floating-action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -133,7 +133,7 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
         {color != null && <View style={[styles.optionDot, { backgroundColor: color }]} />}
         <ThemedText style={selected ? styles.modalOptionTextSelected : undefined}>{label}</ThemedText>
       </View>
-      {selected && <Ionicons name="checkmark-circle" size={22} color="#0a7ea4" />}
+      {selected && <Ionicons name="checkmark-circle" size={22} color="#0B315B" />}
     </Pressable>
   );
 }
@@ -237,7 +237,7 @@ export default function IncomesScreen() {
               isSortActive && styles.toolbarButtonActive,
             ]}
             onPress={() => setSortModalVisible(true)}>
-            <Ionicons name="swap-vertical" size={18} color={isSortActive ? '#0a7ea4' : colors.icon} />
+            <Ionicons name="swap-vertical" size={18} color={isSortActive ? '#0B315B' : colors.icon} />
             <View style={styles.toolbarButtonText}>
               <ThemedText type="defaultSemiBold">{t('filters.order')}</ThemedText>
               <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
@@ -304,7 +304,7 @@ export default function IncomesScreen() {
                 <View
                   style={[
                     styles.dot,
-                    { backgroundColor: '#008000', width: 11, height: 11, borderRadius: 5.5 }
+                    { backgroundColor: '#1FAF78', width: 11, height: 11, borderRadius: 5.5 }
                   ]}
                 />
                 <View style={styles.itemInfo}>
@@ -369,6 +369,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
+    fontFamily: Fonts.regular,
     padding: 0,
   },
   toolbar: {
@@ -386,8 +387,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   toolbarButtonActive: {
-    borderColor: '#0a7ea4',
-    backgroundColor: '#0a7ea412',
+    borderColor: '#0B315B',
+    backgroundColor: '#20C9B51F',
   },
   toolbarButtonText: {
     flex: 1,
@@ -440,8 +441,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalOptionSelected: {
-    borderColor: '#0a7ea4',
-    backgroundColor: '#0a7ea412',
+    borderColor: '#0B315B',
+    backgroundColor: '#20C9B51F',
   },
   modalOptionLeft: {
     flexDirection: 'row',
@@ -450,7 +451,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalOptionTextSelected: {
-    color: '#0a7ea4',
+    color: '#0B315B',
     fontWeight: '600',
   },
   optionDot: {

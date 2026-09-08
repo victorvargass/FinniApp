@@ -19,7 +19,7 @@ import { ColorPicker } from '@/components/ColorPicker';
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -212,7 +212,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
   const isSavingsCategory = category?.purpose === 'savings';
 
   const [name, setName] = useState(category?.name ?? '');
-  const [color, setColor] = useState(category?.color ?? '#0a7ea4');
+  const [color, setColor] = useState(category?.color ?? '#0B315B');
   const [limitText, setLimitText] = useState(
     category?.periodLimit != null ? formatCLPInput(category.periodLimit) : ''
   );
@@ -841,7 +841,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         value={categoryId}
         onChange={setCategoryId}
         options={[
-          { value: null, label: t('expenses.noCategory'), color: '#95a5a6' },
+          { value: null, label: t('expenses.noCategory'), color: '#60758E' },
           ...categories.map((category) => ({
             value: category.id,
             label: category.name,
@@ -860,7 +860,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
               setSavingsKind(value == null ? null : 'contribution');
             }}
             options={[
-              { value: null, label: t('savings.noSpecificGoal'), color: '#95a5a6' },
+              { value: null, label: t('savings.noSpecificGoal'), color: '#60758E' },
               ...selectableSavingsGoals.map((goal) => ({
                 value: goal.id,
                 label: goal.name,
@@ -887,7 +887,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           <ThemedText style={styles.label}>{t('expenses.paymentMethodOptional')}</ThemedText>
           <View style={[styles.selectButton, { borderColor: colors.border }]}>
             <View style={styles.selectValue}>
-              <View style={[styles.selectDot, { backgroundColor: '#8e44ad' }]} />
+              <View style={[styles.selectDot, { backgroundColor: '#20B9DB' }]} />
               <ThemedText type="defaultSemiBold">{t('savings.withdrawalPaymentMethod')}</ThemedText>
             </View>
             <Ionicons name="lock-closed-outline" size={18} color={colors.icon} />
@@ -908,12 +908,12 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             setPaymentMethodId(value);
           }}
           options={[
-            { value: null, label: t('common.notSpecified'), color: '#95a5a6' },
+            { value: null, label: t('common.notSpecified'), color: '#60758E' },
             ...(!isSavingsCategory && !isInstallmentPurchase && selectableSavingsGoals.length > 0
               ? [{
                   value: VIRTUAL_SAVINGS_PAYMENT_METHOD_ID,
                   label: t('savings.withdrawalPaymentMethod'),
-                  color: '#8e44ad',
+                  color: '#20B9DB',
                 }]
               : []),
             ...selectablePaymentMethods.map((method) => ({
@@ -1316,7 +1316,7 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
               }
             }}
             options={[
-              { value: null, label: t('savings.normalIncome'), color: '#008000' },
+              { value: null, label: t('savings.normalIncome'), color: '#1FAF78' },
               ...selectableSavingsGoals.map((goal) => ({
                 value: goal.id,
                 label: `${goal.name} · ${formatCLP(goal.currentAmount)}`,
@@ -1428,6 +1428,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
+    fontFamily: Fonts.regular,
   },
   nameSuggestions: {
     borderWidth: 1,
@@ -1481,21 +1482,21 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   shareButtonSelected: {
-    borderColor: '#0a7ea4',
-    backgroundColor: '#0a7ea412',
+    borderColor: '#0B315B',
+    backgroundColor: '#20C9B51F',
   },
   shareButtonTextSelected: {
-    color: '#0a7ea4',
+    color: '#0B315B',
     fontWeight: '700',
   },
   shareResult: {
-    color: '#0a7ea4',
+    color: '#0B315B',
     fontSize: 14,
     fontWeight: '600',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#0a7ea412',
+    backgroundColor: '#20C9B51F',
   },
   manualPercentageLabel: {
     flex: 1,
@@ -1550,7 +1551,7 @@ const styles = StyleSheet.create({
   selectOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
   selectSheet: { maxHeight: '72%' },
   selectContent: { borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 20, gap: 14 },
-  selectHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: '#9ba1a6', opacity: 0.55, alignSelf: 'center' },
+  selectHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: '#60758E', opacity: 0.55, alignSelf: 'center' },
   selectOptions: { maxHeight: 390 },
   selectOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 13, marginBottom: 8, gap: 12 },
   selectOptionSelectedText: { fontWeight: '700' },
@@ -1572,7 +1573,7 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 16,
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#0B315B',
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -1638,13 +1639,13 @@ const styles = StyleSheet.create({
   deleteButton: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#be1b1b',
+    borderColor: '#C93F4B',
     borderRadius: 10,
     paddingVertical: 13,
     alignItems: 'center',
   },
   deleteButtonText: {
-    color: '#be1b1b',
+    color: '#C93F4B',
     fontWeight: '700',
   },
 });

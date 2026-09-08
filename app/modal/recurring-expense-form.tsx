@@ -165,11 +165,11 @@ export default function RecurringExpenseFormScreen() {
             <View style={styles.metadataChips}>
               <MetadataChip
                 label={expenseDetails.categoryName ?? t('expenses.noCategory')}
-                color={expenseDetails.categoryColor ?? '#95a5a6'}
+                color={expenseDetails.categoryColor ?? '#60758E'}
               />
               <MetadataChip
                 label={expenseDetails.paymentMethodName ?? t('expenses.noPaymentMethod')}
-                color={expenseDetails.paymentMethodColor ?? '#95a5a6'}
+                color={expenseDetails.paymentMethodColor ?? '#60758E'}
               />
             </View>
             {recurring?.sourceExpenseId != null && (
@@ -268,9 +268,9 @@ const styles = StyleSheet.create({
   },
   emptyHint: { textAlign: 'center', opacity: 0.65, marginVertical: 16 },
   divider: { borderTopWidth: 1, marginVertical: 10 },
-  save: { marginTop: 18, borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0a7ea4' },
+  save: { marginTop: 18, borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0B315B' },
   saveText: { color: '#fff', fontWeight: '700' },
   remove: { marginTop: 4, borderRadius: 10, padding: 14, alignItems: 'center' },
-  removeText: { color: '#dc2626', fontWeight: '700' },
+  removeText: { color: '#C93F4B', fontWeight: '700' },
   disabled: { opacity: 0.6 },
 });

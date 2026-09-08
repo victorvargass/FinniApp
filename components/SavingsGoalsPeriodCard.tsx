@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   manageButton: {
     borderRadius: 999,
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#0B315B',
     paddingHorizontal: 13,
     paddingVertical: 8,
   },

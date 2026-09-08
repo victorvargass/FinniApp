@@ -71,8 +71,8 @@ export function BiometricGate({ children }: React.PropsWithChildren) {
             pressed && styles.pressed,
           ]}
         >
-          <Ionicons name="finger-print" size={22} color={colorScheme === 'dark' ? '#11181C' : '#fff'} />
-          <ThemedText style={[styles.buttonText, { color: colorScheme === 'dark' ? '#11181C' : '#fff' }]}>
+          <Ionicons name="finger-print" size={22} color={colorScheme === 'dark' ? '#0B315B' : '#fff'} />
+          <ThemedText style={[styles.buttonText, { color: colorScheme === 'dark' ? '#0B315B' : '#fff' }]}>
             {t('biometric.unlock')}
           </ThemedText>
         </Pressable>

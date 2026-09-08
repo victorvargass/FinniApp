@@ -1,7 +1,7 @@
 import { HistoricalPeriodModal } from '@/components/HistoricalPeriodModal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
@@ -154,7 +154,7 @@ export default function HistoricalSummaryScreen() {
             <Text
               style={{
                 color: selectedYear === year ? colors.background : colors.text,
-                fontWeight: selectedYear === year ? 'bold' : 'normal',
+                fontFamily: selectedYear === year ? Fonts.bold : Fonts.regular,
                 fontSize: 16,
               }}
             >
@@ -181,7 +181,7 @@ export default function HistoricalSummaryScreen() {
             {/* Mostrar total histórico gastado en formato CLP */}
             <View style={{ marginTop: 2 }}>
               <ThemedText style={{ fontWeight: '600', fontSize: 15, color: colors.text }}>
-                {t('history.totalSpentYear')} <Text style={{ fontWeight: 'bold' }}>{formatCLP(totalGastado)}</Text>
+                {t('history.totalSpentYear')} <Text style={{ fontFamily: Fonts.bold }}>{formatCLP(totalGastado)}</Text>
               </ThemedText>
             </View>
 
@@ -208,7 +208,7 @@ export default function HistoricalSummaryScreen() {
                     color: colors.text,
                     fontSize: 9,
                   }}
-                  rulesColor="#ddd"
+                  rulesColor="#D8E1E8"
                   yAxisLabelPrefix="$ "
                   yAxisLabelWidth={60}
                   maxValue={chartMaxValue}

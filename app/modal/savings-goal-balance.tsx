@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -117,10 +117,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   group: { gap: 7 },
   label: { fontWeight: '700' },
-  input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 11, fontSize: 16 },
+  input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 11, fontSize: 16, fontFamily: Fonts.regular },
   dateButton: { justifyContent: 'center' },
   multiline: { minHeight: 84, textAlignVertical: 'top' },
-  primary: { minHeight: 48, borderRadius: 10, backgroundColor: '#0a7ea4', alignItems: 'center', justifyContent: 'center' },
+  primary: { minHeight: 48, borderRadius: 10, backgroundColor: '#0B315B', alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#fff', fontWeight: '700' },
   disabled: { opacity: 0.55 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },

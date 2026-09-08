@@ -17,7 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { FloatingActionButton } from '@/components/floating-action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -232,7 +232,7 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
         {color != null && <View style={[styles.optionDot, { backgroundColor: color }]} />}
         <ThemedText style={selected ? styles.modalOptionTextSelected : undefined}>{label}</ThemedText>
       </View>
-      {selected && <Ionicons name="checkmark-circle" size={22} color="#0a7ea4" />}
+      {selected && <Ionicons name="checkmark-circle" size={22} color="#0B315B" />}
     </Pressable>
   );
 }
@@ -407,8 +407,8 @@ export default function ExpensesScreen() {
           ? expense.categoryName ?? t('expenses.noCategory')
           : expense.paymentMethodName ?? t('common.notSpecified'),
         color: groupsByCategory
-          ? expense.categoryColor ?? '#95a5a6'
-          : expense.paymentMethodColor ?? '#95a5a6',
+          ? expense.categoryColor ?? '#60758E'
+          : expense.paymentMethodColor ?? '#60758E',
         expenses: [],
       };
 
@@ -524,7 +524,7 @@ export default function ExpensesScreen() {
               isSortActive && styles.toolbarButtonActive,
             ]}
             onPress={() => setSortModalVisible(true)}>
-            <Ionicons name="swap-vertical" size={18} color={isSortActive ? '#0a7ea4' : colors.icon} />
+            <Ionicons name="swap-vertical" size={18} color={isSortActive ? '#0B315B' : colors.icon} />
             <View style={styles.toolbarButtonText}>
               <ThemedText type="defaultSemiBold">{t('filters.order')}</ThemedText>
               <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
@@ -540,7 +540,7 @@ export default function ExpensesScreen() {
               groupBy !== 'none' && styles.toolbarButtonActive,
             ]}
             onPress={() => setGroupModalVisible(true)}>
-            <Ionicons name="layers-outline" size={18} color={groupBy !== 'none' ? '#0a7ea4' : colors.icon} />
+            <Ionicons name="layers-outline" size={18} color={groupBy !== 'none' ? '#0B315B' : colors.icon} />
             <View style={styles.toolbarButtonText}>
               <ThemedText type="defaultSemiBold">{t('filters.group')}</ThemedText>
               <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
@@ -556,7 +556,7 @@ export default function ExpensesScreen() {
             isFilterActive && styles.toolbarButtonActive,
           ]}
           onPress={() => setFilterModalVisible(true)}>
-          <Ionicons name="filter" size={18} color={isFilterActive ? '#0a7ea4' : colors.icon} />
+          <Ionicons name="filter" size={18} color={isFilterActive ? '#0B315B' : colors.icon} />
           <View style={styles.toolbarButtonText}>
             <ThemedText type="defaultSemiBold">{t('common.filters')}</ThemedText>
             <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
@@ -663,7 +663,7 @@ export default function ExpensesScreen() {
         {hasSavingsWithdrawalExpenses && (
           <ModalOption
             label={t('savings.withdrawalPaymentMethod')}
-            color="#8e44ad"
+            color="#20B9DB"
             selected={paymentMethodFilter.includes(VIRTUAL_SAVINGS_PAYMENT_METHOD_ID)}
             onPress={() => togglePaymentMethodFilter(VIRTUAL_SAVINGS_PAYMENT_METHOD_ID)}
           />
@@ -746,7 +746,7 @@ export default function ExpensesScreen() {
                     <View
                       style={[
                         styles.dot,
-                        { backgroundColor: expense.categoryColor ?? '#95a5a6', width: 11, height: 11, borderRadius: 5.5 }
+                        { backgroundColor: expense.categoryColor ?? '#60758E', width: 11, height: 11, borderRadius: 5.5 }
                       ]}
                     />
                   )}
@@ -827,6 +827,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
+    fontFamily: Fonts.regular,
     padding: 0,
   },
   toolbar: {
@@ -844,8 +845,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   toolbarButtonActive: {
-    borderColor: '#0a7ea4',
-    backgroundColor: '#0a7ea412',
+    borderColor: '#0B315B',
+    backgroundColor: '#20C9B51F',
   },
   toolbarButtonText: {
     flex: 1,
@@ -876,7 +877,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   clearAllFiltersText: {
-    color: '#be1b1b',
+    color: '#C93F4B',
     fontWeight: '600',
   },
   modalOverlay: {
@@ -898,7 +899,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#ccc',
+    backgroundColor: '#D8E1E8',
     marginBottom: 12,
   },
   modalTitle: {
@@ -930,8 +931,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalOptionSelected: {
-    borderColor: '#0a7ea4',
-    backgroundColor: '#0a7ea412',
+    borderColor: '#0B315B',
+    backgroundColor: '#20C9B51F',
   },
   modalOptionLeft: {
     flexDirection: 'row',
@@ -940,7 +941,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalOptionTextSelected: {
-    color: '#0a7ea4',
+    color: '#0B315B',
     fontWeight: '600',
   },
   optionDot: {

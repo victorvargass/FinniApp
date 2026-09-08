@@ -72,7 +72,7 @@ export default function PaymentMethodsScreen() {
               <Ionicons
                 name={settings.defaultPaymentMethodId === item.id ? 'star' : 'star-outline'}
                 size={22}
-                color={settings.defaultPaymentMethodId === item.id ? '#f2b705' : colors.icon}
+                color={settings.defaultPaymentMethodId === item.id ? '#D88916' : colors.icon}
               />
             </Pressable>
             {item.type === 'credit' && (

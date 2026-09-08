@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useBiometric } from '@/contexts/BiometricContext';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
@@ -352,7 +352,7 @@ export default function UserScreen() {
 
         <ThemedView style={styles.dangerCard}>
           <View style={styles.dangerHeader}>
-            <Ionicons name="warning-outline" size={24} color="#dc2626" />
+            <Ionicons name="warning-outline" size={24} color="#C93F4B" />
             <ThemedText type="subtitle" style={styles.dangerTitle}>{t('settings.dangerZone')}</ThemedText>
           </View>
           <ThemedText style={styles.description}>{t('settings.dangerZoneHint')}</ThemedText>
@@ -373,7 +373,7 @@ export default function UserScreen() {
         <Pressable style={styles.modalOverlay} onPress={closeResetModal}>
           <Pressable style={[styles.confirmationDialog, { backgroundColor: colors.background }]} onPress={(event) => event.stopPropagation()}>
             <View style={styles.dangerHeader}>
-              <Ionicons name="warning" size={25} color="#dc2626" />
+              <Ionicons name="warning" size={25} color="#C93F4B" />
               <ThemedText type="subtitle" style={styles.confirmationTitle}>{t('settings.resetConfirmTitle')}</ThemedText>
             </View>
             <ThemedText style={styles.description}>{t('settings.resetConfirmInstruction')}</ThemedText>
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#dc2626',
+    backgroundColor: '#C93F4B',
   },
   notificationBadgeText: {
     color: '#fff',
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     padding: 18,
     gap: 14,
     borderWidth: 1,
-    borderColor: '#dc2626',
+    borderColor: '#C93F4B',
   },
   dangerHeader: {
     flexDirection: 'row',
@@ -529,11 +529,11 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   dangerTitle: {
-    color: '#dc2626',
+    color: '#C93F4B',
   },
   dangerButton: {
-    backgroundColor: '#dc2626',
-    borderColor: '#dc2626',
+    backgroundColor: '#C93F4B',
+    borderColor: '#C93F4B',
   },
   dangerButtonText: {
     color: '#fff',
@@ -559,6 +559,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 13,
     fontSize: 16,
+    fontFamily: Fonts.regular,
   },
   confirmationActions: {
     flexDirection: 'row',

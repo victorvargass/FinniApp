@@ -297,7 +297,7 @@ export default function PeriodScreen() {
         <View style={{ marginTop: 24, alignItems: 'center' }}>
           <Pressable
             style={{
-              backgroundColor: '#e74c3c',
+              backgroundColor: '#E95353',
               paddingHorizontal: 24,
               paddingVertical: 12,
               borderRadius: 8,
@@ -424,22 +424,22 @@ const styles = StyleSheet.create({
   totalIncomes: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#008000',
+    color: '#1FAF78',
   },
   totalExpenses: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#e44332',
+    color: '#E95353',
   },
   totalPositiveBalance: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#006080',
+    color: '#174A73',
   },
   totalNegativeBalance: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#e44332',
+    color: '#E95353',
   },
   savingsBalanceNote: {
     fontSize: 12,

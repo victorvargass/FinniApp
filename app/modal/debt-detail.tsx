@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -222,17 +222,17 @@ export default function DebtDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, paddingBottom: 45, gap: 13 },
   card: { borderRadius: 12, padding: 15, gap: 11 }, secondary: { opacity: 0.65, lineHeight: 18 }, label: { fontWeight: '600' },
-  input: { borderWidth: 1, borderRadius: 9, padding: 11, fontSize: 16 }, periodSelect: { minHeight: 46, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  primary: { minHeight: 46, backgroundColor: '#0a7ea4', borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' }, primaryText: { width: '100%', color: '#fff', fontWeight: '700', textAlign: 'center', flexShrink: 1 },
-  installment: { borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, icon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, posted: { backgroundColor: '#2e9d63' }, projected: { backgroundColor: '#d97706' }, cancelled: { backgroundColor: '#94a3b8' }, copy: { flex: 1 },
+  input: { borderWidth: 1, borderRadius: 9, padding: 11, fontSize: 16, fontFamily: Fonts.regular }, periodSelect: { minHeight: 46, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  primary: { minHeight: 46, backgroundColor: '#0B315B', borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' }, primaryText: { width: '100%', color: '#fff', fontWeight: '700', textAlign: 'center', flexShrink: 1 },
+  installment: { borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, icon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, posted: { backgroundColor: '#1FAF78' }, projected: { backgroundColor: '#D88916' }, cancelled: { backgroundColor: '#60758E' }, copy: { flex: 1 },
   inlineAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9 },
   restoreButton: { alignSelf: 'center', minHeight: 42, marginTop: 10, marginBottom: 4, borderWidth: 1, borderRadius: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 16, paddingVertical: 9 },
   restoreButtonText: { fontSize: 14, lineHeight: 20, fontWeight: '700' },
-  danger: { borderWidth: 1, borderColor: '#dc2626', borderRadius: 9, padding: 12, alignItems: 'center' }, dangerText: { color: '#dc2626', fontWeight: '700' },
+  danger: { borderWidth: 1, borderColor: '#C93F4B', borderRadius: 9, padding: 12, alignItems: 'center' }, dangerText: { color: '#C93F4B', fontWeight: '700' },
   disabled: { opacity: 0.4 }, deleteSection: { gap: 8, marginTop: 4 },
   modalOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, backgroundColor: 'rgba(0,0,0,0.45)' },
   modalSheet: { width: '100%', maxHeight: '70%', borderRadius: 18, padding: 20, gap: 14 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   periodList: { maxHeight: 420 }, periodOption: { minHeight: 48, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  selectedOption: { borderColor: '#0a7ea4', backgroundColor: '#0a7ea412' }, selectedOptionText: { color: '#0a7ea4', fontWeight: '700' },
+  selectedOption: { borderColor: '#0B315B', backgroundColor: '#20C9B51F' }, selectedOptionText: { color: '#0B315B', fontWeight: '700' },
 });

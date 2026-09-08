@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatDate } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   label: { fontWeight: '700', marginTop: 6 },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 13, paddingVertical: 9 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16 },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, fontFamily: Fonts.regular },
   hint: { opacity: 0.65, fontSize: 13, lineHeight: 18 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
   switchCopy: { flex: 1, gap: 2 },

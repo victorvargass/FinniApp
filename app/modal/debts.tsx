@@ -59,13 +59,13 @@ export default function DebtsScreen() {
               <Pressable key={debt.id} onPress={() => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(debt.id) } })}>
                 <ThemedView style={[styles.card, debt.status === 'archived' && styles.archived]}>
                   <View style={styles.header}>
-                    <View style={[styles.debtIcon, { backgroundColor: debt.type === 'fixed' ? '#0a7ea4' : '#d97706' }]}><Ionicons name={debt.type === 'fixed' ? 'calendar-outline' : 'analytics-outline'} size={17} color="#fff" /></View>
+                    <View style={[styles.debtIcon, { backgroundColor: debt.type === 'fixed' ? '#0B315B' : '#D88916' }]}><Ionicons name={debt.type === 'fixed' ? 'calendar-outline' : 'analytics-outline'} size={17} color="#fff" /></View>
                     <View style={styles.copy}><ThemedText type="defaultSemiBold">{debt.name}</ThemedText><ThemedText style={styles.secondary}>{debt.creditor ?? (debt.type === 'fixed' ? t('debts.fixed') : t('debts.variable'))}</ThemedText></View>
                     <Ionicons name="chevron-forward" size={21} color={colors.icon} />
                   </View>
                   <View style={styles.row}><ThemedText>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
                   {debt.nextDueDate && <ThemedText style={styles.secondary}>{t('debts.nextDueValue', { date: new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${debt.nextDueDate}T12:00:00`)) })}</ThemedText>}
-                  <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#2e9d63' : debt.status === 'archived' ? '#64748b' : colors.primary }]}>{debt.status === 'paid' ? t('debts.statusPaid') : debt.status === 'archived' ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
+                  <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#1FAF78' : debt.status === 'archived' ? '#60758E' : colors.primary }]}>{debt.status === 'paid' ? t('debts.statusPaid') : debt.status === 'archived' ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
                 </ThemedView>
               </Pressable>
             ))}
@@ -92,7 +92,7 @@ export default function DebtsScreen() {
               </View>
               <View style={styles.row}><ThemedText>{t('installments.progress')}</ThemedText><ThemedText type="defaultSemiBold">{t('installments.progressValue', { posted: plan.postedInstallments, total: plan.totalInstallments })}</ThemedText></View>
               <View style={styles.row}><ThemedText>{t('installments.projectedBalance')}</ThemedText><ThemedText>{formatCLP(plan.remainingAmount)}</ThemedText></View>
-              <ThemedText style={[styles.status, { color: plan.status === 'active' ? '#2e9d63' : colors.primary }]}>{STATUS_LABEL[plan.status]}</ThemedText>
+              <ThemedText style={[styles.status, { color: plan.status === 'active' ? '#1FAF78' : colors.primary }]}>{STATUS_LABEL[plan.status]}</ThemedText>
             </ThemedView>
           </Pressable>
         ))}

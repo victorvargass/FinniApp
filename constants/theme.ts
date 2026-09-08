@@ -1,68 +1,112 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-const primaryColor = '#0a7ea4';
+export const BrandColors = {
+  navy: '#0B315B',
+  turquoise: '#20C9B5',
+  turquoiseLight: '#48D9C2',
+  chartBlue: '#20B9DB',
+  blueSecondary: '#174A73',
+  warmWhite: '#FAF8F4',
+  blueGray: '#60758E',
+  gradientStart: '#42D6C0',
+  gradientEnd: '#0799A4',
+} as const;
 
-export const Colors = {
+export const SemanticColors = {
+  income: '#1FAF78',
+  expense: '#E95353',
+  savings: BrandColors.chartBlue,
+  warning: '#D88916',
+  danger: '#C93F4B',
+} as const;
+
+export type ThemePalette = {
+  text: string;
+  background: string;
+  screen: string;
+  surface: string;
+  surfaceRaised: string;
+  border: string;
+  textSecondary: string;
+  primary: string;
+  secondary: string;
+  action: string;
+  onPrimary: string;
+  onSecondary: string;
+  tint: string;
+  icon: string;
+  tabIconDefault: string;
+  tabIconSelected: string;
+  success: string;
+  expense: string;
+  savings: string;
+  warning: string;
+  danger: string;
+};
+
+export const Colors: Record<'light' | 'dark', ThemePalette> = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    screen: '#fff',
-    surface: '#fbfcfd',
-    surfaceRaised: '#fff',
-    border: '#dce3e6',
-    textSecondary: '#687076',
-    primary: primaryColor,
-    onPrimary: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: BrandColors.navy,
+    background: BrandColors.warmWhite,
+    screen: BrandColors.warmWhite,
+    surface: '#FFFFFF',
+    surfaceRaised: '#FFFFFF',
+    border: '#D8E1E8',
+    textSecondary: BrandColors.blueGray,
+    primary: BrandColors.navy,
+    secondary: BrandColors.turquoise,
+    action: '#079E91',
+    onPrimary: '#FFFFFF',
+    onSecondary: BrandColors.navy,
+    tint: BrandColors.turquoise,
+    icon: BrandColors.blueGray,
+    tabIconDefault: BrandColors.blueGray,
+    tabIconSelected: BrandColors.turquoise,
+    success: SemanticColors.income,
+    expense: SemanticColors.expense,
+    savings: SemanticColors.savings,
+    warning: SemanticColors.warning,
+    danger: SemanticColors.danger,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    screen: '#000',
-    surface: '#151718',
-    surfaceRaised: '#1c1f20',
-    border: '#3a3f42',
-    textSecondary: '#aeb4b8',
-    primary: primaryColor,
-    onPrimary: '#fff',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: BrandColors.warmWhite,
+    background: '#071C31',
+    screen: '#061525',
+    surface: '#0B2947',
+    surfaceRaised: '#10375B',
+    border: '#28516F',
+    textSecondary: '#A9BBCB',
+    primary: BrandColors.turquoiseLight,
+    secondary: BrandColors.turquoise,
+    action: BrandColors.turquoiseLight,
+    onPrimary: BrandColors.navy,
+    onSecondary: BrandColors.navy,
+    tint: BrandColors.turquoiseLight,
+    icon: '#A9BBCB',
+    tabIconDefault: '#8FA6B9',
+    tabIconSelected: BrandColors.turquoiseLight,
+    success: '#43D49C',
+    expense: '#FF7474',
+    savings: '#4CCDE7',
+    warning: '#F2B552',
+    danger: '#FF737D',
   },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+export const Fonts = {
+  regular: 'Quicksand_400Regular',
+  medium: 'Quicksand_500Medium',
+  semiBold: 'Quicksand_600SemiBold',
+  bold: 'Quicksand_700Bold',
+  sans: 'Quicksand_400Regular',
+  rounded: 'Quicksand_500Medium',
+  mono: Platform.select({ ios: 'ui-monospace', default: 'monospace' }),
+} as const;
+
+export const BrandGradient = [BrandColors.gradientStart, BrandColors.gradientEnd] as const;
+export const LayoutTokens = {
+  radiusSmall: 10,
+  radiusMedium: 12,
+  radiusLarge: 16,
+  spacing: 4,
+} as const;

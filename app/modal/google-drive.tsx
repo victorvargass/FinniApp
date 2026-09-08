@@ -345,14 +345,14 @@ const styles = StyleSheet.create({
   googleButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#D8E1E8',
     flexDirection: 'row',
     gap: 10,
     paddingVertical: 10,
     borderRadius: 5,
   },
   googleButtonText: {
-    color: '#444',
+    color: '#60758E',
     fontWeight: '600',
     fontSize: 16,
   },
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   darkActionButtonText: {
-    color: '#11181C',
+    color: '#0B315B',
   },
   progress: {
     flexDirection: 'row',

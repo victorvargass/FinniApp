@@ -1,16 +1,25 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import {
+  Quicksand_400Regular,
+  Quicksand_500Medium,
+  Quicksand_600SemiBold,
+  Quicksand_700Bold,
+  useFonts,
+} from '@expo-google-fonts/quicksand';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { BiometricGate } from '@/components/biometric-gate';
+import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { RecurringNotificationController } from '@/components/recurring-notification-controller';
 import { t } from '@/lib/i18n';
 import { BiometricProvider } from '@/contexts/BiometricContext';
 import { DatabaseProvider } from '@/contexts/DatabaseContext';
 import { ThemePreferenceProvider } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Colors, Fonts } from '@/constants/theme';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -18,6 +27,26 @@ export const unstable_settings = {
 
 function AppContent() {
   const colorScheme = useColorScheme();
+  const palette = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+  const navigationTheme = {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      primary: palette.action,
+      background: palette.screen,
+      card: palette.surfaceRaised,
+      text: palette.text,
+      border: palette.border,
+      notification: palette.expense,
+    },
+    fonts: {
+      regular: { fontFamily: Fonts.regular, fontWeight: '400' as const },
+      medium: { fontFamily: Fonts.medium, fontWeight: '500' as const },
+      bold: { fontFamily: Fonts.bold, fontWeight: '700' as const },
+      heavy: { fontFamily: Fonts.bold, fontWeight: '700' as const },
+    },
+  };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -25,7 +54,7 @@ function AppContent() {
         <BiometricGate>
           <DatabaseProvider>
             <RecurringNotificationController />
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <ThemeProvider value={navigationTheme}>
               <Stack>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
@@ -127,9 +156,16 @@ function AppContent() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Quicksand_400Regular,
+    Quicksand_500Medium,
+    Quicksand_600SemiBold,
+    Quicksand_700Bold,
+  });
+
   return (
     <ThemePreferenceProvider>
-      <AppContent />
+      {!fontsLoaded && !fontError ? <AppLoadingScreen /> : <AppContent />}
     </ThemePreferenceProvider>
   );
 }

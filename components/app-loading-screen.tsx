@@ -4,6 +4,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { t } from '@/lib/i18n';
+import { BrandColors } from '@/constants/theme';
 
 const loadingIllustration = require('@/assets/images/brand-mark-safe.png');
 const wordmark = require('@/assets/images/splash-icon-dark.png');
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
-    backgroundColor: '#0D3B66',
+    backgroundColor: BrandColors.navy,
   },
   brandBlock: {
     alignItems: 'center',
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     marginTop: 8,
-    color: '#28D7C7',
+    color: BrandColors.turquoise,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -109,7 +110,7 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   message: {
-    color: '#D8E7F3',
+    color: BrandColors.warmWhite,
     fontSize: 14,
   },
   track: {
@@ -124,12 +125,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 2,
-    backgroundColor: '#28D7C7',
+    backgroundColor: BrandColors.turquoise,
   },
   slogan: {
     position: 'absolute',
     bottom: 44,
-    color: '#B9CFDF',
+    color: BrandColors.turquoiseLight,
     fontSize: 12,
     textAlign: 'center',
   },

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -166,7 +166,7 @@ function CycleCard({
       {adjustment != null && (
         <View style={styles.adjustmentBox}>
           <ThemedText style={styles.secondary}>{t('cardCycles.remainingAdjustment')}</ThemedText>
-          <ThemedText type="defaultSemiBold" style={{ color: adjustment === 0 ? '#2e9d63' : '#d97706' }}>
+          <ThemedText type="defaultSemiBold" style={{ color: adjustment === 0 ? '#1FAF78' : '#D88916' }}>
             {formatCLP(adjustment)}
           </ThemedText>
         </View>
@@ -270,20 +270,20 @@ const styles = StyleSheet.create({
   explanation: { opacity: 0.72, lineHeight: 20 },
   card: { borderRadius: 12, padding: 16, gap: 12 },
   label: { fontWeight: '600', marginTop: 2 },
-  input: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16 },
-  primary: { backgroundColor: '#0a7ea4', borderRadius: 9, padding: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
+  input: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 11, fontSize: 16, fontFamily: Fonts.regular },
+  primary: { backgroundColor: '#0B315B', borderRadius: 9, padding: 13, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 4 },
   primaryText: { color: '#fff', fontWeight: '700' },
   empty: { opacity: 0.6 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   statusCopy: { flex: 1 },
   secondary: { opacity: 0.6, fontSize: 12 },
-  closeNotice: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 10, padding: 12, backgroundColor: '#0a7ea418' },
+  closeNotice: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 10, padding: 12, backgroundColor: '#20C9B526' },
   cycleDates: { opacity: 0.7, fontSize: 13 },
-  adjustmentBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 10, borderRadius: 9, backgroundColor: '#d9770614' },
+  adjustmentBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 10, borderRadius: 9, backgroundColor: '#D8891614' },
   cycleHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statusIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2e9d63' },
-  reconciledCard: { borderWidth: 1, borderColor: '#2e9d6355' },
-  reconciledText: { color: '#2e9d63', fontSize: 12, fontWeight: '700' },
-  secondaryButton: { borderWidth: 1, borderColor: '#0a7ea455', borderRadius: 9, padding: 11, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7, marginTop: 4 },
+  statusIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1FAF78' },
+  reconciledCard: { borderWidth: 1, borderColor: '#1FAF7855' },
+  reconciledText: { color: '#1FAF78', fontSize: 12, fontWeight: '700' },
+  secondaryButton: { borderWidth: 1, borderColor: '#0B315B55', borderRadius: 9, padding: 11, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7, marginTop: 4 },
   secondaryButtonText: { fontWeight: '700' },
 });

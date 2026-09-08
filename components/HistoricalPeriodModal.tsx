@@ -236,13 +236,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 16,
     fontSize: 14,
-    color: '#888',
+    color: '#60758E',
   },
 
   summaryBox: {
     borderRadius: 14,
     padding: 14,
-    backgroundColor: '#fbfcfd',
+    backgroundColor: '#FAF8F4',
     marginBottom: 14,
   },
 
@@ -254,32 +254,32 @@ const styles = StyleSheet.create({
 
   divider: {
     height: 1,
-    backgroundColor: '#eee',
+    backgroundColor: '#D8E1E8',
     marginVertical: 6,
   },
 
   income: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#008000',
+    color: '#1FAF78',
   },
 
   expense: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#e44332',
+    color: '#E95353',
   },
 
   positive: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#006080',
+    color: '#174A73',
   },
 
   negative: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#e44332',
+    color: '#E95353',
   },
 
   limitList: {
@@ -320,13 +320,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#D8E1E8',
   },
 
   closeButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#006080',
+    color: '#174A73',
   },
   totalsContainer: {
     flexDirection: 'row',
@@ -339,20 +339,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
     alignItems: 'center',
-    backgroundColor: '#fbfcfd',
+    backgroundColor: '#FAF8F4',
   },
   
   balanceCard: {
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#fbfcfd',
+    backgroundColor: '#FAF8F4',
     marginBottom: 14,
   },
   
   label: {
     fontSize: 14,
-    color: '#666',
+    color: '#60758E',
     marginBottom: 4,
   },
 });

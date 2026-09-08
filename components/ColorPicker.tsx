@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import ReanimatedColorPicker, { HueSlider, Panel1 } from 'reanimated-color-picker';
 
-import { Colors } from '@/constants/theme';
+import { BrandColors, Colors, Fonts, SemanticColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
 
@@ -31,7 +31,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
   const isDraftValid = isHexColor(draftColor);
 
   const openColorModal = () => {
-    setDraftColor(isValidHex ? value : '#0a7ea4');
+    setDraftColor(isValidHex ? value : '#0B315B');
     setModalVisible(true);
   };
 
@@ -48,7 +48,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
           style={[
             styles.preview,
             {
-              backgroundColor: isValidHex ? value : '#ccc',
+              backgroundColor: isValidHex ? value : '#D8E1E8',
               width: '100%',
               minHeight: 44,
               borderRadius: 8,
@@ -64,9 +64,9 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalVisible(false)} accessibilityLabel={t('accessibility.closeColorPicker')} />
           <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>{t('categories.pickerTitle')}</Text>
-            <View style={[styles.modalPreview, { backgroundColor: isDraftValid ? draftColor : '#ccc' }]} />
+            <View style={[styles.modalPreview, { backgroundColor: isDraftValid ? draftColor : '#D8E1E8' }]} />
             <ReanimatedColorPicker
-              value={isDraftValid ? draftColor : '#0a7ea4'}
+              value={isDraftValid ? draftColor : '#0B315B'}
               onChangeJS={({ hex }) => setDraftColor(hex)}
               sliderThickness={24}
               thumbSize={28}
@@ -80,7 +80,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
               autoCorrect={false}
               maxLength={7}
               onChangeText={updateDraftColor}
-              placeholder="#0a7ea4"
+              placeholder="#0B315B"
               placeholderTextColor={colors.icon}
               style={[styles.modalInput, { color: colors.text, borderColor: colors.icon }]}
               value={draftColor}
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: Fonts.bold,
   },
   modalPreview: {
     height: 64,
@@ -184,6 +184,7 @@ const styles = StyleSheet.create({
   },
   modalHint: {
     fontSize: 14,
+    fontFamily: Fonts.regular,
   },
   modalInput: {
     borderWidth: 1,
@@ -191,10 +192,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 18,
+    fontFamily: Fonts.regular,
   },
   errorText: {
-    color: '#e74c3c',
+    color: SemanticColors.danger,
     fontSize: 13,
+    fontFamily: Fonts.regular,
     marginTop: -8,
   },
   modalActions: {
@@ -214,15 +217,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   confirmButton: {
-    backgroundColor: '#0a7ea4',
+    backgroundColor: BrandColors.navy,
   },
   disabledButton: {
     opacity: 0.5,
   },
   cancelButtonText: {
-    fontWeight: '600',
+    fontFamily: Fonts.semiBold,
   },
   confirmButtonText: {
-    color: '#fff', fontWeight: '700',
+    color: '#fff', fontFamily: Fonts.bold,
   },
 });

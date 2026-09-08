@@ -68,11 +68,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   overLimit: {
-    color: '#e74c3c',
+    color: '#E95353',
     fontWeight: '600',
   },
   warning: {
     fontSize: 12,
-    color: '#e74c3c',
+    color: '#E95353',
   },
 });
