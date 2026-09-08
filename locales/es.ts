@@ -524,6 +524,8 @@ const es = {
     backup: 'Respaldar',
     backingUp: 'Respaldando...',
     signOut: 'Cerrar sesión',
+    signOutTitle: '¿Cerrar sesión de Google?',
+    signOutMessage: 'Dejarás de tener acceso a los respaldos de Google Drive hasta que vuelvas a iniciar sesión. Tus datos guardados en este dispositivo no se eliminarán.',
     dangerZone: 'Zona de peligro',
     dangerZoneHint: 'Elimina todos los datos guardados localmente y vuelve a comenzar desde cero.',
     resetData: 'Reiniciar todos los datos',

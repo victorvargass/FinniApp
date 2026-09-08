@@ -134,6 +134,21 @@ export default function GoogleDriveScreen() {
     );
   };
 
+  const confirmLogout = () => {
+    Alert.alert(
+      t('settings.signOutTitle'),
+      t('settings.signOutMessage'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.signOut'),
+          style: 'destructive',
+          onPress: () => { void logout(); },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -212,7 +227,7 @@ export default function GoogleDriveScreen() {
                 <ActionButton
                   title={t('settings.signOut')}
                   disabled={isWorking}
-                  onPress={() => { void logout(); }}
+                  onPress={confirmLogout}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
                   textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
