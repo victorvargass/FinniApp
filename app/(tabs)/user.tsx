@@ -73,10 +73,11 @@ export default function UserScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { setPreference: setThemePreference } = useThemePreference();
-  const { recurringDecisions, savingsGoals, settings, setMovementReminder, resetLocalData } = useDatabase();
+  const { recurringDecisions, savingsGoals, settings, setMovementReminder, seedDemoData, resetLocalData } = useDatabase();
   const [resetModalVisible, setResetModalVisible] = React.useState(false);
   const [resetConfirmation, setResetConfirmation] = React.useState('');
   const [isResetting, setIsResetting] = React.useState(false);
+  const [isSeeding, setIsSeeding] = React.useState(false);
   const pendingConfirmations = recurringDecisions.filter((item) => item.status === 'pending').length;
   const activeSavingsGoals = savingsGoals.filter((goal) => goal.status === 'active');
   const totalSavings = savingsGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
@@ -127,6 +128,39 @@ export default function UserScreen() {
       );
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const requestTestData = () => {
+    Alert.alert(
+      t('settings.testDataConfirmTitle'),
+      t('settings.testDataConfirmMessage'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.loadTestData'),
+          onPress: () => { void loadTestData(); },
+        },
+      ]
+    );
+  };
+
+  const loadTestData = async () => {
+    if (isSeeding) return;
+    setIsSeeding(true);
+    try {
+      const created = await seedDemoData();
+      Alert.alert(
+        t(created ? 'settings.testDataLoadedTitle' : 'settings.testDataAlreadyLoadedTitle'),
+        t(created ? 'settings.testDataLoadedMessage' : 'settings.testDataAlreadyLoadedMessage')
+      );
+    } catch (seedError) {
+      Alert.alert(
+        t('settings.testDataError'),
+        seedError instanceof Error ? seedError.message : t('common.tryAgain')
+      );
+    } finally {
+      setIsSeeding(false);
     }
   };
 
@@ -350,6 +384,24 @@ export default function UserScreen() {
           </Pressable>
         </ThemedView>
 
+        <ThemedView style={styles.card}>
+          <View style={styles.testDataHeader}>
+            <Ionicons name="flask-outline" size={24} color={colors.savings} />
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('settings.testData')}</ThemedText>
+              <ThemedText style={styles.description}>{t('settings.testDataHint')}</ThemedText>
+            </View>
+          </View>
+          <ActionButton
+            disabled={isSeeding}
+            icon={<Ionicons name="add-circle-outline" size={20} color={colors.onSecondary} />}
+            onPress={requestTestData}
+            style={{ backgroundColor: colors.secondary, borderColor: colors.secondary }}
+            textStyle={{ color: colors.onSecondary }}
+            title={isSeeding ? t('settings.loadingTestData') : t('settings.loadTestData')}
+          />
+        </ThemedView>
+
         <ThemedView style={styles.dangerCard}>
           <View style={styles.dangerHeader}>
             <Ionicons name="warning-outline" size={24} color="#C93F4B" />
@@ -473,6 +525,11 @@ const styles = StyleSheet.create({
   settingCopy: {
     flex: 1,
     gap: 6,
+  },
+  testDataHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
   },
   settingsLink: {
     width: '100%',

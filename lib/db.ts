@@ -704,6 +704,11 @@ async function initializeDatabase(): Promise<void> {
       FOREIGN KEY(expense_id) REFERENCES expenses(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS demo_data_seed (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
   `);
 
   // Existing databases can have an older expenses/incomes schema. Migrate it
@@ -1024,6 +1029,7 @@ export async function resetLocalData(): Promise<void> {
       DELETE FROM categories;
       DELETE FROM payment_methods;
       DELETE FROM periods;
+      DELETE FROM demo_data_seed;
       DELETE FROM sqlite_sequence;
 
       INSERT INTO periods (start_date, end_date)
@@ -1048,6 +1054,413 @@ export async function resetLocalData(): Promise<void> {
       );
     }
   });
+}
+
+export async function seedDemoData(): Promise<boolean> {
+  const database = await getDb();
+  let created = false;
+
+  await withExclusiveTransaction(database, async (transaction) => {
+    const existingSeed = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT id FROM demo_data_seed WHERE id = 1'
+    );
+    if (existingSeed) return;
+
+    const settings = await transaction.getFirstAsync<{ current_period_id: number | null }>(
+      'SELECT current_period_id FROM settings WHERE id = 1'
+    );
+    if (settings?.current_period_id == null) {
+      throw new Error('No existe un período actual para cargar los datos de prueba.');
+    }
+    const currentPeriod = await transaction.getFirstAsync<{
+      id: number;
+      start_date: string;
+      end_date: string;
+    }>('SELECT id, start_date, end_date FROM periods WHERE id = ?', settings.current_period_id);
+    if (!currentPeriod) {
+      throw new Error('No se encontró el período actual.');
+    }
+
+    const dateInPeriod = (start: string, end: string, offset: number) => {
+      const candidate = addIsoDays(start, offset);
+      return candidate > end ? end : candidate;
+    };
+    const previousStart = addIsoMonths(currentPeriod.start_date, -1);
+    const previousEnd = addIsoDays(currentPeriod.start_date, -1);
+    const olderStart = addIsoMonths(currentPeriod.start_date, -2);
+    const olderEnd = addIsoDays(previousStart, -1);
+    const previousPeriodResult = await transaction.runAsync(
+      'INSERT INTO periods (start_date, end_date) VALUES (?, ?)',
+      previousStart,
+      previousEnd
+    );
+    const olderPeriodResult = await transaction.runAsync(
+      'INSERT INTO periods (start_date, end_date) VALUES (?, ?)',
+      olderStart,
+      olderEnd
+    );
+    const previousPeriodId = previousPeriodResult.lastInsertRowId;
+    const olderPeriodId = olderPeriodResult.lastInsertRowId;
+
+    const categoryRows = await transaction.getAllAsync<{ id: number; purpose: string }>(
+      "SELECT id, purpose FROM categories ORDER BY purpose = 'savings' DESC, id"
+    );
+    const savingsCategoryId = categoryRows.find((category) => category.purpose === 'savings')?.id;
+    const generalCategoryIds = categoryRows
+      .filter((category) => category.purpose === 'general')
+      .map((category) => category.id);
+    const demoCategoryColors = ['#0C315B', '#20C8B5', '#47D9C2', '#20B8DB', '#184A73'];
+    while (generalCategoryIds.length < 5) {
+      const index = generalCategoryIds.length;
+      const result = await transaction.runAsync(
+        'INSERT INTO categories (name, color, period_limit, purpose) VALUES (?, ?, ?, \'general\')',
+        `[PRUEBA] Categoría ${index + 1}`,
+        demoCategoryColors[index],
+        150000 + index * 50000
+      );
+      generalCategoryIds.push(result.lastInsertRowId);
+    }
+    if (savingsCategoryId == null) {
+      throw new Error('La categoría protegida Ahorro no está disponible.');
+    }
+    await transaction.runAsync(
+      'UPDATE categories SET period_limit = COALESCE(period_limit, ?) WHERE id = ?',
+      280000,
+      generalCategoryIds[0]
+    );
+
+    const ensurePaymentMethod = async (
+      name: string,
+      type: 'cash' | 'debit' | 'prepaid' | 'credit',
+      billingDay: number | null,
+      color: string
+    ) => {
+      const existing = await transaction.getFirstAsync<{ id: number }>(
+        'SELECT id FROM payment_methods WHERE name = ?',
+        name
+      );
+      if (existing) return existing.id;
+      const result = await transaction.runAsync(
+        'INSERT INTO payment_methods (name, type, billing_day, color, active) VALUES (?, ?, ?, ?, 1)',
+        name,
+        type,
+        billingDay,
+        color
+      );
+      return result.lastInsertRowId;
+    };
+    const cashMethod = await transaction.getFirstAsync<{ id: number }>(
+      "SELECT id FROM payment_methods WHERE type = 'cash' ORDER BY id LIMIT 1"
+    );
+    const cashId = cashMethod?.id ?? await ensurePaymentMethod('[PRUEBA] Efectivo', 'cash', null, '#48D9C2');
+    const debitId = await ensurePaymentMethod('[PRUEBA] Cuenta débito', 'debit', null, '#20C9B5');
+    const creditId = await ensurePaymentMethod('[PRUEBA] Tarjeta crédito', 'credit', 18, '#0B315B');
+    const prepaidId = await ensurePaymentMethod('[PRUEBA] Prepago', 'prepaid', null, '#20B9DB');
+    await transaction.runAsync('UPDATE settings SET default_payment_method_id = ? WHERE id = 1', debitId);
+
+    const insertIncome = async (name: string, amount: number, periodId: number, date: string) => {
+      const result = await transaction.runAsync(
+        'INSERT INTO incomes (name, amount, period_id, date) VALUES (?, ?, ?, ?)',
+        name,
+        amount,
+        periodId,
+        date
+      );
+      return result.lastInsertRowId;
+    };
+    const insertExpense = async (
+      name: string,
+      amount: number,
+      categoryId: number | null,
+      periodId: number,
+      date: string,
+      paymentMethodId: number | null,
+      originalAmount: number | null = null,
+      splitPercentage: number | null = null
+    ) => {
+      const result = await transaction.runAsync(
+        `INSERT INTO expenses
+          (name, amount, category_id, period_id, date, original_amount, split_percentage, payment_method_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        name,
+        amount,
+        categoryId,
+        periodId,
+        date,
+        originalAmount,
+        splitPercentage,
+        paymentMethodId
+      );
+      return result.lastInsertRowId;
+    };
+
+    await insertIncome('[PRUEBA] Sueldo anterior', 1450000, olderPeriodId, dateInPeriod(olderStart, olderEnd, 2));
+    await insertIncome('[PRUEBA] Trabajo independiente', 285000, olderPeriodId, dateInPeriod(olderStart, olderEnd, 13));
+    await insertExpense('[PRUEBA] Supermercado', 89450, generalCategoryIds[0], olderPeriodId, dateInPeriod(olderStart, olderEnd, 5), debitId);
+    await insertExpense('[PRUEBA] Arriendo', 520000, generalCategoryIds[1], olderPeriodId, dateInPeriod(olderStart, olderEnd, 3), debitId);
+    await insertExpense('[PRUEBA] Cena compartida', 24000, generalCategoryIds[4], olderPeriodId, dateInPeriod(olderStart, olderEnd, 18), creditId, 48000, 50);
+    await insertExpense('[PRUEBA] Gasto sin clasificar', 7300, null, olderPeriodId, dateInPeriod(olderStart, olderEnd, 22), null);
+
+    await insertIncome('[PRUEBA] Sueldo', 1520000, previousPeriodId, dateInPeriod(previousStart, previousEnd, 2));
+    await insertIncome('[PRUEBA] Venta ocasional', 120000, previousPeriodId, dateInPeriod(previousStart, previousEnd, 16));
+    await insertExpense('[PRUEBA] Feria y alimentos', 67400, generalCategoryIds[0], previousPeriodId, dateInPeriod(previousStart, previousEnd, 6), cashId);
+    await insertExpense('[PRUEBA] Transporte', 43800, generalCategoryIds[2], previousPeriodId, dateInPeriod(previousStart, previousEnd, 10), prepaidId);
+    await insertExpense('[PRUEBA] Consulta médica', 55990, generalCategoryIds[3], previousPeriodId, dateInPeriod(previousStart, previousEnd, 14), creditId);
+    await insertExpense('[PRUEBA] Streaming', 8990, generalCategoryIds[4], previousPeriodId, dateInPeriod(previousStart, previousEnd, 20), creditId);
+
+    const currentIncomeId = await insertIncome(
+      '[PRUEBA] Sueldo actual',
+      1600000,
+      currentPeriod.id,
+      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 2)
+    );
+    await insertIncome('[PRUEBA] Reembolso', 45990, currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 9));
+    await insertExpense('[PRUEBA] Compra hogar', 129990, generalCategoryIds[1], currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 5), creditId);
+    await insertExpense('[PRUEBA] Almuerzo', 12490, generalCategoryIds[0], currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 7), debitId);
+
+    const goalResult = await transaction.runAsync(
+      `INSERT INTO savings_goals (name, target_amount, initial_amount, deadline, color, status)
+       VALUES (?, ?, ?, ?, ?, 'active')`,
+      '[PRUEBA] Fondo de emergencia',
+      2500000,
+      300000,
+      addIsoMonths(currentPeriod.end_date, 10),
+      '#20B9DB'
+    );
+    const travelGoalResult = await transaction.runAsync(
+      `INSERT INTO savings_goals (name, target_amount, initial_amount, deadline, color, status)
+       VALUES (?, ?, ?, ?, ?, 'active')`,
+      '[PRUEBA] Viaje',
+      1200000,
+      180000,
+      addIsoMonths(currentPeriod.end_date, 7),
+      '#48D9C2'
+    );
+    await transaction.runAsync(
+      `INSERT INTO savings_goals
+        (name, target_amount, initial_amount, deadline, color, status, archived_at)
+       VALUES (?, ?, ?, ?, ?, 'archived', CURRENT_TIMESTAMP)`,
+      '[PRUEBA] Meta archivada',
+      500000,
+      500000,
+      previousEnd,
+      '#60758E'
+    );
+    const contributionExpenseId = await insertExpense(
+      '[PRUEBA] Aporte fondo de emergencia', 120000, savingsCategoryId,
+      previousPeriodId, dateInPeriod(previousStart, previousEnd, 8), null
+    );
+    const withdrawalIncomeId = await insertIncome(
+      '[PRUEBA] Retiro para imprevisto', 50000, currentPeriod.id,
+      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 11)
+    );
+    const fundedExpenseId = await insertExpense(
+      '[PRUEBA] Reparación pagada con ahorro', 80000, savingsCategoryId,
+      currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 12), null
+    );
+    await transaction.runAsync(
+      "INSERT INTO savings_goal_movements (goal_id, kind, expense_id) VALUES (?, 'contribution', ?)",
+      goalResult.lastInsertRowId,
+      contributionExpenseId
+    );
+    await transaction.runAsync(
+      "INSERT INTO savings_goal_movements (goal_id, kind, income_id) VALUES (?, 'withdrawal', ?)",
+      goalResult.lastInsertRowId,
+      withdrawalIncomeId
+    );
+    await transaction.runAsync(
+      "INSERT INTO savings_goal_movements (goal_id, kind, expense_id) VALUES (?, 'funded_expense', ?)",
+      goalResult.lastInsertRowId,
+      fundedExpenseId
+    );
+    await transaction.runAsync(
+      'INSERT INTO savings_goal_adjustments (goal_id, amount, date, note) VALUES (?, ?, ?, ?)',
+      goalResult.lastInsertRowId,
+      25000,
+      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 10),
+      '[PRUEBA] Rentabilidad del ahorro'
+    );
+    await transaction.runAsync(
+      'INSERT INTO savings_goal_adjustments (goal_id, amount, date, note) VALUES (?, ?, ?, ?)',
+      travelGoalResult.lastInsertRowId,
+      -15000,
+      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 8),
+      '[PRUEBA] Ajuste de saldo'
+    );
+
+    const subscriptionDate = dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 4);
+    const subscriptionExpenseId = await insertExpense(
+      '[PRUEBA] Suscripción mensual', 12990, generalCategoryIds[4],
+      currentPeriod.id, subscriptionDate, creditId
+    );
+    const recurringExpenseResult = await transaction.runAsync(
+      `INSERT INTO recurring_expenses
+        (name, amount, category_id, payment_method_id, frequency, interval_months,
+         execution_day, registration_mode, start_date, active, source_expense_id)
+       VALUES (?, ?, ?, ?, 'monthly', 1, 5, 'confirmation', ?, 1, ?)`,
+      '[PRUEBA] Suscripción mensual',
+      12990,
+      generalCategoryIds[4],
+      creditId,
+      subscriptionDate,
+      subscriptionExpenseId
+    );
+    await transaction.runAsync(
+      'UPDATE expenses SET recurring_expense_id = ? WHERE id = ?',
+      recurringExpenseResult.lastInsertRowId,
+      subscriptionExpenseId
+    );
+    await transaction.runAsync(
+      `INSERT INTO recurring_expense_occurrences
+        (recurring_expense_id, scheduled_date, status, expense_id)
+       VALUES (?, ?, 'generated', ?), (?, ?, 'pending', NULL), (?, ?, 'skipped', NULL)`,
+      recurringExpenseResult.lastInsertRowId,
+      subscriptionDate,
+      subscriptionExpenseId,
+      recurringExpenseResult.lastInsertRowId,
+      addIsoDays(currentPeriod.end_date, 1),
+      recurringExpenseResult.lastInsertRowId,
+      addIsoDays(currentPeriod.end_date, 2)
+    );
+    const recurringIncomeResult = await transaction.runAsync(
+      `INSERT INTO recurring_incomes
+        (name, amount, frequency, interval_months, execution_day, registration_mode,
+         start_date, next_date, active, source_income_id)
+       VALUES (?, ?, 'monthly', 1, 2, 'automatic', ?, ?, 1, ?)`,
+      '[PRUEBA] Sueldo recurrente',
+      1600000,
+      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 2),
+      addIsoMonths(dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 2), 1),
+      currentIncomeId
+    );
+    await transaction.runAsync('UPDATE incomes SET recurring_income_id = ? WHERE id = ?', recurringIncomeResult.lastInsertRowId, currentIncomeId);
+    await transaction.runAsync(
+      `INSERT INTO recurring_income_occurrences
+        (recurring_income_id, scheduled_date, status, income_id)
+       VALUES (?, ?, 'generated', ?), (?, ?, 'pending', NULL)`,
+      recurringIncomeResult.lastInsertRowId,
+      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 2),
+      currentIncomeId,
+      recurringIncomeResult.lastInsertRowId,
+      addIsoDays(currentPeriod.end_date, 3)
+    );
+
+    const debtPlanResult = await transaction.runAsync(
+      `INSERT INTO debt_plans
+        (name, total_amount, category_id, payment_method_id, purchase_date, first_due_date,
+         total_installments, installment_amount, status)
+       VALUES (?, ?, ?, ?, ?, ?, 6, ?, 'active')`,
+      '[PRUEBA] Notebook en cuotas',
+      720000,
+      generalCategoryIds[1],
+      creditId,
+      olderStart,
+      dateInPeriod(olderStart, olderEnd, 15),
+      120000
+    );
+    for (let installment = 1; installment <= 6; installment += 1) {
+      const dueDate = addIsoMonths(dateInPeriod(olderStart, olderEnd, 15), installment - 1);
+      const installmentResult = await transaction.runAsync(
+        `INSERT INTO debt_installments
+          (debt_plan_id, installment_number, due_date, projected_amount, status)
+         VALUES (?, ?, ?, ?, ?)`,
+        debtPlanResult.lastInsertRowId,
+        installment,
+        dueDate,
+        120000,
+        installment <= 2 ? 'posted' : 'projected'
+      );
+      if (installment <= 2) {
+        const periodId = installment === 1 ? olderPeriodId : previousPeriodId;
+        const periodStart = installment === 1 ? olderStart : previousStart;
+        const periodEnd = installment === 1 ? olderEnd : previousEnd;
+        const expenseId = await insertExpense(
+          `[PRUEBA] Notebook cuota ${installment}/6`, 120000, generalCategoryIds[1],
+          periodId, dateInPeriod(periodStart, periodEnd, 15), creditId
+        );
+        await transaction.runAsync(
+          'UPDATE expenses SET debt_plan_id = ?, debt_installment_id = ? WHERE id = ?',
+          debtPlanResult.lastInsertRowId,
+          installmentResult.lastInsertRowId,
+          expenseId
+        );
+        await transaction.runAsync('UPDATE debt_installments SET expense_id = ? WHERE id = ?', expenseId, installmentResult.lastInsertRowId);
+      }
+    }
+
+    const fixedDebtResult = await transaction.runAsync(
+      `INSERT INTO manual_debts
+        (type, name, creditor, initial_amount, installment_amount, frequency, first_due_date,
+         category_id, payment_method_id, notes, status)
+       VALUES ('fixed', ?, ?, ?, ?, 'monthly', ?, ?, ?, ?, 'active')`,
+      '[PRUEBA] Préstamo familiar',
+      'Familiar de prueba',
+      600000,
+      100000,
+      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 20),
+      generalCategoryIds[1],
+      creditId,
+      'Permite probar pagos de deuda usando crédito.'
+    );
+    const debtPaymentExpenseId = await insertExpense(
+      '[PRUEBA] Pago préstamo familiar', 100000, generalCategoryIds[1],
+      currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 6), creditId
+    );
+    await transaction.runAsync(
+      `INSERT INTO manual_debt_entries
+        (debt_id, kind, amount, date, period_id, expense_id, note)
+       VALUES (?, 'payment', ?, ?, ?, ?, ?)`,
+      fixedDebtResult.lastInsertRowId,
+      100000,
+      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 6),
+      currentPeriod.id,
+      debtPaymentExpenseId,
+      '[PRUEBA] Primera cuota'
+    );
+    const variableDebtResult = await transaction.runAsync(
+      `INSERT INTO manual_debts
+        (type, name, creditor, initial_amount, category_id, payment_method_id, notes, status)
+       VALUES ('variable', ?, ?, ?, ?, ?, ?, 'active')`,
+      '[PRUEBA] Línea de crédito',
+      'Banco de prueba',
+      350000,
+      generalCategoryIds[1],
+      debitId,
+      'Saldo variable para probar actualización de monto.'
+    );
+    await transaction.runAsync(
+      `INSERT INTO manual_debt_entries (debt_id, kind, amount, date, note)
+       VALUES (?, 'adjustment', ?, ?, ?)`,
+      variableDebtResult.lastInsertRowId,
+      22000,
+      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 9),
+      '[PRUEBA] Intereses del mes'
+    );
+
+    await transaction.runAsync(
+      `INSERT INTO credit_card_cycles
+        (payment_method_id, start_date, end_date, statement_amount, status)
+       VALUES (?, ?, ?, ?, 'pending')`,
+      creditId,
+      currentPeriod.start_date,
+      currentPeriod.end_date,
+      385470
+    );
+    await transaction.runAsync(
+      `INSERT INTO credit_card_cycles
+        (payment_method_id, start_date, end_date, statement_amount, status, reconciled_at)
+       VALUES (?, ?, ?, ?, 'reconciled', CURRENT_TIMESTAMP)`,
+      creditId,
+      previousStart,
+      previousEnd,
+      304980
+    );
+
+    await transaction.runAsync('INSERT INTO demo_data_seed (id) VALUES (1)');
+    created = true;
+  });
+
+  return created;
 }
 
 export async function getPeriods(): Promise<Period[]> {

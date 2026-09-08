@@ -136,6 +136,7 @@ type DatabaseContextValue = {
   setPeriodStartDate: (date: string) => Promise<void>;
   setPeriodEndDate: (date: string) => Promise<void>;
   setMovementReminder: (data: MovementReminderSettings) => Promise<void>;
+  seedDemoData: () => Promise<boolean>;
   resetLocalData: () => Promise<void>;
 };
 
@@ -711,6 +712,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const seedDemoData = useCallback(async () => {
+    const created = await db.seedDemoData();
+    if (created) await refresh();
+    return created;
+  }, [refresh]);
+
   const value = useMemo(
     () => ({
       categories,
@@ -798,6 +805,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setPeriodStartDate,
       setPeriodEndDate,
       setMovementReminder,
+      seedDemoData,
       resetLocalData,
     }),
     [
@@ -886,6 +894,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setPeriodStartDate,
       setPeriodEndDate,
       setMovementReminder,
+      seedDemoData,
       resetLocalData,
     ]
   );
