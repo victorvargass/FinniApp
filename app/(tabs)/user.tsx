@@ -385,6 +385,19 @@ export default function UserScreen() {
         </ThemedView>
 
         <ThemedView style={styles.card}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/onboarding')}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('settings.welcomeGuide')}</ThemedText>
+              <ThemedText style={styles.description}>{t('settings.welcomeGuideHint')}</ThemedText>
+            </View>
+            <Ionicons name="sparkles-outline" size={22} color={colors.savings} />
+          </Pressable>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
           <View style={styles.testDataHeader}>
             <Ionicons name="flask-outline" size={24} color={colors.savings} />
             <View style={styles.settingCopy}>

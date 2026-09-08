@@ -17,6 +17,7 @@ import { RecurringNotificationController } from '@/components/recurring-notifica
 import { t } from '@/lib/i18n';
 import { BiometricProvider } from '@/contexts/BiometricContext';
 import { DatabaseProvider } from '@/contexts/DatabaseContext';
+import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { ThemePreferenceProvider } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors, Fonts } from '@/constants/theme';
@@ -27,6 +28,7 @@ export const unstable_settings = {
 
 function AppContent() {
   const colorScheme = useColorScheme();
+  const { hasCompletedOnboarding, isOnboardingReady } = useOnboarding();
   const palette = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
   const navigationTheme = {
@@ -48,6 +50,8 @@ function AppContent() {
     },
   };
 
+  if (!isOnboardingReady) return <AppLoadingScreen />;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BiometricProvider>
@@ -56,7 +60,9 @@ function AppContent() {
             <RecurringNotificationController />
             <ThemeProvider value={navigationTheme}>
               <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+                <Stack.Protected guard={hasCompletedOnboarding}>
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
                   name="modal/income-form"
                   options={{ presentation: 'modal', title: t('navigation.income') }}
@@ -145,6 +151,7 @@ function AppContent() {
                   name="modal/google-drive"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.googleDrive') }}
                 />
+                </Stack.Protected>
               </Stack>
               <StatusBar style="auto" />
             </ThemeProvider>
@@ -165,7 +172,9 @@ export default function RootLayout() {
 
   return (
     <ThemePreferenceProvider>
-      {!fontsLoaded && !fontError ? <AppLoadingScreen /> : <AppContent />}
+      <OnboardingProvider>
+        {!fontsLoaded && !fontError ? <AppLoadingScreen /> : <AppContent />}
+      </OnboardingProvider>
     </ThemePreferenceProvider>
   );
 }
