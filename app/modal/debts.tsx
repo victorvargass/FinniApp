@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FloatingActionButton } from '@/components/floating-action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -11,8 +12,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
-import { Alert } from '@/lib/alert';
-import type { DebtPlan, ManualDebt } from '@/lib/types';
+import type { Debt, DebtPlan } from '@/lib/types';
 
 const STATUS_LABEL: Record<DebtPlan['status'], string> = {
   projected: t('installments.statusProjected'), active: t('installments.statusActive'), completed: t('installments.statusCompleted'), cancelled: t('installments.statusCancelled'),
@@ -21,64 +21,55 @@ const STATUS_LABEL: Record<DebtPlan['status'], string> = {
 export default function DebtsScreen() {
   const { paymentMethodId } = useLocalSearchParams<{ paymentMethodId?: string }>();
   const methodId = paymentMethodId ? Number(paymentMethodId) : undefined;
-  const { getDebtPlans, getManualDebts, paymentMethods } = useDatabase();
+  const { getDebtPlans, getDebts, paymentMethods } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [plans, setPlans] = useState<DebtPlan[]>([]);
-  const [manualDebts, setManualDebts] = useState<ManualDebt[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   const load = useCallback(async () => {
-    const [nextPlans, nextManualDebts] = await Promise.all([getDebtPlans(methodId), methodId == null ? getManualDebts() : Promise.resolve([])]);
-    setPlans(nextPlans); setManualDebts(nextManualDebts);
-  }, [getDebtPlans, getManualDebts, methodId]);
+    const [nextPlans, nextDebts] = await Promise.all([getDebtPlans(methodId), methodId == null ? getDebts() : Promise.resolve([])]);
+    setPlans(nextPlans); setDebts(nextDebts);
+  }, [getDebtPlans, getDebts, methodId]);
   useFocusEffect(useCallback(() => { load().catch(() => undefined); }, [load]));
   const method = paymentMethods.find((item) => item.id === methodId);
-  const openNewDebt = () => Alert.alert(t('manualDebts.new'), t('manualDebts.chooseType'), [
-    { text: t('common.cancel'), style: 'cancel' },
-    { text: t('manualDebts.fixed'), onPress: () => router.push({ pathname: '/modal/manual-debt-form', params: { type: 'fixed' } }) },
-    { text: t('manualDebts.variable'), onPress: () => router.push({ pathname: '/modal/manual-debt-form', params: { type: 'variable' } }) },
-  ]);
-  const activeManualDebts = manualDebts.filter((item) => item.status !== 'archived');
-  const totalManualBalance = activeManualDebts.reduce((sum, item) => sum + item.currentBalance, 0);
+  const activeDebts = debts.filter((item) => item.status !== 'archived');
+  const totalDebtBalance = activeDebts.reduce((sum, item) => sum + item.currentBalance, 0);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">{method ? t('installments.titleForMethod', { name: method.name }) : t('navigation.debts')}</ThemedText>
+        {method && <ThemedText type="title">{t('installments.titleForMethod', { name: method.name })}</ThemedText>}
         <ThemedText style={styles.intro}>
-          {method ? t('installments.intro') : t('manualDebts.debtsIntro')}
+          {method ? t('installments.intro') : t('debts.intro')}
         </ThemedText>
         {methodId == null && (
           <>
             <ThemedView style={styles.summaryCard}>
-              <ThemedText style={styles.secondary}>{t('manualDebts.manualDebtTotal')}</ThemedText>
-              <ThemedText type="title">{formatCLP(totalManualBalance)}</ThemedText>
+              <ThemedText style={styles.secondary}>{t('debts.totalBalance')}</ThemedText>
+              <ThemedText type="title">{formatCLP(totalDebtBalance)}</ThemedText>
             </ThemedView>
-            <Pressable onPress={openNewDebt} style={styles.primaryButton}>
-              <Ionicons name="add" size={21} color="#fff" />
-              <ThemedText style={styles.primaryText}>{t('manualDebts.new')}</ThemedText>
-            </Pressable>
-            <ThemedText type="subtitle">{t('manualDebts.manualDebts')}</ThemedText>
-            {manualDebts.length === 0 && (
+            <ThemedText type="subtitle">{t('debts.title')}</ThemedText>
+            {debts.length === 0 && (
               <ThemedView style={styles.empty}>
                 <Ionicons name="document-text-outline" size={34} color={colors.icon} />
-                <ThemedText>{t('manualDebts.noManualDebts')}</ThemedText>
-                <ThemedText style={styles.secondary}>{t('manualDebts.noManualDebtsHint')}</ThemedText>
+                <ThemedText>{t('debts.empty')}</ThemedText>
+                <ThemedText style={styles.secondary}>{t('debts.emptyHint')}</ThemedText>
               </ThemedView>
             )}
-            {manualDebts.map((debt) => (
+            {debts.map((debt) => (
               <Pressable key={debt.id} onPress={() => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(debt.id) } })}>
                 <ThemedView style={[styles.card, debt.status === 'archived' && styles.archived]}>
                   <View style={styles.header}>
                     <View style={[styles.debtIcon, { backgroundColor: debt.type === 'fixed' ? '#0a7ea4' : '#d97706' }]}><Ionicons name={debt.type === 'fixed' ? 'calendar-outline' : 'analytics-outline'} size={17} color="#fff" /></View>
-                    <View style={styles.copy}><ThemedText type="defaultSemiBold">{debt.name}</ThemedText><ThemedText style={styles.secondary}>{debt.creditor ?? (debt.type === 'fixed' ? t('manualDebts.fixed') : t('manualDebts.variable'))}</ThemedText></View>
+                    <View style={styles.copy}><ThemedText type="defaultSemiBold">{debt.name}</ThemedText><ThemedText style={styles.secondary}>{debt.creditor ?? (debt.type === 'fixed' ? t('debts.fixed') : t('debts.variable'))}</ThemedText></View>
                     <Ionicons name="chevron-forward" size={21} color={colors.icon} />
                   </View>
-                  <View style={styles.row}><ThemedText>{t('manualDebts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
-                  {debt.nextDueDate && <ThemedText style={styles.secondary}>{t('manualDebts.nextDueValue', { date: new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${debt.nextDueDate}T12:00:00`)) })}</ThemedText>}
-                  <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#2e9d63' : debt.status === 'archived' ? '#64748b' : colors.primary }]}>{debt.status === 'paid' ? t('manualDebts.statusPaid') : debt.status === 'archived' ? t('manualDebts.statusArchived') : t('manualDebts.statusActive')}</ThemedText>
+                  <View style={styles.row}><ThemedText>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
+                  {debt.nextDueDate && <ThemedText style={styles.secondary}>{t('debts.nextDueValue', { date: new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${debt.nextDueDate}T12:00:00`)) })}</ThemedText>}
+                  <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#2e9d63' : debt.status === 'archived' ? '#64748b' : colors.primary }]}>{debt.status === 'paid' ? t('debts.statusPaid') : debt.status === 'archived' ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
                 </ThemedView>
               </Pressable>
             ))}
-            <ThemedText type="subtitle" style={styles.sectionTitle}>{t('manualDebts.cardPurchases')}</ThemedText>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>{t('debts.cardPurchases')}</ThemedText>
           </>
         )}
         {plans.length === 0 && (
@@ -106,16 +97,23 @@ export default function DebtsScreen() {
           </Pressable>
         ))}
       </ScrollView>
+      {methodId == null && (
+        <FloatingActionButton
+          accessibilityLabel={t('debts.new')}
+          avoidBottomInset
+          href="/modal/manual-debt-form"
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 }, content: { padding: 20, paddingBottom: 40, gap: 12 },
+  safe: { flex: 1 }, content: { padding: 20, paddingBottom: 110, gap: 12 },
   intro: { opacity: 0.7, lineHeight: 20 }, empty: { borderRadius: 12, padding: 24, alignItems: 'center', gap: 8 },
   card: { borderRadius: 12, padding: 15, gap: 10 }, header: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   dot: { width: 16, height: 16, borderRadius: 6 }, copy: { flex: 1 }, secondary: { opacity: 0.62, fontSize: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 }, status: { fontSize: 12, fontWeight: '700' },
-  summaryCard: { borderRadius: 12, padding: 16, gap: 5 }, primaryButton: { minHeight: 48, borderRadius: 10, backgroundColor: '#0a7ea4', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, primaryText: { color: '#fff', fontWeight: '700' },
+  summaryCard: { borderRadius: 12, padding: 16, gap: 5 },
   debtIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, archived: { opacity: 0.62 }, sectionTitle: { marginTop: 6 },
 });

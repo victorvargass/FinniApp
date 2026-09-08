@@ -85,8 +85,8 @@ export type Expense = {
   paymentMethodId: number | null;
   recurringExpenseId: number | null;
   debtPlanId: number | null;
-  manualDebtId: number | null;
-  manualDebtEntryId: number | null;
+  debtId: number | null;
+  debtEntryId: number | null;
   installmentNumber: number | null;
   totalInstallments: number | null;
   savingsGoalId: number | null;
@@ -212,24 +212,24 @@ export type DebtPlan = NewInstallmentPurchase & {
   installments?: DebtInstallment[];
 };
 
-export type ManualDebtType = 'fixed' | 'variable';
-export type ManualDebtStatus = 'active' | 'paid' | 'archived';
-export type ManualDebtFrequency = 'weekly' | 'monthly' | 'annual';
+export type DebtType = 'fixed' | 'variable';
+export type DebtStatus = 'active' | 'paid' | 'archived';
+export type DebtFrequency = 'weekly' | 'monthly' | 'annual';
 
-export type NewManualDebt = {
-  type: ManualDebtType;
+export type NewDebt = {
+  type: DebtType;
   name: string;
   creditor: string | null;
   initialAmount: number;
   installmentAmount: number | null;
-  frequency: ManualDebtFrequency | null;
+  frequency: DebtFrequency | null;
   firstDueDate: string | null;
   categoryId: number | null;
   paymentMethodId: number | null;
   notes: string | null;
 };
 
-export type ManualDebtEntry = {
+export type DebtEntry = {
   id: number;
   debtId: number;
   kind: 'payment' | 'adjustment';
@@ -244,9 +244,9 @@ export type ManualDebtEntry = {
   note: string | null;
 };
 
-export type ManualDebt = NewManualDebt & {
+export type Debt = NewDebt & {
   id: number;
-  status: ManualDebtStatus;
+  status: DebtStatus;
   currentBalance: number;
   paidAmount: number;
   paymentCount: number;
@@ -255,10 +255,10 @@ export type ManualDebt = NewManualDebt & {
   nextDueDate: string | null;
   createdAt: string;
   updatedAt: string;
-  entries?: ManualDebtEntry[];
+  entries?: DebtEntry[];
 };
 
-export type NewManualDebtPayment = {
+export type NewDebtPayment = {
   amount: number;
   date: string;
   periodId: number;
@@ -267,7 +267,7 @@ export type NewManualDebtPayment = {
   note: string | null;
 };
 
-export type NewManualDebtBalance = {
+export type NewDebtBalance = {
   balance: number;
   date: string;
   note: string | null;

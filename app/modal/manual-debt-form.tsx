@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, TextInput, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,7 +13,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
-import type { ManualDebtFrequency, ManualDebtType } from '@/lib/types';
+import type { DebtFrequency, DebtType } from '@/lib/types';
 
 function parseIsoDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
@@ -25,17 +25,17 @@ function showResult(message: string) {
   else Alert.alert(t('common.done'), message);
 }
 
-export default function ManualDebtFormScreen() {
-  const { id, type: requestedType } = useLocalSearchParams<{ id?: string; type?: ManualDebtType }>();
+export default function DebtFormScreen() {
+  const { id, type: requestedType } = useLocalSearchParams<{ id?: string; type?: DebtType }>();
   const debtId = id ? Number(id) : null;
-  const { categories, paymentMethods, getManualDebt, addManualDebt, editManualDebt } = useDatabase();
+  const { categories, paymentMethods, getDebt, addDebt, editDebt } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const [type, setType] = useState<ManualDebtType>(requestedType === 'variable' ? 'variable' : 'fixed');
+  const [type, setType] = useState<DebtType>(requestedType === 'variable' ? 'variable' : 'fixed');
   const [name, setName] = useState('');
   const [creditor, setCreditor] = useState('');
   const [initialAmount, setInitialAmount] = useState('');
   const [installmentAmount, setInstallmentAmount] = useState('');
-  const [frequency, setFrequency] = useState<ManualDebtFrequency>('monthly');
+  const [frequency, setFrequency] = useState<DebtFrequency>('monthly');
   const [firstDueDate, setFirstDueDate] = useState(toDateString(new Date()));
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
@@ -46,22 +46,22 @@ export default function ManualDebtFormScreen() {
 
   useEffect(() => {
     if (debtId == null) return;
-    getManualDebt(debtId).then((debt) => {
+    getDebt(debtId).then((debt) => {
       if (!debt) return;
       setType(debt.type); setName(debt.name); setCreditor(debt.creditor ?? '');
       setInitialAmount(formatCLPInput(debt.initialAmount)); setInstallmentAmount(debt.installmentAmount ? formatCLPInput(debt.installmentAmount) : '');
       setFrequency(debt.frequency ?? 'monthly'); setFirstDueDate(debt.firstDueDate ?? toDateString(new Date()));
       setCategoryId(debt.categoryId); setPaymentMethodId(debt.paymentMethodId); setNotes(debt.notes ?? ''); setEntryCount(debt.entryCount);
     }).catch(() => undefined);
-  }, [debtId, getManualDebt]);
+  }, [debtId, getDebt]);
 
   const save = async () => {
     const parsedInitial = parseAmount(initialAmount);
     const parsedInstallment = parseAmount(installmentAmount);
-    if (!name.trim()) return Alert.alert(t('manualDebts.missingName'), t('manualDebts.missingNameHint'));
-    if (parsedInitial == null) return Alert.alert(t('manualDebts.invalidAmount'), t('manualDebts.invalidInitialHint'));
-    if (type === 'fixed' && parsedInstallment == null) return Alert.alert(t('manualDebts.invalidAmount'), t('manualDebts.invalidInstallmentHint'));
-    if (parsedInstallment != null && parsedInstallment > parsedInitial) return Alert.alert(t('manualDebts.invalidAmount'), t('manualDebts.installmentTooHighHint'));
+    if (!name.trim()) return Alert.alert(t('debts.missingName'), t('debts.missingNameHint'));
+    if (parsedInitial == null) return Alert.alert(t('debts.invalidAmount'), t('debts.invalidInitialHint'));
+    if (type === 'fixed' && parsedInstallment == null) return Alert.alert(t('debts.invalidAmount'), t('debts.invalidInstallmentHint'));
+    if (parsedInstallment != null && parsedInstallment > parsedInitial) return Alert.alert(t('debts.invalidAmount'), t('debts.installmentTooHighHint'));
     setSaving(true);
     try {
       const data = {
@@ -70,12 +70,12 @@ export default function ManualDebtFormScreen() {
         firstDueDate: parsedInstallment != null ? firstDueDate : null, categoryId, paymentMethodId, notes: notes.trim() || null,
       };
       if (debtId != null) {
-        await editManualDebt(debtId, data);
-        showResult(t('manualDebts.updated'));
+        await editDebt(debtId, data);
+        showResult(t('debts.updated'));
         router.back();
       } else {
-        const createdId = await addManualDebt(data);
-        showResult(t('manualDebts.created'));
+        const createdId = await addDebt(data);
+        showResult(t('debts.created'));
         router.replace({ pathname: '/modal/manual-debt-detail', params: { id: String(createdId) } });
       }
     } catch (error) {
@@ -89,31 +89,33 @@ export default function ManualDebtFormScreen() {
   ];
   const paymentOptions = [
     { value: null, label: t('common.notSpecified') },
-    ...paymentMethods.filter((item) => item.active && item.type !== 'credit').map((item) => ({ value: item.id, label: item.name, color: item.color })),
+    ...paymentMethods
+      .filter((item) => item.active || item.id === paymentMethodId)
+      .map((item) => ({ value: item.id, label: item.name, color: item.color })),
   ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <Stack.Screen options={{ title: debtId ? t('debts.edit') : t('debts.new') }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ThemedText type="title">{debtId ? t('manualDebts.edit') : t('manualDebts.new')}</ThemedText>
-        <ThemedText style={styles.description}>{t('manualDebts.formHint')}</ThemedText>
+        <ThemedText style={styles.description}>{t('debts.formHint')}</ThemedText>
         <ThemedView style={styles.card}>
-          <SimpleSelect disabled={debtId != null} label={t('manualDebts.type')} value={type} onChange={setType} options={[
-            { value: 'fixed', label: t('manualDebts.fixed') }, { value: 'variable', label: t('manualDebts.variable') },
+          <SimpleSelect disabled={debtId != null} label={t('debts.type')} value={type} onChange={setType} options={[
+            { value: 'fixed', label: t('debts.fixed') }, { value: 'variable', label: t('debts.variable') },
           ]} />
-          {debtId != null && <ThemedText style={styles.hint}>{t('manualDebts.typeLockedHint')}</ThemedText>}
-          <Field label={t('manualDebts.name')} value={name} onChangeText={setName} colors={colors} placeholder={t('manualDebts.namePlaceholder')} />
-          <Field label={t('manualDebts.creditor')} value={creditor} onChangeText={setCreditor} colors={colors} placeholder={t('manualDebts.creditorPlaceholder')} />
-          <Field label={t('manualDebts.estimatedTotalDebt')} value={initialAmount} onChangeText={setInitialAmount} colors={colors} keyboardType="number-pad" editable={entryCount === 0} />
-          {entryCount > 0 && <ThemedText style={styles.hint}>{t('manualDebts.initialLockedHint')}</ThemedText>}
+          {debtId != null && <ThemedText style={styles.hint}>{t('debts.typeLockedHint')}</ThemedText>}
+          <Field label={t('debts.name')} value={name} onChangeText={setName} colors={colors} placeholder={t('debts.namePlaceholder')} />
+          <Field label={t('debts.creditor')} value={creditor} onChangeText={setCreditor} colors={colors} placeholder={t('debts.creditorPlaceholder')} />
+          <Field label={t('debts.estimatedTotalDebt')} value={initialAmount} onChangeText={setInitialAmount} colors={colors} keyboardType="number-pad" editable={entryCount === 0} />
+          {entryCount > 0 && <ThemedText style={styles.hint}>{t('debts.initialLockedHint')}</ThemedText>}
           {type === 'fixed' && (
             <>
-              <Field label={t('manualDebts.installmentAmount')} value={installmentAmount} onChangeText={setInstallmentAmount} colors={colors} keyboardType="number-pad" />
-              <SimpleSelect label={t('manualDebts.frequency')} value={frequency} onChange={setFrequency} options={[
-                { value: 'weekly', label: t('manualDebts.weekly') }, { value: 'monthly', label: t('manualDebts.monthly') }, { value: 'annual', label: t('manualDebts.annual') },
+              <Field label={t('debts.installmentAmount')} value={installmentAmount} onChangeText={setInstallmentAmount} colors={colors} keyboardType="number-pad" />
+              <SimpleSelect label={t('debts.frequency')} value={frequency} onChange={setFrequency} options={[
+                { value: 'weekly', label: t('debts.weekly') }, { value: 'monthly', label: t('debts.monthly') }, { value: 'annual', label: t('debts.annual') },
               ]} />
               <View style={styles.group}>
-                <ThemedText style={styles.label}>{t('manualDebts.firstDueDate')}</ThemedText>
+                <ThemedText style={styles.label}>{t('debts.firstDueDate')}</ThemedText>
                 <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
                   <ThemedText>{formatDate(parseIsoDate(firstDueDate))}</ThemedText>
                 </Pressable>
@@ -123,19 +125,19 @@ export default function ManualDebtFormScreen() {
           )}
           {type === 'variable' && (
             <>
-              <Field label={t('manualDebts.variableEstimatedPayment')} value={installmentAmount} onChangeText={setInstallmentAmount} colors={colors} keyboardType="number-pad" placeholder={t('manualDebts.optional')} />
+              <Field label={t('debts.variableEstimatedPayment')} value={installmentAmount} onChangeText={setInstallmentAmount} colors={colors} keyboardType="number-pad" placeholder={t('debts.optional')} />
               {parseAmount(installmentAmount) != null && (
                 <View style={styles.group}>
-                  <ThemedText style={styles.label}>{t('manualDebts.nextEstimatedPaymentDate')}</ThemedText>
+                  <ThemedText style={styles.label}>{t('debts.nextEstimatedPaymentDate')}</ThemedText>
                   <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatDate(parseIsoDate(firstDueDate))}</ThemedText></Pressable>
                   {showDate && <DateTimePicker value={parseIsoDate(firstDueDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setFirstDueDate(toDateString(date)); }} />}
                 </View>
               )}
             </>
           )}
-          <SimpleSelect label={t('manualDebts.defaultCategory')} value={categoryId} onChange={setCategoryId} options={categoryOptions} />
-          <SimpleSelect label={t('manualDebts.defaultPaymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
-          <Field label={t('manualDebts.notes')} value={notes} onChangeText={setNotes} colors={colors} multiline placeholder={t('manualDebts.notesPlaceholder')} />
+          <SimpleSelect label={t('debts.defaultCategory')} value={categoryId} onChange={setCategoryId} options={categoryOptions} />
+          <SimpleSelect label={t('debts.defaultPaymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
+          <Field label={t('debts.notes')} value={notes} onChangeText={setNotes} colors={colors} multiline placeholder={t('debts.notesPlaceholder')} />
         </ThemedView>
         <Pressable disabled={saving} onPress={() => { void save(); }} style={[styles.primary, saving && styles.disabled]}>
           <ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('common.save')}</ThemedText>

@@ -10,14 +10,14 @@ import type {
   DebtPlan,
   ExpenseWithCategory,
   Income,
-  ManualDebt,
+  Debt,
   NewCategory,
   NewExpense,
   NewIncome,
   NewInstallmentPurchase,
-  NewManualDebt,
-  NewManualDebtBalance,
-  NewManualDebtPayment,
+  NewDebt,
+  NewDebtBalance,
+  NewDebtPayment,
   NewCreditCardCycle,
   NewPaymentMethod,
   NewRecurringExpense,
@@ -97,16 +97,16 @@ type DatabaseContextValue = {
   settleInstallmentPlan: (id: number, periodId: number) => Promise<void>;
   restoreRemovedInstallment: (installmentId: number, periodId: number) => Promise<void>;
   removeInstallmentPlan: (id: number) => Promise<void>;
-  getManualDebts: () => Promise<ManualDebt[]>;
-  getManualDebt: (id: number) => Promise<ManualDebt | null>;
-  addManualDebt: (data: NewManualDebt) => Promise<number>;
-  editManualDebt: (id: number, data: NewManualDebt) => Promise<void>;
-  addManualDebtPayment: (debtId: number, data: NewManualDebtPayment) => Promise<void>;
-  editManualDebtPayment: (entryId: number, data: NewManualDebtPayment) => Promise<void>;
-  removeManualDebtPayment: (entryId: number) => Promise<void>;
-  addManualDebtBalanceAdjustment: (debtId: number, data: NewManualDebtBalance) => Promise<void>;
-  setManualDebtArchived: (id: number, archived: boolean) => Promise<void>;
-  removeManualDebt: (id: number) => Promise<void>;
+  getDebts: () => Promise<Debt[]>;
+  getDebt: (id: number) => Promise<Debt | null>;
+  addDebt: (data: NewDebt) => Promise<number>;
+  editDebt: (id: number, data: NewDebt) => Promise<void>;
+  addDebtPayment: (debtId: number, data: NewDebtPayment) => Promise<void>;
+  editDebtPayment: (entryId: number, data: NewDebtPayment) => Promise<void>;
+  removeDebtPayment: (entryId: number) => Promise<void>;
+  addDebtBalanceAdjustment: (debtId: number, data: NewDebtBalance) => Promise<void>;
+  setDebtArchived: (id: number, archived: boolean) => Promise<void>;
+  removeDebt: (id: number) => Promise<void>;
   addSavingsGoal: (data: NewSavingsGoal) => Promise<void>;
   editSavingsGoal: (id: number, data: NewSavingsGoal) => Promise<void>;
   setSavingsGoalStatus: (id: number, status: SavingsGoalStatus) => Promise<void>;
@@ -437,39 +437,39 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
-  const getManualDebts = useCallback(() => db.getManualDebts(), []);
-  const getManualDebt = useCallback((id: number) => db.getManualDebt(id), []);
-  const addManualDebt = useCallback(async (data: NewManualDebt) => {
-    const id = await db.createManualDebt(data);
+  const getDebts = useCallback(() => db.getDebts(), []);
+  const getDebt = useCallback((id: number) => db.getDebt(id), []);
+  const addDebt = useCallback(async (data: NewDebt) => {
+    const id = await db.createDebt(data);
     await refresh();
     return id;
   }, [refresh]);
-  const editManualDebt = useCallback(async (id: number, data: NewManualDebt) => {
-    await db.updateManualDebt(id, data);
+  const editDebt = useCallback(async (id: number, data: NewDebt) => {
+    await db.updateDebt(id, data);
     await refresh();
   }, [refresh]);
-  const addManualDebtPayment = useCallback(async (debtId: number, data: NewManualDebtPayment) => {
-    await db.createManualDebtPayment(debtId, data);
+  const addDebtPayment = useCallback(async (debtId: number, data: NewDebtPayment) => {
+    await db.createDebtPayment(debtId, data);
     await refresh();
   }, [refresh]);
-  const editManualDebtPayment = useCallback(async (entryId: number, data: NewManualDebtPayment) => {
-    await db.updateManualDebtPayment(entryId, data);
+  const editDebtPayment = useCallback(async (entryId: number, data: NewDebtPayment) => {
+    await db.updateDebtPayment(entryId, data);
     await refresh();
   }, [refresh]);
-  const removeManualDebtPayment = useCallback(async (entryId: number) => {
-    await db.deleteManualDebtPayment(entryId);
+  const removeDebtPayment = useCallback(async (entryId: number) => {
+    await db.deleteDebtPayment(entryId);
     await refresh();
   }, [refresh]);
-  const addManualDebtBalanceAdjustment = useCallback(async (debtId: number, data: NewManualDebtBalance) => {
-    await db.addManualDebtBalanceAdjustment(debtId, data);
+  const addDebtBalanceAdjustment = useCallback(async (debtId: number, data: NewDebtBalance) => {
+    await db.addDebtBalanceAdjustment(debtId, data);
     await refresh();
   }, [refresh]);
-  const setManualDebtArchived = useCallback(async (id: number, archived: boolean) => {
-    await db.setManualDebtArchived(id, archived);
+  const setDebtArchived = useCallback(async (id: number, archived: boolean) => {
+    await db.setDebtArchived(id, archived);
     await refresh();
   }, [refresh]);
-  const removeManualDebt = useCallback(async (id: number) => {
-    await db.deleteManualDebt(id);
+  const removeDebt = useCallback(async (id: number) => {
+    await db.deleteDebt(id);
     await refresh();
   }, [refresh]);
 
@@ -753,16 +753,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       settleInstallmentPlan,
       restoreRemovedInstallment,
       removeInstallmentPlan,
-      getManualDebts,
-      getManualDebt,
-      addManualDebt,
-      editManualDebt,
-      addManualDebtPayment,
-      editManualDebtPayment,
-      removeManualDebtPayment,
-      addManualDebtBalanceAdjustment,
-      setManualDebtArchived,
-      removeManualDebt,
+      getDebts,
+      getDebt,
+      addDebt,
+      editDebt,
+      addDebtPayment,
+      editDebtPayment,
+      removeDebtPayment,
+      addDebtBalanceAdjustment,
+      setDebtArchived,
+      removeDebt,
       addSavingsGoal,
       editSavingsGoal,
       setSavingsGoalStatus,
@@ -840,16 +840,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       settleInstallmentPlan,
       restoreRemovedInstallment,
       removeInstallmentPlan,
-      getManualDebts,
-      getManualDebt,
-      addManualDebt,
-      editManualDebt,
-      addManualDebtPayment,
-      editManualDebtPayment,
-      removeManualDebtPayment,
-      addManualDebtBalanceAdjustment,
-      setManualDebtArchived,
-      removeManualDebt,
+      getDebts,
+      getDebt,
+      addDebt,
+      editDebt,
+      addDebtPayment,
+      editDebtPayment,
+      removeDebtPayment,
+      addDebtBalanceAdjustment,
+      setDebtArchived,
+      removeDebt,
       addSavingsGoal,
       editSavingsGoal,
       setSavingsGoalStatus,

@@ -44,12 +44,12 @@ export default function ExpenseFormModal() {
   }, [navigation, expense]);
 
   useEffect(() => {
-    if (expense?.manualDebtEntryId == null || expense.manualDebtId == null) return;
+    if (expense?.debtEntryId == null || expense.debtId == null) return;
     router.replace({
       pathname: '/modal/manual-debt-payment',
       params: {
-        debtId: String(expense.manualDebtId),
-        entryId: String(expense.manualDebtEntryId),
+        debtId: String(expense.debtId),
+        entryId: String(expense.debtEntryId),
       },
     });
   }, [expense]);
@@ -71,11 +71,11 @@ export default function ExpenseFormModal() {
     );
   }
 
-  if (expense?.manualDebtEntryId != null) {
+  if (expense?.debtEntryId != null) {
     return (
       <ThemedView style={[styles.container, styles.center]}>
         <ActivityIndicator size="large" />
-        <ThemedText>{t('manualDebts.loadingPayment')}</ThemedText>
+        <ThemedText>{t('debts.loadingPayment')}</ThemedText>
       </ThemedView>
     );
   }

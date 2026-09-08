@@ -82,19 +82,19 @@ function AppContent() {
                 />
                 <Stack.Screen
                   name="modal/manual-debt-form"
-                  options={{ presentation: 'modal', title: t('manualDebts.debt') }}
+                  options={{ presentation: 'modal', title: t('debts.debt') }}
                 />
                 <Stack.Screen
                   name="modal/manual-debt-detail"
-                  options={{ presentation: 'fullScreenModal', title: t('manualDebts.debtDetail') }}
+                  options={{ presentation: 'fullScreenModal', title: t('debts.debtDetail') }}
                 />
                 <Stack.Screen
                   name="modal/manual-debt-payment"
-                  options={{ presentation: 'modal', title: t('manualDebts.payment') }}
+                  options={{ presentation: 'modal', title: t('debts.payment') }}
                 />
                 <Stack.Screen
                   name="modal/manual-debt-balance"
-                  options={{ presentation: 'modal', title: t('manualDebts.updateBalance') }}
+                  options={{ presentation: 'modal', title: t('debts.updateBalance') }}
                 />
                 <Stack.Screen
                   name="modal/savings-goals"

@@ -256,7 +256,7 @@ function expenseRows(expenses: ExpenseWithCategory[]): string {
           : expense.debtPlanId != null
             ? t('report.installmentSettlement')
             : null,
-        expense.manualDebtId != null ? t('report.manualDebtPayment') : null,
+        expense.debtId != null ? t('report.debtPayment') : null,
         expense.recurringExpenseId != null ? t('report.recurringMovement') : null,
       ].filter((note): note is string => Boolean(note));
       const detailNotes = notes.map((note) => `<div class="row-note">${escapeHtml(note)}</div>`).join('');

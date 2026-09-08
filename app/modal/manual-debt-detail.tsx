@@ -13,7 +13,7 @@ import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { addIsoDays, addIsoMonths } from '@/lib/recurrence';
-import type { ManualDebt } from '@/lib/types';
+import type { Debt } from '@/lib/types';
 
 function parseIsoDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
@@ -25,25 +25,25 @@ function showResult(message: string) {
   else Alert.alert(t('common.done'), message);
 }
 
-export default function ManualDebtDetailScreen() {
+export default function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const debtId = Number(id);
-  const { getManualDebt, setManualDebtArchived, removeManualDebt } = useDatabase();
+  const { getDebt, setDebtArchived, removeDebt } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const [debt, setDebt] = useState<ManualDebt | null>(null);
+  const [debt, setDebt] = useState<Debt | null>(null);
   const [working, setWorking] = useState(false);
-  const load = useCallback(async () => setDebt(await getManualDebt(debtId)), [debtId, getManualDebt]);
+  const load = useCallback(async () => setDebt(await getDebt(debtId)), [debtId, getDebt]);
   useFocusEffect(useCallback(() => { load().catch(() => undefined); }, [load]));
 
   const toggleArchive = () => {
     if (!debt) return;
     const archive = debt.status !== 'archived';
     Alert.alert(
-      archive ? t('manualDebts.archive') : t('manualDebts.reactivate'),
-      archive ? t('manualDebts.archiveHint') : t('manualDebts.reactivateHint'),
-      [{ text: t('common.cancel'), style: 'cancel' }, { text: archive ? t('manualDebts.archive') : t('manualDebts.reactivate'), onPress: () => {
+      archive ? t('debts.archive') : t('debts.reactivate'),
+      archive ? t('debts.archiveHint') : t('debts.reactivateHint'),
+      [{ text: t('common.cancel'), style: 'cancel' }, { text: archive ? t('debts.archive') : t('debts.reactivate'), onPress: () => {
         setWorking(true);
-        setManualDebtArchived(debt.id, archive).then(() => { showResult(archive ? t('manualDebts.archived') : t('manualDebts.reactivated')); return load(); })
+        setDebtArchived(debt.id, archive).then(() => { showResult(archive ? t('debts.archived') : t('debts.reactivated')); return load(); })
           .catch((error) => Alert.alert(t('errors.couldNotUpdate'), error instanceof Error ? error.message : t('common.tryAgain')))
           .finally(() => setWorking(false));
       } }]
@@ -52,12 +52,12 @@ export default function ManualDebtDetailScreen() {
 
   const deleteDebt = () => {
     if (!debt) return;
-    if (debt.entryCount > 0) return Alert.alert(t('manualDebts.cannotDelete'), t('manualDebts.cannotDeleteHint'));
-    Alert.alert(t('manualDebts.delete'), t('manualDebts.deleteHint'), [
+    if (debt.entryCount > 0) return Alert.alert(t('debts.cannotDelete'), t('debts.cannotDeleteHint'));
+    Alert.alert(t('debts.delete'), t('debts.deleteHint'), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.delete'), style: 'destructive', onPress: () => {
         setWorking(true);
-        removeManualDebt(debt.id).then(() => { showResult(t('manualDebts.deleted')); router.back(); })
+        removeDebt(debt.id).then(() => { showResult(t('debts.deleted')); router.back(); })
           .catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain')))
           .finally(() => setWorking(false));
       } },
@@ -90,58 +90,58 @@ export default function ManualDebtDetailScreen() {
         <View style={styles.titleRow}><View style={styles.titleCopy}><ThemedText type="title">{debt.name}</ThemedText>{debt.creditor && <ThemedText style={styles.secondary}>{debt.creditor}</ThemedText>}</View><Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-form', params: { id: String(debt.id) } })} hitSlop={8}><Ionicons name="create-outline" size={25} color={colors.primary} /></Pressable></View>
 
         <ThemedView style={styles.summary}>
-          <View style={styles.row}><ThemedText style={styles.secondary}>{t('manualDebts.currentBalance')}</ThemedText><ThemedText type="title">{formatCLP(debt.currentBalance)}</ThemedText></View>
-          <View style={styles.row}><ThemedText>{t('manualDebts.estimatedTotalDebt')}</ThemedText><ThemedText>{formatCLP(debt.initialAmount)}</ThemedText></View>
-          {debt.type === 'fixed' && <><View style={[styles.track, { backgroundColor: colors.border }]}><View style={[styles.fill, { width: `${progress}%`, backgroundColor: colors.primary }]} /></View><View style={styles.row}><ThemedText style={styles.secondary}>{t('manualDebts.paid')}</ThemedText><ThemedText>{formatCLP(debt.paidAmount)}</ThemedText></View></>}
-          <ThemedText style={[styles.status, { color: isPaid ? '#2e9d63' : isArchived ? '#64748b' : colors.primary }]}>{isPaid ? t('manualDebts.statusPaid') : isArchived ? t('manualDebts.statusArchived') : t('manualDebts.statusActive')}</ThemedText>
+          <View style={styles.row}><ThemedText style={styles.secondary}>{t('debts.currentBalance')}</ThemedText><ThemedText type="title">{formatCLP(debt.currentBalance)}</ThemedText></View>
+          <View style={styles.row}><ThemedText>{t('debts.estimatedTotalDebt')}</ThemedText><ThemedText>{formatCLP(debt.initialAmount)}</ThemedText></View>
+          {debt.type === 'fixed' && <><View style={[styles.track, { backgroundColor: colors.border }]}><View style={[styles.fill, { width: `${progress}%`, backgroundColor: colors.primary }]} /></View><View style={styles.row}><ThemedText style={styles.secondary}>{t('debts.paid')}</ThemedText><ThemedText>{formatCLP(debt.paidAmount)}</ThemedText></View></>}
+          <ThemedText style={[styles.status, { color: isPaid ? '#2e9d63' : isArchived ? '#64748b' : colors.primary }]}>{isPaid ? t('debts.statusPaid') : isArchived ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
         </ThemedView>
 
         {debt.type === 'fixed' && (
           <ThemedView style={styles.card}>
-            <ThemedText type="subtitle">{t('manualDebts.paymentPlan')}</ThemedText>
-            <View style={styles.row}><ThemedText>{t('manualDebts.estimatedInstallment')}</ThemedText><ThemedText>{formatCLP(debt.installmentAmount ?? 0)}</ThemedText></View>
-            <View style={styles.row}><ThemedText>{t('manualDebts.estimatedPayments')}</ThemedText><ThemedText>{debt.paymentCount} / {debt.totalInstallments}</ThemedText></View>
-            {debt.nextDueDate && <View style={styles.row}><ThemedText>{t('manualDebts.nextDue')}</ThemedText><ThemedText>{formatDate(parseIsoDate(debt.nextDueDate))}</ThemedText></View>}
+            <ThemedText type="subtitle">{t('debts.paymentPlan')}</ThemedText>
+            <View style={styles.row}><ThemedText>{t('debts.estimatedInstallment')}</ThemedText><ThemedText>{formatCLP(debt.installmentAmount ?? 0)}</ThemedText></View>
+            <View style={styles.row}><ThemedText>{t('debts.estimatedPayments')}</ThemedText><ThemedText>{debt.paymentCount} / {debt.totalInstallments}</ThemedText></View>
+            {debt.nextDueDate && <View style={styles.row}><ThemedText>{t('debts.nextDue')}</ThemedText><ThemedText>{formatDate(parseIsoDate(debt.nextDueDate))}</ThemedText></View>}
           </ThemedView>
         )}
         {debt.type === 'variable' && debt.installmentAmount != null && (
           <ThemedView style={styles.card}>
-            <ThemedText type="subtitle">{t('manualDebts.paymentReference')}</ThemedText>
-            <View style={styles.row}><ThemedText>{t('manualDebts.estimatedInstallment')}</ThemedText><ThemedText>{formatCLP(debt.installmentAmount)}</ThemedText></View>
-            {debt.nextDueDate && <View style={styles.row}><ThemedText>{t('manualDebts.nextEstimatedPaymentDate')}</ThemedText><ThemedText>{formatDate(parseIsoDate(debt.nextDueDate))}</ThemedText></View>}
+            <ThemedText type="subtitle">{t('debts.paymentReference')}</ThemedText>
+            <View style={styles.row}><ThemedText>{t('debts.estimatedInstallment')}</ThemedText><ThemedText>{formatCLP(debt.installmentAmount)}</ThemedText></View>
+            {debt.nextDueDate && <View style={styles.row}><ThemedText>{t('debts.nextEstimatedPaymentDate')}</ThemedText><ThemedText>{formatDate(parseIsoDate(debt.nextDueDate))}</ThemedText></View>}
           </ThemedView>
         )}
 
         {projectedPayments.length > 0 && (
           <ThemedView style={styles.card}>
-            <ThemedText type="subtitle">{t('manualDebts.upcomingPayments')}</ThemedText>
-            {projectedPayments.map((payment) => <View key={payment.number} style={styles.row}><ThemedText>{t('manualDebts.paymentNumber', { number: payment.number })} · {formatDate(parseIsoDate(payment.date))}</ThemedText><ThemedText>{formatCLP(payment.amount)}</ThemedText></View>)}
-            {remainingProjectedCount > projectedPayments.length && <ThemedText style={styles.secondary}>{t('manualDebts.moreProjectedPayments', { count: remainingProjectedCount - projectedPayments.length })}</ThemedText>}
+            <ThemedText type="subtitle">{t('debts.upcomingPayments')}</ThemedText>
+            {projectedPayments.map((payment) => <View key={payment.number} style={styles.row}><ThemedText>{t('debts.paymentNumber', { number: payment.number })} · {formatDate(parseIsoDate(payment.date))}</ThemedText><ThemedText>{formatCLP(payment.amount)}</ThemedText></View>)}
+            {remainingProjectedCount > projectedPayments.length && <ThemedText style={styles.secondary}>{t('debts.moreProjectedPayments', { count: remainingProjectedCount - projectedPayments.length })}</ThemedText>}
           </ThemedView>
         )}
 
         {!isArchived && (
           <View style={styles.actions}>
-            {!isPaid && <Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-payment', params: { debtId: String(debt.id) } })} style={styles.primary}><Ionicons name="cash-outline" size={20} color="#fff" /><ThemedText style={styles.primaryText}>{t('manualDebts.registerPayment')}</ThemedText></Pressable>}
-            {debt.type === 'variable' && <Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-balance', params: { debtId: String(debt.id) } })} style={[styles.secondaryButton, { borderColor: colors.primary }]}><Ionicons name="sync-outline" size={20} color={colors.primary} /><ThemedText style={{ color: colors.primary, fontWeight: '700' }}>{t('manualDebts.updateBalance')}</ThemedText></Pressable>}
+            {!isPaid && <Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-payment', params: { debtId: String(debt.id) } })} style={styles.primary}><Ionicons name="cash-outline" size={20} color="#fff" /><ThemedText style={styles.primaryText}>{t('debts.registerPayment')}</ThemedText></Pressable>}
+            {debt.type === 'variable' && <Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-balance', params: { debtId: String(debt.id) } })} style={[styles.secondaryButton, { borderColor: colors.primary }]}><Ionicons name="sync-outline" size={20} color={colors.primary} /><ThemedText style={{ color: colors.primary, fontWeight: '700' }}>{t('debts.updateBalance')}</ThemedText></Pressable>}
           </View>
         )}
 
-        <ThemedText type="subtitle">{t('manualDebts.history')}</ThemedText>
-        {debt.entries?.length === 0 && <ThemedView style={styles.empty}><ThemedText style={styles.secondary}>{t('manualDebts.noHistory')}</ThemedText></ThemedView>}
+        <ThemedText type="subtitle">{t('debts.history')}</ThemedText>
+        {debt.entries?.length === 0 && <ThemedView style={styles.empty}><ThemedText style={styles.secondary}>{t('debts.noHistory')}</ThemedText></ThemedView>}
         {debt.entries?.map((entry) => (
           <Pressable key={entry.id} disabled={entry.kind !== 'payment'} onPress={() => router.push({ pathname: '/modal/manual-debt-payment', params: { debtId: String(debt.id), entryId: String(entry.id) } })}>
             <ThemedView style={styles.entry}>
               <View style={[styles.entryIcon, { backgroundColor: entry.kind === 'payment' ? '#2e9d63' : entry.amount > 0 ? '#d97706' : '#0a7ea4' }]}><Ionicons name={entry.kind === 'payment' ? 'arrow-down' : 'swap-vertical'} size={17} color="#fff" /></View>
-              <View style={styles.entryCopy}><ThemedText type="defaultSemiBold">{entry.kind === 'payment' ? t('manualDebts.payment') : t('manualDebts.balanceAdjustment')}</ThemedText><ThemedText style={styles.entryMeta}>{formatDate(parseIsoDate(entry.date))}{entry.paymentMethodName ? ` · ${entry.paymentMethodName}` : ''}{entry.note ? ` · ${entry.note}` : ''}</ThemedText></View>
+              <View style={styles.entryCopy}><ThemedText type="defaultSemiBold">{entry.kind === 'payment' ? t('debts.payment') : t('debts.balanceAdjustment')}</ThemedText><ThemedText style={styles.entryMeta}>{formatDate(parseIsoDate(entry.date))}{entry.paymentMethodName ? ` · ${entry.paymentMethodName}` : ''}{entry.note ? ` · ${entry.note}` : ''}</ThemedText></View>
               <ThemedText style={{ color: entry.kind === 'payment' || entry.amount < 0 ? '#2e9d63' : '#d97706' }}>{entry.kind === 'payment' || entry.amount < 0 ? '−' : '+'}{formatCLP(Math.abs(entry.amount))}</ThemedText>
             </ThemedView>
           </Pressable>
         ))}
 
         <View style={styles.management}>
-          <Pressable disabled={working} onPress={toggleArchive} style={[styles.secondaryButton, { borderColor: colors.border }]}><ThemedText>{isArchived ? t('manualDebts.reactivate') : t('manualDebts.archive')}</ThemedText></Pressable>
-          {debt.entryCount === 0 && <Pressable disabled={working} onPress={deleteDebt} style={styles.danger}><ThemedText style={styles.dangerText}>{t('manualDebts.delete')}</ThemedText></Pressable>}
+          <Pressable disabled={working} onPress={toggleArchive} style={[styles.secondaryButton, { borderColor: colors.border }]}><ThemedText>{isArchived ? t('debts.reactivate') : t('debts.archive')}</ThemedText></Pressable>
+          {debt.entryCount === 0 && <Pressable disabled={working} onPress={deleteDebt} style={styles.danger}><ThemedText style={styles.dangerText}>{t('debts.delete')}</ThemedText></Pressable>}
         </View>
       </ScrollView>
     </SafeAreaView>
