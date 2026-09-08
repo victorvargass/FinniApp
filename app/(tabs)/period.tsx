@@ -28,6 +28,8 @@ function parseDateString(value: string): Date {
 
 export default function PeriodScreen() {
   const {
+    expenses,
+    incomes,
     periodCategoryExpensesTotals,
     periodIncomesTotal,
     periodExpensesTotal,
@@ -59,9 +61,10 @@ export default function PeriodScreen() {
   const periodSavingsAvailable = periodSavingsWithdrawals + periodSavingsFundingTotal;
   const periodBalance = periodIncomesTotal + periodSavingsAvailable - periodExpensesTotal;
   const selectedPeriodReport = periodHistory.find((period) => period.periodId === selectedPeriod?.id);
+  const hasPeriodMovements = expenses.length > 0 || incomes.length > 0;
 
   async function handleExport() {
-    if (!selectedPeriodReport || isExporting) return;
+    if (!selectedPeriodReport || !hasPeriodMovements || isExporting) return;
     try {
       setIsExporting(true);
       await exportPeriodReport(selectedPeriodReport);
@@ -269,7 +272,7 @@ export default function PeriodScreen() {
           )}
         />
 
-      {selectedPeriodReport && (
+      {selectedPeriodReport && hasPeriodMovements && (
         <Pressable
           style={({ pressed }) => [
             styles.exportButton,
@@ -290,7 +293,7 @@ export default function PeriodScreen() {
         </Pressable>
       )}
 
-      {isCurrentPeriod && (periodIncomesTotal > 0 && periodExpensesTotal > 0) && (
+      {isCurrentPeriod && hasPeriodMovements && (
         <View style={{ marginTop: 24, alignItems: 'center' }}>
           <Pressable
             style={{
