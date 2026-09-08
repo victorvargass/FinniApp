@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, ToastAndroid, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SimpleSelect } from '@/components/simple-select';
@@ -11,6 +11,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { errorMessage, showFeedback } from '@/lib/feedback';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { Debt } from '@/lib/types';
@@ -18,11 +19,6 @@ import type { Debt } from '@/lib/types';
 function parseIsoDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day, 12);
-}
-
-function showResult(message: string) {
-  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert(t('common.done'), message);
 }
 
 export default function DebtPaymentScreen() {
@@ -67,10 +63,10 @@ export default function DebtPaymentScreen() {
       const data = { amount: parsedAmount, date, periodId, categoryId, paymentMethodId, note: note.trim() || null };
       if (entryId == null) await addDebtPayment(debtId, data);
       else await editDebtPayment(entryId, data);
-      showResult(entryId == null ? t('debts.paymentRegistered') : t('debts.paymentUpdated'));
+      showFeedback(entryId == null ? t('debts.paymentRegistered') : t('debts.paymentUpdated'));
       router.back();
     } catch (error) {
-      Alert.alert(t('errors.couldNotSave'), error instanceof Error ? error.message : t('common.tryAgain'));
+      Alert.alert(t('errors.couldNotSave'), errorMessage(error));
     } finally { setSaving(false); }
   };
 
@@ -80,8 +76,8 @@ export default function DebtPaymentScreen() {
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.delete'), style: 'destructive', onPress: () => {
         setSaving(true);
-        removeDebtPayment(entryId).then(() => { showResult(t('debts.paymentDeleted')); router.back(); })
-          .catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain')))
+        removeDebtPayment(entryId).then(() => { showFeedback(t('debts.paymentDeleted')); router.back(); })
+          .catch((error) => Alert.alert(t('errors.couldNotDelete'), errorMessage(error)))
           .finally(() => setSaving(false));
       } },
     ]);

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +10,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { errorMessage, showFeedback } from '@/lib/feedback';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { addIsoDays, addIsoMonths } from '@/lib/recurrence';
@@ -18,11 +19,6 @@ import type { Debt } from '@/lib/types';
 function parseIsoDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day, 12);
-}
-
-function showResult(message: string) {
-  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert(t('common.done'), message);
 }
 
 export default function DebtDetailScreen() {
@@ -43,8 +39,8 @@ export default function DebtDetailScreen() {
       archive ? t('debts.archiveHint') : t('debts.reactivateHint'),
       [{ text: t('common.cancel'), style: 'cancel' }, { text: archive ? t('debts.archive') : t('debts.reactivate'), onPress: () => {
         setWorking(true);
-        setDebtArchived(debt.id, archive).then(() => { showResult(archive ? t('debts.archived') : t('debts.reactivated')); return load(); })
-          .catch((error) => Alert.alert(t('errors.couldNotUpdate'), error instanceof Error ? error.message : t('common.tryAgain')))
+        setDebtArchived(debt.id, archive).then(() => { showFeedback(archive ? t('debts.archived') : t('debts.reactivated')); return load(); })
+          .catch((error) => Alert.alert(t('errors.couldNotUpdate'), errorMessage(error)))
           .finally(() => setWorking(false));
       } }]
     );
@@ -57,8 +53,8 @@ export default function DebtDetailScreen() {
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.delete'), style: 'destructive', onPress: () => {
         setWorking(true);
-        removeDebt(debt.id).then(() => { showResult(t('debts.deleted')); router.back(); })
-          .catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain')))
+        removeDebt(debt.id).then(() => { showFeedback(t('debts.deleted')); router.back(); })
+          .catch((error) => Alert.alert(t('errors.couldNotDelete'), errorMessage(error)))
           .finally(() => setWorking(false));
       } },
     ]);

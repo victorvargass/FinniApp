@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, ToastAndroid, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SimpleSelect } from '@/components/simple-select';
@@ -11,6 +11,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { errorMessage, showFeedback } from '@/lib/feedback';
 import { formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { DebtFrequency, DebtType } from '@/lib/types';
@@ -18,11 +19,6 @@ import type { DebtFrequency, DebtType } from '@/lib/types';
 function parseIsoDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day, 12);
-}
-
-function showResult(message: string) {
-  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert(t('common.done'), message);
 }
 
 export default function DebtFormScreen() {
@@ -71,15 +67,15 @@ export default function DebtFormScreen() {
       };
       if (debtId != null) {
         await editDebt(debtId, data);
-        showResult(t('debts.updated'));
+        showFeedback(t('debts.updated'));
         router.back();
       } else {
         const createdId = await addDebt(data);
-        showResult(t('debts.created'));
+        showFeedback(t('debts.created'));
         router.replace({ pathname: '/modal/manual-debt-detail', params: { id: String(createdId) } });
       }
     } catch (error) {
-      Alert.alert(t('errors.couldNotSave'), error instanceof Error ? error.message : t('common.tryAgain'));
+      Alert.alert(t('errors.couldNotSave'), errorMessage(error));
     } finally { setSaving(false); }
   };
 

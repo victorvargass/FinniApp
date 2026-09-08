@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 
-import * as db from '@/lib/db';
+import * as db from '@/repositories';
 import { t } from '@/lib/i18n';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import type {

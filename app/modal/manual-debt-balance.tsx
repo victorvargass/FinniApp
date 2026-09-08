@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, ToastAndroid, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +10,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { errorMessage, showFeedback } from '@/lib/feedback';
 import { formatCLP, formatCLPInput, formatDate, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { Debt } from '@/lib/types';
@@ -39,11 +40,10 @@ export default function DebtBalanceScreen() {
     setSaving(true);
     try {
       await addDebtBalanceAdjustment(debtId, { balance: parsed, date, note: note.trim() || null });
-      if (Platform.OS === 'android') ToastAndroid.show(t('debts.balanceUpdated'), ToastAndroid.SHORT);
-      else Alert.alert(t('common.done'), t('debts.balanceUpdated'));
+      showFeedback(t('debts.balanceUpdated'));
       router.back();
     } catch (error) {
-      Alert.alert(t('debts.balanceUpdateError'), error instanceof Error ? error.message : t('common.tryAgain'));
+      Alert.alert(t('debts.balanceUpdateError'), errorMessage(error));
     } finally { setSaving(false); }
   };
 
