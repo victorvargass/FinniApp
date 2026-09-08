@@ -151,6 +151,10 @@ function AppContent() {
                   name="modal/google-drive"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.googleDrive') }}
                 />
+                <Stack.Screen
+                  name="modal/privacy"
+                  options={{ presentation: 'fullScreenModal', title: t('privacy.title') }}
+                />
                 </Stack.Protected>
               </Stack>
               <StatusBar style="auto" />

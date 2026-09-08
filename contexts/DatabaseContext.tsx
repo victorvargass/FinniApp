@@ -3,6 +3,7 @@ import { View } from 'react-native';
 
 import * as db from '@/repositories';
 import { t } from '@/lib/i18n';
+import { logAppError } from '@/lib/logger';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import type {
   Category,
@@ -298,7 +299,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         if (active) setIsReady(true);
       })
       .catch((error) => {
-        console.error('No se pudo inicializar la base de datos', error);
+        logAppError('database.initialize', error);
       });
     return () => {
       active = false;
@@ -308,7 +309,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isReady) return;
     void refresh().catch((error) => {
-      console.error('No se pudo actualizar la base de datos', error);
+      logAppError('database.refresh', error);
     });
   }, [
     selectedPeriodId,

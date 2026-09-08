@@ -31,10 +31,9 @@ export class GoogleDriveService {
     });
 
     if (!response.ok) {
-      const body = await response.text().catch(() => '');
       throw new Error(t('errors.googleDriveResponse', {
         status: response.status,
-        details: body ? `: ${body}` : '',
+        details: '',
       }));
     }
 

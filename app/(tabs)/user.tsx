@@ -398,6 +398,19 @@ export default function UserScreen() {
         </ThemedView>
 
         <ThemedView style={styles.card}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/privacy')}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('privacy.title')}</ThemedText>
+              <ThemedText style={styles.description}>{t('privacy.menuHint')}</ThemedText>
+            </View>
+            <Ionicons name="shield-checkmark-outline" size={22} color={colors.primary} />
+          </Pressable>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
           <View style={styles.testDataHeader}>
             <Ionicons name="flask-outline" size={24} color={colors.savings} />
             <View style={styles.settingCopy}>

@@ -17,6 +17,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { logAppError } from '@/lib/logger';
 import { exportPeriodReport } from '@/services/PeriodReportService';
 import { useEffect, useState } from 'react';
 
@@ -69,7 +70,7 @@ export default function PeriodScreen() {
       setIsExporting(true);
       await exportPeriodReport(selectedPeriodReport);
     } catch (error) {
-      console.error('No se pudo generar el reporte del período', error);
+      logAppError('report.export', error);
       Alert.alert(t('historicalPeriod.exportError'), t('historicalPeriod.exportRetry'));
     } finally {
       setIsExporting(false);
