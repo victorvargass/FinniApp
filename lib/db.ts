@@ -750,6 +750,7 @@ async function initializeDatabase(): Promise<void> {
     "UPDATE categories SET purpose = 'savings' WHERE purpose = 'general' AND lower(trim(name)) = lower(?)",
     t('database.defaultCategories.savings')
   );
+  await db.runAsync("UPDATE categories SET period_limit = NULL WHERE purpose = 'savings'");
 
   const savingsGoalColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(savings_goals)'
@@ -1146,11 +1147,19 @@ export async function updateCategory(
   data: NewCategory
 ): Promise<void> {
   const db = await getDb();
+  const existing = await db.getFirstAsync<{ name: string; purpose: Category['purpose'] }>(
+    'SELECT name, purpose FROM categories WHERE id = ?',
+    id
+  );
+  const savingsCategory = existing?.purpose === 'savings';
+  if (savingsCategory && data.name.trim() !== existing.name) {
+    throw new Error(t('database.savingsCategoryNameLocked'));
+  }
   const normalized = {
-    name: data.name.trim(),
+    name: savingsCategory ? existing.name : data.name.trim(),
     color: data.color.toLowerCase(),
-    periodLimit: data.periodLimit,
-    purpose: data.purpose,
+    periodLimit: savingsCategory ? null : data.periodLimit,
+    purpose: savingsCategory ? 'savings' as const : data.purpose,
   };
 
   await assertUniqueCategoryFields(db, normalized, id);

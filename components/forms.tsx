@@ -209,6 +209,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
   const { addCategory, editCategory, getCategoryExpenseCount, removeCategory } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const isSavingsCategory = category?.purpose === 'savings';
 
   const [name, setName] = useState(category?.name ?? '');
   const [color, setColor] = useState(category?.color ?? '#0a7ea4');
@@ -227,15 +228,19 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
       return;
     }
 
-    const periodLimit = limitText.trim() ? parseAmount(limitText) : null;
-    if (limitText.trim() && periodLimit == null) {
+    const periodLimit = isSavingsCategory ? null : limitText.trim() ? parseAmount(limitText) : null;
+    if (!isSavingsCategory && limitText.trim() && periodLimit == null) {
       Alert.alert(t('common.error'), t('validation.invalidCategoryLimit'));
       return;
     }
 
     setSaving(true);
     try {
-      const data = { name: name.trim(), color, periodLimit };
+      const data = {
+        name: isSavingsCategory && category ? category.name : name.trim(),
+        color,
+        periodLimit,
+      };
       if (category) {
         await editCategory(category.id, data);
         if (Platform.OS === 'android') {
@@ -317,22 +322,30 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
         onChangeText={setName}
+        editable={!isSavingsCategory}
         placeholder={t('categories.placeholderName')}
         placeholderTextColor={colors.icon}
       />
+      {isSavingsCategory && (
+        <ThemedText style={styles.savingsHint}>{t('categories.savingsReservedHint')}</ThemedText>
+      )}
 
       <ThemedText style={styles.label}>{t('categories.color')}</ThemedText>
       <ColorPicker value={color} onChange={setColor} />
 
-      <ThemedText style={styles.label}>{t('categories.limitOptional')}</ThemedText>
-      <TextInput
-        style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
-        value={limitText}
-        onChangeText={(value) => setLimitText(formatCLPInput(value))}
-        placeholder={t('categories.placeholderLimit')}
-        placeholderTextColor={colors.icon}
-        keyboardType="number-pad"
-      />
+      {!isSavingsCategory && (
+        <>
+          <ThemedText style={styles.label}>{t('categories.limitOptional')}</ThemedText>
+          <TextInput
+            style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
+            value={limitText}
+            onChangeText={(value) => setLimitText(formatCLPInput(value))}
+            placeholder={t('categories.placeholderLimit')}
+            placeholderTextColor={colors.icon}
+            keyboardType="number-pad"
+          />
+        </>
+      )}
 
       <Pressable
         style={[styles.button, saving && styles.buttonDisabled]}
@@ -342,7 +355,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
           {category ? t('common.update') : t('common.save')}
         </ThemedText>
       </Pressable>
-      {category && (
+      {category && !isSavingsCategory && (
         <Pressable
           style={[styles.deleteButton, saving && styles.buttonDisabled]}
           onPress={handleDelete}

@@ -38,7 +38,7 @@ export default function CategoriesScreen() {
                 <View style={[styles.colorBadge, { backgroundColor: item.color }]} />
                 <View style={styles.copy}>
                   <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
-                  {item.periodLimit != null && (
+                  {item.purpose !== 'savings' && item.periodLimit != null && (
                     <ThemedText style={styles.limit}>
                       {t('categories.limitPerPeriod', { amount: formatCLP(item.periodLimit) })}
                     </ThemedText>
