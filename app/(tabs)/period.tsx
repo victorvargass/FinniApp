@@ -18,6 +18,7 @@ import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
+import { showToast } from '@/lib/toast';
 import { exportPeriodReport } from '@/services/PeriodReportService';
 import { useEffect, useRef, useState } from 'react';
 
@@ -135,6 +136,7 @@ export default function PeriodScreen() {
                       try {
                         await setPeriodStartDate(selectedDateStr);
                         setStartDate(selected);
+                        showToast(t('period.startDateUpdated'));
                       } catch (e: any) {
                         Alert.alert(t('common.error'), e.message || t('period.updateStartError'));
                       }
@@ -175,6 +177,7 @@ export default function PeriodScreen() {
                       try {
                         await setPeriodEndDate(selectedDateStr);
                         setEndDate(selected);
+                        showToast(t('period.endDateUpdated'));
                       } catch (e: any) {
                         Alert.alert(t('common.error'), e.message || t('period.updateEndError'));
                       }

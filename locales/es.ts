@@ -272,6 +272,8 @@ const es = {
     invalidEnd: 'La fecha de término no puede ser menor a la fecha de inicio.',
     updateStartError: 'Error al actualizar fecha de inicio',
     updateEndError: 'Error al actualizar fecha de término',
+    startDateUpdated: 'Se modificó la fecha inicial del período',
+    endDateUpdated: 'Se modificó la fecha final del período',
     finishTitle: 'Finalizar período actual',
     finishAction: 'Finalizar y continuar',
     finishMessage: 'Se creará un nuevo período desde el %{start} hasta el %{end}.\n\nPodrás volver a este período y modificar sus movimientos cuando lo necesites.',
