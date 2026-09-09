@@ -126,14 +126,14 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
       style={[
         styles.modalOption,
         { borderColor: colors.icon },
-        selected && styles.modalOptionSelected,
+        selected && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
       ]}
       onPress={onPress}>
       <View style={styles.modalOptionLeft}>
         {color != null && <View style={[styles.optionDot, { backgroundColor: color }]} />}
-        <ThemedText style={selected ? styles.modalOptionTextSelected : undefined}>{label}</ThemedText>
+        <ThemedText style={selected ? { color: colors.primary, fontWeight: '600' } : undefined}>{label}</ThemedText>
       </View>
-      {selected && <Ionicons name="checkmark-circle" size={22} color="#0B315B" />}
+      {selected && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
     </Pressable>
   );
 }
@@ -234,10 +234,10 @@ export default function IncomesScreen() {
             style={[
               styles.toolbarButton,
               { borderColor: colors.icon },
-              isSortActive && styles.toolbarButtonActive,
+              isSortActive && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
             ]}
             onPress={() => setSortModalVisible(true)}>
-            <Ionicons name="swap-vertical" size={18} color={isSortActive ? '#0B315B' : colors.icon} />
+            <Ionicons name="swap-vertical" size={18} color={isSortActive ? colors.primary : colors.icon} />
             <View style={styles.toolbarButtonText}>
               <ThemedText type="defaultSemiBold">{t('filters.order')}</ThemedText>
               <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
@@ -386,10 +386,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  toolbarButtonActive: {
-    borderColor: '#0B315B',
-    backgroundColor: '#20C9B51F',
-  },
   toolbarButtonText: {
     flex: 1,
     gap: 1,
@@ -440,19 +436,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 8,
   },
-  modalOptionSelected: {
-    borderColor: '#0B315B',
-    backgroundColor: '#20C9B51F',
-  },
   modalOptionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
-  },
-  modalOptionTextSelected: {
-    color: '#0B315B',
-    fontWeight: '600',
   },
   optionDot: {
     width: 12,
