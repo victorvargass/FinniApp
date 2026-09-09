@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -19,7 +19,7 @@ import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { exportPeriodReport } from '@/services/PeriodReportService';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Parse a date string like "2026-07-23" as a local date
 function parseDateString(value: string): Date {
@@ -28,6 +28,8 @@ function parseDateString(value: string): Date {
 }
 
 export default function PeriodScreen() {
+  const { scrollToTop } = useLocalSearchParams<{ scrollToTop?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
   const {
     expenses,
     incomes,
@@ -85,9 +87,14 @@ export default function PeriodScreen() {
     setBreakdownMode('category');
   }, [selectedPeriod]);
 
+  useEffect(() => {
+    if (!scrollToTop) return;
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: 0, animated: true }));
+  }, [scrollToTop]);
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
         <PeriodSelector />
         <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
           <ThemedText type="title">{t('period.summary')}</ThemedText>

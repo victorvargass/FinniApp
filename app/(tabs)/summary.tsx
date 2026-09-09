@@ -262,7 +262,10 @@ export default function HistoricalSummaryScreen() {
           selectPeriod(periodId);
           setShowPeriodModal(false);
           setSelectedPeriod(null);
-          router.navigate('/(tabs)/period');
+          router.navigate({
+            pathname: '/(tabs)/period',
+            params: { scrollToTop: String(Date.now()) },
+          });
         }}
         onOpenCategory={(periodId, categoryId) => {
           selectPeriod(periodId);
