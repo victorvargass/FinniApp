@@ -63,6 +63,35 @@ export default function RecurringExpensesScreen() {
     }
   };
 
+  const requestOccurrenceApproval = (
+    kind: 'expense' | 'income',
+    recurringId: number,
+    scheduledDate: string,
+    pendingCount: number,
+    name: string
+  ) => {
+    if (pendingCount <= 1) {
+      void runOccurrenceAction('approve', kind, recurringId, scheduledDate);
+      return;
+    }
+    Alert.alert(
+      t('recurrence.approveNextTitle'),
+      t('recurrence.approveNextDescription', {
+        name,
+        date: formatDate(parseIsoDate(scheduledDate)),
+        remaining: pendingCount - 1,
+      }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('recurrence.approveThis'),
+          onPress: () => void runOccurrenceAction('approve', kind, recurringId, scheduledDate),
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   if (section === 'incomes') {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -104,8 +133,8 @@ export default function RecurringExpensesScreen() {
               </View>
               {item.pendingCount > 0 && item.nextDate && (
                 <View style={styles.pendingActions}>
-                  <Pressable onPress={() => runOccurrenceAction('skip', 'income', item.id, item.nextDate!)} style={[styles.action, { borderColor: colors.border }]}><ThemedText type="defaultSemiBold">{t('common.skip')}</ThemedText></Pressable>
-                  <Pressable onPress={() => runOccurrenceAction('approve', 'income', item.id, item.nextDate!)} style={[styles.action, styles.approve]}><ThemedText style={styles.approveText}>{t('common.approve')}</ThemedText></Pressable>
+                   <Pressable onPress={() => runOccurrenceAction('skip', 'income', item.id, item.nextDate!)} style={[styles.action, { borderColor: colors.border }]}><ThemedText type="defaultSemiBold">{t('recurrence.skipThis')}</ThemedText></Pressable>
+                   <Pressable onPress={() => requestOccurrenceApproval('income', item.id, item.nextDate!, item.pendingCount, item.name)} style={[styles.action, styles.approve]}><ThemedText style={styles.approveText}>{t('recurrence.approveThis')}</ThemedText></Pressable>
                 </View>
               )}
             </ThemedView>
@@ -216,12 +245,12 @@ export default function RecurringExpensesScreen() {
                 <Pressable
                   onPress={() => runOccurrenceAction('skip', 'expense', item.id, item.nextDate!)}
                   style={[styles.action, { borderColor: colors.border }]}>
-                  <ThemedText type="defaultSemiBold">{t('common.skip')}</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('recurrence.skipThis')}</ThemedText>
                 </Pressable>
                 <Pressable
-                  onPress={() => runOccurrenceAction('approve', 'expense', item.id, item.nextDate!)}
+                  onPress={() => requestOccurrenceApproval('expense', item.id, item.nextDate!, item.pendingCount, item.name)}
                   style={[styles.action, styles.approve]}>
-                  <ThemedText style={styles.approveText}>{t('common.approve')}</ThemedText>
+                  <ThemedText style={styles.approveText}>{t('recurrence.approveThis')}</ThemedText>
                 </Pressable>
               </View>
             )}
