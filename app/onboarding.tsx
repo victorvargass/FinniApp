@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GoogleLogo } from '@/components/google-logo';
@@ -126,12 +126,22 @@ const slides = [
 export default function OnboardingScreen() {
   const [page, setPage] = useState(0);
   const [finishing, setFinishing] = useState(false);
+  const pagerRef = useRef<ScrollView>(null);
+  const { width } = useWindowDimensions();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { completeOnboarding } = useOnboarding();
-  const slide = slides[page];
-  const Visual = slide.visual;
   const isLast = page === slides.length - 1;
+
+  const goToPage = (nextPage: number) => {
+    const boundedPage = Math.max(0, Math.min(nextPage, slides.length - 1));
+    pagerRef.current?.scrollTo({ x: boundedPage * width, animated: true });
+    setPage(boundedPage);
+  };
+
+  const handlePageChange = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setPage(Math.max(0, Math.min(Math.round(event.nativeEvent.contentOffset.x / width), slides.length - 1)));
+  };
 
   const finish = async () => {
     if (finishing) return;
@@ -156,12 +166,31 @@ export default function OnboardingScreen() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.visualContainer}><Visual /></View>
-        <View style={styles.copy}>
-          <ThemedText type="title" style={styles.title}>{t(slide.title)}</ThemedText>
-          <ThemedText style={[styles.body, { color: colors.textSecondary }]}>{t(slide.body)}</ThemedText>
-        </View>
+      <ScrollView
+        ref={pagerRef}
+        directionalLockEnabled
+        horizontal
+        onMomentumScrollEnd={handlePageChange}
+        pagingEnabled
+        scrollEventThrottle={16}
+        showsHorizontalScrollIndicator={false}
+        style={styles.pager}>
+        {slides.map((item) => {
+          const Visual = item.visual;
+          return (
+            <ScrollView
+              key={item.title}
+              contentContainerStyle={[styles.content, { width }]}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}>
+              <View style={styles.visualContainer}><Visual /></View>
+              <View style={styles.copy}>
+                <ThemedText type="title" style={styles.title}>{t(item.title)}</ThemedText>
+                <ThemedText style={[styles.body, { color: colors.textSecondary }]}>{t(item.body)}</ThemedText>
+              </View>
+            </ScrollView>
+          );
+        })}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -172,7 +201,7 @@ export default function OnboardingScreen() {
         </View>
         <View style={styles.actions}>
           {page > 0 && (
-            <Pressable accessibilityRole="button" onPress={() => setPage((current) => current - 1)} style={[styles.backButton, { borderColor: colors.border }]}>
+            <Pressable accessibilityRole="button" onPress={() => goToPage(page - 1)} style={[styles.backButton, { borderColor: colors.border }]}>
               <Ionicons name="arrow-back" size={21} color={colors.text} />
             </Pressable>
           )}
@@ -180,7 +209,7 @@ export default function OnboardingScreen() {
             accessibilityRole="button"
             disabled={finishing}
             testID="onboarding-next"
-            onPress={() => { if (isLast) void finish(); else setPage((current) => current + 1); }}
+            onPress={() => { if (isLast) void finish(); else goToPage(page + 1); }}
             style={({ pressed }) => [styles.nextButton, { backgroundColor: colors.primary }, pressed && styles.pressed, finishing && styles.disabled]}>
             <ThemedText style={[styles.nextText, { color: colors.onPrimary }]}>{t(isLast ? 'onboarding.start' : 'onboarding.next')}</ThemedText>
             <Ionicons name={isLast ? 'checkmark' : 'arrow-forward'} size={21} color={colors.onPrimary} />
@@ -195,6 +224,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 }, glow: { position: 'absolute', top: 0, left: 0, right: 0, height: 330 },
   topBar: { minHeight: 58, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topLogo: { width: 118, height: 38 }, skip: { fontFamily: Fonts.semiBold, fontSize: 15 },
+  pager: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 6, paddingBottom: 16, justifyContent: 'center', gap: 28 },
   visualContainer: { minHeight: 340, alignItems: 'center', justifyContent: 'center' },
   copy: { alignItems: 'center', gap: 12 }, title: { maxWidth: 560, textAlign: 'center', fontSize: 30, lineHeight: 36 },
