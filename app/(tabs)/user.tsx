@@ -439,7 +439,6 @@ export default function UserScreen() {
           </View>
           <ActionButton
             disabled={isSeeding}
-            icon={<Ionicons name="add-circle-outline" size={20} color={colors.onSecondary} />}
             onPress={requestTestData}
             style={{ backgroundColor: colors.secondary, borderColor: colors.secondary }}
             textStyle={{ color: colors.onSecondary }}
