@@ -666,7 +666,7 @@ const es = {
   historicalPeriod: {
     title: 'Resumen del período', incomes: 'Ingresos', expenses: 'Gastos', balance: 'Saldo',
     limits: 'Límites de gastos', openPeriod: 'Ir al período', generatingPdf: 'Generando PDF…',
-    exportPdf: 'Exportar reporte PDF', exportError: 'No se pudo generar el PDF', exportRetry: 'Favor inténtalo nuevamente',
+    exportPdf: 'Exportar reporte PDF', pdfGenerated: 'Reporte PDF generado correctamente', exportError: 'No se pudo generar el PDF', exportRetry: 'Favor inténtalo nuevamente',
   },
   cardCycles: {
     missingAmount: 'Falta el monto real', missingAmountHint: 'Ingresa el total que aparece en el estado de cuenta del banco.',

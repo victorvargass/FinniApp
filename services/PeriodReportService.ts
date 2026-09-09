@@ -642,7 +642,14 @@ export function buildPeriodReportHtml(
   </html>`;
 }
 
-export async function exportPeriodReport(period: PeriodHistory): Promise<void> {
+type ExportPeriodReportOptions = {
+  onGenerated?: () => void;
+};
+
+export async function exportPeriodReport(
+  period: PeriodHistory,
+  options: ExportPeriodReportOptions = {}
+): Promise<void> {
   const [{ expenses, incomes }, savingsGoals, financialDetails, logoDataUri, regularFont, boldFont] = await Promise.all([
     getPeriodStatement(period.periodId),
     getPeriodSavingsGoalActivity(period.periodId),
@@ -658,6 +665,7 @@ export async function exportPeriodReport(period: PeriodHistory): Promise<void> {
 
   if (Platform.OS === 'web') {
     await Print.printAsync({ html });
+    options.onGenerated?.();
     return;
   }
 
@@ -669,6 +677,7 @@ export async function exportPeriodReport(period: PeriodHistory): Promise<void> {
     namedFile.delete();
   }
   temporaryFile.move(namedFile);
+  options.onGenerated?.();
 
   if (Platform.OS === 'android') {
     const contentUri = await getContentUriAsync(namedFile.uri);

@@ -72,7 +72,9 @@ export default function PeriodScreen() {
     if (!selectedPeriodReport || !hasPeriodMovements || isExporting) return;
     try {
       setIsExporting(true);
-      await exportPeriodReport(selectedPeriodReport);
+      await exportPeriodReport(selectedPeriodReport, {
+        onGenerated: () => showToast(t('historicalPeriod.pdfGenerated')),
+      });
     } catch (error) {
       logAppError('report.export', error);
       Alert.alert(t('historicalPeriod.exportError'), t('historicalPeriod.exportRetry'));
