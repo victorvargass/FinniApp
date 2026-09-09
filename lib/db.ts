@@ -450,6 +450,80 @@ async function syncRecurringSourceExpenses(db: SQLite.SQLiteDatabase): Promise<v
   }
 }
 
+async function repairDemoDataIntegrity(db: SQLite.SQLiteDatabase): Promise<void> {
+  const goals = await db.getAllAsync<{ id: number; created_date: string }>(
+    `SELECT id, date(created_at, 'localtime') AS created_date
+     FROM savings_goals
+     WHERE name LIKE '[PRUEBA]%'`
+  );
+  for (const goal of goals) {
+    const earliest = await db.getFirstAsync<{ movement_date: string | null }>(
+      `SELECT MIN(movement_date) AS movement_date
+       FROM (
+         SELECT COALESCE(expense.date, income.date) AS movement_date
+         FROM savings_goal_movements movement
+         LEFT JOIN expenses expense ON expense.id = movement.expense_id
+         LEFT JOIN incomes income ON income.id = movement.income_id
+         WHERE movement.goal_id = ?
+         UNION ALL
+         SELECT adjustment.date
+         FROM savings_goal_adjustments adjustment
+         WHERE adjustment.goal_id = ?
+       )`,
+      goal.id,
+      goal.id
+    );
+    if (earliest?.movement_date && earliest.movement_date < goal.created_date) {
+      await db.runAsync(
+        'UPDATE savings_goals SET created_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        `${earliest.movement_date} 00:00:00`,
+        goal.id
+      );
+    }
+  }
+
+  const debts = await db.getAllAsync<{ id: number; created_date: string }>(
+    `SELECT id, date(created_at, 'localtime') AS created_date
+     FROM manual_debts
+     WHERE name LIKE '[PRUEBA]%'`
+  );
+  for (const debt of debts) {
+    const earliest = await db.getFirstAsync<{ entry_date: string | null }>(
+      'SELECT MIN(date) AS entry_date FROM manual_debt_entries WHERE debt_id = ?',
+      debt.id
+    );
+    if (earliest?.entry_date && earliest.entry_date < debt.created_date) {
+      await db.runAsync(
+        'UPDATE manual_debts SET created_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        `${earliest.entry_date} 00:00:00`,
+        debt.id
+      );
+    }
+  }
+
+  await db.execAsync(`
+    DELETE FROM recurring_expense_occurrences
+    WHERE status IN ('pending', 'skipped')
+      AND recurring_expense_id IN (
+        SELECT id FROM recurring_expenses WHERE name LIKE '[PRUEBA]%'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM periods
+        WHERE scheduled_date BETWEEN start_date AND end_date
+      );
+
+    DELETE FROM recurring_income_occurrences
+    WHERE status IN ('pending', 'skipped')
+      AND recurring_income_id IN (
+        SELECT id FROM recurring_incomes WHERE name LIKE '[PRUEBA]%'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM periods
+        WHERE scheduled_date BETWEEN start_date AND end_date
+      );
+  `);
+}
+
 async function initializeDatabase(): Promise<void> {
   const db = await getDb();
 
@@ -1002,6 +1076,7 @@ async function initializeDatabase(): Promise<void> {
     }
   }
 
+  await repairDemoDataIntegrity(db);
   await recordAppliedSchema(db);
 }
 
@@ -1221,43 +1296,50 @@ export async function seedDemoData(): Promise<boolean> {
     await insertExpense('[PRUEBA] Consulta médica', 55990, generalCategoryIds[3], previousPeriodId, dateInPeriod(previousStart, previousEnd, 14), creditId);
     await insertExpense('[PRUEBA] Streaming', 8990, generalCategoryIds[4], previousPeriodId, dateInPeriod(previousStart, previousEnd, 20), creditId);
 
+    const currentIncomeDate = dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 2);
     const currentIncomeId = await insertIncome(
       '[PRUEBA] Sueldo actual',
       1600000,
       currentPeriod.id,
-      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 2)
+      currentIncomeDate
     );
     await insertIncome('[PRUEBA] Reembolso', 45990, currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 9));
     await insertExpense('[PRUEBA] Compra hogar', 129990, generalCategoryIds[1], currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 5), creditId);
     await insertExpense('[PRUEBA] Almuerzo', 12490, generalCategoryIds[0], currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 7), debitId);
 
     const goalResult = await transaction.runAsync(
-      `INSERT INTO savings_goals (name, target_amount, initial_amount, deadline, color, status)
-       VALUES (?, ?, ?, ?, ?, 'active')`,
+      `INSERT INTO savings_goals
+        (name, target_amount, initial_amount, deadline, color, status, created_at)
+       VALUES (?, ?, ?, ?, ?, 'active', ?)`,
       '[PRUEBA] Fondo de emergencia',
       2500000,
       300000,
       addIsoMonths(currentPeriod.end_date, 10),
-      '#20B9DB'
+      '#20B9DB',
+      `${previousStart} 00:00:00`
     );
     const travelGoalResult = await transaction.runAsync(
-      `INSERT INTO savings_goals (name, target_amount, initial_amount, deadline, color, status)
-       VALUES (?, ?, ?, ?, ?, 'active')`,
+      `INSERT INTO savings_goals
+        (name, target_amount, initial_amount, deadline, color, status, created_at)
+       VALUES (?, ?, ?, ?, ?, 'active', ?)`,
       '[PRUEBA] Viaje',
       1200000,
       180000,
       addIsoMonths(currentPeriod.end_date, 7),
-      '#48D9C2'
+      '#48D9C2',
+      `${currentPeriod.start_date} 00:00:00`
     );
     await transaction.runAsync(
       `INSERT INTO savings_goals
-        (name, target_amount, initial_amount, deadline, color, status, archived_at)
-       VALUES (?, ?, ?, ?, ?, 'archived', CURRENT_TIMESTAMP)`,
+        (name, target_amount, initial_amount, deadline, color, status, created_at, archived_at)
+       VALUES (?, ?, ?, ?, ?, 'archived', ?, ?)`,
       '[PRUEBA] Meta archivada',
       500000,
       500000,
       previousEnd,
-      '#60758E'
+      '#60758E',
+      `${olderStart} 00:00:00`,
+      `${previousEnd} 23:59:59`
     );
     const contributionExpenseId = await insertExpense(
       '[PRUEBA] Aporte fondo de emergencia', 120000, savingsCategoryId,
@@ -1310,11 +1392,12 @@ export async function seedDemoData(): Promise<boolean> {
       `INSERT INTO recurring_expenses
         (name, amount, category_id, payment_method_id, frequency, interval_months,
          execution_day, registration_mode, start_date, active, source_expense_id)
-       VALUES (?, ?, ?, ?, 'monthly', 1, 5, 'confirmation', ?, 1, ?)`,
+       VALUES (?, ?, ?, ?, 'monthly', 1, ?, 'confirmation', ?, 1, ?)`,
       '[PRUEBA] Suscripción mensual',
       12990,
       generalCategoryIds[4],
       creditId,
+      Number(subscriptionDate.slice(8, 10)),
       subscriptionDate,
       subscriptionExpenseId
     );
@@ -1326,36 +1409,31 @@ export async function seedDemoData(): Promise<boolean> {
     await transaction.runAsync(
       `INSERT INTO recurring_expense_occurrences
         (recurring_expense_id, scheduled_date, status, expense_id)
-       VALUES (?, ?, 'generated', ?), (?, ?, 'pending', NULL), (?, ?, 'skipped', NULL)`,
+       VALUES (?, ?, 'generated', ?)`,
       recurringExpenseResult.lastInsertRowId,
       subscriptionDate,
-      subscriptionExpenseId,
-      recurringExpenseResult.lastInsertRowId,
-      addIsoDays(currentPeriod.end_date, 1),
-      recurringExpenseResult.lastInsertRowId,
-      addIsoDays(currentPeriod.end_date, 2)
+      subscriptionExpenseId
     );
     const recurringIncomeResult = await transaction.runAsync(
       `INSERT INTO recurring_incomes
         (name, amount, frequency, interval_months, execution_day, registration_mode,
          start_date, next_date, active, source_income_id)
-       VALUES (?, ?, 'monthly', 1, 2, 'automatic', ?, ?, 1, ?)`,
+       VALUES (?, ?, 'monthly', 1, ?, 'automatic', ?, ?, 1, ?)`,
       '[PRUEBA] Sueldo recurrente',
       1600000,
-      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 2),
-      addIsoMonths(dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 2), 1),
+      Number(currentIncomeDate.slice(8, 10)),
+      currentIncomeDate,
+      addIsoMonths(currentIncomeDate, 1),
       currentIncomeId
     );
     await transaction.runAsync('UPDATE incomes SET recurring_income_id = ? WHERE id = ?', recurringIncomeResult.lastInsertRowId, currentIncomeId);
     await transaction.runAsync(
       `INSERT INTO recurring_income_occurrences
         (recurring_income_id, scheduled_date, status, income_id)
-       VALUES (?, ?, 'generated', ?), (?, ?, 'pending', NULL)`,
+       VALUES (?, ?, 'generated', ?)`,
       recurringIncomeResult.lastInsertRowId,
-      dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 2),
-      currentIncomeId,
-      recurringIncomeResult.lastInsertRowId,
-      addIsoDays(currentPeriod.end_date, 3)
+      currentIncomeDate,
+      currentIncomeId
     );
 
     const debtPlanResult = await transaction.runAsync(
@@ -1404,8 +1482,8 @@ export async function seedDemoData(): Promise<boolean> {
     const fixedDebtResult = await transaction.runAsync(
       `INSERT INTO manual_debts
         (type, name, creditor, initial_amount, installment_amount, frequency, first_due_date,
-         category_id, payment_method_id, notes, status)
-       VALUES ('fixed', ?, ?, ?, ?, 'monthly', ?, ?, ?, ?, 'active')`,
+         category_id, payment_method_id, notes, status, created_at)
+       VALUES ('fixed', ?, ?, ?, ?, 'monthly', ?, ?, ?, ?, 'active', ?)`,
       '[PRUEBA] Préstamo familiar',
       'Familiar de prueba',
       600000,
@@ -1413,7 +1491,8 @@ export async function seedDemoData(): Promise<boolean> {
       dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 20),
       generalCategoryIds[1],
       creditId,
-      'Permite probar pagos de deuda usando crédito.'
+      'Permite probar pagos de deuda usando crédito.',
+      `${currentPeriod.start_date} 00:00:00`
     );
     const debtPaymentExpenseId = await insertExpense(
       '[PRUEBA] Pago préstamo familiar', 100000, generalCategoryIds[1],
@@ -1432,14 +1511,15 @@ export async function seedDemoData(): Promise<boolean> {
     );
     const variableDebtResult = await transaction.runAsync(
       `INSERT INTO manual_debts
-        (type, name, creditor, initial_amount, category_id, payment_method_id, notes, status)
-       VALUES ('variable', ?, ?, ?, ?, ?, ?, 'active')`,
+        (type, name, creditor, initial_amount, category_id, payment_method_id, notes, status, created_at)
+       VALUES ('variable', ?, ?, ?, ?, ?, ?, 'active', ?)`,
       '[PRUEBA] Línea de crédito',
       'Banco de prueba',
       350000,
       generalCategoryIds[1],
       debitId,
-      'Saldo variable para probar actualización de monto.'
+      'Saldo variable para probar actualización de monto.',
+      `${currentPeriod.start_date} 00:00:00`
     );
     await transaction.runAsync(
       `INSERT INTO manual_debt_entries (debt_id, kind, amount, date, note)
