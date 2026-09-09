@@ -109,4 +109,6 @@ export const LayoutTokens = {
   radiusMedium: 12,
   radiusLarge: 16,
   spacing: 4,
+  formFooterBottom: 24,
+  formScrollBottom: 88,
 } as const;

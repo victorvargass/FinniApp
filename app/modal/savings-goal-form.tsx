@@ -16,7 +16,7 @@ import { ColorPicker } from '@/components/ColorPicker';
 import { SavingsGoalProgress } from '@/components/SavingsGoalProgress';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -476,7 +476,7 @@ export default function SavingsGoalFormScreen() {
           {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            paddingBottom: Math.max(insets.bottom, 24),
+            paddingBottom: Math.max(insets.bottom, LayoutTokens.formFooterBottom),
           },
         ]}>
         <Pressable

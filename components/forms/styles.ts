@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { Fonts } from '@/constants/theme';
+import { Fonts, LayoutTokens } from '@/constants/theme';
 
 export const styles = StyleSheet.create({
   formShell: { flex: 1 },
@@ -9,7 +9,7 @@ export const styles = StyleSheet.create({
   container: {
     padding: 20,
     gap: 8,
-    paddingBottom: 40,
+    paddingBottom: LayoutTokens.formScrollBottom,
   },
   formRemainder: {
     gap: 8,

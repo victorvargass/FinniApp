@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SimpleSelect } from '@/components/simple-select';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -125,7 +125,7 @@ export default function DebtPaymentScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, paddingBottom: 45, gap: 15 },
+  safe: { flex: 1 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, paddingBottom: LayoutTokens.formScrollBottom, gap: 15 },
   balanceCard: { borderRadius: 12, padding: 15, gap: 8 }, card: { borderRadius: 12, padding: 16, gap: 15 }, row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 }, secondary: { opacity: 0.65 },
   group: { gap: 7 }, label: { fontWeight: '600' }, input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 16, fontFamily: Fonts.regular }, dateButton: { justifyContent: 'center' },
   multiline: { minHeight: 82, paddingTop: 12, textAlignVertical: 'top' }, primary: { minHeight: 49, borderRadius: 10, backgroundColor: '#0B315B', alignItems: 'center', justifyContent: 'center' }, primaryText: { color: '#fff', fontWeight: '700' },

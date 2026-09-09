@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -238,7 +238,7 @@ export default function RecurringExpenseFormScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  container: { padding: 20, paddingBottom: 28, gap: 10 },
+  container: { padding: 20, paddingBottom: LayoutTokens.formScrollBottom, gap: 10 },
   sourceCopy: { flex: 1, gap: 2 },
   hint: { opacity: 0.65, fontSize: 13, lineHeight: 18 },
   detailsCard: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 8 },

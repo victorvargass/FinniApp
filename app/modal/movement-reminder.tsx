@@ -5,7 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { Colors, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -59,4 +59,4 @@ export default function MovementReminderScreen() {
   </ScrollView></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({ safe: { flex: 1 }, content: { padding: 20, paddingBottom: 40, gap: 13 }, hint: { opacity: 0.65, lineHeight: 19, marginBottom: 4 }, label: { fontWeight: '700', marginTop: 4 }, options: { flexDirection: 'row', gap: 8 }, option: { flex: 1, borderWidth: 1, borderRadius: 10, padding: 12, alignItems: 'center' }, selected: { backgroundColor: '#0B315B', borderColor: '#0B315B' }, selectedText: { color: '#fff', fontWeight: '700' }, days: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, day: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 }, time: { borderWidth: 1, borderRadius: 10, padding: 14 }, done: { alignSelf: 'flex-end' }, save: { backgroundColor: '#0B315B', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8 }, saveText: { color: '#fff', fontWeight: '700' } });
+const styles = StyleSheet.create({ safe: { flex: 1 }, content: { padding: 20, paddingBottom: LayoutTokens.formScrollBottom, gap: 13 }, hint: { opacity: 0.65, lineHeight: 19, marginBottom: 4 }, label: { fontWeight: '700', marginTop: 4 }, options: { flexDirection: 'row', gap: 8 }, option: { flex: 1, borderWidth: 1, borderRadius: 10, padding: 12, alignItems: 'center' }, selected: { backgroundColor: '#0B315B', borderColor: '#0B315B' }, selectedText: { color: '#fff', fontWeight: '700' }, days: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, day: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 }, time: { borderWidth: 1, borderRadius: 10, padding: 14 }, done: { alignSelf: 'flex-end' }, save: { backgroundColor: '#0B315B', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8 }, saveText: { color: '#fff', fontWeight: '700' } });

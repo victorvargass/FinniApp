@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -111,7 +111,7 @@ export default function SavingsGoalBalanceScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: 20, gap: 14 },
+  content: { padding: 20, paddingBottom: LayoutTokens.formScrollBottom, gap: 14 },
   description: { opacity: 0.7, lineHeight: 20 },
   card: { borderRadius: 12, padding: 16, gap: 16 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },

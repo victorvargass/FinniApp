@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -63,4 +63,4 @@ export default function RecurringIncomeFormScreen() {
   </ScrollView></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({ safe: { flex: 1 }, content: { padding: 20, paddingBottom: 36, gap: 10 }, empty: { textAlign: 'center', marginTop: 40 }, label: { fontWeight: '700', marginTop: 6 }, input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 16, fontFamily: Fonts.regular }, save: { marginTop: 16, padding: 14, borderRadius: 10, alignItems: 'center', backgroundColor: '#0B315B' }, saveText: { color: '#fff', fontWeight: '700' }, remove: { padding: 14, alignItems: 'center' }, removeText: { color: '#C93F4B', fontWeight: '700' } });
+const styles = StyleSheet.create({ safe: { flex: 1 }, content: { padding: 20, paddingBottom: LayoutTokens.formScrollBottom, gap: 10 }, empty: { textAlign: 'center', marginTop: 40 }, label: { fontWeight: '700', marginTop: 6 }, input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 16, fontFamily: Fonts.regular }, save: { marginTop: 16, padding: 14, borderRadius: 10, alignItems: 'center', backgroundColor: '#0B315B' }, saveText: { color: '#fff', fontWeight: '700' }, remove: { padding: 14, alignItems: 'center' }, removeText: { color: '#C93F4B', fontWeight: '700' } });
