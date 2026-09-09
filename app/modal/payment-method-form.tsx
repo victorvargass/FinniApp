@@ -11,14 +11,11 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { formatCLPInput, parseAmount } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { toIsoDate } from '@/lib/recurrence';
 import { showToast } from '@/lib/toast';
 import type { PaymentMethodType } from '@/lib/types';
-
-const TYPES: { value: PaymentMethodType; label: string }[] = [
-  { value: 'cash', label: t('paymentMethods.cash') }, { value: 'debit', label: t('paymentMethods.debit') },
-  { value: 'prepaid', label: t('paymentMethods.prepaid') }, { value: 'credit', label: t('paymentMethods.credit') },
-];
 
 function showDefaultConfirmation(name: string) {
   const message = t('paymentMethods.defaultConfirmation', { name });
@@ -50,18 +47,47 @@ export default function PaymentMethodFormScreen() {
   const [name, setName] = useState(method?.name ?? '');
   const [type, setType] = useState<PaymentMethodType>(method?.type ?? 'debit');
   const [billingDay, setBillingDay] = useState(method?.billingDay ? String(method.billingDay) : '25');
+  const [paymentDueDay, setPaymentDueDay] = useState(method?.paymentDueDay ? String(method.paymentDueDay) : '5');
+  const [creditLimitText, setCreditLimitText] = useState(method?.creditLimit != null ? formatCLPInput(method.creditLimit) : '');
+  const [reportedBalanceText, setReportedBalanceText] = useState('');
   const [color, setColor] = useState(method?.color ?? '#0B315B');
   const [saving, setSaving] = useState(false);
+  const types: { value: PaymentMethodType; label: string }[] = [
+    { value: 'cash', label: t('paymentMethods.cash') },
+    { value: 'debit', label: t('paymentMethods.debit') },
+    { value: 'prepaid', label: t('paymentMethods.prepaid') },
+    { value: 'credit', label: t('paymentMethods.credit') },
+  ];
 
   const save = async () => {
     const day = Number(billingDay);
+    const dueDay = Number(paymentDueDay);
+    const creditLimit = type === 'credit' ? parseAmount(creditLimitText) : null;
+    const reportedBalance = !method && type !== 'cash' && reportedBalanceText.trim()
+      ? parseAmount(reportedBalanceText)
+      : null;
     if (!name.trim()) return Alert.alert(t('paymentMethods.missingName'), t('paymentMethods.missingNameHint'));
     if (type === 'credit' && (!Number.isInteger(day) || day < 1 || day > 31)) {
       return Alert.alert(t('paymentMethods.invalidDay'), t('paymentMethods.invalidDayHint'));
     }
+    if (type === 'credit' && (creditLimit == null || creditLimit <= 0)) {
+      return Alert.alert(t('common.error'), t('paymentMethods.invalidCreditLimit'));
+    }
+    if (type === 'credit' && (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)) {
+      return Alert.alert(t('paymentMethods.invalidDueDay'), t('paymentMethods.invalidDueDayHint'));
+    }
     setSaving(true);
     try {
-      const data = { name: name.trim(), type, billingDay: type === 'credit' ? day : null, color };
+      const data = {
+        name: name.trim(),
+        type,
+        billingDay: type === 'credit' ? day : null,
+        color,
+        creditLimit,
+        reportedBalance,
+        balanceDate: reportedBalance == null ? null : toIsoDate(new Date()),
+        paymentDueDay: type === 'credit' ? dueDay : null,
+      };
       if (method) await editPaymentMethod(method.id, data);
       else await addPaymentMethod(data);
       showResult(method ? t('paymentMethods.updated') : t('paymentMethods.saved'));
@@ -83,6 +109,10 @@ export default function PaymentMethodFormScreen() {
     }
     try {
       const info = await getPaymentMethodDeletionInfo(method.id);
+      if (info.receivedPaymentCount > 0) {
+        Alert.alert(t('expenses.cannotDelete'), t('paymentMethods.receivedPaymentDelete'));
+        return;
+      }
       if (info.debtPlanCount > 0) {
         Alert.alert(
           t('expenses.cannotDelete'),
@@ -143,13 +173,13 @@ export default function PaymentMethodFormScreen() {
             ]}
           >
             <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>
-              {TYPES.find((item) => item.value === method.type)?.label}
+              {types.find((item) => item.value === method.type)?.label}
             </ThemedText>
           </View>
         </View>
       ) : (
         <View style={styles.types}>
-          {TYPES.map((item) => (
+          {types.map((item) => (
             <Pressable
               key={item.value}
               onPress={() => setType(item.value)}
@@ -169,6 +199,16 @@ export default function PaymentMethodFormScreen() {
       <ColorPicker value={color} onChange={setColor} />
       {type === 'credit' && (
         <>
+          <ThemedText style={styles.label}>{t('paymentMethods.creditLimit')}</ThemedText>
+          <TextInput
+            keyboardType="number-pad"
+            value={creditLimitText}
+            onChangeText={(value) => setCreditLimitText(formatCLPInput(value))}
+            placeholder="$0"
+            placeholderTextColor={colors.icon}
+            style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+          />
+          <ThemedText style={styles.hint}>{t('paymentMethods.creditLimitHint')}</ThemedText>
           <ThemedText style={styles.label}>{t('paymentMethods.billingDay')}</ThemedText>
           <TextInput
             keyboardType="number-pad"
@@ -179,6 +219,31 @@ export default function PaymentMethodFormScreen() {
           />
           <ThemedText style={styles.hint}>
             {t('paymentMethods.billingHint')}
+          </ThemedText>
+          <ThemedText style={styles.label}>{t('paymentMethods.paymentDueDay')}</ThemedText>
+          <TextInput
+            keyboardType="number-pad"
+            maxLength={2}
+            value={paymentDueDay}
+            onChangeText={setPaymentDueDay}
+            style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+          />
+          <ThemedText style={styles.hint}>{t('paymentMethods.paymentDueDayHint')}</ThemedText>
+        </>
+      )}
+      {!method && type !== 'cash' && (
+        <>
+          <ThemedText style={styles.label}>{t('paymentMethods.balance')}</ThemedText>
+          <TextInput
+            keyboardType="number-pad"
+            value={reportedBalanceText}
+            onChangeText={(value) => setReportedBalanceText(formatCLPInput(value))}
+            placeholder="$0"
+            placeholderTextColor={colors.icon}
+            style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+          />
+          <ThemedText style={styles.hint}>
+            {t('paymentMethods.balanceUpdatedAt', { date: new Intl.DateTimeFormat().format(new Date()) })}
           </ThemedText>
         </>
       )}

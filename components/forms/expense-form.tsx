@@ -23,10 +23,11 @@ import { styles } from './styles';
 
 type ExpenseFormProps = {
   expense?: Expense;
+  initialCreditPaymentTargetId?: number;
   onSuccess: () => void;
 };
 
-export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
+export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }: ExpenseFormProps) {
   const {
     categories,
     paymentMethods,
@@ -62,7 +63,13 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const [usesCustomPercentage, setUsesCustomPercentage] = useState(
     expenseWasSplit && ![50, 25].includes(expense.splitPercentage!)
   );
-  const [categoryId, setCategoryId] = useState<number | null>(expense?.categoryId ?? null);
+  const creditPaymentCategory = categories.find((category) => category.systemKey === 'credit_payment');
+  const [categoryId, setCategoryId] = useState<number | null>(
+    expense?.categoryId ?? (initialCreditPaymentTargetId ? creditPaymentCategory?.id ?? null : null)
+  );
+  const [creditPaymentTargetId, setCreditPaymentTargetId] = useState<number | null>(
+    expense?.creditPaymentTargetId ?? initialCreditPaymentTargetId ?? null
+  );
   const [savingsGoalId, setSavingsGoalId] = useState<number | null>(expense?.savingsGoalId ?? null);
   const [savingsKind, setSavingsKind] = useState<SavingsExpenseKind | null>(expense?.savingsKind ?? null);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
@@ -118,10 +125,11 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   );
   const selectedCategory = categories.find((category) => category.id === categoryId);
   const isSavingsCategory = selectedCategory?.purpose === 'savings';
+  const isCardPayment = selectedCategory?.systemKey === 'credit_payment';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
   const isSavingsRelated = isSavingsCategory || savingsKind != null;
   const selectablePaymentMethods = visiblePaymentMethods.filter(
-    (method) => !isSavingsRelated || method.type !== 'credit'
+    (method) => (!isSavingsRelated && !isCardPayment) || method.type !== 'credit'
   );
   const selectableSavingsGoals = savingsGoals.filter(
     (goal) => goal.status === 'active' || goal.id === savingsGoalId
@@ -129,12 +137,12 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const formPeriod = expense
     ? periods.find((period) => period.id === expense.periodId) ?? selectedPeriod
     : selectedPeriod;
-  const isCreditPayment = !isSavingsRelated && selectedPaymentMethod?.type === 'credit';
+  const isCreditPurchase = !isCardPayment && !isSavingsRelated && selectedPaymentMethod?.type === 'credit';
   const installmentCount = Number(installmentCountText);
   const estimatedInstallmentAmount = amountToSave != null && Number.isInteger(installmentCount) && installmentCount > 0
     ? Math.floor(amountToSave / installmentCount)
     : null;
-  const estimatedFirstDueDate = isCreditPayment && selectedPaymentMethod.billingDay != null
+  const estimatedFirstDueDate = isCreditPurchase && selectedPaymentMethod.billingDay != null
     ? (() => {
         const estimated = getEstimatedBillingDate(date, selectedPaymentMethod.billingDay!);
         if (firstInstallmentTiming === 'next') estimated.setMonth(estimated.getMonth() + 1);
@@ -143,8 +151,30 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     : null;
 
   useEffect(() => {
-    if (!isCreditPayment) setIsInstallmentPurchase(false);
-  }, [isCreditPayment]);
+    if (!isCreditPurchase) setIsInstallmentPurchase(false);
+  }, [isCreditPurchase]);
+
+  useEffect(() => {
+    if (!initialCreditPaymentTargetId || expense || !creditPaymentCategory) return;
+    setCategoryId(creditPaymentCategory.id);
+  }, [creditPaymentCategory, expense, initialCreditPaymentTargetId]);
+
+  useEffect(() => {
+    if (!isCardPayment) {
+      setCreditPaymentTargetId(null);
+      return;
+    }
+    setIsInstallmentPurchase(false);
+    setMakeRecurring(false);
+    setIsSplitAmount(false);
+    setSavingsGoalId(null);
+    setSavingsKind(null);
+    if (selectedPaymentMethod?.type === 'credit') setPaymentMethodId(null);
+    const target = paymentMethods.find((method) => method.id === creditPaymentTargetId);
+    if (!expense && target && (!name.trim() || name === creditPaymentCategory?.name)) {
+      setName(`${creditPaymentCategory?.name ?? ''} · ${target.name}`);
+    }
+  }, [creditPaymentCategory?.name, creditPaymentTargetId, expense, isCardPayment, name, paymentMethods, selectedPaymentMethod]);
 
   useEffect(() => {
     if (isSavingsRelated && selectedPaymentMethod?.type === 'credit') {
@@ -229,6 +259,14 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       Alert.alert(t('common.error'), t('validation.invalidAmount'));
       return;
     }
+    if (isCardPayment && creditPaymentTargetId == null) {
+      Alert.alert(t('common.error'), t('database.creditPaymentTargetRequired'));
+      return;
+    }
+    if (isCardPayment && paymentMethodId == null) {
+      Alert.alert(t('common.error'), t('database.creditPaymentSourceRequired'));
+      return;
+    }
     if (!expense && makeRecurring) {
       const granted = await ensureRecurringNotificationPermission();
       if (!granted && recurringSchedule.registrationMode === 'confirmation') {
@@ -268,6 +306,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         paymentMethodId,
         savingsGoalId,
         savingsKind,
+        creditPaymentTargetId: isCardPayment ? creditPaymentTargetId : null,
         date: toDateString(date),
       };
       if (expense) {
@@ -362,7 +401,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />
-      {!isInstallmentPurchase && <View style={styles.shareSection}>
+      {!isInstallmentPurchase && !isCardPayment && <View style={styles.shareSection}>
         <View style={styles.shareToggleRow}>
           <View style={styles.shareToggleCopy}>
             <ThemedText style={styles.shareLabel}>{t('forms.splitAmount')}</ThemedText>
@@ -508,6 +547,17 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         ]}
       />
 
+      {isCardPayment && (
+        <ColorSelect
+          label={t('paymentMethods.targetCreditCard')}
+          value={creditPaymentTargetId}
+          onChange={setCreditPaymentTargetId}
+          options={paymentMethods
+            .filter((method) => method.type === 'credit' && (method.active || method.id === creditPaymentTargetId))
+            .map((method) => ({ value: method.id, label: method.name, color: method.color }))}
+        />
+      )}
+
       {isSavingsCategory && !isInstallmentPurchase && (
         <>
           <ColorSelect
@@ -553,7 +603,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </>
       ) : (
         <ColorSelect
-          label={t('expenses.paymentMethodOptional')}
+          label={isCardPayment ? t('paymentMethods.sourcePaymentMethod') : t('expenses.paymentMethodOptional')}
           value={paymentMethodId}
           onChange={(value) => {
             if (value === VIRTUAL_SAVINGS_PAYMENT_METHOD_ID) {
@@ -567,7 +617,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           }}
           options={[
             { value: null, label: t('common.notSpecified'), color: '#60758E' },
-            ...(!isSavingsCategory && !isInstallmentPurchase && selectableSavingsGoals.length > 0
+            ...(!isCardPayment && !isSavingsCategory && !isInstallmentPurchase && selectableSavingsGoals.length > 0
               ? [{
                   value: VIRTUAL_SAVINGS_PAYMENT_METHOD_ID,
                   label: t('savings.withdrawalPaymentMethod'),
@@ -611,7 +661,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </ThemedText>
       )}
 
-      {!expense && isCreditPayment && (
+      {!expense && isCreditPurchase && (
         <View style={[styles.installmentBox, { borderColor: colors.border }]}> 
           <View style={styles.installmentHeader}>
             <View style={styles.shareToggleCopy}>
@@ -714,7 +764,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </Pressable>
       )}
 
-      {!expense && !isInstallmentPurchase && savingsKind !== 'funded_expense' && (
+      {!expense && !isCardPayment && !isInstallmentPurchase && savingsKind !== 'funded_expense' && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}>
           <Pressable
             accessibilityRole="button"
@@ -747,7 +797,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
       {expense && (
         <View style={styles.recurringExpenseActions}>
-          {expense.debtPlanId == null && (
+          {expense.debtPlanId == null && !isCardPayment && (
             <Pressable
               onPress={() => router.push({
                 pathname: '/modal/recurring-expense-form',

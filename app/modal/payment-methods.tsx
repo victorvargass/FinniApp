@@ -11,11 +11,6 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { t } from '@/lib/i18n';
-import type { PaymentMethodType } from '@/lib/types';
-
-const TYPE_LABELS: Record<PaymentMethodType, string> = {
-  cash: t('paymentMethods.cash'), debit: t('paymentMethods.debit'), prepaid: t('paymentMethods.prepaid'), credit: t('paymentMethods.credit'),
-};
 
 function showDefaultConfirmation(name: string) {
   const message = t('paymentMethods.defaultConfirmation', { name });
@@ -26,6 +21,12 @@ function showDefaultConfirmation(name: string) {
 export default function PaymentMethodsScreen() {
   const { paymentMethods, settings, setDefaultPaymentMethod } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const typeLabels = {
+    cash: t('paymentMethods.cash'),
+    debit: t('paymentMethods.debit'),
+    prepaid: t('paymentMethods.prepaid'),
+    credit: t('paymentMethods.credit'),
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -42,13 +43,20 @@ export default function PaymentMethodsScreen() {
           <ThemedView style={[styles.card, !item.active && styles.inactive]}>
             <View style={[styles.colorDot, { backgroundColor: item.color }]} />
             <Pressable
-              onPress={() => router.push({ pathname: '/modal/payment-method-form', params: { id: String(item.id) } })}
+              onPress={() => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(item.id) } })}
               style={styles.main}>
               <View style={styles.copy}>
                 <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
                 <ThemedText style={styles.secondary}>
-                  {TYPE_LABELS[item.type]}{item.billingDay ? t('paymentMethods.approximateBilling', { day: item.billingDay }) : ''}
+                  {typeLabels[item.type]}{item.billingDay ? t('paymentMethods.approximateBilling', { day: item.billingDay }) : ''}
                 </ThemedText>
+                {item.type !== 'cash' && (
+                  <ThemedText type="defaultSemiBold" style={styles.balance}>
+                    {item.availableBalance == null
+                      ? t('paymentMethods.balanceNotConfigured')
+                      : `${item.type === 'credit' ? t('paymentMethods.availableCredit') : t('paymentMethods.availableBalance')}: ${new Intl.NumberFormat(undefined, { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.availableBalance)}`}
+                  </ThemedText>
+                )}
               </View>
             </Pressable>
             <Pressable
@@ -86,7 +94,7 @@ export default function PaymentMethodsScreen() {
             )}
             <Pressable
               accessibilityLabel={t('paymentMethods.configure', { name: item.name })}
-              onPress={() => router.push({ pathname: '/modal/payment-method-form', params: { id: String(item.id) } })}
+              onPress={() => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(item.id) } })}
               style={styles.chevron}>
               <Ionicons name="chevron-forward" size={21} color={colors.icon} />
             </Pressable>
@@ -108,6 +116,7 @@ const styles = StyleSheet.create({
   colorDot: { width: 18, height: 18, borderRadius: 6 },
   copy: { flex: 1, gap: 3 },
   secondary: { opacity: 0.65, fontSize: 13 },
+  balance: { fontSize: 12, marginTop: 2 },
   chevron: { paddingVertical: 8, paddingLeft: 4 },
   star: { padding: 6 },
   statementButton: { padding: 6 },

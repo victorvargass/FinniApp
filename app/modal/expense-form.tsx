@@ -11,7 +11,7 @@ import * as db from '@/lib/db';
 import type { ExpenseWithCategory } from '@/lib/types';
 
 export default function ExpenseFormModal() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, creditPaymentTargetId } = useLocalSearchParams<{ id?: string; creditPaymentTargetId?: string }>();
   const { expenses } = useDatabase();
   const navigation = useNavigation();
 
@@ -82,7 +82,11 @@ export default function ExpenseFormModal() {
 
   return (
     <ThemedView style={styles.container}>
-      <ExpenseForm expense={expense} onSuccess={() => router.back()} />
+      <ExpenseForm
+        expense={expense}
+        initialCreditPaymentTargetId={creditPaymentTargetId ? Number(creditPaymentTargetId) : undefined}
+        onSuccess={() => router.back()}
+      />
     </ThemedView>
   );
 }

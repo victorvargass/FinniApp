@@ -31,22 +31,40 @@ export default function DebtsScreen() {
   }, [getDebtPlans, getDebts, methodId]);
   useFocusEffect(useCallback(() => { load().catch(() => undefined); }, [load]));
   const method = paymentMethods.find((item) => item.id === methodId);
+  const creditCards = paymentMethods.filter((item) => item.type === 'credit');
   const activeDebts = debts.filter((item) => item.status !== 'archived');
-  const totalDebtBalance = activeDebts.reduce((sum, item) => sum + item.currentBalance, 0);
+  const totalDebtBalance = activeDebts.reduce((sum, item) => sum + item.currentBalance, 0)
+    + creditCards.reduce((sum, item) => sum + (item.usedAmount ?? 0), 0);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        {method && <ThemedText type="title">{t('installments.titleForMethod', { name: method.name })}</ThemedText>}
+        {method && <ThemedText type="title">{method.name}</ThemedText>}
         <ThemedText style={styles.intro}>
           {method ? t('installments.intro') : t('debts.intro')}
         </ThemedText>
         {methodId == null && (
           <>
             <ThemedView style={styles.summaryCard}>
-              <ThemedText style={styles.secondary}>{t('debts.totalBalance')}</ThemedText>
+              <ThemedText style={styles.secondary}>{t('debts.totalFinancialDebt')}</ThemedText>
               <ThemedText type="title">{formatCLP(totalDebtBalance)}</ThemedText>
             </ThemedView>
+            <View style={styles.sectionHeading}>
+              <View style={styles.copy}><ThemedText type="subtitle">{t('debts.creditCards')}</ThemedText><ThemedText style={styles.secondary}>{t('debts.creditCardsHint')}</ThemedText></View>
+            </View>
+            {creditCards.map((card) => (
+              <Pressable key={`card-${card.id}`} onPress={() => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(card.id) } })}>
+                <ThemedView style={styles.card}>
+                  <View style={styles.header}>
+                    <View style={[styles.debtIcon, { backgroundColor: card.color }]}><Ionicons name="card-outline" size={18} color="#fff" /></View>
+                    <View style={styles.copy}><ThemedText type="defaultSemiBold">{card.name}</ThemedText><ThemedText style={styles.secondary}>{t('paymentMethods.availableCredit')}: {card.availableBalance == null ? '—' : formatCLP(card.availableBalance)}</ThemedText></View>
+                    <Ionicons name="chevron-forward" size={21} color={colors.icon} />
+                  </View>
+                  <View style={styles.row}><ThemedText>{t('paymentMethods.used')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(card.usedAmount ?? 0)}</ThemedText></View>
+                  <View style={styles.row}><ThemedText>{t('paymentMethods.billedToPay')}</ThemedText><ThemedText>{formatCLP(card.billedAmount)}</ThemedText></View>
+                </ThemedView>
+              </Pressable>
+            ))}
             <ThemedText type="subtitle">{t('debts.title')}</ThemedText>
             {debts.length === 0 && (
               <ThemedView style={styles.empty}>
@@ -71,6 +89,16 @@ export default function DebtsScreen() {
             ))}
             <ThemedText type="subtitle" style={styles.sectionTitle}>{t('debts.cardPurchases')}</ThemedText>
           </>
+        )}
+        {method?.type === 'credit' && (
+          <ThemedView style={styles.methodSummary}>
+            <View style={styles.row}><ThemedText>{t('paymentMethods.availableCredit')}</ThemedText><ThemedText type="defaultSemiBold">{method.availableBalance == null ? '—' : formatCLP(method.availableBalance)}</ThemedText></View>
+            <View style={styles.row}><ThemedText>{t('paymentMethods.used')}</ThemedText><ThemedText>{formatCLP(method.usedAmount ?? 0)}</ThemedText></View>
+            <View style={styles.methodActions}>
+              <Pressable onPress={() => router.push({ pathname: '/modal/expense-form', params: { creditPaymentTargetId: String(method.id) } })} style={[styles.methodButton, { backgroundColor: colors.action }]}><ThemedText style={{ color: colors.onSecondary, fontWeight: '700' }}>{t('paymentMethods.payCard')}</ThemedText></Pressable>
+              <Pressable onPress={() => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(method.id) } })} style={[styles.methodButton, { borderColor: colors.border, borderWidth: 1 }]}><ThemedText type="defaultSemiBold">{t('paymentMethods.account')}</ThemedText></Pressable>
+            </View>
+          </ThemedView>
         )}
         {plans.length === 0 && (
           <ThemedView style={styles.empty}>
@@ -116,4 +144,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 }, status: { fontSize: 12, fontWeight: '700' },
   summaryCard: { borderRadius: 12, padding: 16, gap: 5 },
   debtIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, archived: { opacity: 0.62 }, sectionTitle: { marginTop: 6 },
+  sectionHeading: { marginTop: 4 }, methodSummary: { borderRadius: 12, padding: 16, gap: 10 }, methodActions: { flexDirection: 'row', gap: 10 }, methodButton: { flex: 1, minHeight: 45, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
 });

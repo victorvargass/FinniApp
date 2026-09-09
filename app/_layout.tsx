@@ -90,6 +90,14 @@ function AppContent() {
                   options={{ presentation: 'modal', title: t('navigation.paymentMethod') }}
                 />
                 <Stack.Screen
+                  name="modal/payment-method-detail"
+                  options={{ presentation: 'fullScreenModal', title: t('paymentMethods.account') }}
+                />
+                <Stack.Screen
+                  name="modal/payment-method-balance"
+                  options={{ presentation: 'modal', title: t('paymentMethods.updateBalance') }}
+                />
+                <Stack.Screen
                   name="modal/card-cycles"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.reconciliation') }}
                 />
