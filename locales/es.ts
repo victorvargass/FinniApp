@@ -686,6 +686,12 @@ const es = {
   },
   settings: {
     biometric: 'Bloqueo biométrico',
+    language: 'Idioma',
+    languageHint: 'Selecciona el idioma de la aplicación',
+    spanish: 'Español',
+    english: 'Inglés',
+    languageUpdated: 'Se ha cambiado el idioma correctamente',
+    selectLanguage: 'Seleccionar idioma: %{language}',
     categoriesDescription: 'Organiza tus gastos y define límites por período.',
     connectedGoogle: 'Conectado con Google',
     darkTheme: 'Tema oscuro',
@@ -761,6 +767,7 @@ const es = {
     resetConfirmTitle: 'Confirmar reinicio',
     resetConfirmInstruction: 'Para continuar, escribe “CONFIRMAR”',
     resetConfirmPlaceholder: 'Escribe CONFIRMAR',
+    resetConfirmationWord: 'CONFIRMAR',
     resetForever: 'Reiniciar definitivamente',
     resettingData: 'Reiniciando...',
     resetComplete: 'Datos reiniciados',
@@ -989,6 +996,7 @@ const es = {
     databaseProvider: 'useDatabase debe usarse dentro de DatabaseProvider',
     biometricProvider: 'useBiometric debe usarse dentro de BiometricProvider',
     themeProvider: 'useThemePreference debe usarse dentro de ThemePreferenceProvider',
+    languageProvider: 'useLanguage debe usarse dentro de LanguageProvider',
   },
   database: {
     reservedIncomeColor: 'No se permite usar ese color porque está reservado para los ingresos',

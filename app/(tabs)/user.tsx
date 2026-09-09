@@ -17,6 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useBiometric } from '@/contexts/BiometricContext';
 import { useDatabase } from '@/contexts/DatabaseContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -24,14 +25,6 @@ import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 
 // Utils
-const WEEKDAY_LABELS: Record<number, string> = {
-  1: t('settings.weekdays.sunday'), 2: t('settings.weekdays.monday'),
-  3: t('settings.weekdays.tuesday'), 4: t('settings.weekdays.wednesday'),
-  5: t('settings.weekdays.thursday'), 6: t('settings.weekdays.friday'),
-  7: t('settings.weekdays.saturday'),
-};
-const RESET_CONFIRMATION_WORD = 'CONFIRMAR';
-
 // Components
 type ActionButtonProps = {
   title: string;
@@ -77,6 +70,7 @@ function ActionButton({
 export default function UserScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const { language, setLanguage } = useLanguage();
   const { setPreference: setThemePreference } = useThemePreference();
   const { recurringDecisions, savingsGoals, settings, setMovementReminder, seedDemoData, resetLocalData } = useDatabase();
   const [resetModalVisible, setResetModalVisible] = React.useState(false);
@@ -92,7 +86,16 @@ export default function UserScreen() {
     isAvailable: isBiometricAvailable,
     setEnabled: setBiometricEnabled,
   } = useBiometric();
-  const canReset = resetConfirmation.trim() === RESET_CONFIRMATION_WORD;
+  const weekdayLabels: Record<number, string> = {
+    1: t('settings.weekdays.sunday'),
+    2: t('settings.weekdays.monday'),
+    3: t('settings.weekdays.tuesday'),
+    4: t('settings.weekdays.wednesday'),
+    5: t('settings.weekdays.thursday'),
+    6: t('settings.weekdays.friday'),
+    7: t('settings.weekdays.saturday'),
+  };
+  const canReset = resetConfirmation.trim().toLocaleUpperCase() === t('settings.resetConfirmationWord');
 
   const closeResetModal = () => {
     if (isResetting) return;
@@ -297,7 +300,7 @@ export default function UserScreen() {
                 <ThemedText style={styles.description}>
                   {settings.movementReminderFrequency === 'daily'
                     ? t('settings.everyDay')
-                    : t('settings.everyWeekday', { weekday: WEEKDAY_LABELS[settings.movementReminderWeekday] ?? t('settings.weekdays.sunday') })} · {String(settings.movementReminderHour).padStart(2, '0')}:{String(settings.movementReminderMinute).padStart(2, '0')}
+                    : t('settings.everyWeekday', { weekday: weekdayLabels[settings.movementReminderWeekday] ?? t('settings.weekdays.sunday') })} · {String(settings.movementReminderHour).padStart(2, '0')}:{String(settings.movementReminderMinute).padStart(2, '0')}
                 </ThemedText>
               </View>
             </Pressable>
@@ -329,6 +332,52 @@ export default function UserScreen() {
               style={({ pressed }) => pressed && styles.buttonPressed}>
               <Ionicons name="chevron-forward" size={20} color={colors.icon} />
             </Pressable>
+          </View>
+        </ThemedView>
+
+        <ThemedView style={styles.card}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('settings.language')}</ThemedText>
+              <ThemedText style={styles.description}>{t('settings.languageHint')}</ThemedText>
+            </View>
+            <View
+              accessibilityRole="radiogroup"
+              style={[styles.languageSelector, { borderColor: colors.border }]}
+            >
+              {(['es', 'en'] as const).map((option) => {
+                const isSelected = language === option;
+                const label = option === 'es' ? t('settings.spanish') : t('settings.english');
+                return (
+                  <Pressable
+                    accessibilityLabel={t('settings.selectLanguage', { language: label })}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isSelected }}
+                    key={option}
+                    onPress={() => {
+                      if (isSelected) return;
+                      void setLanguage(option)
+                        .then(() => showToast(t('settings.languageUpdated')))
+                        .catch(() => Alert.alert(t('errors.couldNotChange'), t('common.tryAgain')));
+                    }}
+                    style={({ pressed }) => [
+                      styles.languageOption,
+                      isSelected && { backgroundColor: colors.primary },
+                      pressed && styles.buttonPressed,
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.languageOptionText,
+                        isSelected && { color: colors.onPrimary },
+                      ]}
+                    >
+                      {option.toUpperCase()}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </ThemedView>
 
@@ -570,6 +619,24 @@ const styles = StyleSheet.create({
   settingCopy: {
     flex: 1,
     gap: 6,
+  },
+  languageSelector: {
+    flexDirection: 'row',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    padding: 3,
+  },
+  languageOption: {
+    minWidth: 46,
+    minHeight: 38,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  languageOptionText: {
+    fontFamily: Fonts.semiBold,
+    fontSize: 14,
   },
   testDataHeader: {
     flexDirection: 'row',

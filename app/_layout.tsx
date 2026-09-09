@@ -17,6 +17,7 @@ import { RecurringNotificationController } from '@/components/recurring-notifica
 import { t } from '@/lib/i18n';
 import { BiometricProvider } from '@/contexts/BiometricContext';
 import { DatabaseProvider } from '@/contexts/DatabaseContext';
+import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { ThemePreferenceProvider } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -28,6 +29,7 @@ export const unstable_settings = {
 
 function AppContent() {
   const colorScheme = useColorScheme();
+  const { isLanguageReady, language } = useLanguage();
   const { hasCompletedOnboarding, isOnboardingReady } = useOnboarding();
   const palette = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
@@ -50,10 +52,10 @@ function AppContent() {
     },
   };
 
-  if (!isOnboardingReady) return <AppLoadingScreen />;
+  if (!isLanguageReady || !isOnboardingReady) return <AppLoadingScreen />;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView key={language} style={{ flex: 1 }}>
       <BiometricProvider>
         <BiometricGate>
           <DatabaseProvider>
@@ -175,10 +177,12 @@ export default function RootLayout() {
   });
 
   return (
-    <ThemePreferenceProvider>
-      <OnboardingProvider>
-        {!fontsLoaded && !fontError ? <AppLoadingScreen /> : <AppContent />}
-      </OnboardingProvider>
-    </ThemePreferenceProvider>
+    <LanguageProvider>
+      <ThemePreferenceProvider>
+        <OnboardingProvider>
+          {!fontsLoaded && !fontError ? <AppLoadingScreen /> : <AppContent />}
+        </OnboardingProvider>
+      </ThemePreferenceProvider>
+    </LanguageProvider>
   );
 }

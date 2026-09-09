@@ -1,6 +1,7 @@
 import { getLocales } from 'expo-localization';
 import { I18n, type TranslateOptions } from 'i18n-js';
 
+import en from '@/locales/en';
 import es from '@/locales/es';
 
 type LeafPaths<T> = {
@@ -13,16 +14,26 @@ type LeafPaths<T> = {
 
 export type TranslationKey = LeafPaths<typeof es>;
 
-export const DEFAULT_LANGUAGE = 'es';
-export const APP_LOCALE = 'es-CL';
+export type AppLanguage = 'es' | 'en';
 
-const i18n = new I18n({ es });
+export const DEFAULT_LANGUAGE: AppLanguage = 'es';
+export let APP_LOCALE = 'es-CL';
+
+const i18n = new I18n({ en, es });
 
 i18n.defaultLocale = DEFAULT_LANGUAGE;
 i18n.enableFallback = true;
 
-const deviceLanguage = getLocales()[0]?.languageCode;
-i18n.locale = deviceLanguage === DEFAULT_LANGUAGE ? deviceLanguage : DEFAULT_LANGUAGE;
+export function getDeviceLanguage(): AppLanguage {
+  return getLocales()[0]?.languageCode === 'en' ? 'en' : DEFAULT_LANGUAGE;
+}
+
+export function setI18nLanguage(language: AppLanguage) {
+  i18n.locale = language;
+  APP_LOCALE = language === 'en' ? 'en-US' : 'es-CL';
+}
+
+setI18nLanguage(getDeviceLanguage());
 
 export function t(scope: TranslationKey, options?: TranslateOptions): string {
   return i18n.t(scope, options);
