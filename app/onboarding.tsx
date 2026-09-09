@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -125,6 +125,7 @@ const slides = [
 ] as const;
 
 export default function OnboardingScreen() {
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const [page, setPage] = useState(0);
   const [finishing, setFinishing] = useState(false);
   const pagerRef = useRef<ScrollView>(null);
@@ -148,6 +149,10 @@ export default function OnboardingScreen() {
     if (finishing) return;
     setFinishing(true);
     try {
+      if (returnTo === 'user') {
+        router.back();
+        return;
+      }
       await completeOnboarding();
       router.replace('/(tabs)/period');
     } finally {

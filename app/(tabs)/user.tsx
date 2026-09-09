@@ -406,7 +406,7 @@ export default function UserScreen() {
         <ThemedView style={styles.card}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push('/onboarding')}
+            onPress={() => router.push({ pathname: '/onboarding', params: { returnTo: 'user' } })}
             style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
             <View style={styles.settingCopy}>
               <ThemedText type="subtitle">{t('settings.welcomeGuide')}</ThemedText>
