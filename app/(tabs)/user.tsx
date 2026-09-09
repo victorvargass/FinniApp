@@ -21,6 +21,7 @@ import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 
 // Utils
 const WEEKDAY_LABELS: Record<number, string> = {
@@ -310,9 +311,13 @@ export default function UserScreen() {
                   movementReminderWeekday: settings.movementReminderWeekday,
                   movementReminderHour: settings.movementReminderHour,
                   movementReminderMinute: settings.movementReminderMinute,
-                }).catch((toggleError) => {
-                  Alert.alert(t('errors.couldNotUpdate'), toggleError instanceof Error ? toggleError.message : t('common.tryAgain'));
-                });
+                })
+                  .then(() => showToast(t(movementReminderEnabled
+                    ? 'settings.reminderEnabledToast'
+                    : 'settings.reminderDisabledToast')))
+                  .catch((toggleError) => {
+                    Alert.alert(t('errors.couldNotUpdate'), toggleError instanceof Error ? toggleError.message : t('common.tryAgain'));
+                  });
               }}
               trackColor={{ true: colors.primary }}
             />
@@ -338,9 +343,13 @@ export default function UserScreen() {
             <Switch
               accessibilityLabel={t('accessibility.toggleDarkMode')}
               onValueChange={(enabled) => {
-                setThemePreference(enabled ? 'dark' : 'light').catch(() => {
-                  Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
-                });
+                setThemePreference(enabled ? 'dark' : 'light')
+                  .then(() => showToast(t(enabled
+                    ? 'settings.darkThemeEnabledToast'
+                    : 'settings.darkThemeDisabledToast')))
+                  .catch(() => {
+                    Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
+                  });
               }}
               trackColor={{ true: colors.tint }}
               value={colorScheme === 'dark'}
@@ -362,9 +371,15 @@ export default function UserScreen() {
               accessibilityLabel={t('accessibility.toggleBiometric')}
               disabled={!isBiometricAvailable}
               onValueChange={(value) => {
-                setBiometricEnabled(value).catch(() => {
-                  Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
-                });
+                setBiometricEnabled(value)
+                  .then((changed) => {
+                    if (changed) showToast(t(value
+                      ? 'settings.biometricEnabledToast'
+                      : 'settings.biometricDisabledToast'));
+                  })
+                  .catch(() => {
+                    Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
+                  });
               }}
               trackColor={{ true: colors.tint }}
               value={biometricEnabled}

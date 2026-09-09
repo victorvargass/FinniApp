@@ -12,6 +12,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { PaymentMethodType } from '@/lib/types';
 
 const TYPES: { value: PaymentMethodType; label: string }[] = [
@@ -205,9 +206,13 @@ export default function PaymentMethodFormScreen() {
             <Switch
               value={method.active}
               onValueChange={(active) => {
-                setPaymentMethodActive(method.id, active).catch(() => {
-                  Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
-                });
+                setPaymentMethodActive(method.id, active)
+                  .then(() => showToast(t(active
+                    ? 'paymentMethods.activatedToast'
+                    : 'paymentMethods.deactivatedToast', { name: method.name })))
+                  .catch(() => {
+                    Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
+                  });
               }}
               trackColor={{ true: colors.primary }}
             />

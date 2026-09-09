@@ -84,7 +84,13 @@ export default function RecurringExpensesScreen() {
                     <ThemedText style={styles.secondary}>{item.nextDate ? t('recurrence.next', { date: formatDate(parseIsoDate(item.nextDate)) }) : t('recurrence.noNextExecutions')}</ThemedText>
                   </View>
                 </Pressable>
-                <Switch value={item.active} onValueChange={(active) => setRecurringIncomeActive(item.id, active).catch((error) => Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain')))} trackColor={{ true: '#1FAF78' }} />
+                <Switch
+                  value={item.active}
+                  onValueChange={(active) => setRecurringIncomeActive(item.id, active)
+                    .then(() => showResult(t(active ? 'recurrence.activatedToast' : 'recurrence.deactivatedToast', { name: item.name })))
+                    .catch((error) => Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain')))}
+                  trackColor={{ true: '#1FAF78' }}
+                />
               </View>
               <View style={styles.metaRow}>
                 <View style={[styles.modeBadge, { borderColor: colors.border }]}>
@@ -171,9 +177,11 @@ export default function RecurringExpensesScreen() {
                 accessibilityLabel={t('recurrence.toggle', { action: item.active ? t('recurrence.deactivate') : t('recurrence.activate'), name: item.name })}
                 value={item.active}
                 onValueChange={(active) => {
-                  setRecurringExpenseActive(item.id, active).catch((error) => {
-                    Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain'));
-                  });
+                  setRecurringExpenseActive(item.id, active)
+                    .then(() => showResult(t(active ? 'recurrence.activatedToast' : 'recurrence.deactivatedToast', { name: item.name })))
+                    .catch((error) => {
+                      Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain'));
+                    });
                 }}
                 trackColor={{ true: colors.primary }}
               />
