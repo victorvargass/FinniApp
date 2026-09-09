@@ -691,7 +691,7 @@ const es = {
     paymentSubtitle: 'Distribución, configuración y uso durante el período', detailExpenses: 'Detalle de gastos',
     detailIncomes: 'Detalle de ingresos', description: 'Descripción', amount: 'Monto',
     movementOne: 'movimiento', movementOther: 'movimientos',
-    approximateBillingDay: 'factura aprox. el día %{day}', fileName: 'Reporte periodo %{start} al %{end}.pdf',
+    approximateBillingDay: 'factura aprox. el día %{day}', fileName: 'Reporte FinniApp %{start} al %{end}.pdf',
     includesReleasedSavings: 'Incluye %{amount} liberados desde ahorros', totalEntries: 'Total entradas', savingsTransfer: 'Transferencia desde ahorro', splitShare: 'Tu parte: %{share} de %{total}',
     savingsContribution: 'Aporte a meta: %{goal}', fundedFromSavings: 'Financiado desde la meta: %{goal}',
     savingsTransferFrom: 'Retiro desde la meta: %{goal}', installmentDetail: 'Compra en cuotas · Cuota %{number} de %{total}',
