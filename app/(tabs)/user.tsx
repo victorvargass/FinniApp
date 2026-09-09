@@ -39,6 +39,7 @@ type ActionButtonProps = {
   style?: any;
   textStyle?: any;
   icon?: React.ReactNode;
+  testID?: string;
 };
 
 function ActionButton({
@@ -48,11 +49,14 @@ function ActionButton({
   style,
   textStyle,
   icon,
+  testID,
 }: ActionButtonProps) {
   return (
     <Pressable
+      accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
+      testID={testID}
       style={({ pressed }) => [
         styles.button,
         disabled && styles.buttonDisabled,
@@ -425,6 +429,7 @@ export default function UserScreen() {
             style={{ backgroundColor: colors.secondary, borderColor: colors.secondary }}
             textStyle={{ color: colors.onSecondary }}
             title={isSeeding ? t('settings.loadingTestData') : t('settings.loadTestData')}
+            testID="settings-load-test-data"
           />
         </ThemedView>
 

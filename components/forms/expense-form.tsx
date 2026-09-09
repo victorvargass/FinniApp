@@ -329,6 +329,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
       <TextInput
+        accessibilityLabel={t('common.name')}
+        testID="expense-name-input"
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
         onChangeText={(value) => {
@@ -351,6 +353,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       <View style={styles.formRemainder} onTouchStart={() => setIsNameFocused(false)}>
       <ThemedText style={styles.label}>{t('expenses.amountTotal')}</ThemedText>
       <TextInput
+        accessibilityLabel={t('expenses.amountTotal')}
+        testID="expense-amount-input"
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
         onChangeText={(value) => setAmountText(formatCLPInput(value))}
@@ -773,6 +777,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     </ScrollView>
     <View style={[styles.formFooter, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
       <Pressable
+        testID="expense-save"
         style={[styles.button, styles.footerButton, saving && styles.buttonDisabled]}
         onPress={handleSave}
         disabled={saving}>

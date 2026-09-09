@@ -1,0 +1,48 @@
+appId: com.vitoco18.FinniApp
+name: FinniApp authenticated Google Drive lifecycle
+tags:
+  - google-auth
+---
+# Precondición: una cuenta Google exclusiva de QA ya está conectada en FinniApp.
+- launchApp
+- tapOn:
+    id: 'tab-user'
+- scrollUntilVisible:
+    element:
+      text: 'Google Drive'
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Gestionar sesión de Google y respaldos'
+- extendedWaitUntil:
+    visible: 'Conectado con Google'
+    timeout: 20000
+
+# Respalda el escenario QA y comprueba su confirmación de sobreescritura.
+- tapOn: 'Respaldar'
+- assertVisible: '.*respaldo.*'
+- tapOn:
+    id: 'android:id/button1'
+- extendedWaitUntil:
+    visible: 'Respaldo completado'
+    timeout: 60000
+- tapOn: 'Aceptar'
+
+# Restaura el respaldo recién creado y confirma la advertencia destructiva.
+- tapOn: 'Restaurar'
+- assertVisible: 'Restaurar datos'
+- tapOn:
+    id: 'android:id/button1'
+- extendedWaitUntil:
+    visible: 'Restauración completada'
+    timeout: 60000
+- tapOn: 'Aceptar'
+
+# Cierra la sesión y verifica que la app vuelve al estado desconectado.
+- tapOn: 'Cerrar sesión'
+- assertVisible: '¿Cerrar sesión de Google?'
+- tapOn:
+    id: 'android:id/button1'
+- extendedWaitUntil:
+    visible: 'Conectar con Google'
+    timeout: 30000

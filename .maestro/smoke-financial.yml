@@ -1,0 +1,138 @@
+appId: com.vitoco18.FinniApp
+name: FinniApp financial smoke test
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: 'Bienvenido a FinniApp'
+    timeout: 20000
+- tapOn:
+    id: 'onboarding-skip'
+- extendedWaitUntil:
+    visible: 'Período actual'
+    timeout: 20000
+
+# Carga el escenario integral para verificar los dominios con datos reales de SQLite.
+- tapOn:
+    id: 'tab-user'
+- scrollUntilVisible:
+    element:
+      id: 'settings-load-test-data'
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn:
+    id: 'settings-load-test-data'
+- assertVisible: '¿Cargar escenario de prueba?'
+- tapOn: 'Cargar datos de prueba'
+- extendedWaitUntil:
+    visible: 'Datos de prueba cargados'
+    timeout: 30000
+- back
+
+# Los módulos secundarios deben abrir y exponer la información sembrada.
+- scrollUntilVisible:
+    element:
+      text: 'Deudas y cuotas'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Gestionar deudas y cuotas'
+- assertVisible: '.*Préstamo familiar'
+- back
+- scrollUntilVisible:
+    element:
+      text: 'Metas de ahorro'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Gestionar metas de ahorro'
+- assertVisible: '.*Fondo de emergencia'
+- back
+- scrollUntilVisible:
+    element:
+      text: 'Movimientos recurrentes'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Configurar movimientos recurrentes'
+- assertVisible: '.*Sueldo recurrente'
+- back
+- scrollUntilVisible:
+    element:
+      text: 'Medios de pago'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Configurar medios de pago'
+- assertVisible: '.*Tarjeta crédito'
+- back
+
+# Un gasto recorre creación, edición y eliminación persistiendo en SQLite.
+- tapOn:
+    id: 'tab-expenses'
+- tapOn: 'Agregar gasto'
+- tapOn:
+    id: 'expense-name-input'
+- inputText: 'Compra E2E'
+- tapOn:
+    id: 'expense-amount-input'
+- inputText: '12500'
+- hideKeyboard
+- tapOn:
+    id: 'expense-save'
+- extendedWaitUntil:
+    visible: 'Compra E2E'
+    timeout: 15000
+- tapOn: 'Compra E2E'
+- tapOn:
+    id: 'expense-name-input'
+- eraseText: 50
+- inputText: 'Compra E2E editada'
+- hideKeyboard
+- tapOn:
+    id: 'expense-save'
+- extendedWaitUntil:
+    visible: 'Compra E2E editada'
+    timeout: 15000
+- longPressOn: 'Compra E2E editada'
+- assertVisible: '¿Eliminar "Compra E2E editada"?'
+- tapOn: 'Eliminar'
+- assertNotVisible: 'Compra E2E editada'
+
+# Un ingreso independiente valida el segundo formulario ya separado.
+- tapOn:
+    id: 'tab-incomes'
+- tapOn: 'Agregar ingreso'
+- tapOn:
+    id: 'income-name-input'
+- inputText: 'Ingreso E2E'
+- tapOn:
+    id: 'income-amount-input'
+- inputText: '45000'
+- hideKeyboard
+- tapOn:
+    id: 'income-save'
+- extendedWaitUntil:
+    visible: 'Ingreso E2E'
+    timeout: 15000
+- longPressOn: 'Ingreso E2E'
+- assertVisible: '¿Eliminar "Ingreso E2E"?'
+- tapOn: 'Eliminar'
+- assertNotVisible: 'Ingreso E2E'
+
+# Con cualquier ingreso o gasto, cerrar período debe estar habilitado.
+- tapOn:
+    id: 'tab-period'
+- scrollUntilVisible:
+    element:
+      id: 'period-close'
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn:
+    id: 'period-close'
+- assertVisible: 'Finalizar período actual'
+- assertVisible: 'Finalizar y continuar'
+- tapOn: 'Cancelar'
+- takeScreenshot: 'finniapp-financial-smoke'

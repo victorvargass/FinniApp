@@ -160,6 +160,8 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
       <TextInput
+        accessibilityLabel={t('common.name')}
+        testID="income-name-input"
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
         onChangeText={(value) => {
@@ -182,6 +184,8 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
       <View style={styles.formRemainder} onTouchStart={() => setIsNameFocused(false)}>
       <ThemedText style={styles.label}>{t('incomes.amount')}</ThemedText>
       <TextInput
+        accessibilityLabel={t('incomes.amount')}
+        testID="income-amount-input"
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
         onChangeText={(value) => setAmountText(formatCLPInput(value))}
@@ -283,6 +287,7 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
     </ScrollView>
     <View style={[styles.formFooter, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
       <Pressable
+        testID="income-save"
         style={[styles.button, styles.footerButton, saving && styles.buttonDisabled]}
         onPress={handleSave}
         disabled={saving}>

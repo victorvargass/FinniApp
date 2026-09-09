@@ -11,7 +11,10 @@
     "lint": "expo lint",
     "test": "node --no-warnings --experimental-strip-types --test tests/*.test.mjs",
     "check": "npm run lint && npx tsc --noEmit && npm test",
-    "export:android": "expo export --platform android"
+    "export:android": "expo export --platform android",
+    "e2e:android": "maestro test .maestro/smoke-financial.yml .maestro/google-drive-boundary.yml",
+    "e2e:google": "maestro test .maestro/google-drive-authenticated.yml",
+    "e2e:eas:android": "eas workflow:run .eas/workflows/e2e-test-android.yml"
   },
   "dependencies": {
     "@expo-google-fonts/quicksand": "^0.4.1",

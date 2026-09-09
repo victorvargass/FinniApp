@@ -1,0 +1,27 @@
+appId: com.vitoco18.FinniApp
+name: FinniApp Google Drive authentication boundary
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: 'Bienvenido a FinniApp'
+    timeout: 20000
+- tapOn:
+    id: 'onboarding-skip'
+- extendedWaitUntil:
+    visible: 'Período actual'
+    timeout: 20000
+- tapOn:
+    id: 'tab-user'
+- scrollUntilVisible:
+    element:
+      text: 'Gestionar sesión de Google y respaldos'
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Gestionar sesión de Google y respaldos'
+- extendedWaitUntil:
+    visible: 'Sesión de Google'
+    timeout: 15000
+- assertVisible: 'Conectar con Google'
+- takeScreenshot: 'finniapp-google-drive-boundary'

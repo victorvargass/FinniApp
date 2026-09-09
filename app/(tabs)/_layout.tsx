@@ -27,6 +27,7 @@ export default function TabLayout() {
         name="period"
         options={{
           title: t('navigation.period'),
+          tabBarButtonTestID: 'tab-period',
           tabBarLabel: t('navigation.period'),
           tabBarIcon: ({ color }) => <Ionicons name="pie-chart" size={24} color={color} />,
         }}
@@ -35,6 +36,7 @@ export default function TabLayout() {
         name="incomes"
         options={{
           title: t('navigation.incomes'),
+          tabBarButtonTestID: 'tab-incomes',
           tabBarLabel: t('navigation.incomes'),
           tabBarIcon: ({ color }) => <Ionicons name="cash" size={24} color={color} />,
         }}
@@ -43,6 +45,7 @@ export default function TabLayout() {
         name="expenses"
         options={{
           title: t('navigation.expenses'),
+          tabBarButtonTestID: 'tab-expenses',
           tabBarLabel: t('navigation.expenses'),
           tabBarIcon: ({ color }) => <Ionicons name="cash-outline" size={24} color={color} />,
         }}
@@ -51,6 +54,7 @@ export default function TabLayout() {
         name="summary"
         options={{
           title: t('navigation.history'),
+          tabBarButtonTestID: 'tab-history',
           tabBarLabel: t('navigation.history'),
           tabBarIcon: ({ color }) => <Ionicons name="bar-chart" size={24} color={color} />,
         }}
@@ -59,6 +63,7 @@ export default function TabLayout() {
         name="user"
         options={{
           title: t('navigation.user'),
+          tabBarButtonTestID: 'tab-user',
           tabBarLabel: 'Usuario',
           tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
         }}

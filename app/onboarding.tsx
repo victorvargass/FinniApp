@@ -150,7 +150,7 @@ export default function OnboardingScreen() {
       <View style={styles.topBar}>
         <Image contentFit="contain" source={wordmark} style={styles.topLogo} />
         {!isLast && (
-          <Pressable accessibilityRole="button" hitSlop={10} onPress={() => { void finish(); }}>
+          <Pressable accessibilityRole="button" hitSlop={10} onPress={() => { void finish(); }} testID="onboarding-skip">
             <ThemedText style={[styles.skip, { color: colors.action }]}>{t('onboarding.skip')}</ThemedText>
           </Pressable>
         )}
@@ -179,6 +179,7 @@ export default function OnboardingScreen() {
           <Pressable
             accessibilityRole="button"
             disabled={finishing}
+            testID="onboarding-next"
             onPress={() => { if (isLast) void finish(); else setPage((current) => current + 1); }}
             style={({ pressed }) => [styles.nextButton, { backgroundColor: colors.primary }, pressed && styles.pressed, finishing && styles.disabled]}>
             <ThemedText style={[styles.nextText, { color: colors.onPrimary }]}>{t(isLast ? 'onboarding.start' : 'onboarding.next')}</ThemedText>

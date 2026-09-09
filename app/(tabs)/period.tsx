@@ -297,6 +297,8 @@ export default function PeriodScreen() {
       {isCurrentPeriod && hasPeriodMovements && (
         <View style={{ marginTop: 24, alignItems: 'center' }}>
           <Pressable
+            accessibilityLabel={t('period.close')}
+            testID="period-close"
             style={{
               backgroundColor: '#E95353',
               paddingHorizontal: 24,
