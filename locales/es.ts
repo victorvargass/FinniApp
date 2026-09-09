@@ -267,6 +267,7 @@ const es = {
     summary: 'Resumen Período',
     current: 'Período actual',
     historical: 'Período histórico',
+    loading: 'Cargando período...',
     invalidStart: 'La fecha de inicio no puede ser mayor a la fecha de término.',
     invalidEnd: 'La fecha de término no puede ser menor a la fecha de inicio.',
     updateStartError: 'Error al actualizar fecha de inicio',

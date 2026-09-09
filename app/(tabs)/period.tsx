@@ -40,6 +40,7 @@ export default function PeriodScreen() {
     periodSavingsGoalActivity,
     periodSavingsFundingTotal,
     paymentMethodTotals,
+    isPeriodChanging,
     setPeriodStartDate,
     setPeriodEndDate,
     closeCurrentPeriod,
@@ -369,6 +370,15 @@ export default function PeriodScreen() {
         </View>
       )}
       </ScrollView>
+      {isPeriodChanging && (
+        <View
+          accessibilityLabel={t('period.loading')}
+          accessibilityRole="progressbar"
+          style={[styles.loadingOverlay, { backgroundColor: `${colors.screen}F2` }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <ThemedText type="defaultSemiBold">{t('period.loading')}</ThemedText>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -376,6 +386,13 @@ export default function PeriodScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
   scroll: {
     padding: 20,

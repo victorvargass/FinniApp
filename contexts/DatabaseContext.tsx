@@ -74,6 +74,7 @@ type DatabaseContextValue = {
   periodHistory: PeriodHistory[];
   periodExpensesTotal: number;
   isReady: boolean;
+  isPeriodChanging: boolean;
   refresh: () => Promise<void>;
   selectPeriod: (periodId: number) => void;
   closeCurrentPeriod: () => Promise<void>;
@@ -157,6 +158,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   });
   const [periods, setPeriods] = useState<Period[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
+  const [loadedPeriodId, setLoadedPeriodId] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [hasRefreshed, setHasRefreshed] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -189,6 +191,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     () => periods.find((period) => period.id === selectedPeriodId) ?? null,
     [periods, selectedPeriodId]
   );
+  const isPeriodChanging = selectedPeriodId != null && loadedPeriodId !== selectedPeriodId;
   const recurringNotificationKey = useMemo(
     () => JSON.stringify([...recurringExpenses, ...recurringIncomes].map((item) => ({
       id: item.id,
@@ -271,6 +274,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         setPeriodCategoryExpensesTotals(totals);
         setPeriodIncomesTotal(incomesTotal);
         setPeriodHistory(history);
+        setLoadedPeriodId(targetPeriodId);
         setHasRefreshed(true);
       } while (refreshRequestedRef.current);
     };
@@ -743,6 +747,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       periodHistory,
       periodExpensesTotal,
       isReady,
+      isPeriodChanging,
       refresh,
       selectPeriod,
       closeCurrentPeriod,
@@ -832,6 +837,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       periodHistory,
       periodExpensesTotal,
       isReady,
+      isPeriodChanging,
       refresh,
       selectPeriod,
       closeCurrentPeriod,
