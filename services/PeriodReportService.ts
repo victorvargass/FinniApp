@@ -1,7 +1,8 @@
 import { Asset } from 'expo-asset';
 import { File, Paths } from 'expo-file-system';
+import { getContentUriAsync } from 'expo-file-system/legacy';
+import * as IntentLauncher from 'expo-intent-launcher';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
 import { getPeriodFinancialDetails, getPeriodSavingsGoalActivity, getPeriodStatement } from '@/lib/db';
@@ -21,6 +22,7 @@ import type {
 const REPORT_LOGO = require('@/assets/images/splash-icon.png');
 const REPORT_FONT_REGULAR = require('@expo-google-fonts/quicksand/400Regular/Quicksand_400Regular.ttf');
 const REPORT_FONT_BOLD = require('@expo-google-fonts/quicksand/700Bold/Quicksand_700Bold.ttf');
+const ANDROID_GRANT_READ_URI_PERMISSION = 1;
 
 const COLORS = {
   ink: '#0B315B',
@@ -668,16 +670,18 @@ export async function exportPeriodReport(period: PeriodHistory): Promise<void> {
   }
   temporaryFile.move(namedFile);
 
-  const canShare = await Sharing.isAvailableAsync();
-
-  if (!canShare) {
+  if (Platform.OS === 'android') {
+    const contentUri = await getContentUriAsync(namedFile.uri);
+    try {
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        data: contentUri,
+        flags: ANDROID_GRANT_READ_URI_PERMISSION,
+        type: 'application/pdf',
+      });
+    } catch {
+      await Print.printAsync({ uri: namedFile.uri });
+    }
+  } else {
     await Print.printAsync({ uri: namedFile.uri });
-    return;
   }
-
-  await Sharing.shareAsync(namedFile.uri, {
-    dialogTitle: t('report.shareTitle'),
-    mimeType: 'application/pdf',
-    UTI: 'com.adobe.pdf',
-  });
 }
