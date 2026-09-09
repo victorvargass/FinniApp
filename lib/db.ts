@@ -3900,22 +3900,29 @@ async function getRecurringRows(db: SQLite.SQLiteDatabase): Promise<RecurringExp
 
 export async function getRecurringExpenses(): Promise<RecurringExpense[]> {
   const db = await getDb();
-  const [rules, occurrences] = await Promise.all([
+  const [rules, occurrences, periods] = await Promise.all([
     getRecurringRows(db),
     db.getAllAsync<{
       recurring_expense_id: number;
       scheduled_date: string;
       status: RecurringOccurrenceStatus;
     }>('SELECT recurring_expense_id, scheduled_date, status FROM recurring_expense_occurrences'),
+    getPeriods(),
   ]);
   const today = toLocalIsoDate(new Date());
   const horizon = addIsoDays(today, 3660);
 
   return rules.map((rule) => {
     const ruleOccurrences = occurrences.filter((item) => item.recurring_expense_id === rule.id);
+    const duePendingOccurrences = ruleOccurrences.filter(
+      (item) => item.status === 'pending'
+        && item.scheduled_date <= today
+        && periods.some(
+          (period) => item.scheduled_date >= period.startDate && item.scheduled_date <= period.endDate
+        )
+    );
     const statuses = new Map(ruleOccurrences.map((item) => [item.scheduled_date, item.status]));
-    const overduePending = ruleOccurrences
-      .filter((item) => item.status === 'pending')
+    const overduePending = duePendingOccurrences
       .map((item) => item.scheduled_date)
       .sort()[0] ?? null;
     const nextDate = overduePending ?? getOccurrenceDates(rule, today, horizon, 5000)
@@ -3923,13 +3930,14 @@ export async function getRecurringExpenses(): Promise<RecurringExpense[]> {
     return {
       ...rule,
       nextDate,
-      pendingCount: ruleOccurrences.filter((item) => item.status === 'pending').length,
+      pendingCount: duePendingOccurrences.length,
     };
   });
 }
 
 export async function getRecurringDecisionItems(): Promise<RecurringDecisionItem[]> {
   const db = await getDb();
+  const today = toLocalIsoDate(new Date());
   const rows = await db.getAllAsync<{
     kind: 'expense' | 'income';
     recurring_id: number;
@@ -3944,15 +3952,27 @@ export async function getRecurringDecisionItems(): Promise<RecurringDecisionItem
        FROM recurring_expense_occurrences o
        INNER JOIN recurring_expenses r ON r.id = o.recurring_expense_id
        WHERE o.status IN ('pending', 'skipped') AND o.dismissed = 0
+         AND o.scheduled_date <= ?
+         AND EXISTS (
+           SELECT 1 FROM periods p
+           WHERE o.scheduled_date BETWEEN p.start_date AND p.end_date
+         )
        UNION ALL
        SELECT 'income' AS kind, o.recurring_income_id AS recurring_id,
               r.name, r.amount, o.scheduled_date, o.status
        FROM recurring_income_occurrences o
        INNER JOIN recurring_incomes r ON r.id = o.recurring_income_id
        WHERE o.status IN ('pending', 'skipped') AND o.dismissed = 0
+         AND o.scheduled_date <= ?
+         AND EXISTS (
+           SELECT 1 FROM periods p
+           WHERE o.scheduled_date BETWEEN p.start_date AND p.end_date
+         )
      )
      ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, scheduled_date DESC
-     LIMIT 200`
+     LIMIT 200`,
+    today,
+    today
   );
   return rows.map((row) => ({
     kind: row.kind,
@@ -4338,6 +4358,10 @@ export async function processDueRecurringExpenses(
     for (const scheduledDate of dates) {
       const status = existing.get(scheduledDate);
       if (status === 'generated' || status === 'skipped') continue;
+      const period = periods.find(
+        (item) => scheduledDate >= item.startDate && scheduledDate <= item.endDate
+      );
+      if (!period) continue;
       if (rule.registrationMode === 'confirmation') {
         await db.runAsync(
           `INSERT INTO recurring_expense_occurrences
@@ -4351,10 +4375,6 @@ export async function processDueRecurringExpenses(
         );
         continue;
       }
-      const period = periods.find(
-        (item) => scheduledDate >= item.startDate && scheduledDate <= item.endDate
-      );
-      if (!period) continue;
       let wasCreated = false;
       await withExclusiveTransaction(db, async (transaction) => {
         const current = await transaction.getFirstAsync<{ status: RecurringOccurrenceStatus }>(
@@ -4738,15 +4758,26 @@ export async function createRecurringIncomeFromSource(
 
 export async function getRecurringIncomes(): Promise<RecurringIncome[]> {
   const db = await getDb();
+  const today = toLocalIsoDate(new Date());
   const rows = await db.getAllAsync<Record<string, unknown>>(`
     SELECT r.*,
       (SELECT COUNT(*) FROM recurring_income_occurrences o
-       WHERE o.recurring_income_id = r.id AND o.status = 'pending') AS pending_count,
+       WHERE o.recurring_income_id = r.id AND o.status = 'pending'
+         AND o.scheduled_date <= ?
+         AND EXISTS (
+           SELECT 1 FROM periods p
+           WHERE o.scheduled_date BETWEEN p.start_date AND p.end_date
+         )) AS pending_count,
       (SELECT MIN(o.scheduled_date) FROM recurring_income_occurrences o
-       WHERE o.recurring_income_id = r.id AND o.status = 'pending') AS pending_date
+       WHERE o.recurring_income_id = r.id AND o.status = 'pending'
+         AND o.scheduled_date <= ?
+         AND EXISTS (
+           SELECT 1 FROM periods p
+           WHERE o.scheduled_date BETWEEN p.start_date AND p.end_date
+         )) AS pending_date
     FROM recurring_incomes r
     ORDER BY r.active DESC, r.next_date, r.id DESC
-  `);
+  `, today, today);
   return rows.map((row) => ({
     id: Number(row.id), name: String(row.name), amount: Number(row.amount),
     frequency: row.frequency as RecurringIncome['frequency'], intervalMonths: Number(row.interval_months),
