@@ -14,6 +14,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
 
 const wordmark = require('@/assets/images/splash-icon.png');
+const darkWordmark = require('@/assets/images/splash-icon-dark.png');
 
 function MoneyOverview() {
   return (
@@ -158,7 +159,7 @@ export default function OnboardingScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top', 'bottom']}>
       <LinearGradient colors={['rgba(66,214,192,0.20)', 'rgba(32,185,219,0.04)', 'transparent']} style={styles.glow} />
       <View style={styles.topBar}>
-        <Image contentFit="contain" source={wordmark} style={styles.topLogo} />
+        <Image contentFit="contain" source={colorScheme === 'dark' ? darkWordmark : wordmark} style={styles.topLogo} />
         {!isLast && (
           <Pressable accessibilityRole="button" hitSlop={10} onPress={() => { void finish(); }} testID="onboarding-skip">
             <ThemedText style={[styles.skip, { color: colors.action }]}>{t('onboarding.skip')}</ThemedText>
