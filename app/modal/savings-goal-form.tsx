@@ -476,7 +476,7 @@ export default function SavingsGoalFormScreen() {
           {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            paddingBottom: Math.max(insets.bottom, 12),
+            paddingBottom: Math.max(insets.bottom, 24),
           },
         ]}>
         <Pressable
