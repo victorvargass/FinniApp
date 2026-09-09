@@ -2,9 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, ToastAndroid, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ColorPicker } from '@/components/ColorPicker';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -30,6 +32,7 @@ function showResult(message: string) {
 
 export default function PaymentMethodFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const insets = useSafeAreaInsets();
   const {
     paymentMethods,
     settings,
@@ -118,7 +121,8 @@ export default function PaymentMethodFormScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ThemedView style={styles.shell}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
       <TextInput
         autoFocus={!method}
@@ -238,23 +242,35 @@ export default function PaymentMethodFormScreen() {
           </View>
         </View>
       )}
-      <Pressable disabled={saving} onPress={save} style={[styles.save, saving && { opacity: 0.6 }]}>
-        <ThemedText style={styles.saveText}>{method ? t('common.saveChanges') : t('paymentMethods.add')}</ThemedText>
-      </Pressable>
-      {method && settings.defaultPaymentMethodId !== method.id && (
-        <Pressable
-          disabled={saving}
-          onPress={() => void confirmDelete()}
-          style={styles.deleteButton}>
-          <ThemedText style={styles.deleteText}>{t('paymentMethods.delete')}</ThemedText>
+      </ScrollView>
+      <View
+        style={[
+          styles.footer,
+          {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+            paddingBottom: Math.max(insets.bottom, 24),
+          },
+        ]}>
+        <Pressable disabled={saving} onPress={save} style={[styles.save, saving && { opacity: 0.6 }]}>
+          <ThemedText style={styles.saveText}>{method ? t('common.saveChanges') : t('paymentMethods.add')}</ThemedText>
         </Pressable>
-      )}
-    </ScrollView>
+        {method && settings.defaultPaymentMethodId !== method.id && (
+          <Pressable
+            disabled={saving}
+            onPress={() => void confirmDelete()}
+            style={styles.deleteButton}>
+            <ThemedText style={styles.deleteText}>{t('paymentMethods.delete')}</ThemedText>
+          </Pressable>
+        )}
+      </View>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, gap: 10, paddingBottom: 40 },
+  shell: { flex: 1 },
+  container: { padding: 20, gap: 10, paddingBottom: 24 },
   label: { fontWeight: '700', marginTop: 8 },
   input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 12, fontSize: 16, fontFamily: Fonts.regular },
   types: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -266,7 +282,8 @@ const styles = StyleSheet.create({
   favoriteButton: { padding: 6 },
   favoriteDisabled: { opacity: 0.35 },
   hint: { opacity: 0.65, fontSize: 13, lineHeight: 18 },
-  save: { marginTop: 18, borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0B315B' },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 20, paddingTop: 10, gap: 10 },
+  save: { borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0B315B' },
   saveText: { color: '#fff', fontWeight: '700' },
   cyclesButton: { borderWidth: 1, borderRadius: 10, padding: 13, alignItems: 'center' },
   creditActions: { gap: 10, marginTop: 8 },
