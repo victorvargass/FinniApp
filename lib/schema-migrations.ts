@@ -6,6 +6,7 @@ type MigrationDatabase = {
 
 export const SCHEMA_MIGRATIONS = [
   { version: 1, name: 'baseline-versioned-schema' },
+  { version: 2, name: 'payment-method-account-balances' },
 ] as const;
 
 export async function recordAppliedSchema(database: MigrationDatabase): Promise<void> {

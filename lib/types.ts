@@ -5,6 +5,7 @@ export type Period = {
 }
 
 export type CategoryPurpose = 'general' | 'savings';
+export type CategorySystemKey = 'savings' | 'credit_payment';
 
 export const VIRTUAL_SAVINGS_PAYMENT_METHOD_ID = -1;
 
@@ -14,6 +15,7 @@ export type Category = {
   color: string;
   periodLimit: number | null;
   purpose: CategoryPurpose;
+  systemKey: CategorySystemKey | null;
 };
 
 export type SavingsGoalStatus = 'active' | 'archived';
@@ -99,6 +101,7 @@ export type Expense = {
   totalInstallments: number | null;
   savingsGoalId: number | null;
   savingsKind: SavingsExpenseKind | null;
+  creditPaymentTargetId: number | null;
 };
 
 export type Income = {
@@ -132,6 +135,14 @@ export type PaymentMethod = {
   billingDay: number | null;
   color: string;
   active: boolean;
+  creditLimit: number | null;
+  reportedBalance: number | null;
+  balanceUpdatedAt: string | null;
+  availableBalance: number | null;
+  usedAmount: number | null;
+  paymentDueDay: number | null;
+  billedAmount: number;
+  statementDate: string | null;
 };
 
 export type NewPaymentMethod = {
@@ -139,6 +150,15 @@ export type NewPaymentMethod = {
   type: PaymentMethodType;
   billingDay: number | null;
   color: string;
+  creditLimit: number | null;
+  reportedBalance: number | null;
+  balanceDate: string | null;
+  paymentDueDay: number | null;
+};
+
+export type NewPaymentMethodBalance = {
+  balance: number;
+  date: string;
 };
 
 export type PaymentMethodTotal = {
@@ -154,6 +174,7 @@ export type CreditCardCycleStatus = 'pending' | 'reconciled';
 export type PaymentMethodDeletionInfo = {
   expenseCount: number;
   debtPlanCount: number;
+  receivedPaymentCount: number;
 };
 
 export type CreditCardCycle = {
@@ -386,6 +407,7 @@ export type NewCategory = {
   color: string;
   periodLimit: number | null;
   purpose?: CategoryPurpose;
+  systemKey?: CategorySystemKey | null;
 };
 
 export type NewExpense = {
@@ -398,6 +420,7 @@ export type NewExpense = {
   paymentMethodId: number | null;
   savingsGoalId?: number | null;
   savingsKind?: SavingsExpenseKind | null;
+  creditPaymentTargetId?: number | null;
 };
 
 export type RecurringFrequency = 'weekly' | 'monthly' | 'annual' | 'custom';

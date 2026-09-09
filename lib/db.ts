@@ -28,6 +28,7 @@ import type {
   NewDebtBalance,
   NewDebtPayment,
   NewPaymentMethod,
+  NewPaymentMethodBalance,
   NewPeriod,
   NewRecurringExpense,
   NewRecurringIncome,
@@ -70,6 +71,7 @@ const DEFAULT_CATEGORIES: NewCategory[] = [
   { name: t('database.defaultCategories.transport'), color: '#3498db', periodLimit: null },
   { name: t('database.defaultCategories.bills'), color: '#34495e', periodLimit: null },
   { name: t('database.defaultCategories.savings'), color: '#27ae60', periodLimit: null, purpose: 'savings' },
+  { name: t('database.defaultCategories.creditPayment'), color: '#d88916', periodLimit: null, systemKey: 'credit_payment' },
   { name: t('database.defaultCategories.health'), color: '#1abc9c', periodLimit: null },
   { name: t('database.defaultCategories.fun'), color: '#9b59b6', periodLimit: null },
   { name: t('database.defaultCategories.pets'), color: '#e67e22', periodLimit: null },
@@ -554,7 +556,8 @@ async function initializeDatabase(): Promise<void> {
       name TEXT NOT NULL UNIQUE,
       color TEXT NOT NULL UNIQUE DEFAULT '#0a7ea4',
       period_limit INTEGER,
-      purpose TEXT NOT NULL DEFAULT 'general' CHECK (purpose IN ('general', 'savings'))
+      purpose TEXT NOT NULL DEFAULT 'general' CHECK (purpose IN ('general', 'savings')),
+      system_key TEXT UNIQUE CHECK (system_key IS NULL OR system_key IN ('savings', 'credit_payment'))
     );
 
     CREATE TABLE IF NOT EXISTS expenses (
@@ -566,13 +569,18 @@ async function initializeDatabase(): Promise<void> {
       date TEXT NOT NULL,
       original_amount INTEGER,
       split_percentage REAL,
+      credit_payment_target_id INTEGER,
 
       FOREIGN KEY(category_id)
           REFERENCES categories(id)
           ON DELETE RESTRICT,
 
       FOREIGN KEY(period_id)
-          REFERENCES periods(id)
+          REFERENCES periods(id),
+
+      FOREIGN KEY(credit_payment_target_id)
+          REFERENCES payment_methods(id)
+          ON DELETE RESTRICT
     );
 
     CREATE TABLE IF NOT EXISTS incomes (
@@ -590,7 +598,13 @@ async function initializeDatabase(): Promise<void> {
       type TEXT NOT NULL CHECK (type IN ('cash', 'debit', 'prepaid', 'credit')),
       billing_day INTEGER,
       color TEXT NOT NULL DEFAULT '#0a7ea4',
-      active INTEGER NOT NULL DEFAULT 1
+      active INTEGER NOT NULL DEFAULT 1,
+      credit_limit INTEGER,
+      reported_balance INTEGER,
+      balance_updated_at TEXT,
+      balance_expense_anchor_id INTEGER NOT NULL DEFAULT 0,
+      balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0,
+      payment_due_day INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS credit_card_cycles (
@@ -823,6 +837,11 @@ async function initializeDatabase(): Promise<void> {
   if (!expenseColumns.some((column) => column.name === 'debt_installment_id')) {
     await db.execAsync('ALTER TABLE expenses ADD COLUMN debt_installment_id INTEGER;');
   }
+  if (!expenseColumns.some((column) => column.name === 'credit_payment_target_id')) {
+    await db.execAsync(
+      'ALTER TABLE expenses ADD COLUMN credit_payment_target_id INTEGER REFERENCES payment_methods(id) ON DELETE RESTRICT;'
+    );
+  }
   const incomeColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(incomes)');
   if (!incomeColumns.some((column) => column.name === 'recurring_income_id')) {
     await db.execAsync('ALTER TABLE incomes ADD COLUMN recurring_income_id INTEGER;');
@@ -836,10 +855,19 @@ async function initializeDatabase(): Promise<void> {
       "ALTER TABLE categories ADD COLUMN purpose TEXT NOT NULL DEFAULT 'general' CHECK (purpose IN ('general', 'savings'));"
     );
   }
+  if (!categoryColumns.some((column) => column.name === 'system_key')) {
+    await db.execAsync(
+      "ALTER TABLE categories ADD COLUMN system_key TEXT CHECK (system_key IS NULL OR system_key IN ('savings', 'credit_payment'));"
+    );
+  }
+  await db.execAsync(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_system_key ON categories(system_key) WHERE system_key IS NOT NULL;'
+  );
   await db.runAsync(
     "UPDATE categories SET purpose = 'savings' WHERE purpose = 'general' AND lower(trim(name)) = lower(?)",
     t('database.defaultCategories.savings')
   );
+  await db.runAsync("UPDATE categories SET system_key = 'savings' WHERE purpose = 'savings'");
   await db.runAsync("UPDATE categories SET period_limit = NULL WHERE purpose = 'savings'");
 
   const savingsGoalColumns = await db.getAllAsync<{ name: string }>(
@@ -922,6 +950,24 @@ async function initializeDatabase(): Promise<void> {
   if (!paymentMethodColumns.some((column) => column.name === 'color')) {
     await db.execAsync("ALTER TABLE payment_methods ADD COLUMN color TEXT NOT NULL DEFAULT '#0a7ea4';");
   }
+  if (!paymentMethodColumns.some((column) => column.name === 'credit_limit')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN credit_limit INTEGER;');
+  }
+  if (!paymentMethodColumns.some((column) => column.name === 'reported_balance')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN reported_balance INTEGER;');
+  }
+  if (!paymentMethodColumns.some((column) => column.name === 'balance_updated_at')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_updated_at TEXT;');
+  }
+  if (!paymentMethodColumns.some((column) => column.name === 'balance_expense_anchor_id')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_expense_anchor_id INTEGER NOT NULL DEFAULT 0;');
+  }
+  if (!paymentMethodColumns.some((column) => column.name === 'balance_payment_anchor_id')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0;');
+  }
+  if (!paymentMethodColumns.some((column) => column.name === 'payment_due_day')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN payment_due_day INTEGER;');
+  }
 
   const creditCardCycleColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(credit_card_cycles)'
@@ -989,6 +1035,7 @@ async function initializeDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_expenses_period_category ON expenses(period_id, category_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_period_date ON expenses(period_id, date);
     CREATE INDEX IF NOT EXISTS idx_expenses_payment_method ON expenses(payment_method_id);
+    CREATE INDEX IF NOT EXISTS idx_expenses_credit_payment_target ON expenses(credit_payment_target_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_recurring ON expenses(recurring_expense_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_debt_plan ON expenses(debt_plan_id);
     CREATE INDEX IF NOT EXISTS idx_credit_cycles_method_end ON credit_card_cycles(payment_method_id, end_date);
@@ -1033,11 +1080,12 @@ async function initializeDatabase(): Promise<void> {
       // Validamos aquí también para evitar cargar por defecto un color prohibido
       if (!RESERVED_COLORS.map(normalizeColor).includes(normalizeColor(category.color))) {
         await db.runAsync(
-          'INSERT INTO categories (name, color, period_limit, purpose) VALUES (?, ?, ?, ?)',
+          'INSERT INTO categories (name, color, period_limit, purpose, system_key) VALUES (?, ?, ?, ?, ?)',
           category.name,
           category.color,
           category.periodLimit,
-          category.purpose ?? 'general'
+          category.purpose ?? 'general',
+          category.systemKey ?? (category.purpose === 'savings' ? 'savings' : null)
         );
       }
     }
@@ -1052,7 +1100,7 @@ async function initializeDatabase(): Promise<void> {
       t('database.defaultCategories.savings')
     );
     if (existingSavingsName) {
-      await db.runAsync("UPDATE categories SET purpose = 'savings' WHERE id = ?", existingSavingsName.id);
+      await db.runAsync("UPDATE categories SET purpose = 'savings', system_key = 'savings' WHERE id = ?", existingSavingsName.id);
     } else {
       const usedColors = new Set(
         (await db.getAllAsync<{ color: string }>('SELECT color FROM categories'))
@@ -1069,13 +1117,47 @@ async function initializeDatabase(): Promise<void> {
         }
       }
       await db.runAsync(
-        "INSERT INTO categories (name, color, period_limit, purpose) VALUES (?, ?, NULL, 'savings')",
+        "INSERT INTO categories (name, color, period_limit, purpose, system_key) VALUES (?, ?, NULL, 'savings', 'savings')",
         t('database.defaultCategories.savings'),
         savingsColor
       );
     }
   }
 
+  const creditPaymentCategory = await db.getFirstAsync<{ id: number }>(
+    "SELECT id FROM categories WHERE system_key = 'credit_payment' LIMIT 1"
+  );
+  if (!creditPaymentCategory) {
+    const existingPaymentName = await db.getFirstAsync<{ id: number }>(
+      'SELECT id FROM categories WHERE name = ? COLLATE NOCASE LIMIT 1',
+      t('database.defaultCategories.creditPayment')
+    );
+    if (existingPaymentName) {
+      await db.runAsync(
+        "UPDATE categories SET period_limit = NULL, system_key = 'credit_payment' WHERE id = ?",
+        existingPaymentName.id
+      );
+    } else {
+      const usedColors = new Set(
+        (await db.getAllAsync<{ color: string }>('SELECT color FROM categories'))
+          .map((item) => normalizeColor(item.color))
+      );
+      let paymentColor = '#D88916';
+      for (let index = 0; index < 0x1000000; index += 1) {
+        const value = (0xd88916 + index * 0x1f123b) & 0xffffff;
+        const candidate = `#${value.toString(16).padStart(6, '0')}`;
+        if (!usedColors.has(candidate)) {
+          paymentColor = candidate;
+          break;
+        }
+      }
+      await db.runAsync(
+        "INSERT INTO categories (name, color, period_limit, purpose, system_key) VALUES (?, ?, NULL, 'general', 'credit_payment')",
+        t('database.defaultCategories.creditPayment'),
+        paymentColor
+      );
+    }
+  }
   await repairDemoDataIntegrity(db);
   await recordAppliedSchema(db);
 }
@@ -1134,11 +1216,12 @@ export async function resetLocalData(): Promise<void> {
     );
     for (const category of DEFAULT_CATEGORIES) {
       await transaction.runAsync(
-        'INSERT INTO categories (name, color, period_limit, purpose) VALUES (?, ?, ?, ?)',
+        'INSERT INTO categories (name, color, period_limit, purpose, system_key) VALUES (?, ?, ?, ?, ?)',
         category.name,
         category.color,
         category.periodLimit,
-        category.purpose ?? 'general'
+        category.purpose ?? 'general',
+        category.systemKey ?? (category.purpose === 'savings' ? 'savings' : null)
       );
     }
   });
@@ -1190,12 +1273,13 @@ export async function seedDemoData(): Promise<boolean> {
     const previousPeriodId = previousPeriodResult.lastInsertRowId;
     const olderPeriodId = olderPeriodResult.lastInsertRowId;
 
-    const categoryRows = await transaction.getAllAsync<{ id: number; purpose: string }>(
-      "SELECT id, purpose FROM categories ORDER BY purpose = 'savings' DESC, id"
+    const categoryRows = await transaction.getAllAsync<{ id: number; purpose: string; system_key: string | null }>(
+      "SELECT id, purpose, system_key FROM categories ORDER BY purpose = 'savings' DESC, id"
     );
     const savingsCategoryId = categoryRows.find((category) => category.purpose === 'savings')?.id;
+    const creditPaymentCategoryId = categoryRows.find((category) => category.system_key === 'credit_payment')?.id;
     const generalCategoryIds = categoryRows
-      .filter((category) => category.purpose === 'general')
+      .filter((category) => category.purpose === 'general' && category.system_key == null)
       .map((category) => category.id);
     const demoCategoryColors = ['#0C315B', '#20C8B5', '#47D9C2', '#20B8DB', '#184A73'];
     while (generalCategoryIds.length < 5) {
@@ -1244,6 +1328,24 @@ export async function seedDemoData(): Promise<boolean> {
     const debitId = await ensurePaymentMethod('[PRUEBA] Cuenta débito', 'debit', null, '#20C9B5');
     const creditId = await ensurePaymentMethod('[PRUEBA] Tarjeta crédito', 'credit', 18, '#0B315B');
     const prepaidId = await ensurePaymentMethod('[PRUEBA] Prepago', 'prepaid', null, '#20B9DB');
+    await transaction.runAsync(
+      `UPDATE payment_methods
+       SET credit_limit = 1800000, reported_balance = 1800000,
+           balance_updated_at = ?, payment_due_day = 5
+       WHERE id = ? AND reported_balance IS NULL`,
+      olderStart,
+      creditId
+    );
+    await transaction.runAsync(
+      'UPDATE payment_methods SET reported_balance = 1200000, balance_updated_at = ? WHERE id = ? AND reported_balance IS NULL',
+      olderStart,
+      debitId
+    );
+    await transaction.runAsync(
+      'UPDATE payment_methods SET reported_balance = 100000, balance_updated_at = ? WHERE id = ? AND reported_balance IS NULL',
+      olderStart,
+      prepaidId
+    );
     await transaction.runAsync('UPDATE settings SET default_payment_method_id = ? WHERE id = 1', debitId);
 
     const insertIncome = async (name: string, amount: number, periodId: number, date: string) => {
@@ -1306,6 +1408,20 @@ export async function seedDemoData(): Promise<boolean> {
     await insertIncome('[PRUEBA] Reembolso', 45990, currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 9));
     await insertExpense('[PRUEBA] Compra hogar', 129990, generalCategoryIds[1], currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 5), creditId);
     await insertExpense('[PRUEBA] Almuerzo', 12490, generalCategoryIds[0], currentPeriod.id, dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 7), debitId);
+    if (creditPaymentCategoryId != null) {
+      await transaction.runAsync(
+        `INSERT INTO expenses
+          (name, amount, category_id, period_id, date, payment_method_id, credit_payment_target_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        '[PRUEBA] Abono a tarjeta',
+        100000,
+        creditPaymentCategoryId,
+        currentPeriod.id,
+        dateInPeriod(currentPeriod.start_date, currentPeriod.end_date, 10),
+        debitId,
+        creditId
+      );
+    }
 
     const goalResult = await transaction.runAsync(
       `INSERT INTO savings_goals
@@ -1612,6 +1728,9 @@ function mapCategory(row: Record<string, unknown>): Category {
     color: row.color as string,
     periodLimit: row.period_limit != null ? (row.period_limit as number) : null,
     purpose: row.purpose === 'savings' ? 'savings' : 'general',
+    systemKey: row.system_key === 'savings' || row.system_key === 'credit_payment'
+      ? row.system_key
+      : null,
   };
 }
 
@@ -1628,16 +1747,18 @@ export async function createCategory(data: NewCategory): Promise<Category> {
     color: data.color.toLowerCase(),
     periodLimit: data.periodLimit,
     purpose: data.purpose ?? 'general',
+    systemKey: data.systemKey ?? null,
   };
 
   await assertUniqueCategoryFields(db, normalized);
 
   const result = await db.runAsync(
-    'INSERT INTO categories (name, color, period_limit, purpose) VALUES (?, ?, ?, ?)',
+    'INSERT INTO categories (name, color, period_limit, purpose, system_key) VALUES (?, ?, ?, ?, ?)',
     normalized.name,
     normalized.color,
     normalized.periodLimit,
-    normalized.purpose
+    normalized.purpose,
+    normalized.systemKey
   );
   return {
     id: result.lastInsertRowId,
@@ -1645,6 +1766,7 @@ export async function createCategory(data: NewCategory): Promise<Category> {
     color: normalized.color,
     periodLimit: normalized.periodLimit,
     purpose: normalized.purpose,
+    systemKey: normalized.systemKey,
   };
 }
 
@@ -1653,19 +1775,23 @@ export async function updateCategory(
   data: NewCategory
 ): Promise<void> {
   const db = await getDb();
-  const existing = await db.getFirstAsync<{ name: string; purpose: Category['purpose'] }>(
-    'SELECT name, purpose FROM categories WHERE id = ?',
+  const existing = await db.getFirstAsync<{
+    name: string;
+    purpose: Category['purpose'];
+    system_key: Category['systemKey'];
+  }>(
+    'SELECT name, purpose, system_key FROM categories WHERE id = ?',
     id
   );
-  const savingsCategory = existing?.purpose === 'savings';
-  if (savingsCategory && data.name.trim() !== existing.name) {
-    throw new Error(t('database.savingsCategoryNameLocked'));
+  const protectedCategory = existing?.system_key != null || existing?.purpose === 'savings';
+  if (protectedCategory && data.name.trim() !== existing.name) {
+    throw new Error(t('database.protectedCategoryNameLocked'));
   }
   const normalized = {
-    name: savingsCategory ? existing.name : data.name.trim(),
+    name: protectedCategory ? existing.name : data.name.trim(),
     color: data.color.toLowerCase(),
-    periodLimit: savingsCategory ? null : data.periodLimit,
-    purpose: savingsCategory ? 'savings' as const : data.purpose,
+    periodLimit: protectedCategory ? null : data.periodLimit,
+    purpose: existing?.purpose === 'savings' ? 'savings' as const : data.purpose,
   };
 
   await assertUniqueCategoryFields(db, normalized, id);
@@ -1687,12 +1813,12 @@ export async function deleteCategory(
   detachExpenses = false
 ): Promise<void> {
   const db = await getDb();
-  const category = await db.getFirstAsync<{ purpose: string }>(
-    'SELECT purpose FROM categories WHERE id = ?',
+  const category = await db.getFirstAsync<{ purpose: string; system_key: string | null }>(
+    'SELECT purpose, system_key FROM categories WHERE id = ?',
     id
   );
-  if (category?.purpose === 'savings') {
-    throw new Error(t('database.savingsCategoryRequired'));
+  if (category?.purpose === 'savings' || category?.system_key != null) {
+    throw new Error(t('database.protectedCategoryRequired'));
   }
   if (!detachExpenses) {
     await db.runAsync('DELETE FROM categories WHERE id = ?', id);
@@ -2218,6 +2344,39 @@ export async function getSavingsGoalMovements(goalId: number): Promise<SavingsGo
   }));
 }
 
+async function assertCreditPaymentSelection(
+  db: SQLite.SQLiteDatabase,
+  categoryId: number | null,
+  paymentMethodId: number | null,
+  creditPaymentTargetId: number | null
+): Promise<void> {
+  const category = categoryId == null
+    ? null
+    : await db.getFirstAsync<{ system_key: string | null }>(
+        'SELECT system_key FROM categories WHERE id = ?',
+        categoryId
+      );
+  const isCreditPayment = category?.system_key === 'credit_payment';
+  if (isCreditPayment !== (creditPaymentTargetId != null)) {
+    throw new Error(t('database.creditPaymentTargetRequired'));
+  }
+  if (!isCreditPayment) return;
+  if (paymentMethodId == null) {
+    throw new Error(t('database.creditPaymentSourceRequired'));
+  }
+  const [source, target] = await Promise.all([
+    db.getFirstAsync<{ type: PaymentMethod['type'] }>(
+      'SELECT type FROM payment_methods WHERE id = ?', paymentMethodId
+    ),
+    db.getFirstAsync<{ type: PaymentMethod['type'] }>(
+      'SELECT type FROM payment_methods WHERE id = ?', creditPaymentTargetId
+    ),
+  ]);
+  if (!source || !target) throw new Error(t('database.paymentMissing'));
+  if (source.type === 'credit') throw new Error(t('database.creditPaymentSourceInvalid'));
+  if (target.type !== 'credit') throw new Error(t('database.creditPaymentTargetInvalid'));
+}
+
 export async function addSavingsGoalBalanceAdjustment(
   goalId: number,
   data: NewSavingsGoalBalance
@@ -2461,6 +2620,8 @@ export async function getPeriodSavingsFundingTotal(periodId: number): Promise<nu
 }
 
 function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
+  const availableBalance = row.available_balance == null ? null : Number(row.available_balance);
+  const creditLimit = row.credit_limit == null ? null : Number(row.credit_limit);
   return {
     id: row.id as number,
     name: row.name as string,
@@ -2468,16 +2629,54 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
     billingDay: row.billing_day == null ? null : Number(row.billing_day),
     color: row.color as string,
     active: Number(row.active) === 1,
+    creditLimit,
+    reportedBalance: row.reported_balance == null ? null : Number(row.reported_balance),
+    balanceUpdatedAt: row.balance_updated_at == null ? null : String(row.balance_updated_at),
+    availableBalance,
+    usedAmount: creditLimit == null || availableBalance == null
+      ? null
+      : Math.max(0, creditLimit - availableBalance),
+    paymentDueDay: row.payment_due_day == null ? null : Number(row.payment_due_day),
+    billedAmount: Math.max(0, Number(row.billed_amount ?? 0)),
+    statementDate: row.statement_date == null ? null : String(row.statement_date),
   };
 }
 
 export async function getPaymentMethods(includeInactive = false): Promise<PaymentMethod[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<Record<string, unknown>>(
-    `SELECT id, name, type, billing_day, color, active
-     FROM payment_methods
-     ${includeInactive ? '' : 'WHERE active = 1'}
-     ORDER BY active DESC, type ASC, name COLLATE NOCASE ASC`
+    `SELECT method.*,
+       CASE WHEN method.reported_balance IS NULL THEN NULL ELSE
+         method.reported_balance
+         - COALESCE((
+           SELECT SUM(charge.amount) FROM expenses charge
+           WHERE charge.payment_method_id = method.id
+             AND (charge.date > method.balance_updated_at
+               OR (charge.date = method.balance_updated_at AND charge.id > method.balance_expense_anchor_id))
+         ), 0)
+         + COALESCE((
+           SELECT SUM(payment.amount) FROM expenses payment
+           WHERE payment.credit_payment_target_id = method.id
+             AND (payment.date > method.balance_updated_at
+               OR (payment.date = method.balance_updated_at AND payment.id > method.balance_payment_anchor_id))
+         ), 0)
+       END AS available_balance,
+       (SELECT cycle.end_date FROM credit_card_cycles cycle
+        WHERE cycle.payment_method_id = method.id
+        ORDER BY cycle.end_date DESC LIMIT 1) AS statement_date,
+       MAX(0,
+         COALESCE((SELECT cycle.statement_amount FROM credit_card_cycles cycle
+           WHERE cycle.payment_method_id = method.id
+           ORDER BY cycle.end_date DESC LIMIT 1), 0)
+         - COALESCE((SELECT SUM(payment.amount) FROM expenses payment
+           WHERE payment.credit_payment_target_id = method.id
+             AND payment.date >= COALESCE((SELECT cycle.end_date FROM credit_card_cycles cycle
+               WHERE cycle.payment_method_id = method.id
+               ORDER BY cycle.end_date DESC LIMIT 1), '9999-12-31')), 0)
+       ) AS billed_amount
+     FROM payment_methods method
+     ${includeInactive ? '' : 'WHERE method.active = 1'}
+     ORDER BY method.active DESC, method.type ASC, method.name COLLATE NOCASE ASC`
   );
   return rows.map(mapPaymentMethod);
 }
@@ -2489,6 +2688,18 @@ function validatePaymentMethod(data: NewPaymentMethod) {
     if (data.billingDay == null || data.billingDay < 1 || data.billingDay > 31) {
       throw new Error(t('database.invalidBillingDay'));
     }
+    if (data.creditLimit == null || !Number.isInteger(data.creditLimit) || data.creditLimit <= 0) {
+      throw new Error(t('database.creditLimitRequired'));
+    }
+    if (data.paymentDueDay == null || data.paymentDueDay < 1 || data.paymentDueDay > 31) {
+      throw new Error(t('database.invalidPaymentDueDay'));
+    }
+  }
+  if (data.reportedBalance != null && (!Number.isInteger(data.reportedBalance) || data.reportedBalance < 0)) {
+    throw new Error(t('database.paymentBalanceInvalid'));
+  }
+  if (data.type !== 'cash' && data.reportedBalance != null && !data.balanceDate) {
+    throw new Error(t('database.paymentBalanceDateRequired'));
   }
 }
 
@@ -2496,12 +2707,18 @@ export async function createPaymentMethod(data: NewPaymentMethod): Promise<void>
   validatePaymentMethod(data);
   const db = await getDb();
   await db.runAsync(
-    `INSERT INTO payment_methods (name, type, billing_day, color, active)
-     VALUES (?, ?, ?, ?, 1)`,
+    `INSERT INTO payment_methods (
+       name, type, billing_day, color, active, credit_limit, reported_balance,
+       balance_updated_at, payment_due_day
+     ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)`,
     data.name.trim(),
     data.type,
     data.type === 'credit' ? data.billingDay : null,
-    data.color.toLowerCase()
+    data.color.toLowerCase(),
+    data.type === 'credit' ? data.creditLimit : null,
+    data.type === 'cash' ? null : data.reportedBalance,
+    data.type === 'cash' ? null : data.balanceDate,
+    data.type === 'credit' ? data.paymentDueDay : null
   );
 }
 
@@ -2515,12 +2732,55 @@ export async function updatePaymentMethod(id: number, data: NewPaymentMethod): P
   const immutableTypeData = { ...data, type: current.type };
   validatePaymentMethod(immutableTypeData);
   await db.runAsync(
-    `UPDATE payment_methods SET name = ?, billing_day = ?, color = ? WHERE id = ?`,
+    `UPDATE payment_methods
+     SET name = ?, billing_day = ?, color = ?, credit_limit = ?, payment_due_day = ?
+     WHERE id = ?`,
     data.name.trim(),
     current.type === 'credit' ? data.billingDay : null,
     data.color.toLowerCase(),
+    current.type === 'credit' ? data.creditLimit : null,
+    current.type === 'credit' ? data.paymentDueDay : null,
     id
   );
+}
+
+export async function updatePaymentMethodBalance(
+  id: number,
+  data: NewPaymentMethodBalance
+): Promise<void> {
+  if (!Number.isInteger(data.balance) || data.balance < 0) {
+    throw new Error(t('database.paymentBalanceInvalid'));
+  }
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    const method = await transaction.getFirstAsync<{ type: PaymentMethod['type'] }>(
+      'SELECT type FROM payment_methods WHERE id = ?',
+      id
+    );
+    if (!method) throw new Error(t('database.paymentMissing'));
+    if (method.type === 'cash') throw new Error(t('database.cashBalanceUnavailable'));
+    const chargeAnchor = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE payment_method_id = ? AND date <= ?',
+      id,
+      data.date
+    );
+    const paymentAnchor = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE credit_payment_target_id = ? AND date <= ?',
+      id,
+      data.date
+    );
+    await transaction.runAsync(
+      `UPDATE payment_methods
+       SET reported_balance = ?, balance_updated_at = ?,
+           balance_expense_anchor_id = ?, balance_payment_anchor_id = ?
+       WHERE id = ?`,
+      data.balance,
+      data.date,
+      Number(chargeAnchor?.id ?? 0),
+      Number(paymentAnchor?.id ?? 0),
+      id
+    );
+  });
 }
 
 export async function setPaymentMethodActive(id: number, active: boolean): Promise<void> {
@@ -2558,17 +2818,24 @@ export async function setDefaultPaymentMethod(id: number | null): Promise<void> 
 export async function getPaymentMethodDeletionInfo(id: number): Promise<{
   expenseCount: number;
   debtPlanCount: number;
+  receivedPaymentCount: number;
 }> {
   const db = await getDb();
-  const row = await db.getFirstAsync<{ expense_count: number; debt_plan_count: number }>(
+  const row = await db.getFirstAsync<{
+    expense_count: number;
+    debt_plan_count: number;
+    received_payment_count: number;
+  }>(
     `SELECT
       (SELECT COUNT(*) FROM expenses WHERE payment_method_id = ?) AS expense_count,
-      (SELECT COUNT(*) FROM debt_plans WHERE payment_method_id = ?) AS debt_plan_count`,
-    id, id
+      (SELECT COUNT(*) FROM debt_plans WHERE payment_method_id = ?) AS debt_plan_count,
+      (SELECT COUNT(*) FROM expenses WHERE credit_payment_target_id = ?) AS received_payment_count`,
+    id, id, id
   );
   return {
     expenseCount: Number(row?.expense_count ?? 0),
     debtPlanCount: Number(row?.debt_plan_count ?? 0),
+    receivedPaymentCount: Number(row?.received_payment_count ?? 0),
   };
 }
 
@@ -2590,6 +2857,12 @@ export async function deletePaymentMethod(id: number): Promise<void> {
     );
     if (Number(plans?.count ?? 0) > 0) {
       throw new Error(t('database.paymentDebtDelete'));
+    }
+    const receivedPayments = await transaction.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) AS count FROM expenses WHERE credit_payment_target_id = ?', id
+    );
+    if (Number(receivedPayments?.count ?? 0) > 0) {
+      throw new Error(t('database.paymentReceivedPaymentsDelete'));
     }
     await transaction.runAsync('UPDATE expenses SET payment_method_id = NULL WHERE payment_method_id = ?', id);
     await transaction.runAsync('UPDATE recurring_expenses SET payment_method_id = NULL WHERE payment_method_id = ?', id);
@@ -3138,6 +3411,7 @@ export async function createDebtPayment(debtId: number, data: NewDebtPayment): P
   const db = await getDb();
   await assertDateBelongsToPeriod(db, data.periodId, data.date);
   await assertDebtPaymentMethodExists(db, data.paymentMethodId);
+  await assertCreditPaymentSelection(db, data.categoryId, data.paymentMethodId, null);
   await assertCreditCardCycleIsEditable(db, data.paymentMethodId, data.date);
   await withExclusiveTransaction(db, async (transaction) => {
     const debt = await transaction.getFirstAsync<{ name: string }>('SELECT name FROM manual_debts WHERE id = ?', debtId);
@@ -3165,6 +3439,7 @@ export async function updateDebtPayment(entryId: number, data: NewDebtPayment): 
   const db = await getDb();
   await assertDateBelongsToPeriod(db, data.periodId, data.date);
   await assertDebtPaymentMethodExists(db, data.paymentMethodId);
+  await assertCreditPaymentSelection(db, data.categoryId, data.paymentMethodId, null);
   await withExclusiveTransaction(db, async (transaction) => {
     const entry = await transaction.getFirstAsync<{
       debt_id: number;
@@ -3483,6 +3758,7 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
         e.original_amount AS originalAmount,
         e.split_percentage AS splitPercentage,
         e.payment_method_id AS paymentMethodId,
+        e.credit_payment_target_id AS creditPaymentTargetId,
         e.recurring_expense_id AS recurringExpenseId,
         e.debt_plan_id AS debtPlanId,
         debtEntry.debt_id AS debtId,
@@ -3550,6 +3826,7 @@ export async function getExpenseById(id: number): Promise<ExpenseWithCategory | 
       e.original_amount AS originalAmount,
       e.split_percentage AS splitPercentage,
       e.payment_method_id AS paymentMethodId,
+      e.credit_payment_target_id AS creditPaymentTargetId,
       e.recurring_expense_id AS recurringExpenseId,
       e.debt_plan_id AS debtPlanId,
       (SELECT entry.debt_id FROM manual_debt_entries entry WHERE entry.expense_id = e.id) AS debtId,
@@ -3637,6 +3914,12 @@ export async function createExpense(
     : data.paymentMethodId;
   await assertSavingsSelectionMatchesCategory(db, data.categoryId, selection);
   await assertSavingsPaymentMethodAllowed(db, data.categoryId, selection, effectivePaymentMethodId);
+  await assertCreditPaymentSelection(
+    db,
+    data.categoryId,
+    effectivePaymentMethodId,
+    data.creditPaymentTargetId ?? null
+  );
   await assertDateBelongsToPeriod(db, targetPeriodId, data.date);
   await assertCreditCardCycleIsEditable(db, effectivePaymentMethodId, data.date);
 
@@ -3645,8 +3928,8 @@ export async function createExpense(
     const result = await transaction.runAsync(
       `INSERT INTO expenses (
         name, amount, category_id, period_id, date, original_amount,
-        split_percentage, payment_method_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        split_percentage, payment_method_id, credit_payment_target_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       data.name.trim(),
       data.amount,
       data.categoryId,
@@ -3654,7 +3937,8 @@ export async function createExpense(
       data.date,
       data.originalAmount,
       data.splitPercentage,
-      effectivePaymentMethodId
+      effectivePaymentMethodId,
+      data.creditPaymentTargetId ?? null
     );
     createdId = result.lastInsertRowId;
     await setExpenseSavingsMovement(transaction, createdId, data.amount, selection);
@@ -3673,8 +3957,10 @@ export async function updateExpense(
     date: string;
     payment_method_id: number | null;
     recurring_expense_id: number | null;
+    credit_payment_target_id: number | null;
   }>(
-    'SELECT period_id, date, payment_method_id, recurring_expense_id FROM expenses WHERE id = ?',
+    `SELECT period_id, date, payment_method_id, recurring_expense_id,
+       credit_payment_target_id FROM expenses WHERE id = ?`,
     id
   );
   if (!expense) throw new Error(t('database.expenseMissing'));
@@ -3690,6 +3976,15 @@ export async function updateExpense(
   await assertDateBelongsToPeriod(db, expense.period_id, data.date);
   await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
   await assertCreditCardCycleIsEditable(db, effectivePaymentMethodId, data.date);
+  const creditPaymentTargetId = data.creditPaymentTargetId === undefined
+    ? expense.credit_payment_target_id
+    : data.creditPaymentTargetId;
+  await assertCreditPaymentSelection(
+    db,
+    data.categoryId,
+    effectivePaymentMethodId,
+    creditPaymentTargetId
+  );
   if (debtEntry) {
     await assertDebtPaymentMethodExists(db, effectivePaymentMethodId);
     const available = await getDebtBalance(db, debtEntry.debt_id) + debtEntry.amount;
@@ -3707,7 +4002,8 @@ export async function updateExpense(
     await transaction.runAsync(
       `UPDATE expenses SET
         name = ?, amount = ?, category_id = ?, date = ?,
-        original_amount = ?, split_percentage = ?, payment_method_id = ?
+        original_amount = ?, split_percentage = ?, payment_method_id = ?,
+        credit_payment_target_id = ?
        WHERE id = ?`,
       data.name.trim(),
       data.amount,
@@ -3716,6 +4012,7 @@ export async function updateExpense(
       data.originalAmount,
       data.splitPercentage,
       effectivePaymentMethodId,
+      creditPaymentTargetId,
       id
     );
 
@@ -4117,6 +4414,7 @@ async function markPastSavingsOccurrencesSkipped(
 export async function createRecurringExpense(data: NewRecurringExpense): Promise<number> {
   validateRecurringExpense(data);
   const db = await getDb();
+  await assertCreditPaymentSelection(db, data.categoryId, data.paymentMethodId, null);
   let createdId = 0;
   await withExclusiveTransaction(db, async (transaction) => {
     let sourceDate: string | null = null;
@@ -4186,6 +4484,9 @@ export async function createExpenseWithRecurrence(
   schedule: NewRecurringSchedule,
   periodId: number
 ): Promise<number> {
+  if (expense.creditPaymentTargetId != null) {
+    throw new Error(t('database.creditPaymentCannotRecur'));
+  }
   if (schedule.startDate !== expense.date) {
     throw new Error(t('database.recurrenceStartMismatch'));
   }
@@ -4254,6 +4555,7 @@ export async function createExpenseWithRecurrence(
 export async function updateRecurringExpense(id: number, data: NewRecurringExpense): Promise<void> {
   validateRecurringExpense(data);
   const db = await getDb();
+  await assertCreditPaymentSelection(db, data.categoryId, data.paymentMethodId, null);
   await withExclusiveTransaction(db, async (transaction) => {
     const current = await transaction.getFirstAsync<{
       id: number;

@@ -35,10 +35,10 @@ test('schema migration records a deterministic version and application id', asyn
   const database = temporaryDatabase();
   try {
     await recordAppliedSchema({ execAsync: async (source) => { database.exec(source); } });
-    const migration = database.prepare('SELECT version, name FROM schema_migrations').get();
+    const migration = database.prepare('SELECT version, name FROM schema_migrations ORDER BY version DESC').get();
     assert.deepEqual({ ...migration }, {
       version: DATABASE_SCHEMA_VERSION,
-      name: 'baseline-versioned-schema',
+      name: 'payment-method-account-balances',
     });
     assert.equal(database.prepare('PRAGMA user_version').get().user_version, DATABASE_SCHEMA_VERSION);
     assert.equal(database.prepare('PRAGMA application_id').get().application_id, DATABASE_APPLICATION_ID);

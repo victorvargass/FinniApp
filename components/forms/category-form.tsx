@@ -23,6 +23,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const isSavingsCategory = category?.purpose === 'savings';
+  const isProtectedCategory = isSavingsCategory || category?.systemKey != null;
 
   const [name, setName] = useState(category?.name ?? '');
   const [color, setColor] = useState(category?.color ?? '#0B315B');
@@ -41,8 +42,8 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
       return;
     }
 
-    const periodLimit = isSavingsCategory ? null : limitText.trim() ? parseAmount(limitText) : null;
-    if (!isSavingsCategory && limitText.trim() && periodLimit == null) {
+    const periodLimit = isProtectedCategory ? null : limitText.trim() ? parseAmount(limitText) : null;
+    if (!isProtectedCategory && limitText.trim() && periodLimit == null) {
       Alert.alert(t('common.error'), t('validation.invalidCategoryLimit'));
       return;
     }
@@ -50,7 +51,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
     setSaving(true);
     try {
       const data = {
-        name: isSavingsCategory && category ? category.name : name.trim(),
+        name: isProtectedCategory && category ? category.name : name.trim(),
         color,
         periodLimit,
       };
@@ -135,18 +136,22 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
         onChangeText={setName}
-        editable={!isSavingsCategory}
+        editable={!isProtectedCategory}
         placeholder={t('categories.placeholderName')}
         placeholderTextColor={colors.icon}
       />
-      {isSavingsCategory && (
-        <ThemedText style={styles.savingsHint}>{t('categories.savingsReservedHint')}</ThemedText>
+      {isProtectedCategory && (
+        <ThemedText style={styles.savingsHint}>
+          {t(category?.systemKey === 'credit_payment'
+            ? 'categories.creditPaymentReservedHint'
+            : 'categories.savingsReservedHint')}
+        </ThemedText>
       )}
 
       <ThemedText style={styles.label}>{t('categories.color')}</ThemedText>
       <ColorPicker value={color} onChange={setColor} />
 
-      {!isSavingsCategory && (
+      {!isProtectedCategory && (
         <>
           <ThemedText style={styles.label}>{t('categories.limitOptional')}</ThemedText>
           <TextInput
@@ -168,7 +173,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
           {category ? t('common.update') : t('common.save')}
         </ThemedText>
       </Pressable>
-      {category && !isSavingsCategory && (
+      {category && !isProtectedCategory && (
         <Pressable
           style={[styles.deleteButton, saving && styles.buttonDisabled]}
           onPress={handleDelete}

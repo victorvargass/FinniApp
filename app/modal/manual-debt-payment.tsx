@@ -85,7 +85,7 @@ export default function DebtPaymentScreen() {
 
   if (!debt) return <SafeAreaView style={styles.safe}><View style={styles.center}><ThemedText>{t('common.loading')}</ThemedText></View></SafeAreaView>;
   const periodOptions = periods.map((item) => ({ value: item.id, label: `${formatDate(parseIsoDate(item.startDate))} – ${formatDate(parseIsoDate(item.endDate))}` }));
-  const categoryOptions = [{ value: null, label: t('common.notSpecified') }, ...categories.filter((item) => item.purpose === 'general').map((item) => ({ value: item.id, label: item.name, color: item.color }))];
+  const categoryOptions = [{ value: null, label: t('common.notSpecified') }, ...categories.filter((item) => item.purpose === 'general' && item.systemKey == null).map((item) => ({ value: item.id, label: item.name, color: item.color }))];
   const paymentOptions = [
     { value: null, label: t('common.notSpecified') },
     ...paymentMethods

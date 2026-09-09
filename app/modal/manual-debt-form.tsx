@@ -81,7 +81,7 @@ export default function DebtFormScreen() {
 
   const categoryOptions = [
     { value: null, label: t('common.notSpecified') },
-    ...categories.filter((item) => item.purpose === 'general').map((item) => ({ value: item.id, label: item.name, color: item.color })),
+    ...categories.filter((item) => item.purpose === 'general' && item.systemKey == null).map((item) => ({ value: item.id, label: item.name, color: item.color })),
   ];
   const paymentOptions = [
     { value: null, label: t('common.notSpecified') },

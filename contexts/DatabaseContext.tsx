@@ -21,6 +21,7 @@ import type {
   NewDebtPayment,
   NewCreditCardCycle,
   NewPaymentMethod,
+  NewPaymentMethodBalance,
   NewRecurringExpense,
   NewRecurringIncome,
   NewRecurringSchedule,
@@ -84,6 +85,7 @@ type DatabaseContextValue = {
   removeCategory: (id: number, detachExpenses?: boolean) => Promise<void>;
   addPaymentMethod: (data: NewPaymentMethod) => Promise<void>;
   editPaymentMethod: (id: number, data: NewPaymentMethod) => Promise<void>;
+  updatePaymentMethodBalance: (id: number, data: NewPaymentMethodBalance) => Promise<void>;
   setPaymentMethodActive: (id: number, active: boolean) => Promise<void>;
   setDefaultPaymentMethod: (id: number | null) => Promise<void>;
   getPaymentMethodDeletionInfo: (id: number) => Promise<PaymentMethodDeletionInfo>;
@@ -491,6 +493,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const updatePaymentMethodBalance = useCallback(async (id: number, data: NewPaymentMethodBalance) => {
+    await db.updatePaymentMethodBalance(id, data);
+    await refresh();
+  }, [refresh]);
+
   const addSavingsGoalBalanceAdjustment = useCallback(async (id: number, data: NewSavingsGoalBalance) => {
     await db.addSavingsGoalBalanceAdjustment(id, data);
     await refresh();
@@ -757,6 +764,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       removeCategory,
       addPaymentMethod,
       editPaymentMethod,
+      updatePaymentMethodBalance,
       setPaymentMethodActive,
       setDefaultPaymentMethod,
       getPaymentMethodDeletionInfo,
@@ -847,6 +855,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       removeCategory,
       addPaymentMethod,
       editPaymentMethod,
+      updatePaymentMethodBalance,
       setPaymentMethodActive,
       setDefaultPaymentMethod,
       getPaymentMethodDeletionInfo,

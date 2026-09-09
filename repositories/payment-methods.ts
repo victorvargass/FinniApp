@@ -12,4 +12,5 @@ export {
   unreconcileCreditCardCycle,
   updateCreditCardCycle,
   updatePaymentMethod,
+  updatePaymentMethodBalance,
 } from '@/lib/db';
