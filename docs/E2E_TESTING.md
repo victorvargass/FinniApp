@@ -2,6 +2,8 @@
 
 FinniApp usa Maestro sobre una compilación nativa de Expo SDK 54. Los flujos no usan Expo Go: instalan y ejercitan el APK real, SQLite, Expo Router y los formularios de la aplicación.
 
+Las instrucciones reproducibles de instalación, compilación, conexión del teléfono o emulador, configuración de Maestro y solución de problemas están en [WINDOWS_RUNBOOK.md](WINDOWS_RUNBOOK.md).
+
 ## Cobertura automatizada
 
 - primera apertura y omisión del onboarding;
@@ -39,6 +41,8 @@ Requisitos:
 2. Instalar Maestro CLI y comprobarlo con `maestro --version`.
 3. Construir e instalar la app con `npx expo run:android`, o instalar un APK del perfil E2E.
 4. Ejecutar `npm run e2e:android`.
+
+En Windows se recomienda Maestro CLI 1.40.3 para este proyecto. La versión 2.10.0 presentó bloqueos de archivos de sesión durante la verificación del 8 de septiembre de 2026. El comando completo y la configuración de `JAVA_OPTS` están documentados en el manual de Windows.
 
 Para validar Google Drive de extremo a extremo, agrega previamente al AVD una cuenta exclusiva de QA, ejecuta `.maestro/google-drive-boundary.yml`, pulsa `Conectar con Google` y continúa manualmente con respaldo, restauración y cierre de sesión. Usa datos desechables: restaurar reemplaza la base local del emulador.
 

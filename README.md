@@ -1,50 +1,35 @@
-# Welcome to your Expo app 👋
+# FinniApp
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicación móvil de finanzas personales construida con Expo SDK 54 y React Native.
 
-## Get started
+## Desarrollo local
 
-1. Install dependencies
+El entorno utilizado y verificado para este proyecto es Windows con PowerShell, Android SDK y Java 17.
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```powershell
+Set-Location C:\Users\Victor\FinniApp
+npm ci
+npm run check
+npx expo start --dev-client --localhost
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+La compilación nativa, instalación en Android, pruebas Maestro, respaldo Google Drive y solución de problemas están documentados paso a paso en [docs/WINDOWS_RUNBOOK.md](docs/WINDOWS_RUNBOOK.md).
 
-## Learn more
+## Documentación
 
-To learn more about developing your project with Expo, look at the following resources:
+- [Manual reproducible de Windows](docs/WINDOWS_RUNBOOK.md)
+- [Pruebas E2E](docs/E2E_TESTING.md)
+- [Proceso de releases](docs/RELEASE_PROCESS.md)
+- [Seguridad y tratamiento de datos](docs/DATA_SAFETY.md)
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Comandos habituales
 
-## Join the community
+```powershell
+npm run check
+npm run export:android
+npm run e2e:android
+npm run e2e:google
+npm run e2e:eas:android
+```
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`e2e:google` reemplaza y restaura un respaldo y luego cierra la sesión. Debe utilizarse únicamente con una cuenta Google exclusiva de QA y datos desechables.
