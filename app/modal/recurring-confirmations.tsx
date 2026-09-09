@@ -40,7 +40,7 @@ export default function RecurringConfirmationsScreen() {
 
   const confirmMovement = async (item: RecurringDecisionItem) => {
     const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
-    const nounTitle = item.kind === 'expense' ? t('navigation.expense') : t('navigation.income');
+    const nounTitle = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
     try {
       await approveRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate);
       showResult(t('recurrence.createdMovement', { movement: nounTitle }));
@@ -55,7 +55,7 @@ export default function RecurringConfirmationsScreen() {
 
   const omitMovement = (item: RecurringDecisionItem) => {
     const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
-    const nounTitle = item.kind === 'expense' ? t('navigation.expense') : t('navigation.income');
+    const nounTitle = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
     Alert.alert(
       t('recurrence.skipTitle', { movement: noun }),
       t('recurrence.skipDescription', { movement: noun }),
@@ -81,7 +81,7 @@ export default function RecurringConfirmationsScreen() {
 
   const retryMovement = (item: RecurringDecisionItem) => {
     const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
-    const nounTitle = item.kind === 'expense' ? t('navigation.expense') : t('navigation.income');
+    const nounTitle = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
     Alert.alert(
       t('recurrence.retryTitle', { movement: noun }),
       t('recurrence.retryQuestion', { movement: noun, name: item.name }),
