@@ -685,6 +685,10 @@ const es = {
     estimatedCycle: '%{prefix}Se estima para la facturación del %{date}. La fecha real se confirma al registrar el ciclo.',
   },
   settings: {
+    financialManagement: 'Gestión financiera',
+    preferences: 'Preferencias',
+    accountAndHelp: 'Cuenta y ayuda',
+    testingTools: 'Herramientas de prueba',
     biometric: 'Bloqueo biométrico',
     language: 'Idioma',
     languageHint: 'Selecciona el idioma de la aplicación',

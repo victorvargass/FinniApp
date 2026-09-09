@@ -200,7 +200,10 @@ export default function UserScreen() {
           </Pressable>
         </ThemedView>
 
-        <ThemedView style={styles.card}>
+        <ThemedText style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          {t('settings.financialManagement')}
+        </ThemedText>
+        <ThemedView style={[styles.card, styles.groupCard]}>
           <Pressable
             accessibilityLabel={t('accessibility.configureCategories')}
             accessibilityRole="button"
@@ -217,9 +220,7 @@ export default function UserScreen() {
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />
           </Pressable>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
             accessibilityLabel={t('accessibility.configurePaymentMethods')}
             accessibilityRole="button"
@@ -233,9 +234,7 @@ export default function UserScreen() {
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />
           </Pressable>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
             accessibilityLabel={t('accessibility.configureRecurrences')}
             accessibilityRole="button"
@@ -249,9 +248,7 @@ export default function UserScreen() {
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />
           </Pressable>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
             accessibilityLabel={t('accessibility.manageDebts')}
             accessibilityRole="button"
@@ -265,9 +262,7 @@ export default function UserScreen() {
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />
           </Pressable>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
             accessibilityLabel={t('savings.manageAccessibility')}
             accessibilityRole="button"
@@ -288,7 +283,10 @@ export default function UserScreen() {
           </Pressable>
         </ThemedView>
 
-        <ThemedView style={styles.card}>
+        <ThemedText style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          {t('settings.preferences')}
+        </ThemedText>
+        <ThemedView style={[styles.card, styles.groupCard]}>
           <View style={styles.settingRow}>
             <Pressable
               accessibilityLabel={t('accessibility.configureReminder')}
@@ -333,9 +331,7 @@ export default function UserScreen() {
               <Ionicons name="chevron-forward" size={20} color={colors.icon} />
             </Pressable>
           </View>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
               <ThemedText type="subtitle">{t('settings.language')}</ThemedText>
@@ -379,9 +375,7 @@ export default function UserScreen() {
               })}
             </View>
           </View>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
               <ThemedText type="subtitle">{t('settings.darkTheme')}</ThemedText>
@@ -404,9 +398,7 @@ export default function UserScreen() {
               value={colorScheme === 'dark'}
             />
           </View>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
               <ThemedText type="subtitle">{t('settings.biometric')}</ThemedText>
@@ -436,7 +428,10 @@ export default function UserScreen() {
           </View>
         </ThemedView>
 
-        <ThemedView style={styles.card}>
+        <ThemedText style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          {t('settings.accountAndHelp')}
+        </ThemedText>
+        <ThemedView style={[styles.card, styles.groupCard]}>
           <Pressable
             accessibilityLabel={t('accessibility.manageGoogleDrive')}
             accessibilityRole="button"
@@ -450,9 +445,7 @@ export default function UserScreen() {
             </View>
             <Ionicons name="chevron-forward" size={22} color={colors.icon} />
           </Pressable>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push({ pathname: '/onboarding', params: { returnTo: 'user' } })}
@@ -463,9 +456,7 @@ export default function UserScreen() {
             </View>
             <Ionicons name="sparkles-outline" size={22} color={colors.savings} />
           </Pressable>
-        </ThemedView>
-
-        <ThemedView style={styles.card}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/modal/privacy')}
@@ -478,6 +469,9 @@ export default function UserScreen() {
           </Pressable>
         </ThemedView>
 
+        <ThemedText style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          {t('settings.testingTools')}
+        </ThemedText>
         <ThemedView style={styles.card}>
           <View style={styles.testDataHeader}>
             <Ionicons name="flask-outline" size={24} color={colors.savings} />
@@ -608,6 +602,21 @@ const styles = StyleSheet.create({
     elevation: 2,
     gap: 18,
   },
+  groupCard: {
+    paddingVertical: 2,
+    gap: 0,
+  },
+  sectionTitle: {
+    marginTop: 6,
+    paddingHorizontal: 4,
+    fontFamily: Fonts.semiBold,
+    fontSize: 13,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+  },
   description: {
     lineHeight: 21,
   },
@@ -615,6 +624,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    paddingVertical: 16,
   },
   settingCopy: {
     flex: 1,
@@ -649,6 +659,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 14,
+    paddingVertical: 16,
   },
   reminderLink: {
     flex: 1,

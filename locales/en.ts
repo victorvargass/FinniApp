@@ -685,6 +685,10 @@ const en = {
     estimatedCycle: '%{prefix}It is estimated for the billing of %{date}. The actual date is confirmed when registering the cycle.',
   },
   settings: {
+    financialManagement: 'Financial management',
+    preferences: 'Preferences',
+    accountAndHelp: 'Account and help',
+    testingTools: 'Testing tools',
     biometric: 'Biometric lock',
     language: 'Language',
     languageHint: 'Select the application language',
