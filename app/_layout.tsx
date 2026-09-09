@@ -29,7 +29,7 @@ export const unstable_settings = {
 
 function AppContent() {
   const colorScheme = useColorScheme();
-  const { isLanguageReady, language } = useLanguage();
+  const { isLanguageReady } = useLanguage();
   const { hasCompletedOnboarding, isOnboardingReady } = useOnboarding();
   const palette = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
@@ -55,7 +55,7 @@ function AppContent() {
   if (!isLanguageReady || !isOnboardingReady) return <AppLoadingScreen />;
 
   return (
-    <GestureHandlerRootView key={language} style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <BiometricProvider>
         <BiometricGate>
           <DatabaseProvider>
