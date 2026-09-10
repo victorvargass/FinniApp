@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GoogleLogo } from '@/components/google-logo';
+import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Colors, Fonts } from '@/constants/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -132,8 +133,17 @@ export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const { completeOnboarding } = useOnboarding();
+  const { completeOnboarding, hasCompletedOnboarding, isOnboardingReady } = useOnboarding();
   const isLast = page === slides.length - 1;
+  const shouldLeaveRestoredOnboarding = isOnboardingReady
+    && hasCompletedOnboarding
+    && returnTo !== 'user';
+
+  useEffect(() => {
+    if (shouldLeaveRestoredOnboarding) {
+      router.replace('/(tabs)/period');
+    }
+  }, [shouldLeaveRestoredOnboarding]);
 
   const goToPage = (nextPage: number) => {
     const boundedPage = Math.max(0, Math.min(nextPage, slides.length - 1));
@@ -159,6 +169,8 @@ export default function OnboardingScreen() {
       setFinishing(false);
     }
   };
+
+  if (shouldLeaveRestoredOnboarding) return <AppLoadingScreen />;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top', 'bottom']}>
