@@ -8,6 +8,13 @@ const CHANNEL = 'movement-reminders';
 const KIND = 'movement-reminder';
 export const MOVEMENT_REMINDER_URL = '/(tabs)/period' as const;
 
+export class NotificationPermissionError extends Error {
+  constructor(public readonly canAskAgain: boolean) {
+    super(t('errors.notificationPermissionRequired'));
+    this.name = 'NotificationPermissionError';
+  }
+}
+
 async function cancelExisting() {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(scheduled
@@ -29,8 +36,11 @@ export async function syncMovementReminder(settings: MovementReminderSettings): 
     });
   }
   const current = await Notifications.getPermissionsAsync();
+  if (!current.granted && !current.canAskAgain) {
+    throw new NotificationPermissionError(false);
+  }
   const permission = current.granted ? current : await Notifications.requestPermissionsAsync();
-  if (!permission.granted) return false;
+  if (!permission.granted) throw new NotificationPermissionError(permission.canAskAgain);
 
   const base = {
     hour: settings.movementReminderHour,

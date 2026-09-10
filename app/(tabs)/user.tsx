@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
 import React from 'react';
 import {
   Modal,
@@ -23,6 +24,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
+import { NotificationPermissionError } from '@/services/MovementReminderService';
 
 // Utils
 // Components
@@ -317,6 +319,17 @@ export default function UserScreen() {
                     ? 'settings.reminderEnabledToast'
                     : 'settings.reminderDisabledToast')))
                   .catch((toggleError) => {
+                    if (toggleError instanceof NotificationPermissionError && !toggleError.canAskAgain) {
+                      Alert.alert(
+                        t('settings.notificationPermissionTitle'),
+                        t('settings.notificationPermissionSettingsHint'),
+                        [
+                          { text: t('common.cancel'), style: 'cancel' },
+                          { text: t('settings.openSettings'), onPress: () => { void Linking.openSettings(); } },
+                        ]
+                      );
+                      return;
+                    }
                     Alert.alert(t('errors.couldNotUpdate'), toggleError instanceof Error ? toggleError.message : t('common.tryAgain'));
                   });
               }}
