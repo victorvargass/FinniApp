@@ -204,6 +204,12 @@ const en = {
     splitResult: '%{amount} will be recorded as your expense.',
     makeRecurring: 'Make recurring',
     recurringDescription: 'Schedule the creation of this expense on a recurring basis',
+    availableAmount: '%{label}: %{amount}',
+    exceedsAvailableHint: 'The entered amount exceeds the available funds by %{difference}. You can still confirm when saving.',
+    insufficientCreditTitle: 'Insufficient available credit',
+    insufficientBalanceTitle: 'Insufficient available balance',
+    availableBalanceWarning: 'The %{amount} expense exceeds the available %{available} by %{difference}. The recorded balance may be outdated. Do you want to continue anyway?',
+    continueAnyway: 'Continue anyway',
   },
   incomes: {
     add: 'Add income',

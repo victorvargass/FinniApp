@@ -204,6 +204,12 @@ const es = {
     splitResult: 'Se registrará %{amount} como tu gasto.',
     makeRecurring: 'Hacer recurrente',
     recurringDescription: 'Programa la creación de este gasto de manera recurrente',
+    availableAmount: '%{label}: %{amount}',
+    exceedsAvailableHint: 'El monto ingresado supera lo disponible en %{difference}. Podrás confirmar igualmente al guardar.',
+    insufficientCreditTitle: 'Cupo disponible insuficiente',
+    insufficientBalanceTitle: 'Saldo disponible insuficiente',
+    availableBalanceWarning: 'El gasto de %{amount} supera el monto disponible de %{available} en %{difference}. El saldo registrado podría estar desactualizado. ¿Deseas continuar de todas formas?',
+    continueAnyway: 'Continuar de todas formas',
   },
   incomes: {
     add: 'Agregar ingreso',

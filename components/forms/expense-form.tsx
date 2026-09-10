@@ -128,6 +128,13 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
   const isSavingsCategory = selectedCategory?.purpose === 'savings';
   const isCardPayment = selectedCategory?.systemKey === 'credit_payment';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
+  const trackedAvailableBalance = selectedPaymentMethod?.type === 'cash'
+    ? null
+    : selectedPaymentMethod?.availableBalance ?? null;
+  const exceedsAvailableBalance = !expense
+    && amountToSave != null
+    && trackedAvailableBalance != null
+    && amountToSave > trackedAvailableBalance;
   const isSavingsRelated = isSavingsCategory || savingsKind != null;
   const selectablePaymentMethods = visiblePaymentMethods.filter(
     (method) => (!isSavingsRelated && !isCardPayment) || method.type !== 'credit'
@@ -252,7 +259,7 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
     }));
   }, [date, expense, makeRecurring]);
 
-  const handleSave = async () => {
+  const handleSave = async (skipAvailableBalanceWarning = false) => {
     if (!name.trim()) {
       Alert.alert(t('common.error'), t('validation.invalidExpenseName'));
       return;
@@ -275,6 +282,26 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
     }
     if (isCardPayment && paymentMethodId == null) {
       Alert.alert(t('common.error'), t('database.creditPaymentSourceRequired'));
+      return;
+    }
+    if (exceedsAvailableBalance && !skipAvailableBalanceWarning && selectedPaymentMethod) {
+      Alert.alert(
+        selectedPaymentMethod.type === 'credit'
+          ? t('expenses.insufficientCreditTitle')
+          : t('expenses.insufficientBalanceTitle'),
+        t('expenses.availableBalanceWarning', {
+          amount: formatCLP(amountToSave),
+          available: formatCLP(trackedAvailableBalance),
+          difference: formatCLP(amountToSave - trackedAvailableBalance),
+        }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('expenses.continueAnyway'),
+            onPress: () => { void handleSave(true); },
+          },
+        ]
+      );
       return;
     }
     if (!expense && makeRecurring) {
@@ -626,6 +653,31 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
           ]}
         />
       )}
+      {savingsKind !== 'funded_expense' && selectedPaymentMethod && selectedPaymentMethod.type !== 'cash' && (
+        selectedPaymentMethod.availableBalance == null ? (
+          <ThemedText style={[styles.paymentHint, { color: colors.textSecondary }]}>
+            {t('paymentMethods.balanceNotConfigured')}
+          </ThemedText>
+        ) : (
+          <>
+            <ThemedText style={[styles.paymentHint, { color: exceedsAvailableBalance ? colors.expense : colors.textSecondary }]}>
+              {t('expenses.availableAmount', {
+                label: t(selectedPaymentMethod.type === 'credit'
+                  ? 'paymentMethods.availableCredit'
+                  : 'paymentMethods.availableBalance'),
+                amount: formatCLP(selectedPaymentMethod.availableBalance),
+              })}
+            </ThemedText>
+            {exceedsAvailableBalance && amountToSave != null && (
+              <ThemedText style={[styles.paymentHint, { color: colors.expense }]}>
+                {t('expenses.exceedsAvailableHint', {
+                  difference: formatCLP(amountToSave - selectedPaymentMethod.availableBalance),
+                })}
+              </ThemedText>
+            )}
+          </>
+        )
+      )}
       {savingsKind === 'funded_expense' && selectableSavingsGoals.length > 0 && (
         <>
           <ColorSelect
@@ -823,7 +875,7 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
       <Pressable
         testID="expense-save"
         style={[styles.button, styles.footerButton, saving && styles.buttonDisabled]}
-        onPress={handleSave}
+        onPress={() => { void handleSave(); }}
         disabled={saving}>
         <ThemedText style={styles.buttonText}>
           {expense ? t('common.update') : t('common.save')}
