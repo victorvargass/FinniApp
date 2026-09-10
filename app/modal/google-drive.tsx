@@ -86,7 +86,7 @@ export default function GoogleDriveScreen() {
   const runBackup = async () => {
     try {
       await backup();
-      Alert.alert(t('settings.backupCompleted'), t('settings.backupCompletedMessage'));
+      showToast(t('settings.backupCompletedMessage'));
     } catch {
       // El hook muestra el error mediante su estado.
     }
@@ -114,7 +114,7 @@ export default function GoogleDriveScreen() {
   const runRestore = async () => {
     try {
       await restore();
-      Alert.alert(t('settings.restoreCompleted'), t('settings.restoreCompletedMessage'));
+      showToast(t('settings.restoreCompletedMessage'));
     } catch {
       // El hook muestra el error mediante su estado.
     }
