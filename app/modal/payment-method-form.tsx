@@ -229,7 +229,12 @@ export default function PaymentMethodFormScreen() {
         </>
       )}
       {!method && type !== 'cash' && (
-        <>
+        <ThemedView style={[styles.startingCard, { borderColor: colors.border }]}>
+          <View style={styles.startingHeader}>
+            <Ionicons name="navigate-circle-outline" size={24} color={colors.action} />
+            <ThemedText type="subtitle">{t('paymentMethods.startingPointTitle')}</ThemedText>
+          </View>
+          <ThemedText style={styles.hint}>{t('paymentMethods.startingPointOptional')}</ThemedText>
           <ThemedText style={styles.label}>
             {t(type === 'credit'
               ? 'paymentMethods.realAvailableCredit'
@@ -247,7 +252,7 @@ export default function PaymentMethodFormScreen() {
             {t('paymentMethods.balanceUpdatedAt', { date: new Intl.DateTimeFormat().format(new Date()) })}
           </ThemedText>
           <ThemedText style={styles.hint}>{t('paymentMethods.balanceSnapshotHint')}</ThemedText>
-        </>
+        </ThemedView>
       )}
       {method?.type === 'credit' && (
         <View style={styles.creditActions}>
@@ -354,6 +359,8 @@ const styles = StyleSheet.create({
   favoriteButton: { padding: 6 },
   favoriteDisabled: { opacity: 0.35 },
   hint: { opacity: 0.65, fontSize: 13, lineHeight: 18 },
+  startingCard: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 10, marginTop: 8 },
+  startingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 20, paddingTop: 10, gap: 10 },
   save: { borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0B315B' },
   saveText: { color: '#fff', fontWeight: '700' },

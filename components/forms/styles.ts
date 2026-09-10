@@ -159,6 +159,19 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 4,
     opacity: 0.9,
   },
+  balanceNotice: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+  },
+  balanceNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+  },
   dateButton: {
     borderWidth: 1,
     borderRadius: 8,

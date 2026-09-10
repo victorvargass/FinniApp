@@ -138,6 +138,7 @@ export type PaymentMethod = {
   creditLimit: number | null;
   reportedBalance: number | null;
   balanceUpdatedAt: string | null;
+  balanceSyncedAt: string | null;
   availableBalance: number | null;
   usedAmount: number | null;
   registeredCharges: number;

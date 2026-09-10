@@ -604,6 +604,7 @@ async function initializeDatabase(): Promise<void> {
       credit_limit INTEGER,
       reported_balance INTEGER,
       balance_updated_at TEXT,
+      balance_synced_at TEXT,
       balance_expense_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0,
@@ -980,6 +981,9 @@ async function initializeDatabase(): Promise<void> {
       ), 0)
       WHERE balance_updated_at IS NOT NULL;
     `);
+  }
+  if (!paymentMethodColumns.some((column) => column.name === 'balance_synced_at')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_synced_at TEXT;');
   }
   if (!paymentMethodColumns.some((column) => column.name === 'payment_due_day')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN payment_due_day INTEGER;');
@@ -2650,6 +2654,7 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
     creditLimit,
     reportedBalance,
     balanceUpdatedAt: row.balance_updated_at == null ? null : String(row.balance_updated_at),
+    balanceSyncedAt: row.balance_synced_at == null ? null : String(row.balance_synced_at),
     availableBalance,
     usedAmount: creditLimit == null || availableBalance == null
       ? null
@@ -2671,12 +2676,14 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
          SELECT SUM(charge.amount) FROM expenses charge
          WHERE charge.payment_method_id = method.id
            AND charge.debt_plan_id IS NULL
+           AND charge.date <= DATE('now', 'localtime')
            AND (charge.date > method.balance_updated_at
              OR (charge.date = method.balance_updated_at AND charge.id > method.balance_expense_anchor_id))
        ), 0) AS registered_charges,
        COALESCE((
          SELECT SUM(payment.amount) FROM expenses payment
          WHERE payment.credit_payment_target_id = method.id
+           AND payment.date <= DATE('now', 'localtime')
            AND (payment.date > method.balance_updated_at
              OR (payment.date = method.balance_updated_at AND payment.id > method.balance_payment_anchor_id))
        ), 0) AS registered_payments,
@@ -2684,6 +2691,7 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
          SELECT SUM(plan.total_amount) FROM debt_plans plan
          WHERE plan.payment_method_id = method.id
            AND plan.status != 'cancelled'
+           AND plan.purchase_date <= DATE('now', 'localtime')
            AND (plan.purchase_date > method.balance_updated_at
              OR (plan.purchase_date = method.balance_updated_at AND plan.id > method.balance_debt_plan_anchor_id))
        ), 0) AS installment_commitments,
@@ -2808,8 +2816,8 @@ export async function createPaymentMethod(data: NewPaymentMethod): Promise<void>
   await db.runAsync(
     `INSERT INTO payment_methods (
        name, type, billing_day, color, active, credit_limit, reported_balance,
-       balance_updated_at, payment_due_day
-     ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+       balance_updated_at, balance_synced_at, payment_due_day
+     ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
     data.name.trim(),
     data.type,
     data.type === 'credit' ? data.billingDay : null,
@@ -2817,6 +2825,7 @@ export async function createPaymentMethod(data: NewPaymentMethod): Promise<void>
     data.type === 'credit' ? data.creditLimit : null,
     data.type === 'cash' ? null : data.reportedBalance,
     data.type === 'cash' ? null : data.balanceDate,
+    data.type === 'cash' || data.reportedBalance == null ? null : new Date().toISOString(),
     data.type === 'credit' ? data.paymentDueDay : null
   );
 }
@@ -2876,11 +2885,13 @@ export async function updatePaymentMethodBalance(
     await transaction.runAsync(
       `UPDATE payment_methods
        SET reported_balance = ?, balance_updated_at = ?,
+           balance_synced_at = ?,
            balance_expense_anchor_id = ?, balance_payment_anchor_id = ?,
            balance_debt_plan_anchor_id = ?
        WHERE id = ?`,
       data.balance,
       data.date,
+      new Date().toISOString(),
       Number(chargeAnchor?.id ?? 0),
       Number(paymentAnchor?.id ?? 0),
       Number(debtPlanAnchor?.id ?? 0),

@@ -128,6 +128,13 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
   const isSavingsCategory = selectedCategory?.purpose === 'savings';
   const isCardPayment = selectedCategory?.systemKey === 'credit_payment';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
+  const targetCreditCard = paymentMethods.find((method) => method.id === creditPaymentTargetId);
+  const balanceReferenceMethods = isCardPayment
+    ? [selectedPaymentMethod, targetCreditCard]
+    : [selectedPaymentMethod];
+  const historicalBalanceMethod = balanceReferenceMethods.find(
+    (method) => method?.balanceUpdatedAt != null && toDateString(date) < method.balanceUpdatedAt
+  );
   const trackedAvailableBalance = selectedPaymentMethod?.type === 'cash'
     ? null
     : selectedPaymentMethod?.availableBalance ?? null;
@@ -677,6 +684,16 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
             )}
           </>
         )
+      )}
+      {historicalBalanceMethod?.balanceUpdatedAt && (
+        <View style={[styles.balanceNotice, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <Ionicons name="time-outline" size={19} color={colors.action} />
+          <ThemedText style={[styles.balanceNoticeText, { color: colors.textSecondary }]}>
+            {t('expenses.historicalBalanceHint', {
+              date: formatDate(new Date(`${historicalBalanceMethod.balanceUpdatedAt}T12:00:00`)),
+            })}
+          </ThemedText>
+        </View>
       )}
       {savingsKind === 'funded_expense' && selectableSavingsGoals.length > 0 && (
         <>

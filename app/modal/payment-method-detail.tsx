@@ -10,7 +10,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
-import { t } from '@/lib/i18n';
+import { APP_LOCALE, t } from '@/lib/i18n';
 import { getEstimatedPaymentDueDate } from '@/lib/payment-method-calculations';
 import type { PaymentMethodMovement } from '@/lib/types';
 import { getPaymentMethodMovements } from '@/repositories/payment-methods';
@@ -116,15 +116,44 @@ export default function PaymentMethodDetailScreen() {
           )}
           {method.balanceUpdatedAt && (
             <ThemedText style={styles.onCardSmall}>
-              {t('paymentMethods.balanceUpdatedAt', {
+              {t('paymentMethods.balanceEffectiveAt', {
                 date: formatDate(new Date(`${method.balanceUpdatedAt}T12:00:00`)),
+              })}
+            </ThemedText>
+          )}
+          {method.balanceSyncedAt && (
+            <ThemedText style={styles.onCardSmall}>
+              {t('paymentMethods.balanceSyncedAt', {
+                date: new Date(method.balanceSyncedAt).toLocaleString(APP_LOCALE, {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                }),
               })}
             </ThemedText>
           )}
         </View>
 
         {method.type !== 'cash' && method.availableBalance == null && (
-          <ThemedText style={styles.hint}>{t('paymentMethods.balanceNotConfigured')}</ThemedText>
+          <ThemedView style={[styles.setupCard, { borderColor: colors.secondary }]}>
+            <View style={[styles.setupIcon, { backgroundColor: `${colors.secondary}22` }]}>
+              <Ionicons name="sync-outline" size={23} color={colors.action} />
+            </View>
+            <View style={styles.setupCopy}>
+              <ThemedText type="defaultSemiBold">{t('paymentMethods.startingPointTitle')}</ThemedText>
+              <ThemedText style={styles.hint}>{t('paymentMethods.balanceNotConfigured')}</ThemedText>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push({
+                pathname: '/modal/payment-method-balance',
+                params: { id: String(method.id) },
+              })}
+              style={[styles.setupButton, { backgroundColor: colors.secondary }]}>
+              <ThemedText style={[styles.setupButtonText, { color: colors.onSecondary }]}>
+                {t('common.configure')}
+              </ThemedText>
+            </Pressable>
+          </ThemedView>
         )}
         {method.type !== 'cash' && method.reportedBalance != null && method.availableBalance != null && (
           <ThemedView style={styles.calculationCard}>
@@ -296,6 +325,11 @@ const styles = StyleSheet.create({
   accountFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   onCardSmall: { color: '#fff', opacity: 0.88, fontSize: 12 },
   statement: { borderRadius: 14, padding: 17, gap: 6 },
+  setupCard: { borderWidth: 1, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 11, flexWrap: 'wrap' },
+  setupIcon: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  setupCopy: { flex: 1, minWidth: 180, gap: 2 },
+  setupButton: { minHeight: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  setupButtonText: { fontWeight: '700' },
   calculationCard: { borderRadius: 14, padding: 17, gap: 10 },
   calculationRow: { minHeight: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, paddingTop: 4 },
   calculationTotal: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2, paddingTop: 10 },

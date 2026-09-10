@@ -25,9 +25,7 @@ export default function PaymentMethodBalanceScreen() {
   const [showDate, setShowDate] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const save = async () => {
-    const parsed = parseNonNegativeAmount(balance);
-    if (parsed == null) return Alert.alert(t('common.error'), t('database.paymentBalanceInvalid'));
+  const persist = async (parsed: number) => {
     setSaving(true);
     try {
       await updatePaymentMethodBalance(methodId, { balance: parsed, date });
@@ -38,6 +36,29 @@ export default function PaymentMethodBalanceScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const save = () => {
+    const parsed = parseNonNegativeAmount(balance);
+    if (parsed == null) {
+      Alert.alert(t('common.error'), t('database.paymentBalanceInvalid'));
+      return;
+    }
+    if (method?.availableBalance != null && parsed !== method.availableBalance) {
+      const rawDifference = parsed - method.availableBalance;
+      const differenceLabel = `${rawDifference > 0 ? '+' : '−'}${formatCLP(Math.abs(rawDifference))}`;
+      Alert.alert(
+        t('paymentMethods.syncDifferenceTitle'),
+        t('paymentMethods.syncDifferenceMessage', { amount: differenceLabel }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('paymentMethods.syncAction'), onPress: () => { void persist(parsed); } },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+    void persist(parsed);
   };
 
   if (!method) return <SafeAreaView style={styles.safe}><View style={styles.center}><ThemedText>{t('common.loading')}</ThemedText></View></SafeAreaView>;
@@ -73,9 +94,9 @@ export default function PaymentMethodBalanceScreen() {
           )}
           <ThemedText style={styles.label}>{t('paymentMethods.balanceDate')}</ThemedText>
           <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.date, { borderColor: colors.border }]}><ThemedText>{formatDate(new Date(`${date}T12:00:00`))}</ThemedText></Pressable>
-          {showDate && <DateTimePicker value={new Date(`${date}T12:00:00`)} mode="date" onChange={(_, value) => { if (Platform.OS === 'android') setShowDate(false); if (value) setDate(toDateString(value)); }} />}
+          {showDate && <DateTimePicker maximumDate={new Date()} value={new Date(`${date}T12:00:00`)} mode="date" onChange={(_, value) => { if (Platform.OS === 'android') setShowDate(false); if (value) setDate(toDateString(value)); }} />}
         </ThemedView>
-        <Pressable disabled={saving} onPress={() => void save()} style={[styles.primary, saving && styles.disabled]}><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('common.save')}</ThemedText></Pressable>
+        <Pressable disabled={saving} onPress={save} style={[styles.primary, saving && styles.disabled]}><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('paymentMethods.syncAction')}</ThemedText></Pressable>
       </ScrollView>
     </SafeAreaView>
   );
