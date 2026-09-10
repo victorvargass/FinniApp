@@ -165,6 +165,15 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
       setCreditPaymentTargetId(null);
       return;
     }
+    if (creditPaymentTargetId == null) {
+      const defaultTarget = paymentMethods.find(
+        (method) => method.type === 'credit' && method.active
+      );
+      if (defaultTarget) {
+        setCreditPaymentTargetId(defaultTarget.id);
+        return;
+      }
+    }
     setIsInstallmentPurchase(false);
     setMakeRecurring(false);
     setIsSplitAmount(false);
