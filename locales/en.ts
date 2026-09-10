@@ -780,6 +780,7 @@ const en = {
     invalidDueDayHint: 'The estimated due day must be between 1 and 31.',
     recentMovements: 'Recent transactions',
     recentMovementsHint: 'Expenses made and payments received with this payment method.',
+    viewMoreExpenses: 'View more in Expenses',
     loadingMovements: 'Loading transactions...',
     movementsError: 'Transactions could not be loaded.',
     noMovements: 'There are no associated transactions yet.',

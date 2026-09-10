@@ -780,6 +780,7 @@ const es = {
     invalidDueDayHint: 'El día estimado de vencimiento debe estar entre 1 y 31.',
     recentMovements: 'Últimos movimientos',
     recentMovementsHint: 'Gastos realizados y abonos recibidos con este medio de pago.',
+    viewMoreExpenses: 'Ver más en Gastos',
     loadingMovements: 'Cargando movimientos...',
     movementsError: 'No se pudieron cargar los movimientos.',
     noMovements: 'Aún no hay movimientos asociados.',

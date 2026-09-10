@@ -30,7 +30,7 @@ export default function PaymentMethodDetailScreen() {
     let active = true;
     setLoadingMovements(true);
     setMovementsError(false);
-    getPaymentMethodMovements(methodId)
+    getPaymentMethodMovements(methodId, 6)
       .then((items) => {
         if (active) setMovements(items);
       })
@@ -66,6 +66,18 @@ export default function PaymentMethodDetailScreen() {
     prepaid: t('paymentMethods.prepaid'),
     credit: t('paymentMethods.credit'),
   }[method.type];
+  const recentMovements = movements.slice(0, 5);
+  const hasMoreMovements = movements.length > recentMovements.length;
+  const openFilteredExpenses = () => {
+    router.dismissTo({
+      pathname: '/(tabs)/expenses',
+      params: {
+        categoryFilter: '',
+        paymentMethodFilter: String(method.id),
+        filterRequestId: String(Date.now()),
+      },
+    });
+  };
   const action = (
     icon: keyof typeof Ionicons.glyphMap,
     label: string,
@@ -255,7 +267,7 @@ export default function PaymentMethodDetailScreen() {
               <Ionicons name="receipt-outline" size={28} color={colors.icon} />
               <ThemedText style={styles.hint}>{t('paymentMethods.noMovements')}</ThemedText>
             </ThemedView>
-          ) : movements.map((movement) => {
+          ) : recentMovements.map((movement) => {
             const isPaymentReceived = movement.kind === 'credit_payment';
             const isInstallmentPurchase = movement.kind === 'installment_purchase';
             const detail = isInstallmentPurchase
@@ -304,6 +316,23 @@ export default function PaymentMethodDetailScreen() {
               </Pressable>
             );
           })}
+          {hasMoreMovements && (
+            <Pressable
+              accessibilityRole="button"
+              testID="payment-method-view-more-expenses"
+              onPress={openFilteredExpenses}
+              style={({ pressed }) => [
+                styles.viewMoreButton,
+                { borderColor: colors.primary },
+                pressed && styles.pressed,
+              ]}>
+              <Ionicons name="list-outline" size={20} color={colors.primary} />
+              <ThemedText type="defaultSemiBold" style={[styles.viewMoreText, { color: colors.primary }]}>
+                {t('paymentMethods.viewMoreExpenses')}
+              </ThemedText>
+              <Ionicons name="chevron-forward" size={19} color={colors.primary} />
+            </Pressable>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -345,5 +374,7 @@ const styles = StyleSheet.create({
   movementCopy: { flex: 1, gap: 3 },
   movementMeta: { color: '#60758E', fontSize: 12 },
   movementAmount: { fontWeight: '700', fontSize: 14 },
+  viewMoreButton: { minHeight: 50, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  viewMoreText: { flex: 1 },
   pressed: { opacity: 0.72 },
 });
