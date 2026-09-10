@@ -55,6 +55,8 @@ export default function PeriodScreen() {
   // Initial states are just some default dates; sync with settings later.
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
+  const [startDateDraft, setStartDateDraft] = useState<Date | null>(null);
+  const [endDateDraft, setEndDateDraft] = useState<Date | null>(null);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [categorySelectionReset, setCategorySelectionReset] = useState(0);
@@ -67,6 +69,38 @@ export default function PeriodScreen() {
   const periodBalance = periodIncomesTotal + periodSavingsAvailable - periodExpensesTotal;
   const selectedPeriodReport = periodHistory.find((period) => period.periodId === selectedPeriod?.id);
   const hasPeriodMovements = expenses.length > 0 || incomes.length > 0;
+
+  async function saveStartDate(selected: Date) {
+    const selectedDateStr = toDateString(selected);
+    if (selectedDateStr === toDateString(startDate)) return;
+    if (selected > endDate) {
+      Alert.alert(t('common.error'), t('period.invalidStart'));
+      return;
+    }
+    try {
+      await setPeriodStartDate(selectedDateStr);
+      setStartDate(selected);
+      showToast(t('period.startDateUpdated'));
+    } catch (error) {
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('period.updateStartError'));
+    }
+  }
+
+  async function saveEndDate(selected: Date) {
+    const selectedDateStr = toDateString(selected);
+    if (selectedDateStr === toDateString(endDate)) return;
+    if (selected < startDate) {
+      Alert.alert(t('common.error'), t('period.invalidEnd'));
+      return;
+    }
+    try {
+      await setPeriodEndDate(selectedDateStr);
+      setEndDate(selected);
+      showToast(t('period.endDateUpdated'));
+    } catch (error) {
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('period.updateEndError'));
+    }
+  }
 
   async function handleExport() {
     if (!selectedPeriodReport || !hasPeriodMovements || isExporting) return;
@@ -113,6 +147,7 @@ export default function PeriodScreen() {
                 ]}
                 onPress={() => {
                   if (isCurrentPeriod && selectedPeriod?.id === 1) {
+                    setStartDateDraft(startDate);
                     setShowStartDatePicker(true);
                   }
                 }}
@@ -123,31 +158,22 @@ export default function PeriodScreen() {
 
               {showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
                 <DateTimePicker
-                  value={startDate}
+                  value={startDateDraft ?? startDate}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={async (_, selected) => {
+                  onChange={(event, selected) => {
                     if (Platform.OS === 'android') setShowStartDatePicker(false);
-                    if (selected) {
-                      const selectedDateStr = toDateString(selected);
-                      // Chequea que la fecha seleccionada no sea mayor a la fecha de término
-                      if (endDate && selected > endDate) {
-                        Alert.alert(t('common.error'), t('period.invalidStart'));
-                        return;
-                      }
-                      try {
-                        await setPeriodStartDate(selectedDateStr);
-                        setStartDate(selected);
-                        showToast(t('period.startDateUpdated'));
-                      } catch (e: any) {
-                        Alert.alert(t('common.error'), e.message || t('period.updateStartError'));
-                      }
-                    }
+                    if (event.type === 'dismissed' || !selected) return;
+                    if (Platform.OS === 'ios') setStartDateDraft(selected);
+                    else void saveStartDate(selected);
                   }}
                 />
               )}
               {Platform.OS === 'ios' && showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
-                <Pressable style={styles.doneDate} onPress={() => setShowStartDatePicker(false)}>
+                <Pressable style={styles.doneDate} onPress={() => {
+                  setShowStartDatePicker(false);
+                  if (startDateDraft) void saveStartDate(startDateDraft);
+                }}>
                   <ThemedText type="link">{t('common.done')}</ThemedText>
                 </Pressable>
               )}
@@ -158,37 +184,31 @@ export default function PeriodScreen() {
               <Pressable
                 style={[styles.dateButton, { borderColor: colors.icon }, !isCurrentPeriod && { opacity: 0.5 }]}
                 disabled={!isCurrentPeriod}
-                onPress={() => setShowEndDatePicker(true)}>
+                onPress={() => {
+                  setEndDateDraft(endDate);
+                  setShowEndDatePicker(true);
+                }}>
                 <ThemedText>{formatDate(endDate)}</ThemedText>
               </Pressable>
 
               {showEndDatePicker && isCurrentPeriod && (
                 <DateTimePicker
-                  value={endDate}
+                  value={endDateDraft ?? endDate}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={async (_, selected) => {
+                  onChange={(event, selected) => {
                     if (Platform.OS === 'android') setShowEndDatePicker(false);
-                    if (selected) {
-                      const selectedDateStr = toDateString(selected);
-                      // Chequea que la fecha seleccionada no sea menor a la fecha de inicio
-                      if (startDate && selected < startDate) {
-                        Alert.alert(t('common.error'), t('period.invalidEnd'));
-                        return;
-                      }
-                      try {
-                        await setPeriodEndDate(selectedDateStr);
-                        setEndDate(selected);
-                        showToast(t('period.endDateUpdated'));
-                      } catch (e: any) {
-                        Alert.alert(t('common.error'), e.message || t('period.updateEndError'));
-                      }
-                    }
+                    if (event.type === 'dismissed' || !selected) return;
+                    if (Platform.OS === 'ios') setEndDateDraft(selected);
+                    else void saveEndDate(selected);
                   }}
                 />
               )}
               {Platform.OS === 'ios' && showEndDatePicker && (
-                <Pressable style={styles.doneDate} onPress={() => setShowEndDatePicker(false)}>
+                <Pressable style={styles.doneDate} onPress={() => {
+                  setShowEndDatePicker(false);
+                  if (endDateDraft) void saveEndDate(endDateDraft);
+                }}>
                   <ThemedText type="link">{t('common.done')}</ThemedText>
                 </Pressable>
               )}
