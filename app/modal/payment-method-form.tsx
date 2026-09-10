@@ -230,7 +230,11 @@ export default function PaymentMethodFormScreen() {
       )}
       {!method && type !== 'cash' && (
         <>
-          <ThemedText style={styles.label}>{t('paymentMethods.balance')}</ThemedText>
+          <ThemedText style={styles.label}>
+            {t(type === 'credit'
+              ? 'paymentMethods.realAvailableCredit'
+              : 'paymentMethods.realAvailableBalance')}
+          </ThemedText>
           <TextInput
             keyboardType="number-pad"
             value={reportedBalanceText}
@@ -242,6 +246,7 @@ export default function PaymentMethodFormScreen() {
           <ThemedText style={styles.hint}>
             {t('paymentMethods.balanceUpdatedAt', { date: new Intl.DateTimeFormat().format(new Date()) })}
           </ThemedText>
+          <ThemedText style={styles.hint}>{t('paymentMethods.balanceSnapshotHint')}</ThemedText>
         </>
       )}
       {method?.type === 'credit' && (

@@ -8,7 +8,12 @@ import {
 
 test('available balance applies charges and card payments after the snapshot', () => {
   assert.equal(calculateAvailableBalance(1_000_000, 250_000, 80_000), 830_000);
-  assert.equal(calculateAvailableBalance(50_000, 80_000, 0), 0);
+  assert.equal(calculateAvailableBalance(50_000, 80_000, 0), -30_000);
+});
+
+test('installment purchases consume their full total only once', () => {
+  assert.equal(calculateAvailableBalance(1_000_000, 0, 0, 600_000), 400_000);
+  assert.equal(calculateAvailableBalance(1_000_000, 100_000, 80_000, 600_000), 380_000);
 });
 
 test('due date uses the next valid occurrence of the configured day', () => {

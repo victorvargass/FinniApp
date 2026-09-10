@@ -140,6 +140,9 @@ export type PaymentMethod = {
   balanceUpdatedAt: string | null;
   availableBalance: number | null;
   usedAmount: number | null;
+  registeredCharges: number;
+  registeredPayments: number;
+  installmentCommitments: number;
   paymentDueDay: number | null;
   billedAmount: number;
   statementDate: string | null;
@@ -150,7 +153,7 @@ export type PaymentMethodMovement = {
   name: string;
   amount: number;
   date: string;
-  kind: 'expense' | 'credit_payment';
+  kind: 'expense' | 'credit_payment' | 'installment_purchase';
   categoryName: string | null;
   relatedPaymentMethodName: string | null;
 };

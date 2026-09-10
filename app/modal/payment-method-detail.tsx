@@ -126,6 +126,47 @@ export default function PaymentMethodDetailScreen() {
         {method.type !== 'cash' && method.availableBalance == null && (
           <ThemedText style={styles.hint}>{t('paymentMethods.balanceNotConfigured')}</ThemedText>
         )}
+        {method.type !== 'cash' && method.reportedBalance != null && method.availableBalance != null && (
+          <ThemedView style={styles.calculationCard}>
+            <ThemedText type="subtitle">{t('paymentMethods.calculationTitle')}</ThemedText>
+            {method.balanceUpdatedAt && (
+              <ThemedText style={styles.hint}>
+                {t('paymentMethods.calculationSince', {
+                  date: formatDate(new Date(`${method.balanceUpdatedAt}T12:00:00`)),
+                })}
+              </ThemedText>
+            )}
+            <View style={styles.calculationRow}>
+              <ThemedText>{t('paymentMethods.reportedAvailable')}</ThemedText>
+              <ThemedText type="defaultSemiBold">{formatCLP(method.reportedBalance)}</ThemedText>
+            </View>
+            <View style={styles.calculationRow}>
+              <ThemedText>{t('paymentMethods.registeredExpenses')}</ThemedText>
+              <ThemedText style={{ color: colors.expense }}>−{formatCLP(method.registeredCharges)}</ThemedText>
+            </View>
+            {isCredit && (
+              <View style={styles.calculationRow}>
+                <ThemedText>{t('paymentMethods.installmentCommitments')}</ThemedText>
+                <ThemedText style={{ color: colors.expense }}>−{formatCLP(method.installmentCommitments)}</ThemedText>
+              </View>
+            )}
+            <View style={styles.calculationRow}>
+              <ThemedText>{t('paymentMethods.registeredPayments')}</ThemedText>
+              <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredPayments)}</ThemedText>
+            </View>
+            <View style={[styles.calculationRow, styles.calculationTotal, { borderTopColor: colors.border }]}>
+              <ThemedText type="defaultSemiBold">{t('paymentMethods.calculatedAvailable')}</ThemedText>
+              <ThemedText type="defaultSemiBold">{formatCLP(method.availableBalance)}</ThemedText>
+            </View>
+            {method.availableBalance < 0 && (
+              <ThemedText style={{ color: colors.danger }}>
+                {t('paymentMethods.overLimitAmount', {
+                  amount: formatCLP(Math.abs(method.availableBalance)),
+                })}
+              </ThemedText>
+            )}
+          </ThemedView>
+        )}
         {isCredit && (
           <ThemedView style={styles.statement}>
             <ThemedText type="subtitle">{t('paymentMethods.billedToPay')}</ThemedText>
@@ -187,7 +228,10 @@ export default function PaymentMethodDetailScreen() {
             </ThemedView>
           ) : movements.map((movement) => {
             const isPaymentReceived = movement.kind === 'credit_payment';
-            const detail = isPaymentReceived
+            const isInstallmentPurchase = movement.kind === 'installment_purchase';
+            const detail = isInstallmentPurchase
+              ? t('paymentMethods.installmentPurchaseTotal')
+              : isPaymentReceived
               ? t('paymentMethods.paymentReceivedFrom', {
                   name: movement.relatedPaymentMethodName ?? t('common.notSpecified'),
                 })
@@ -198,10 +242,9 @@ export default function PaymentMethodDetailScreen() {
               <Pressable
                 accessibilityRole="button"
                 key={`${movement.kind}-${movement.id}`}
-                onPress={() => router.push({
-                  pathname: '/modal/expense-form',
-                  params: { id: String(movement.id) },
-                })}
+                onPress={() => router.push(isInstallmentPurchase
+                  ? { pathname: '/modal/debt-detail', params: { id: String(movement.id) } }
+                  : { pathname: '/modal/expense-form', params: { id: String(movement.id) } })}
                 style={({ pressed }) => [
                   styles.movementRow,
                   { borderColor: colors.border },
@@ -212,7 +255,7 @@ export default function PaymentMethodDetailScreen() {
                   { backgroundColor: isPaymentReceived ? `${colors.success}20` : `${colors.expense}18` },
                 ]}>
                   <Ionicons
-                    name={isPaymentReceived ? 'arrow-down' : 'arrow-up'}
+                    name={isPaymentReceived ? 'arrow-down' : isInstallmentPurchase ? 'card-outline' : 'arrow-up'}
                     size={19}
                     color={isPaymentReceived ? colors.success : colors.expense}
                   />
@@ -253,6 +296,9 @@ const styles = StyleSheet.create({
   accountFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   onCardSmall: { color: '#fff', opacity: 0.88, fontSize: 12 },
   statement: { borderRadius: 14, padding: 17, gap: 6 },
+  calculationCard: { borderRadius: 14, padding: 17, gap: 10 },
+  calculationRow: { minHeight: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, paddingTop: 4 },
+  calculationTotal: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2, paddingTop: 10 },
   hint: { opacity: 0.68, lineHeight: 19 },
   actions: { gap: 10 },
   action: { minHeight: 56, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },

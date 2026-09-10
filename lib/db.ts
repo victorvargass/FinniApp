@@ -7,6 +7,7 @@ import {
   DATABASE_NAME,
 } from './database-schema';
 import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financial-calculations';
+import { calculateAvailableBalance } from './payment-method-calculations';
 import { recordAppliedSchema } from './schema-migrations';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
@@ -605,6 +606,7 @@ async function initializeDatabase(): Promise<void> {
       balance_updated_at TEXT,
       balance_expense_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0,
+      balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0,
       payment_due_day INTEGER
     );
 
@@ -965,6 +967,19 @@ async function initializeDatabase(): Promise<void> {
   }
   if (!paymentMethodColumns.some((column) => column.name === 'balance_payment_anchor_id')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0;');
+  }
+  if (!paymentMethodColumns.some((column) => column.name === 'balance_debt_plan_anchor_id')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0;');
+    await db.execAsync(`
+      UPDATE payment_methods
+      SET balance_debt_plan_anchor_id = COALESCE((
+        SELECT MAX(plan.id)
+        FROM debt_plans plan
+        WHERE plan.payment_method_id = payment_methods.id
+          AND plan.purchase_date <= payment_methods.balance_updated_at
+      ), 0)
+      WHERE balance_updated_at IS NOT NULL;
+    `);
   }
   if (!paymentMethodColumns.some((column) => column.name === 'payment_due_day')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN payment_due_day INTEGER;');
@@ -2612,8 +2627,19 @@ export async function getPeriodSavingsFundingTotal(periodId: number): Promise<nu
 }
 
 function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
-  const availableBalance = row.available_balance == null ? null : Number(row.available_balance);
   const creditLimit = row.credit_limit == null ? null : Number(row.credit_limit);
+  const reportedBalance = row.reported_balance == null ? null : Number(row.reported_balance);
+  const registeredCharges = Number(row.registered_charges ?? 0);
+  const registeredPayments = Number(row.registered_payments ?? 0);
+  const installmentCommitments = Number(row.installment_commitments ?? 0);
+  const availableBalance = reportedBalance == null
+    ? null
+    : calculateAvailableBalance(
+        reportedBalance,
+        registeredCharges,
+        registeredPayments,
+        installmentCommitments
+      );
   return {
     id: row.id as number,
     name: row.name as string,
@@ -2622,12 +2648,15 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
     color: row.color as string,
     active: Number(row.active) === 1,
     creditLimit,
-    reportedBalance: row.reported_balance == null ? null : Number(row.reported_balance),
+    reportedBalance,
     balanceUpdatedAt: row.balance_updated_at == null ? null : String(row.balance_updated_at),
     availableBalance,
     usedAmount: creditLimit == null || availableBalance == null
       ? null
       : Math.max(0, creditLimit - availableBalance),
+    registeredCharges,
+    registeredPayments,
+    installmentCommitments,
     paymentDueDay: row.payment_due_day == null ? null : Number(row.payment_due_day),
     billedAmount: Math.max(0, Number(row.billed_amount ?? 0)),
     statementDate: row.statement_date == null ? null : String(row.statement_date),
@@ -2638,21 +2667,26 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
   const db = await getDb();
   const rows = await db.getAllAsync<Record<string, unknown>>(
     `SELECT method.*,
-       CASE WHEN method.reported_balance IS NULL THEN NULL ELSE
-         method.reported_balance
-         - COALESCE((
-           SELECT SUM(charge.amount) FROM expenses charge
-           WHERE charge.payment_method_id = method.id
-             AND (charge.date > method.balance_updated_at
-               OR (charge.date = method.balance_updated_at AND charge.id > method.balance_expense_anchor_id))
-         ), 0)
-         + COALESCE((
-           SELECT SUM(payment.amount) FROM expenses payment
-           WHERE payment.credit_payment_target_id = method.id
-             AND (payment.date > method.balance_updated_at
-               OR (payment.date = method.balance_updated_at AND payment.id > method.balance_payment_anchor_id))
-         ), 0)
-       END AS available_balance,
+       COALESCE((
+         SELECT SUM(charge.amount) FROM expenses charge
+         WHERE charge.payment_method_id = method.id
+           AND charge.debt_plan_id IS NULL
+           AND (charge.date > method.balance_updated_at
+             OR (charge.date = method.balance_updated_at AND charge.id > method.balance_expense_anchor_id))
+       ), 0) AS registered_charges,
+       COALESCE((
+         SELECT SUM(payment.amount) FROM expenses payment
+         WHERE payment.credit_payment_target_id = method.id
+           AND (payment.date > method.balance_updated_at
+             OR (payment.date = method.balance_updated_at AND payment.id > method.balance_payment_anchor_id))
+       ), 0) AS registered_payments,
+       COALESCE((
+         SELECT SUM(plan.total_amount) FROM debt_plans plan
+         WHERE plan.payment_method_id = method.id
+           AND plan.status != 'cancelled'
+           AND (plan.purchase_date > method.balance_updated_at
+             OR (plan.purchase_date = method.balance_updated_at AND plan.id > method.balance_debt_plan_anchor_id))
+       ), 0) AS installment_commitments,
        (SELECT cycle.end_date FROM credit_card_cycles cycle
         WHERE cycle.payment_method_id = method.id
         ORDER BY cycle.end_date DESC LIMIT 1) AS statement_date,
@@ -2688,27 +2722,45 @@ export async function getPaymentMethodMovements(
     category_name: string | null;
     related_payment_method_name: string | null;
   }>(
-    `SELECT
-       expense.id,
-       expense.name,
-       expense.amount,
-       expense.date,
-       CASE
-         WHEN expense.credit_payment_target_id = ? THEN 'credit_payment'
-         ELSE 'expense'
-       END AS kind,
-       category.name AS category_name,
-       CASE
-         WHEN expense.credit_payment_target_id = ? THEN source_method.name
-         ELSE target_method.name
-       END AS related_payment_method_name
-     FROM expenses expense
-     LEFT JOIN categories category ON category.id = expense.category_id
-     LEFT JOIN payment_methods source_method ON source_method.id = expense.payment_method_id
-     LEFT JOIN payment_methods target_method ON target_method.id = expense.credit_payment_target_id
-     WHERE expense.payment_method_id = ? OR expense.credit_payment_target_id = ?
-     ORDER BY expense.date DESC, expense.id DESC
+    `SELECT * FROM (
+       SELECT
+         expense.id,
+         expense.name,
+         expense.amount,
+         expense.date,
+         CASE
+           WHEN expense.credit_payment_target_id = ? THEN 'credit_payment'
+           ELSE 'expense'
+         END AS kind,
+         category.name AS category_name,
+         CASE
+           WHEN expense.credit_payment_target_id = ? THEN source_method.name
+           ELSE target_method.name
+         END AS related_payment_method_name
+       FROM expenses expense
+       LEFT JOIN categories category ON category.id = expense.category_id
+       LEFT JOIN payment_methods source_method ON source_method.id = expense.payment_method_id
+       LEFT JOIN payment_methods target_method ON target_method.id = expense.credit_payment_target_id
+       WHERE (expense.payment_method_id = ? AND expense.debt_plan_id IS NULL)
+          OR expense.credit_payment_target_id = ?
+
+       UNION ALL
+
+       SELECT
+         plan.id,
+         plan.name,
+         plan.total_amount AS amount,
+         plan.purchase_date AS date,
+         'installment_purchase' AS kind,
+         category.name AS category_name,
+         NULL AS related_payment_method_name
+       FROM debt_plans plan
+       LEFT JOIN categories category ON category.id = plan.category_id
+       WHERE plan.payment_method_id = ? AND plan.status != 'cancelled'
+     )
+     ORDER BY date DESC, id DESC
      LIMIT ?`,
+    paymentMethodId,
     paymentMethodId,
     paymentMethodId,
     paymentMethodId,
@@ -2816,15 +2868,22 @@ export async function updatePaymentMethodBalance(
       id,
       data.date
     );
+    const debtPlanAnchor = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT COALESCE(MAX(id), 0) AS id FROM debt_plans WHERE payment_method_id = ? AND purchase_date <= ?',
+      id,
+      data.date
+    );
     await transaction.runAsync(
       `UPDATE payment_methods
        SET reported_balance = ?, balance_updated_at = ?,
-           balance_expense_anchor_id = ?, balance_payment_anchor_id = ?
+           balance_expense_anchor_id = ?, balance_payment_anchor_id = ?,
+           balance_debt_plan_anchor_id = ?
        WHERE id = ?`,
       data.balance,
       data.date,
       Number(chargeAnchor?.id ?? 0),
       Number(paymentAnchor?.id ?? 0),
+      Number(debtPlanAnchor?.id ?? 0),
       id
     );
   });
