@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GoogleLogo } from '@/components/google-logo';
+import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -65,6 +66,24 @@ function ActionButton({
 export default function GoogleDriveScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const guide = useFeatureGuide('google-drive');
+  const guideSlides = [
+    {
+      icon: 'cloud-outline' as const,
+      title: t('featureGuides.googleDrive.optionalTitle'),
+      body: t('featureGuides.googleDrive.optionalBody'),
+    },
+    {
+      icon: 'cloud-upload-outline' as const,
+      title: t('featureGuides.googleDrive.backupTitle'),
+      body: t('featureGuides.googleDrive.backupBody'),
+    },
+    {
+      icon: 'cloud-download-outline' as const,
+      title: t('featureGuides.googleDrive.restoreTitle'),
+      body: t('featureGuides.googleDrive.restoreBody'),
+    },
+  ];
   const {
     user,
     isLoading,
@@ -157,7 +176,10 @@ export default function GoogleDriveScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">{t('settings.googleDrive')}</ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText type="title" style={styles.title}>{t('settings.googleDrive')}</ThemedText>
+          <FeatureGuideButton onPress={guide.open} />
+        </View>
         <ThemedText style={styles.intro}>{t('settings.googleDriveHint')}</ThemedText>
 
         <ThemedView style={styles.card}>
@@ -248,6 +270,7 @@ export default function GoogleDriveScreen() {
           )}
         </ThemedView>
       </ScrollView>
+      <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
     </SafeAreaView>
   );
 }
@@ -260,6 +283,14 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
     gap: 13,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  title: {
+    flex: 1,
   },
   intro: {
     lineHeight: 20,

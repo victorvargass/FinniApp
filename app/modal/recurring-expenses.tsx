@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -32,14 +33,38 @@ export default function RecurringExpensesScreen() {
   } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [section, setSection] = useState<'expenses' | 'incomes'>('incomes');
+  const guide = useFeatureGuide('recurrences');
+  const guideSlides = [
+    {
+      icon: 'repeat-outline' as const,
+      title: t('featureGuides.recurrences.scheduleTitle'),
+      body: t('featureGuides.recurrences.scheduleBody'),
+    },
+    {
+      icon: 'options-outline' as const,
+      title: t('featureGuides.recurrences.modeTitle'),
+      body: t('featureGuides.recurrences.modeBody'),
+    },
+    {
+      icon: 'notifications-outline' as const,
+      title: t('featureGuides.recurrences.pendingTitle'),
+      body: t('featureGuides.recurrences.pendingBody'),
+    },
+  ];
 
   const tabs = (
-    <View style={[styles.tabs, { borderColor: colors.border }]}> 
-      {([['incomes', t('navigation.incomes')], ['expenses', t('navigation.expenses')]] as const).map(([value, label]) => (
-        <Pressable key={value} onPress={() => setSection(value)} style={[styles.tab, section === value && styles.selectedTab]}>
-          <ThemedText style={section === value ? styles.selectedTabText : undefined}>{label}</ThemedText>
-        </Pressable>
-      ))}
+    <View style={styles.headerBlock}>
+      <View style={styles.guideRow}>
+        <ThemedText style={styles.guideIntro}>{t('recurrence.guideIntro')}</ThemedText>
+        <FeatureGuideButton onPress={guide.open} />
+      </View>
+      <View style={[styles.tabs, { borderColor: colors.border }]}>
+        {([['incomes', t('navigation.incomes')], ['expenses', t('navigation.expenses')]] as const).map(([value, label]) => (
+          <Pressable key={value} onPress={() => setSection(value)} style={[styles.tab, section === value && styles.selectedTab]}>
+            <ThemedText style={section === value ? styles.selectedTabText : undefined}>{label}</ThemedText>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 
@@ -137,6 +162,7 @@ export default function RecurringExpensesScreen() {
             </ThemedView>
           )}
         />
+        <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
       </SafeAreaView>
     );
   }
@@ -254,6 +280,7 @@ export default function RecurringExpensesScreen() {
           </ThemedView>
         )}
       />
+      <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
     </SafeAreaView>
   );
 }
@@ -261,6 +288,9 @@ export default function RecurringExpensesScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   list: { padding: 20, paddingBottom: 28, gap: 10 },
+  headerBlock: { gap: 12 },
+  guideRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  guideIntro: { flex: 1, opacity: 0.68, lineHeight: 19 },
   empty: { textAlign: 'center', opacity: 0.6, marginTop: 40 },
   card: { borderRadius: 12, padding: 14, gap: 12 },
   inactive: { opacity: 0.58 },

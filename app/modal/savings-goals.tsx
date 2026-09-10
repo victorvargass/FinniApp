@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
+import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
 import { SavingsGoalProgress } from '@/components/SavingsGoalProgress';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -108,6 +109,24 @@ export default function SavingsGoalsScreen() {
   const { savingsGoals } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [showArchived, setShowArchived] = useState(false);
+  const guide = useFeatureGuide('savings');
+  const guideSlides = [
+    {
+      icon: 'flag-outline' as const,
+      title: t('featureGuides.savings.goalTitle'),
+      body: t('featureGuides.savings.goalBody'),
+    },
+    {
+      icon: 'swap-vertical-outline' as const,
+      title: t('featureGuides.savings.contributionTitle'),
+      body: t('featureGuides.savings.contributionBody'),
+    },
+    {
+      icon: 'archive-outline' as const,
+      title: t('featureGuides.savings.historyTitle'),
+      body: t('featureGuides.savings.historyBody'),
+    },
+  ];
 
   const currentGoals = useMemo(
     () => savingsGoals.filter((goal) => goal.status !== 'archived'),
@@ -124,7 +143,10 @@ export default function SavingsGoalsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">{t('savings.title')}</ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText type="title" style={styles.title}>{t('savings.title')}</ThemedText>
+          <FeatureGuideButton onPress={guide.open} />
+        </View>
         <ThemedText style={styles.intro}>
           {t('savings.intro')}
         </ThemedText>
@@ -174,6 +196,8 @@ export default function SavingsGoalsScreen() {
         )}
       </ScrollView>
 
+      <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
+
       <FloatingActionButton
         accessibilityLabel={t('savings.createGoal')}
         avoidBottomInset
@@ -191,6 +215,14 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 110,
     gap: 13,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  title: {
+    flex: 1,
   },
   intro: {
     lineHeight: 20,

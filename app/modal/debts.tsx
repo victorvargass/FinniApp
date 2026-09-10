@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
+import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -31,6 +32,24 @@ export default function DebtsScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
   const [plans, setPlans] = useState<DebtPlan[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const guide = useFeatureGuide('debts');
+  const guideSlides = [
+    {
+      icon: 'documents-outline' as const,
+      title: t('featureGuides.debts.typesTitle'),
+      body: t('featureGuides.debts.typesBody'),
+    },
+    {
+      icon: 'card-outline' as const,
+      title: t('featureGuides.debts.installmentsTitle'),
+      body: t('featureGuides.debts.installmentsBody'),
+    },
+    {
+      icon: 'cash-outline' as const,
+      title: t('featureGuides.debts.paymentsTitle'),
+      body: t('featureGuides.debts.paymentsBody'),
+    },
+  ];
   const load = useCallback(async () => {
     const [nextPlans, nextDebts] = await Promise.all([getDebtPlans(methodId), methodId == null ? getDebts() : Promise.resolve([])]);
     setPlans(nextPlans); setDebts(nextDebts);
@@ -46,9 +65,12 @@ export default function DebtsScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         {method && <ThemedText type="title">{method.name}</ThemedText>}
-        <ThemedText style={styles.intro}>
-          {method ? t('installments.intro') : t('debts.intro')}
-        </ThemedText>
+        <View style={styles.guideHeader}>
+          <ThemedText style={[styles.intro, styles.guideTitle]}>
+            {method ? t('installments.intro') : t('debts.intro')}
+          </ThemedText>
+          <FeatureGuideButton onPress={guide.open} />
+        </View>
         {methodId == null && (
           <>
             <ThemedView style={styles.summaryCard}>
@@ -131,6 +153,7 @@ export default function DebtsScreen() {
           </Pressable>
         ))}
       </ScrollView>
+      <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
       {methodId == null && (
         <FloatingActionButton
           accessibilityLabel={t('debts.new')}
@@ -144,6 +167,7 @@ export default function DebtsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 }, content: { padding: 20, paddingBottom: 110, gap: 12 },
+  guideHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 }, guideTitle: { flex: 1 },
   intro: { opacity: 0.7, lineHeight: 20 }, empty: { borderRadius: 12, padding: 24, alignItems: 'center', gap: 8 },
   card: { borderRadius: 12, padding: 15, gap: 10 }, header: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   dot: { width: 16, height: 16, borderRadius: 6 }, copy: { flex: 1 }, secondary: { opacity: 0.62, fontSize: 12 },
