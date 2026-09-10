@@ -1,12 +1,12 @@
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Platform, ToastAndroid } from 'react-native';
 
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { Alert } from '@/lib/alert';
 import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import {
   configureRecurringNotifications,
   getRecurringNotificationData,
@@ -14,11 +14,7 @@ import {
 import { getMovementReminderUrl } from '@/services/MovementReminderService';
 
 function showResult(message: string) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert(t('common.done'), message);
-  }
+  showToast(message);
 }
 
 export function RecurringNotificationController() {

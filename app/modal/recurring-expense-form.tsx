@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
@@ -14,6 +14,7 @@ import { Alert } from '@/lib/alert';
 import { formatCLP, toDateString } from '@/lib/format';
 import { parseIsoDate } from '@/lib/recurrence';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { NewRecurringSchedule } from '@/lib/types';
 import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
@@ -30,11 +31,7 @@ function defaultSchedule(date = new Date()): NewRecurringSchedule {
 }
 
 function showResult(message: string) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert(t('common.done'), message, [{ text: t('common.accept') }]);
-  }
+  showToast(message);
 }
 
 function MetadataChip({ label, color }: { label: string; color: string }) {

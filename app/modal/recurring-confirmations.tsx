@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Platform, Pressable, SectionList, StyleSheet, ToastAndroid, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -12,14 +12,11 @@ import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import { parseIsoDate } from '@/lib/recurrence';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { RecurringDecisionItem } from '@/lib/types';
 
 function showResult(message: string) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert(t('common.done'), message);
-  }
+  showToast(message);
 }
 
 export default function RecurringConfirmationsScreen() {

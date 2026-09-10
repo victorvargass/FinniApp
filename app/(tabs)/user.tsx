@@ -128,7 +128,7 @@ export default function UserScreen() {
       await resetLocalData();
       setResetModalVisible(false);
       setResetConfirmation('');
-      Alert.alert(t('settings.resetComplete'), t('settings.resetCompleteMessage'));
+      showToast(t('settings.resetCompleteMessage'));
     } catch (resetError) {
       Alert.alert(
         t('settings.resetError'),

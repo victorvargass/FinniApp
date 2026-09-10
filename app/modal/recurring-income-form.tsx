@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, ToastAndroid } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
@@ -11,14 +11,11 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLPInput, parseAmount } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { NewRecurringSchedule } from '@/lib/types';
 
 function showResult(message: string) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert(t('common.done'), message, [{ text: t('common.accept') }]);
-  }
+  showToast(message);
 }
 
 export default function RecurringIncomeFormScreen() {

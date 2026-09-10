@@ -4,12 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
-  ToastAndroid,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +21,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { Income } from '@/lib/types';
 
 type SortOption =
@@ -181,11 +180,7 @@ export default function IncomesScreen() {
         onPress: async () => {
           try {
             await removeIncome(id);
-            if (Platform.OS === 'android') {
-              ToastAndroid.show(t('incomes.deleted'), ToastAndroid.SHORT);
-            } else {
-              Alert.alert(t('common.deleted'), t('incomes.deleted'));
-            }
+            showToast(t('incomes.deleted'));
           } catch (error) {
             Alert.alert(
               t('expenses.cannotDelete'),

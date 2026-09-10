@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Platform, Pressable, StyleSheet, Switch, ToastAndroid, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -13,13 +13,10 @@ import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import { describeRecurrence, parseIsoDate } from '@/lib/recurrence';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 
 function showResult(message: string) {
-  if (Platform.OS === 'android') {
-    ToastAndroid.show(message, ToastAndroid.SHORT);
-  } else {
-    Alert.alert(t('common.done'), message, [{ text: t('common.accept') }]);
-  }
+  showToast(message);
 }
 
 export default function RecurringExpensesScreen() {

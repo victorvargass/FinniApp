@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { FlatList, Platform, Pressable, StyleSheet, ToastAndroid, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
@@ -11,11 +11,10 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 
 function showDefaultConfirmation(name: string) {
-  const message = t('paymentMethods.defaultConfirmation', { name });
-  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert(t('paymentMethods.defaultTitle'), message);
+  showToast(t('paymentMethods.defaultConfirmation', { name }));
 }
 
 export default function PaymentMethodsScreen() {

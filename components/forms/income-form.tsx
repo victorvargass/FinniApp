@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, TextInput, ToastAndroid, View } from 'react-native';
+import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
@@ -13,6 +13,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { Income, NewRecurringSchedule } from '@/lib/types';
 
 import { getDefaultRecurringSchedule, getNameSuggestions, parseDateString } from './helpers';
@@ -127,11 +128,7 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
             registrationMode: incomeSchedule.registrationMode,
           });
         }
-        if (Platform.OS === 'android') {
-          ToastAndroid.show(savingsGoalId != null ? t('savings.withdrawalUpdated') : makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'), ToastAndroid.SHORT);
-        } else {
-          Alert.alert(t('common.saved'), savingsGoalId != null ? t('savings.withdrawalUpdated') : makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'));
-        }
+        showToast(savingsGoalId != null ? t('savings.withdrawalUpdated') : makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'));
       } else {
         await addIncome(data, makeIncomeRecurring ? {
           ...incomeSchedule,
@@ -141,11 +138,7 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
             : null,
           registrationMode: incomeSchedule.registrationMode,
         } : undefined);
-        if (Platform.OS === 'android') {
-          ToastAndroid.show(savingsGoalId != null ? t('savings.withdrawalRegistered') : t('incomes.created'), ToastAndroid.SHORT);
-        } else {
-          Alert.alert(t('common.saved'), savingsGoalId != null ? t('savings.withdrawalRegistered') : t('incomes.created'));
-        }
+        showToast(savingsGoalId != null ? t('savings.withdrawalRegistered') : t('incomes.created'));
       }
       onSuccess();
     } catch (error) {

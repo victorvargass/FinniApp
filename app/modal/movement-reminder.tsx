@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +10,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 
 const DAYS = [
   [1, t('reminder.sunday')], [2, t('reminder.monday')], [3, t('reminder.tuesday')], [4, t('reminder.wednesday')],
@@ -35,11 +36,7 @@ export default function MovementReminderScreen() {
         movementReminderHour: time.getHours(),
         movementReminderMinute: time.getMinutes(),
       });
-      if (Platform.OS === 'android') {
-        ToastAndroid.show(t('reminder.saved'), ToastAndroid.SHORT);
-      } else {
-        Alert.alert(t('common.done'), t('reminder.saved'));
-      }
+      showToast(t('reminder.saved'));
       router.back();
     } catch (error) {
       Alert.alert(t('errors.couldNotSave'), error instanceof Error ? error.message : t('common.tryAgain'));

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, ToastAndroid, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -12,6 +12,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseAmount } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { DebtPlan } from '@/lib/types';
 
 function parseDate(value: string) {
@@ -20,8 +21,7 @@ function parseDate(value: string) {
 }
 
 function showResult(message: string) {
-  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert(t('common.done'), message);
+  showToast(message);
 }
 
 export default function DebtDetailScreen() {

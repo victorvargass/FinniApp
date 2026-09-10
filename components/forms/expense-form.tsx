@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, Switch, TextInput, ToastAndroid, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
@@ -13,6 +13,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
 import type { Expense, NewRecurringSchedule, SavingsExpenseKind } from '@/lib/types';
 import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
@@ -311,11 +312,7 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
       };
       if (expense) {
         await editExpense(expense.id, data);
-        if (Platform.OS === 'android') {
-          ToastAndroid.show(t('expenses.updated'), ToastAndroid.SHORT);
-        } else {
-          Alert.alert(t('common.saved'), t('expenses.updated'));
-        }
+        showToast(t('expenses.updated'));
       } else {
         if (isInstallmentPurchase) {
           if (!Number.isInteger(installmentCount) || installmentCount < 2 || installmentCount > 600) {
@@ -341,19 +338,7 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
               : undefined
           );
         }
-        if (Platform.OS === 'android') {
-          ToastAndroid.show(
-            isInstallmentPurchase ? t('installments.projectedToast') : makeRecurring ? t('expenses.createdWithRecurrence') : t('expenses.created'),
-            ToastAndroid.SHORT
-          );
-        } else {
-          Alert.alert(
-            t('common.saved'),
-            isInstallmentPurchase ? t('installments.projectedMessage') : makeRecurring ? t('expenses.createdWithRecurrence') : t('expenses.created'),
-            [{ text: t('common.accept') }],
-            { cancelable: true }
-          );
-        }
+        showToast(isInstallmentPurchase ? t('installments.projectedToast') : makeRecurring ? t('expenses.createdWithRecurrence') : t('expenses.created'));
       }
       onSuccess();
     } catch (error) {

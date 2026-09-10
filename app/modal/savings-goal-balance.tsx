@@ -1,7 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, ToastAndroid, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -12,6 +12,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 
 export default function SavingsGoalBalanceScreen() {
   const { savingsGoalId: savingsGoalIdParam } = useLocalSearchParams<{ savingsGoalId: string }>();
@@ -38,8 +39,7 @@ export default function SavingsGoalBalanceScreen() {
         date,
         note: note.trim() || null,
       });
-      if (Platform.OS === 'android') ToastAndroid.show(t('savings.balanceUpdated'), ToastAndroid.SHORT);
-      else Alert.alert(t('common.done'), t('savings.balanceUpdated'));
+      showToast(t('savings.balanceUpdated'));
       router.back();
     } catch (error) {
       Alert.alert(

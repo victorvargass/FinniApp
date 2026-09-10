@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, ToastAndroid, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ColorPicker } from '@/components/ColorPicker';
@@ -18,14 +18,11 @@ import { showToast } from '@/lib/toast';
 import type { PaymentMethodType } from '@/lib/types';
 
 function showDefaultConfirmation(name: string) {
-  const message = t('paymentMethods.defaultConfirmation', { name });
-  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert(t('paymentMethods.defaultTitle'), message);
+  showToast(t('paymentMethods.defaultConfirmation', { name }));
 }
 
 function showResult(message: string) {
-  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert(t('common.done'), message);
+  showToast(message);
 }
 
 export default function PaymentMethodFormScreen() {

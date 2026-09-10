@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, TextInput, ToastAndroid } from 'react-native';
+import { Pressable, ScrollView, TextInput } from 'react-native';
 
 import { ColorPicker } from '@/components/ColorPicker';
 import { ThemedText } from '@/components/themed-text';
@@ -9,6 +9,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLPInput, parseAmount } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { Category } from '@/lib/types';
 
 import { styles } from './styles';
@@ -57,18 +58,10 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
       };
       if (category) {
         await editCategory(category.id, data);
-        if (Platform.OS === 'android') {
-          ToastAndroid.show(t('categories.updated'), ToastAndroid.SHORT);
-        } else {
-          Alert.alert(t('common.saved'), t('categories.updated'));
-        }
+        showToast(t('categories.updated'));
       } else {
         await addCategory(data);
-        if (Platform.OS === 'android') {
-          ToastAndroid.show(t('categories.created'), ToastAndroid.SHORT);
-        } else {
-          Alert.alert(t('common.saved'), t('categories.created'));
-        }
+        showToast(t('categories.created'));
       }
       onSuccess();
     } catch (error) {
@@ -114,8 +107,7 @@ export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
               const successMessage = hasExpenses
                 ? t('categories.deletedDetached')
                 : t('categories.deleted');
-              if (Platform.OS === 'android') ToastAndroid.show(successMessage, ToastAndroid.LONG);
-              else Alert.alert(t('common.deleted'), successMessage);
+              showToast(successMessage);
               onSuccess();
             } catch (error) {
               Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.couldNotDelete'));

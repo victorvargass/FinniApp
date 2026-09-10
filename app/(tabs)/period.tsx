@@ -1,6 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, ToastAndroid, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryChart } from '@/components/CategoryChart';
@@ -366,14 +366,7 @@ export default function PeriodScreen() {
                       try {
                         await closeCurrentPeriod();
 
-                        const message =
-                          t('period.finished');
-
-                        if (Platform.OS === 'android') {
-                          ToastAndroid.show(message, ToastAndroid.LONG);
-                        } else {
-                          Alert.alert(t('period.newStarted'), message);
-                        }
+                        showToast(t('period.finished'));
                       } catch {
                         Alert.alert(
                           t('period.finishErrorTitle'),

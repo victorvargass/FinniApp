@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  ToastAndroid,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +21,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { NewSavingsGoal, SavingsGoalMovement } from '@/lib/types';
 
 function parseIsoDate(value: string): Date | null {
@@ -60,11 +60,6 @@ function getDefaultDeadline(): Date {
   date.setFullYear(date.getFullYear() + 1);
   date.setHours(12, 0, 0, 0);
   return date;
-}
-
-function showToast(message: string) {
-  if (Platform.OS === 'android') ToastAndroid.show(message, ToastAndroid.SHORT);
-  else Alert.alert(t('common.done'), message);
 }
 
 export default function SavingsGoalFormScreen() {
