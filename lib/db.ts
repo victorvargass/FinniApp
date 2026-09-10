@@ -1985,7 +1985,7 @@ async function getSavingsGoalBalanceAtDate(
 ): Promise<number | null> {
   const row = await db.getFirstAsync<{ balance: number }>(
     `SELECT
-       CASE WHEN date(goal.created_at, 'localtime') <= ? THEN goal.initial_amount ELSE 0 END
+       goal.initial_amount
        + COALESCE(SUM(CASE
          WHEN movement.id = ? THEN 0
          WHEN movement.kind = 'contribution' AND expense.date <= ? THEN COALESCE(expense.amount, 0)
@@ -2004,7 +2004,6 @@ async function getSavingsGoalBalanceAtDate(
      LEFT JOIN incomes income ON income.id = movement.income_id
      WHERE goal.id = ?
      GROUP BY goal.id`,
-    throughDate,
     excludeMovementId ?? -1,
     throughDate,
     throughDate,
@@ -2018,14 +2017,10 @@ async function getSavingsGoalBalanceAtDate(
 async function assertSavingsGoalCanReceiveMovement(
   db: SQLite.SQLiteDatabase,
   goalId: number,
-  existingMovement?: SavingsMovementLink | null,
-  movementDate?: string
+  existingMovement?: SavingsMovementLink | null
 ): Promise<void> {
   const goal = await getSavingsGoalBalance(db, goalId);
   if (!goal) throw new Error(t('database.savingsGoalMissing'));
-  if (movementDate && movementDate < goal.createdDate) {
-    throw new Error(t('database.movementBeforeGoal'));
-  }
   const keepsExistingArchivedLink = existingMovement?.goal_id === goalId;
   if (goal.status === 'archived' && !keepsExistingArchivedLink) {
     throw new Error(t('database.savingsGoalArchived'));
@@ -2102,9 +2097,6 @@ async function assertSavingsGoalBalanceIsNotNegative(
   );
   let runningBalance = goal.initialAmount;
   for (const movement of movements) {
-    if (movement.movement_date < goal.createdDate) {
-      throw new Error(t('database.movementBeforeCreation'));
-    }
     runningBalance += movement.amount;
     if (runningBalance < 0) {
       throw new Error(t('database.usedSavingsContribution'));
@@ -2133,7 +2125,7 @@ async function setExpenseSavingsMovement(
     expenseId
   );
   if (!expense) throw new Error(t('database.savingsExpenseMissing'));
-  await assertSavingsGoalCanReceiveMovement(db, selection.goalId, existing, expense.date);
+  await assertSavingsGoalCanReceiveMovement(db, selection.goalId, existing);
   if (selection.kind === 'funded_expense') {
     const balance = await getSavingsGoalBalanceAtDate(
       db,
@@ -2180,7 +2172,7 @@ async function setIncomeSavingsMovement(
     incomeId
   );
   if (!income) throw new Error(t('database.savingsWithdrawalMissing'));
-  await assertSavingsGoalCanReceiveMovement(db, goalId, existing, income.date);
+  await assertSavingsGoalCanReceiveMovement(db, goalId, existing);
   const balance = await getSavingsGoalBalanceAtDate(db, goalId, income.date, existing?.id);
   if (balance == null || amount > balance) {
     throw new Error(t('database.insufficientSavingsWithdrawal'));
@@ -2390,7 +2382,6 @@ export async function addSavingsGoalBalanceAdjustment(
     const goal = await getSavingsGoalBalance(transaction, goalId);
     if (!goal) throw new Error(t('database.savingsGoalMissing'));
     if (goal.status === 'archived') throw new Error(t('database.savingsGoalArchived'));
-    if (data.date < goal.createdDate) throw new Error(t('database.movementBeforeGoal'));
     const difference = data.balance - goal.balance;
     if (difference === 0) throw new Error(t('database.savingsBalanceUnchanged'));
     await transaction.runAsync(
@@ -4444,8 +4435,7 @@ export async function createRecurringExpense(data: NewRecurringExpense): Promise
       await assertSavingsGoalCanReceiveMovement(
         transaction,
         selection.goalId,
-        undefined,
-        data.startDate
+        undefined
       );
     }
     const paymentMethodId = data.paymentMethodId;
@@ -4497,7 +4487,7 @@ export async function createExpenseWithRecurrence(
   }
   await assertSavingsSelectionMatchesCategory(db, expense.categoryId, selection);
   if (selection) {
-    await assertSavingsGoalCanReceiveMovement(db, selection.goalId, undefined, expense.date);
+    await assertSavingsGoalCanReceiveMovement(db, selection.goalId);
   }
   const paymentMethodId = expense.paymentMethodId;
   await assertSavingsPaymentMethodAllowed(db, expense.categoryId, selection, paymentMethodId);
@@ -4581,8 +4571,7 @@ export async function updateRecurringExpense(id: number, data: NewRecurringExpen
       await assertSavingsGoalCanReceiveMovement(
         transaction,
         savingsGoalId,
-        existingLink,
-        data.startDate
+        existingLink
       );
       if (data.active) await assertSavingsGoalIsActive(transaction, savingsGoalId);
     }
