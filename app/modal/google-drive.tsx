@@ -16,6 +16,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useGoogle } from '@/hooks/useGoogle';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 
 function formatBackupDate(date: string | undefined): string {
   if (!date) return t('settings.never');
@@ -143,7 +144,11 @@ export default function GoogleDriveScreen() {
         {
           text: t('settings.signOut'),
           style: 'destructive',
-          onPress: () => { void logout(); },
+          onPress: () => {
+            logout()
+              .then(() => showToast(t('settings.signOutCompleted')))
+              .catch(() => undefined);
+          },
         },
       ]
     );
@@ -171,9 +176,9 @@ export default function GoogleDriveScreen() {
                 title={isWorking ? t('settings.connecting') : t('settings.connectGoogle')}
                 disabled={isWorking}
                 onPress={() => {
-                  login().catch(() => {
-                    // El hook muestra el error mediante su estado.
-                  });
+                  login()
+                    .then(() => showToast(t('settings.signInCompleted')))
+                    .catch(() => undefined);
                 }}
                 style={styles.googleButton}
                 textStyle={styles.googleButtonText}

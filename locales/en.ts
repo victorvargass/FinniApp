@@ -782,6 +782,8 @@ const en = {
     signOut: 'Sign out',
     signOutTitle: 'Sign out of Google?',
     signOutMessage: 'You will no longer have access to your Google Drive backups until you sign back in. Your data saved on this device will not be deleted.',
+    signInCompleted: 'You have signed in with Google successfully',
+    signOutCompleted: 'You have signed out of Google successfully',
     testData: 'Test data',
     testDataHint: 'Load a complete scenario to quickly test screens and reports without deleting your current data.',
     loadTestData: 'Load test data',

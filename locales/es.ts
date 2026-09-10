@@ -782,6 +782,8 @@ const es = {
     signOut: 'Cerrar sesión',
     signOutTitle: '¿Cerrar sesión de Google?',
     signOutMessage: 'Dejarás de tener acceso a los respaldos de Google Drive hasta que vuelvas a iniciar sesión. Tus datos guardados en este dispositivo no se eliminarán.',
+    signInCompleted: 'Se ha iniciado sesión con Google correctamente',
+    signOutCompleted: 'Se ha cerrado la sesión de Google correctamente',
     testData: 'Datos de prueba',
     testDataHint: 'Carga un escenario completo para probar rápidamente pantallas y reportes sin eliminar tus datos actuales.',
     loadTestData: 'Cargar datos de prueba',

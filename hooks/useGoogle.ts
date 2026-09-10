@@ -177,6 +177,7 @@ export function useGoogle() {
         error: toMessage(error),
         isWorking: false,
       }));
+      throw error;
     }
   }, []);
 
