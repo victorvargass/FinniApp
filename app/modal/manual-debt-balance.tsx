@@ -51,7 +51,6 @@ export default function DebtBalanceScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ThemedText type="title">{t('debts.updateBalance')}</ThemedText>
         <ThemedText style={styles.description}>{t('debts.updateBalanceHint')}</ThemedText>
         <ThemedView style={styles.card}>
           <View style={styles.row}><ThemedText>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>

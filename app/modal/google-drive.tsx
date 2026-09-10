@@ -176,11 +176,10 @@ export default function GoogleDriveScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.titleRow}>
-          <ThemedText type="title" style={styles.title}>{t('settings.googleDrive')}</ThemedText>
+        <View style={styles.introRow}>
+          <ThemedText style={styles.intro}>{t('settings.googleDriveHint')}</ThemedText>
           <FeatureGuideButton onPress={guide.open} />
         </View>
-        <ThemedText style={styles.intro}>{t('settings.googleDriveHint')}</ThemedText>
 
         <ThemedView style={styles.card}>
           {isLoading ? (
@@ -284,15 +283,13 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     gap: 13,
   },
-  titleRow: {
+  introRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
   },
-  title: {
-    flex: 1,
-  },
   intro: {
+    flex: 1,
     lineHeight: 20,
     opacity: 0.68,
   },

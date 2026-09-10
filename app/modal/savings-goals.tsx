@@ -143,13 +143,12 @@ export default function SavingsGoalsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.titleRow}>
-          <ThemedText type="title" style={styles.title}>{t('savings.title')}</ThemedText>
+        <View style={styles.introRow}>
+          <ThemedText style={styles.intro}>
+            {t('savings.intro')}
+          </ThemedText>
           <FeatureGuideButton onPress={guide.open} />
         </View>
-        <ThemedText style={styles.intro}>
-          {t('savings.intro')}
-        </ThemedText>
 
         <ThemedView style={styles.summaryCard}>
           <View style={styles.summaryItem}>
@@ -216,15 +215,13 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
     gap: 13,
   },
-  titleRow: {
+  introRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
   },
-  title: {
-    flex: 1,
-  },
   intro: {
+    flex: 1,
     lineHeight: 20,
     opacity: 0.68,
   },

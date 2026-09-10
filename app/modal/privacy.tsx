@@ -20,7 +20,6 @@ export default function PrivacyScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">{t('privacy.title')}</ThemedText>
         <ThemedText style={styles.updated}>{t('privacy.updated')}</ThemedText>
         <ThemedText style={styles.intro}>{t('privacy.intro')}</ThemedText>
         {SECTIONS.map(([title, body]) => (

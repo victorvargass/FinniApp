@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +25,7 @@ export default function DebtPaymentScreen() {
   const { debtId: debtIdParam, entryId: entryIdParam } = useLocalSearchParams<{ debtId: string; entryId?: string }>();
   const debtId = Number(debtIdParam);
   const entryId = entryIdParam ? Number(entryIdParam) : null;
+  const navigation = useNavigation();
   const { periods, selectedPeriod, selectedPeriodId, categories, paymentMethods, getDebt, addDebtPayment, editDebtPayment, removeDebtPayment } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [debt, setDebt] = useState<Debt | null>(null);
@@ -36,6 +37,12 @@ export default function DebtPaymentScreen() {
   const [note, setNote] = useState('');
   const [showDate, setShowDate] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: entryId == null ? t('debts.registerPayment') : t('debts.editPayment'),
+    });
+  }, [entryId, navigation]);
 
   useEffect(() => {
     getDebt(debtId).then((value) => {
@@ -96,7 +103,6 @@ export default function DebtPaymentScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ThemedText type="title">{entryId == null ? t('debts.registerPayment') : t('debts.editPayment')}</ThemedText>
         <ThemedView style={styles.balanceCard}>
           <ThemedText>{debt.name}</ThemedText>
           <View style={styles.row}><ThemedText style={styles.secondary}>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
