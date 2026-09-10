@@ -720,6 +720,13 @@ const en = {
     invalidCreditLimit: 'Enter a total credit limit greater than zero.',
     invalidDueDay: 'Invalid due day',
     invalidDueDayHint: 'The estimated due day must be between 1 and 31.',
+    recentMovements: 'Recent transactions',
+    recentMovementsHint: 'Expenses made and payments received with this payment method.',
+    loadingMovements: 'Loading transactions...',
+    movementsError: 'Transactions could not be loaded.',
+    noMovements: 'There are no associated transactions yet.',
+    paymentReceivedFrom: 'Payment received from %{name}',
+    paymentSentTo: 'Payment made to %{name}',
   },
   settings: {
     financialManagement: 'Financial management',

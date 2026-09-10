@@ -36,6 +36,7 @@ import type {
   NewSavingsGoal,
   NewSavingsGoalBalance,
   PaymentMethod,
+  PaymentMethodMovement,
   PaymentMethodTotal,
   Period,
   PeriodCategoryExpensesTotals,
@@ -2670,6 +2671,61 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
      ORDER BY method.active DESC, method.type ASC, method.name COLLATE NOCASE ASC`
   );
   return rows.map(mapPaymentMethod);
+}
+
+export async function getPaymentMethodMovements(
+  paymentMethodId: number,
+  limit = 50
+): Promise<PaymentMethodMovement[]> {
+  const db = await getDb();
+  const safeLimit = Math.max(1, Math.min(200, Math.trunc(limit)));
+  const rows = await db.getAllAsync<{
+    id: number;
+    name: string;
+    amount: number;
+    date: string;
+    kind: PaymentMethodMovement['kind'];
+    category_name: string | null;
+    related_payment_method_name: string | null;
+  }>(
+    `SELECT
+       expense.id,
+       expense.name,
+       expense.amount,
+       expense.date,
+       CASE
+         WHEN expense.credit_payment_target_id = ? THEN 'credit_payment'
+         ELSE 'expense'
+       END AS kind,
+       category.name AS category_name,
+       CASE
+         WHEN expense.credit_payment_target_id = ? THEN source_method.name
+         ELSE target_method.name
+       END AS related_payment_method_name
+     FROM expenses expense
+     LEFT JOIN categories category ON category.id = expense.category_id
+     LEFT JOIN payment_methods source_method ON source_method.id = expense.payment_method_id
+     LEFT JOIN payment_methods target_method ON target_method.id = expense.credit_payment_target_id
+     WHERE expense.payment_method_id = ? OR expense.credit_payment_target_id = ?
+     ORDER BY expense.date DESC, expense.id DESC
+     LIMIT ?`,
+    paymentMethodId,
+    paymentMethodId,
+    paymentMethodId,
+    paymentMethodId,
+    safeLimit
+  );
+  return rows.map((row) => ({
+    id: Number(row.id),
+    name: String(row.name),
+    amount: Number(row.amount),
+    date: String(row.date),
+    kind: row.kind,
+    categoryName: row.category_name == null ? null : String(row.category_name),
+    relatedPaymentMethodName: row.related_payment_method_name == null
+      ? null
+      : String(row.related_payment_method_name),
+  }));
 }
 
 function validatePaymentMethod(data: NewPaymentMethod) {

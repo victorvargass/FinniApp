@@ -145,6 +145,16 @@ export type PaymentMethod = {
   statementDate: string | null;
 };
 
+export type PaymentMethodMovement = {
+  id: number;
+  name: string;
+  amount: number;
+  date: string;
+  kind: 'expense' | 'credit_payment';
+  categoryName: string | null;
+  relatedPaymentMethodName: string | null;
+};
+
 export type NewPaymentMethod = {
   name: string;
   type: PaymentMethodType;

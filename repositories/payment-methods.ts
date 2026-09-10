@@ -4,6 +4,7 @@ export {
   deletePaymentMethod,
   getCreditCardCycles,
   getPaymentMethodDeletionInfo,
+  getPaymentMethodMovements,
   getPaymentMethods,
   getPaymentMethodTotals,
   reconcileCreditCardCycle,
