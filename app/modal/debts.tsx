@@ -14,9 +14,15 @@ import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import type { Debt, DebtPlan } from '@/lib/types';
 
-const STATUS_LABEL: Record<DebtPlan['status'], string> = {
-  projected: t('installments.statusProjected'), active: t('installments.statusActive'), completed: t('installments.statusCompleted'), cancelled: t('installments.statusCancelled'),
-};
+function statusLabel(status: DebtPlan['status']): string {
+  const keys: Record<DebtPlan['status'], Parameters<typeof t>[0]> = {
+    projected: 'installments.statusProjected',
+    active: 'installments.statusActive',
+    completed: 'installments.statusCompleted',
+    cancelled: 'installments.statusCancelled',
+  };
+  return t(keys[status]);
+}
 
 export default function DebtsScreen() {
   const { paymentMethodId } = useLocalSearchParams<{ paymentMethodId?: string }>();
@@ -120,7 +126,7 @@ export default function DebtsScreen() {
               </View>
               <View style={styles.row}><ThemedText>{t('installments.progress')}</ThemedText><ThemedText type="defaultSemiBold">{t('installments.progressValue', { posted: plan.postedInstallments, total: plan.totalInstallments })}</ThemedText></View>
               <View style={styles.row}><ThemedText>{t('installments.projectedBalance')}</ThemedText><ThemedText>{formatCLP(plan.remainingAmount)}</ThemedText></View>
-              <ThemedText style={[styles.status, { color: plan.status === 'active' ? '#1FAF78' : colors.primary }]}>{STATUS_LABEL[plan.status]}</ThemedText>
+              <ThemedText style={[styles.status, { color: plan.status === 'active' ? '#1FAF78' : colors.primary }]}>{statusLabel(plan.status)}</ThemedText>
             </ThemedView>
           </Pressable>
         ))}

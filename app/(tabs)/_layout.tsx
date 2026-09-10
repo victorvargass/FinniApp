@@ -64,7 +64,7 @@ export default function TabLayout() {
         options={{
           title: t('navigation.user'),
           tabBarButtonTestID: 'tab-user',
-          tabBarLabel: 'Usuario',
+          tabBarLabel: t('navigation.user'),
           tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
         }}
       />

@@ -12,11 +12,6 @@ import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 
-const DAYS = [
-  [1, t('reminder.sunday')], [2, t('reminder.monday')], [3, t('reminder.tuesday')], [4, t('reminder.wednesday')],
-  [5, t('reminder.thursday')], [6, t('reminder.friday')], [7, t('reminder.saturday')],
-] as const;
-
 export default function MovementReminderScreen() {
   const { settings, setMovementReminder } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
@@ -25,6 +20,15 @@ export default function MovementReminderScreen() {
   const [time, setTime] = useState(() => new Date(2026, 0, 1, settings.movementReminderHour, settings.movementReminderMinute));
   const [showTime, setShowTime] = useState(false);
   const [saving, setSaving] = useState(false);
+  const days = [
+    [1, t('reminder.sunday')],
+    [2, t('reminder.monday')],
+    [3, t('reminder.tuesday')],
+    [4, t('reminder.wednesday')],
+    [5, t('reminder.thursday')],
+    [6, t('reminder.friday')],
+    [7, t('reminder.saturday')],
+  ] as const;
 
   const save = async () => {
     setSaving(true);
@@ -47,7 +51,7 @@ export default function MovementReminderScreen() {
     <ThemedText style={styles.hint}>{t('reminder.hint')}</ThemedText>
     <ThemedText style={styles.label}>{t('reminder.frequency')}</ThemedText>
     <View style={styles.options}>{([['daily', t('reminder.daily')], ['weekly', t('reminder.weekly')]] as const).map(([value, label]) => <Pressable key={value} onPress={() => setFrequency(value)} style={[styles.option, { borderColor: colors.border }, frequency === value && styles.selected]}><ThemedText style={frequency === value ? styles.selectedText : undefined}>{label}</ThemedText></Pressable>)}</View>
-    {frequency === 'weekly' && <><ThemedText style={styles.label}>{t('reminder.dayOfWeek')}</ThemedText><View style={styles.days}>{DAYS.map(([value, label]) => <Pressable key={value} onPress={() => setWeekday(value)} style={[styles.day, { borderColor: colors.border }, weekday === value && styles.selected]}><ThemedText style={weekday === value ? styles.selectedText : undefined}>{label}</ThemedText></Pressable>)}</View></>}
+    {frequency === 'weekly' && <><ThemedText style={styles.label}>{t('reminder.dayOfWeek')}</ThemedText><View style={styles.days}>{days.map(([value, label]) => <Pressable key={value} onPress={() => setWeekday(value)} style={[styles.day, { borderColor: colors.border }, weekday === value && styles.selected]}><ThemedText style={weekday === value ? styles.selectedText : undefined}>{label}</ThemedText></Pressable>)}</View></>}
     <ThemedText style={styles.label}>{t('reminder.hour')}</ThemedText>
     <Pressable onPress={() => setShowTime(true)} style={[styles.time, { borderColor: colors.border }]}><ThemedText type="defaultSemiBold">{time.toLocaleTimeString(APP_LOCALE, { hour: '2-digit', minute: '2-digit' })}</ThemedText></Pressable>
     {showTime && <DateTimePicker value={time} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_, value) => { if (Platform.OS === 'android') setShowTime(false); if (value) setTime(value); }} />}

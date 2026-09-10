@@ -27,12 +27,15 @@ type RecurrenceRule = Pick<
   | 'endDate'
 >;
 
-const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
-  weekly: t('recurrence.weekly'),
-  monthly: t('recurrence.monthly'),
-  annual: t('recurrence.annual'),
-  custom: t('recurrence.custom'),
-};
+function frequencyLabel(frequency: RecurringFrequency): string {
+  const keys: Record<RecurringFrequency, Parameters<typeof t>[0]> = {
+    weekly: 'recurrence.weekly',
+    monthly: 'recurrence.monthly',
+    annual: 'recurrence.annual',
+    custom: 'recurrence.custom',
+  };
+  return t(keys[frequency]);
+}
 
 export function describeRecurrence(rule: RecurrenceRule): string {
   if (rule.frequency === 'custom') {
@@ -45,5 +48,5 @@ export function describeRecurrence(rule: RecurrenceRule): string {
       day: rule.executionDay ?? parseIsoDate(rule.startDate).getDate(),
     });
   }
-  return FREQUENCY_LABELS[rule.frequency];
+  return frequencyLabel(rule.frequency);
 }

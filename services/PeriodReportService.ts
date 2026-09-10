@@ -110,13 +110,15 @@ async function loadReportFontDataUri(source: number): Promise<string | null> {
   }
 }
 
-const PAYMENT_METHOD_TYPE_LABELS: Record<PaymentMethodType, string> = {
-  cash: t('paymentMethods.cash'), debit: t('paymentMethods.debit'),
-  prepaid: t('paymentMethods.prepaid'), credit: t('paymentMethods.credit'),
-};
-
 function paymentMethodTypeLabel(type: PaymentMethodType | null): string {
-  return type ? PAYMENT_METHOD_TYPE_LABELS[type] : t('report.noType');
+  if (!type) return t('report.noType');
+  const keys: Record<PaymentMethodType, Parameters<typeof t>[0]> = {
+    cash: 'paymentMethods.cash',
+    debit: 'paymentMethods.debit',
+    prepaid: 'paymentMethods.prepaid',
+    credit: 'paymentMethods.credit',
+  };
+  return t(keys[type]);
 }
 
 function categoryRows(
