@@ -17,6 +17,7 @@ El procesamiento exclusivamente local no se declara normalmente como recopilaci�
 | Nombre, correo e identificador de Google | Al conectar Google | Google Sign-In | Autenticación y visualización de sesión | No |
 | Archivo SQLite con información financiera y notas | Al respaldar/restaurar | Carpeta `appDataFolder` de Google Drive | Funcionalidad de respaldo solicitada por el usuario | No |
 | Reporte PDF | Al generarlo y abrirlo | Lector PDF elegido por el sistema; puede enviarse a otra aplicación por decisión posterior del usuario | Exportación iniciada por el usuario | No |
+| Códigos técnicos sin datos financieros | Al abrir soporte y enviar el correo preparado | Aplicación de correo y cuenta de soporte | Diagnóstico solicitado por el usuario | No |
 
 ## Declaración preliminar
 

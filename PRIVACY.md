@@ -6,7 +6,7 @@ FinniApp es una aplicación de finanzas personales que funciona principalmente e
 
 ## Información tratada
 
-La aplicación permite registrar períodos, ingresos, gastos, categorías, límites, medios de pago, cuotas, deudas, ahorros, recurrencias y notas. Esta información se guarda localmente en una base SQLite del dispositivo.
+La aplicación permite registrar períodos, ingresos, gastos, categorías, límites, medios de pago, cuotas, deudas, ahorros, recurrencias y notas. Esta información se guarda localmente en una base SQLite del dispositivo. También conserva localmente hasta 20 códigos de diagnóstico técnico con fecha, zona del código y tipo de error; no incluyen mensajes de error, nombres, notas ni montos.
 
 Si el usuario decide conectar Google Drive, FinniApp accede al nombre, correo electrónico e identificador básico de su cuenta de Google y solicita acceso únicamente a la carpeta privada de datos de la aplicación (`drive.appdata`). La base financiera se transmite a Google Drive solamente cuando el usuario solicita un respaldo. El uso de Google es opcional y la aplicación puede utilizarse sin iniciar sesión.
 
@@ -22,6 +22,8 @@ Si el usuario decide conectar Google Drive, FinniApp accede al nombre, correo el
 Cuando se usa el respaldo, la información viaja mediante HTTPS directamente entre el dispositivo y Google Drive. El archivo se almacena en el espacio privado de la aplicación dentro de la cuenta del usuario. Se aplican las condiciones y la política de privacidad de Google. FinniApp no envía esta información a un servidor del desarrollador.
 
 Los reportes PDF se generan localmente. Al generarlos, FinniApp solicita al sistema abrirlos en un lector PDF compatible. Solo salen del dispositivo si el usuario decide compartirlos, imprimirlos o guardarlos mediante el lector o el sistema.
+
+Al elegir “Soporte y comentarios”, FinniApp prepara un correo en la aplicación elegida por el usuario. El correo incluye únicamente los códigos de diagnóstico técnico indicados anteriormente y se envía solo si el usuario decide hacerlo.
 
 ## Conservación y eliminación
 

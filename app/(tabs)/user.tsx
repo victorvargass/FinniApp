@@ -23,8 +23,11 @@ import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
+import { clearAppDiagnostics, getAppDiagnostics } from '@/lib/logger';
 import { showToast } from '@/lib/toast';
 import { NotificationPermissionError } from '@/services/MovementReminderService';
+
+const SUPPORT_EMAIL = 'victorvargassandoval93@gmail.com';
 
 // Utils
 // Components
@@ -127,6 +130,7 @@ export default function UserScreen() {
     setIsResetting(true);
     try {
       await resetLocalData();
+      await clearAppDiagnostics();
       setResetModalVisible(false);
       setResetConfirmation('');
       showToast(t('settings.resetCompleteMessage'));
@@ -137,6 +141,25 @@ export default function UserScreen() {
       );
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const contactSupport = async () => {
+    try {
+      const diagnostics = await getAppDiagnostics();
+      const diagnosticText = diagnostics.length > 0
+        ? diagnostics.map((item) => `${item.timestamp} | ${item.context} | ${item.category}`).join('\n')
+        : t('settings.noDiagnostics');
+      const subject = encodeURIComponent(t('settings.supportEmailSubject'));
+      const body = encodeURIComponent(t('settings.supportEmailBody', { diagnostics: diagnosticText }));
+      const url = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+      if (!await Linking.canOpenURL(url)) {
+        showToast(t('settings.supportUnavailable', { email: SUPPORT_EMAIL }));
+        return;
+      }
+      await Linking.openURL(url);
+    } catch {
+      showToast(t('settings.supportUnavailable', { email: SUPPORT_EMAIL }));
     }
   };
 
@@ -445,6 +468,18 @@ export default function UserScreen() {
               <ThemedText style={styles.description}>{t('privacy.menuHint')}</ThemedText>
             </View>
             <Ionicons name="shield-checkmark-outline" size={22} color={colors.primary} />
+          </Pressable>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Pressable
+            accessibilityLabel={t('settings.support')}
+            accessibilityRole="button"
+            onPress={() => { void contactSupport(); }}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('settings.support')}</ThemedText>
+              <ThemedText style={styles.description}>{t('settings.supportHint')}</ThemedText>
+            </View>
+            <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.action} />
           </Pressable>
         </ThemedView>
 
