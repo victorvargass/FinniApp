@@ -132,6 +132,10 @@ const en = {
   },
   navigation: {
     home: 'Home',
+    movements: 'Transactions',
+    add: 'Add',
+    addMovement: 'Add transaction',
+    more: 'More',
     period: 'Period',
     incomes: 'Income',
     expenses: 'Expenses',

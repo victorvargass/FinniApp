@@ -236,7 +236,7 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
   );
 }
 
-export default function ExpensesScreen() {
+export default function ExpensesScreen({ embedded = false }: { embedded?: boolean }) {
   const {
     expenses,
     categories,
@@ -487,10 +487,12 @@ export default function ExpensesScreen() {
   const sortGroups = [...new Set(SORT_OPTIONS.map((opt) => opt.group))];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ThemedView style={styles.header}>
-        <ThemedText type="title">{t('navigation.expenses')}</ThemedText>
-      </ThemedView>
+    <SafeAreaView style={styles.safe} edges={embedded ? [] : ['top']}>
+      {!embedded && (
+        <ThemedView style={styles.header}>
+          <ThemedText type="title">{t('navigation.expenses')}</ThemedText>
+        </ThemedView>
+      )}
 
       <ThemedView style={styles.filters}>
         <View style={[styles.searchBox, { borderColor: colors.icon }]}>

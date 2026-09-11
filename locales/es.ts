@@ -132,6 +132,10 @@ const es = {
   },
   navigation: {
     home: 'Inicio',
+    movements: 'Movimientos',
+    add: 'Agregar',
+    addMovement: 'Agregar movimiento',
+    more: 'Más',
     period: 'Período',
     incomes: 'Ingresos',
     expenses: 'Gastos',

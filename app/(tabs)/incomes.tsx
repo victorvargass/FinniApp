@@ -137,7 +137,7 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
   );
 }
 
-export default function IncomesScreen() {
+export default function IncomesScreen({ embedded = false }: { embedded?: boolean }) {
   const { incomes, recurringIncomes, removeIncome, selectedPeriodId } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -200,10 +200,12 @@ export default function IncomesScreen() {
   const sortGroups = [...new Set(SORT_OPTIONS.map((opt) => opt.group))];
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ThemedView style={styles.header}>
-        <ThemedText type="title">{t('navigation.incomes')}</ThemedText>
-      </ThemedView>
+    <SafeAreaView style={styles.safe} edges={embedded ? [] : ['top']}>
+      {!embedded && (
+        <ThemedView style={styles.header}>
+          <ThemedText type="title">{t('navigation.incomes')}</ThemedText>
+        </ThemedView>
+      )}
 
       <ThemedView style={styles.filters}>
         <View style={[styles.searchBox, { borderColor: colors.icon }]}>

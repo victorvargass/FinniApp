@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -9,6 +9,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
 
   return (
     <Tabs
@@ -35,19 +36,38 @@ export default function TabLayout() {
       <Tabs.Screen
         name="incomes"
         options={{
-          title: t('navigation.incomes'),
-          tabBarButtonTestID: 'tab-incomes',
-          tabBarLabel: t('navigation.incomes'),
-          tabBarIcon: ({ color }) => <Ionicons name="cash" size={24} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="expenses"
         options={{
-          title: t('navigation.expenses'),
-          tabBarButtonTestID: 'tab-expenses',
-          tabBarLabel: t('navigation.expenses'),
-          tabBarIcon: ({ color }) => <Ionicons name="cash-outline" size={24} color={color} />,
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="movements"
+        options={{
+          title: t('navigation.movements'),
+          tabBarButtonTestID: 'tab-movements',
+          tabBarLabel: t('navigation.movements'),
+          tabBarIcon: ({ color }) => <Ionicons name="swap-horizontal" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="add"
+        options={{
+          title: t('navigation.addMovement'),
+          tabBarButtonTestID: 'tab-add-movement',
+          tabBarLabel: t('navigation.add'),
+          tabBarIcon: ({ color }) => <Ionicons name="add-circle" size={34} color={color} />,
+          tabBarButton: (props) => (
+            <HapticTab
+              {...props}
+              onPress={() => router.push('/modal/expense-form')}
+              accessibilityLabel={t('accessibility.addExpense')}
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -62,10 +82,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="user"
         options={{
-          title: t('navigation.user'),
+          title: t('navigation.more'),
           tabBarButtonTestID: 'tab-user',
-          tabBarLabel: t('navigation.user'),
-          tabBarIcon: ({ color }) => <Ionicons name="person" size={24} color={color} />,
+          tabBarLabel: t('navigation.more'),
+          tabBarIcon: ({ color }) => <Ionicons name="menu" size={24} color={color} />,
         }}
       />
     </Tabs>
