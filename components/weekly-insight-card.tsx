@@ -29,12 +29,17 @@ export function WeeklyInsightCard({ insight, savingsMilestone }: WeeklyInsightCa
         : t('home.weeklyMore', { percent: insight.expenseChangePercent });
 
   const rows = [
-    {
+    insight.expenseTotal > 0 ? {
       key: 'spent',
       icon: 'calendar-outline' as const,
       text: t('home.weeklySpent', { amount: formatCLP(insight.expenseTotal) }),
-    },
-    comparison ? {
+    } : null,
+    insight.incomeTotal > 0 ? {
+      key: 'income',
+      icon: 'cash-outline' as const,
+      text: t('home.weeklyIncome', { amount: formatCLP(insight.incomeTotal) }),
+    } : null,
+    comparison && (insight.expenseTotal > 0 || insight.previousExpenseTotal > 0) ? {
       key: 'comparison',
       icon: insight.expenseChangePercent != null && insight.expenseChangePercent <= 0
         ? 'trending-down-outline' as const

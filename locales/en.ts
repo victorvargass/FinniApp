@@ -394,6 +394,7 @@ const en = {
     weeklyTitle: 'Your week at a glance',
     lastSevenDays: 'Last 7 days',
     weeklySpent: 'You recorded %{amount} in expenses.',
+    weeklyIncome: 'You recorded %{amount} in income.',
     weeklyLess: 'You spent %{percent}% less than in the previous 7 days.',
     weeklyMore: 'You spent %{percent}% more than in the previous 7 days.',
     weeklySame: 'Your spending was unchanged from the previous 7 days.',

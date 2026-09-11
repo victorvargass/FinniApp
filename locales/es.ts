@@ -394,6 +394,7 @@ const es = {
     weeklyTitle: 'Tu semana en breve',
     lastSevenDays: 'Últimos 7 días',
     weeklySpent: 'Has registrado %{amount} en gastos.',
+    weeklyIncome: 'Has registrado %{amount} en ingresos.',
     weeklyLess: 'Gastaste un %{percent}% menos que en los 7 días anteriores.',
     weeklyMore: 'Gastaste un %{percent}% más que en los 7 días anteriores.',
     weeklySame: 'Tus gastos se mantuvieron igual que en los 7 días anteriores.',
