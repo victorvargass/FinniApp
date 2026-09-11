@@ -119,8 +119,9 @@ export default function HomeScreen() {
       }),
       tone: exceeded ? 'danger' : 'warning',
       onPress: () => router.navigate({
-        pathname: '/(tabs)/expenses',
+        pathname: '/(tabs)/movements',
         params: {
+          movementType: 'expenses',
           categoryFilter: urgentLimit.categoryId == null ? 'none' : String(urgentLimit.categoryId),
           paymentMethodFilter: '',
           filterRequestId: String(Date.now()),
@@ -356,8 +357,9 @@ export default function HomeScreen() {
                 selectionResetKey={`${selectedPeriod?.id ?? 'none'}-${categorySelectionReset}`}
                 onOpenCategory={(categoryId) => {
                   router.navigate({
-                    pathname: '/(tabs)/expenses',
+                    pathname: '/(tabs)/movements',
                     params: {
+                      movementType: 'expenses',
                       categoryFilter: categoryId === null ? 'none' : String(categoryId),
                       paymentMethodFilter: '',
                       filterRequestId: String(Date.now()),
@@ -392,8 +394,9 @@ export default function HomeScreen() {
               onSelectPaymentMethod={() => setCategorySelectionReset((value) => value + 1)}
               onOpenPaymentMethod={(paymentMethodId) => {
                 router.navigate({
-                  pathname: '/(tabs)/expenses',
+                  pathname: '/(tabs)/movements',
                   params: {
+                    movementType: 'expenses',
                     categoryFilter: '',
                     paymentMethodFilter: paymentMethodId == null ? 'none' : String(paymentMethodId),
                     filterRequestId: String(Date.now()),

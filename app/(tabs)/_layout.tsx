@@ -64,7 +64,7 @@ export default function TabLayout() {
           tabBarButton: (props) => (
             <HapticTab
               {...props}
-              onPress={() => router.push('/modal/expense-form')}
+              onPress={() => router.push('/modal/quick-add')}
               accessibilityLabel={t('accessibility.addExpense')}
             />
           ),

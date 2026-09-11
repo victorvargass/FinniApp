@@ -70,8 +70,9 @@ export default function PaymentMethodDetailScreen() {
   const hasMoreMovements = movements.length > recentMovements.length;
   const openFilteredExpenses = () => {
     router.dismissTo({
-      pathname: '/(tabs)/expenses',
+      pathname: '/(tabs)/movements',
       params: {
+        movementType: 'expenses',
         categoryFilter: '',
         paymentMethodFilter: String(method.id),
         filterRequestId: String(Date.now()),

@@ -64,7 +64,10 @@ export function RecurringNotificationController() {
           try {
             await approveRecurringOccurrence(data.kind, data.recurringId, data.scheduledDate);
             showResult(t(data.kind === 'expense' ? 'notifications.resultExpense' : 'notifications.resultIncome'));
-            router.replace(data.kind === 'expense' ? '/(tabs)/expenses' : '/(tabs)/incomes');
+            router.replace({
+              pathname: '/(tabs)/movements',
+              params: { movementType: data.kind === 'expense' ? 'expenses' : 'incomes' },
+            });
           } catch (error) {
             const message = error instanceof Error ? error.message : t('common.tryAgain');
             Alert.alert(

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,9 +15,18 @@ import { t } from '@/lib/i18n';
 type MovementType = 'expenses' | 'incomes';
 
 export default function MovementsScreen() {
+  const { movementType: requestedMovementType } = useLocalSearchParams<{
+    movementType?: MovementType;
+  }>();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const [movementType, setMovementType] = useState<MovementType>('expenses');
+
+  useEffect(() => {
+    if (requestedMovementType === 'expenses' || requestedMovementType === 'incomes') {
+      setMovementType(requestedMovementType);
+    }
+  }, [requestedMovementType]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

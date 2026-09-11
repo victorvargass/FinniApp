@@ -58,6 +58,14 @@ const es = {
     historyDescription: 'Cuando cierres tu primer período podrás compararlo y consultar su reporte.',
     goHome: 'Ir al inicio',
   },
+  quickAdd: {
+    title: '¿Qué deseas registrar?',
+    description: 'Elige el tipo de movimiento. Podrás completar los detalles en el siguiente paso.',
+    expenseTitle: 'Nuevo gasto',
+    expenseDescription: 'Una compra, pago o salida de dinero.',
+    incomeTitle: 'Nuevo ingreso',
+    incomeDescription: 'Sueldo, venta u otra entrada de dinero.',
+  },
   onboarding: {
     welcomeTitle: 'Bienvenido a FinniApp',
     welcomeBody: 'Descubre dónde se van tus lucas. Registra ingresos y gastos de manera rápida, simple y ordenada, y mira al instante cómo avanza tu período.',

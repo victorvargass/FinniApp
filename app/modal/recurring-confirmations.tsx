@@ -41,7 +41,10 @@ export default function RecurringConfirmationsScreen() {
     try {
       await approveRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate);
       showResult(t('recurrence.createdMovement', { movement: nounTitle }));
-      router.replace(item.kind === 'expense' ? '/(tabs)/expenses' : '/(tabs)/incomes');
+      router.replace({
+        pathname: '/(tabs)/movements',
+        params: { movementType: item.kind === 'expense' ? 'expenses' : 'incomes' },
+      });
     } catch (error) {
       Alert.alert(
         t('recurrence.createErrorTitle', { movement: noun }),
@@ -90,7 +93,10 @@ export default function RecurringConfirmationsScreen() {
             retryRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate)
               .then(() => {
                 showResult(t('recurrence.createdMovement', { movement: nounTitle }));
-                router.replace(item.kind === 'expense' ? '/(tabs)/expenses' : '/(tabs)/incomes');
+                router.replace({
+                  pathname: '/(tabs)/movements',
+                  params: { movementType: item.kind === 'expense' ? 'expenses' : 'incomes' },
+                });
               })
               .catch((error) => {
                 Alert.alert(

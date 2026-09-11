@@ -58,6 +58,14 @@ const en = {
     historyDescription: 'Once you close your first period, you can compare it and view its report.',
     goHome: 'Go to home',
   },
+  quickAdd: {
+    title: 'What do you want to record?',
+    description: 'Choose a transaction type. You can complete its details in the next step.',
+    expenseTitle: 'New expense',
+    expenseDescription: 'A purchase, payment, or other money going out.',
+    incomeTitle: 'New income',
+    incomeDescription: 'Salary, sale, or other money coming in.',
+  },
   onboarding: {
     welcomeTitle: 'Welcome to FinniApp',
     welcomeBody: 'See where your money goes. Record income and expenses quickly and easily, and instantly see how your period is progressing.',

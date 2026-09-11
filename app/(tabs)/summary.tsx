@@ -277,8 +277,9 @@ export default function HistoricalSummaryScreen() {
           setShowPeriodModal(false);
           setSelectedPeriod(null);
           router.navigate({
-            pathname: '/(tabs)/expenses',
+            pathname: '/(tabs)/movements',
             params: {
+              movementType: 'expenses',
               categoryFilter: categoryId == null ? 'none' : String(categoryId),
               paymentMethodFilter: '',
               filterRequestId: String(Date.now()),
@@ -290,8 +291,9 @@ export default function HistoricalSummaryScreen() {
           setShowPeriodModal(false);
           setSelectedPeriod(null);
           router.navigate({
-            pathname: '/(tabs)/expenses',
+            pathname: '/(tabs)/movements',
             params: {
+              movementType: 'expenses',
               categoryFilter: '',
               paymentMethodFilter: paymentMethodId == null ? 'none' : String(paymentMethodId),
               filterRequestId: String(Date.now()),

@@ -66,6 +66,10 @@ function AppContent() {
                 <Stack.Protected guard={hasCompletedOnboarding}>
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
+                  name="modal/quick-add"
+                  options={{ presentation: 'modal', title: t('navigation.addMovement') }}
+                />
+                <Stack.Screen
                   name="modal/income-form"
                   options={{ presentation: 'modal', title: t('navigation.income') }}
                 />
