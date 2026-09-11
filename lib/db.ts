@@ -526,6 +526,7 @@ async function initializeDatabase(): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
       type TEXT NOT NULL CHECK (type IN ('cash', 'debit', 'prepaid', 'credit')),
+      system_key TEXT CHECK (system_key IS NULL OR system_key = 'cash'),
       billing_day INTEGER,
       color TEXT NOT NULL DEFAULT '#0a7ea4',
       active INTEGER NOT NULL DEFAULT 1,
@@ -882,6 +883,12 @@ async function initializeDatabase(): Promise<void> {
   const paymentMethodColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(payment_methods)'
   );
+  if (!paymentMethodColumns.some((column) => column.name === 'system_key')) {
+    await db.execAsync("ALTER TABLE payment_methods ADD COLUMN system_key TEXT CHECK (system_key IS NULL OR system_key = 'cash');");
+  }
+  await db.execAsync(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_methods_system_key ON payment_methods(system_key) WHERE system_key IS NOT NULL;'
+  );
   if (!paymentMethodColumns.some((column) => column.name === 'color')) {
     await db.execAsync("ALTER TABLE payment_methods ADD COLUMN color TEXT NOT NULL DEFAULT '#0a7ea4';");
   }
@@ -1036,16 +1043,71 @@ async function initializeDatabase(): Promise<void> {
     );
   `);
 
+  let cashMethod = await db.getFirstAsync<{ id: number; reported_balance: number | null }>(
+    "SELECT id, reported_balance FROM payment_methods WHERE system_key = 'cash' LIMIT 1"
+  );
+  if (!cashMethod) {
+    cashMethod = await db.getFirstAsync<{ id: number; reported_balance: number | null }>(
+      "SELECT id, reported_balance FROM payment_methods WHERE type = 'cash' ORDER BY id LIMIT 1"
+    );
+    if (cashMethod) {
+      await db.runAsync("UPDATE payment_methods SET system_key = 'cash', active = 1 WHERE id = ?", cashMethod.id);
+    } else {
+      const result = await db.runAsync(
+        `INSERT INTO payment_methods (
+           name, type, system_key, billing_day, color, active,
+           reported_balance, balance_updated_at, balance_synced_at
+         ) VALUES (?, 'cash', 'cash', NULL, '#27ae60', 1, 0, DATE('now', 'localtime'), CURRENT_TIMESTAMP)`,
+        t('paymentMethods.cash')
+      );
+      cashMethod = { id: result.lastInsertRowId, reported_balance: 0 };
+    }
+  }
+  if (cashMethod.reported_balance == null) {
+    const [expenseAnchor, incomeAnchor] = await Promise.all([
+      db.getFirstAsync<{ id: number }>(
+        "SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE payment_method_id = ? AND date <= DATE('now', 'localtime')",
+        cashMethod.id
+      ),
+      db.getFirstAsync<{ id: number }>(
+        "SELECT COALESCE(MAX(id), 0) AS id FROM incomes WHERE payment_method_id = ? AND date <= DATE('now', 'localtime')",
+        cashMethod.id
+      ),
+    ]);
+    await db.runAsync(
+      `UPDATE payment_methods
+       SET active = 1, reported_balance = 0,
+           balance_updated_at = DATE('now', 'localtime'), balance_synced_at = CURRENT_TIMESTAMP,
+           balance_expense_anchor_id = ?, balance_income_anchor_id = ?
+       WHERE id = ?`,
+      Number(expenseAnchor?.id ?? 0),
+      Number(incomeAnchor?.id ?? 0),
+      cashMethod.id
+    );
+  } else {
+    await db.runAsync('UPDATE payment_methods SET active = 1 WHERE id = ?', cashMethod.id);
+  }
+  await db.runAsync(
+    'UPDATE recurring_incomes SET payment_method_id = ? WHERE payment_method_id IS NULL',
+    cashMethod.id
+  );
+  await db.runAsync(
+    `UPDATE settings
+     SET default_payment_method_id = ?
+     WHERE id = 1 AND (
+       default_payment_method_id IS NULL OR NOT EXISTS (
+         SELECT 1 FROM payment_methods method
+         WHERE method.id = settings.default_payment_method_id AND method.active = 1
+       )
+     )`,
+    cashMethod.id
+  );
+
   const row = await db.getFirstAsync<{ count: number }>(
     'SELECT COUNT(*) as count FROM categories'
   );
 
   if ((row?.count ?? 0) === 0) {
-    await db.runAsync(
-      `INSERT OR IGNORE INTO payment_methods (name, type, billing_day, color, active)
-       VALUES (?, 'cash', NULL, '#27ae60', 1)`,
-      t('paymentMethods.cash')
-    );
     for (const category of DEFAULT_CATEGORIES) {
       // Validamos aquí también para evitar cargar por defecto un color prohibido
       if (!RESERVED_COLORS.map(normalizeColor).includes(normalizeColor(category.color))) {
@@ -1178,9 +1240,14 @@ export async function resetLocalData(): Promise<void> {
     `);
 
     await transaction.runAsync(
-      `INSERT INTO payment_methods (name, type, billing_day, color, active)
-       VALUES (?, 'cash', NULL, '#27ae60', 1)`,
+      `INSERT INTO payment_methods (
+         name, type, system_key, billing_day, color, active,
+         reported_balance, balance_updated_at, balance_synced_at
+       ) VALUES (?, 'cash', 'cash', NULL, '#27ae60', 1, 0, DATE('now', 'localtime'), CURRENT_TIMESTAMP)`,
       t('paymentMethods.cash')
+    );
+    await transaction.runAsync(
+      "UPDATE settings SET default_payment_method_id = (SELECT id FROM payment_methods WHERE system_key = 'cash') WHERE id = 1"
     );
     for (const category of DEFAULT_CATEGORIES) {
       await transaction.runAsync(
@@ -2153,6 +2220,7 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
     id: row.id as number,
     name: row.name as string,
     type: row.type as PaymentMethod['type'],
+    systemKey: row.system_key == null ? null : row.system_key as PaymentMethod['systemKey'],
     billingDay: row.billing_day == null ? null : Number(row.billing_day),
     color: row.color as string,
     active: Number(row.active) === 1,
@@ -2342,6 +2410,7 @@ function validatePaymentMethod(data: NewPaymentMethod) {
 export async function createPaymentMethod(data: NewPaymentMethod): Promise<void> {
   validatePaymentMethod(data);
   const db = await getDb();
+  if (data.type === 'cash') throw new Error(t('database.cashAccountAlreadyProvided'));
   await db.runAsync(
     `INSERT INTO payment_methods (
        name, type, billing_day, color, active, credit_limit, reported_balance,
@@ -2352,9 +2421,9 @@ export async function createPaymentMethod(data: NewPaymentMethod): Promise<void>
     data.type === 'credit' ? data.billingDay : null,
     data.color.toLowerCase(),
     data.type === 'credit' ? data.creditLimit : null,
-    data.type === 'cash' ? null : data.reportedBalance,
-    data.type === 'cash' ? null : data.balanceDate,
-    data.type === 'cash' || data.reportedBalance == null ? null : new Date().toISOString(),
+    data.reportedBalance,
+    data.balanceDate,
+    data.reportedBalance == null ? null : new Date().toISOString(),
     data.type === 'credit' ? data.paymentDueDay : null
   );
 }
@@ -2395,7 +2464,6 @@ export async function updatePaymentMethodBalance(
       id
     );
     if (!method) throw new Error(t('database.paymentMissing'));
-    if (method.type === 'cash') throw new Error(t('database.cashBalanceUnavailable'));
     const chargeAnchor = await transaction.getFirstAsync<{ id: number }>(
       'SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE payment_method_id = ? AND date <= ?',
       id,
@@ -2438,15 +2506,20 @@ export async function updatePaymentMethodBalance(
 export async function setPaymentMethodActive(id: number, active: boolean): Promise<void> {
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
-    const current = await transaction.getFirstAsync<{ id: number }>(
-      'SELECT id FROM payment_methods WHERE id = ?',
+    const current = await transaction.getFirstAsync<{ id: number; system_key: string | null }>(
+      'SELECT id, system_key FROM payment_methods WHERE id = ?',
       id
     );
     if (!current) throw new Error(t('database.paymentMissing'));
+    if (current.system_key === 'cash' && !active) {
+      throw new Error(t('database.cashAccountRequired'));
+    }
     await transaction.runAsync('UPDATE payment_methods SET active = ? WHERE id = ?', active ? 1 : 0, id);
     if (!active) {
       await transaction.runAsync(
-        'UPDATE settings SET default_payment_method_id = NULL WHERE default_payment_method_id = ?',
+        `UPDATE settings
+         SET default_payment_method_id = (SELECT id FROM payment_methods WHERE system_key = 'cash' LIMIT 1)
+         WHERE default_payment_method_id = ?`,
         id
       );
     }
@@ -2455,6 +2528,13 @@ export async function setPaymentMethodActive(id: number, active: boolean): Promi
 
 export async function setDefaultPaymentMethod(id: number | null): Promise<void> {
   const db = await getDb();
+  if (id == null) {
+    const cash = await db.getFirstAsync<{ id: number }>(
+      "SELECT id FROM payment_methods WHERE system_key = 'cash' AND active = 1 LIMIT 1"
+    );
+    if (!cash) throw new Error(t('database.cashAccountRequired'));
+    id = cash.id;
+  }
   if (id != null) {
     const method = await db.getFirstAsync<{ active: number }>(
       'SELECT active FROM payment_methods WHERE id = ?',
@@ -2494,10 +2574,11 @@ export async function getPaymentMethodDeletionInfo(id: number): Promise<{
 export async function deletePaymentMethod(id: number): Promise<void> {
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
-    const method = await transaction.getFirstAsync<{ id: number }>(
-      'SELECT id FROM payment_methods WHERE id = ?', id
+    const method = await transaction.getFirstAsync<{ id: number; system_key: string | null }>(
+      'SELECT id, system_key FROM payment_methods WHERE id = ?', id
     );
     if (!method) throw new Error(t('database.paymentMissing'));
+    if (method.system_key === 'cash') throw new Error(t('database.cashAccountRequired'));
     const favorite = await transaction.getFirstAsync<{ id: number }>(
       'SELECT id FROM settings WHERE default_payment_method_id = ?', id
     );
@@ -2518,6 +2599,8 @@ export async function deletePaymentMethod(id: number): Promise<void> {
     }
     await transaction.runAsync('UPDATE expenses SET payment_method_id = NULL WHERE payment_method_id = ?', id);
     await transaction.runAsync('UPDATE recurring_expenses SET payment_method_id = NULL WHERE payment_method_id = ?', id);
+    await transaction.runAsync('UPDATE incomes SET payment_method_id = NULL WHERE payment_method_id = ?', id);
+    await transaction.runAsync('UPDATE recurring_incomes SET payment_method_id = NULL WHERE payment_method_id = ?', id);
     await transaction.runAsync('DELETE FROM payment_methods WHERE id = ?', id);
   });
 }

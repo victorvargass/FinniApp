@@ -904,6 +904,8 @@ const en = {
     installmentPurchaseTotal: 'Installment purchase · full amount charged to credit',
     incomeReceived: 'Income received',
     savingsWithdrawalReceivedFrom: 'Withdrawal received from %{name}',
+    balanceCalculationTitle: 'Balance calculation',
+    cashProtectedHint: 'Cash is FinniApp’s base payment method: it always remains active and cannot be deleted.',
   },
   settings: {
     financialManagement: 'Financial management',
@@ -1364,6 +1366,8 @@ const en = {
     incomeAmountPositive: 'Enter an income amount greater than zero',
     incomePaymentMethodRequired: 'Select a payment method to receive the money',
     incomeCreditDestinationInvalid: 'Income and savings withdrawals cannot be received on a credit card',
+    cashAccountRequired: 'Cash is the base payment method and cannot be disabled or deleted',
+    cashAccountAlreadyProvided: 'FinniApp already includes Cash as its base payment method',
   },
 } as const;
 

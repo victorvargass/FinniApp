@@ -50,7 +50,7 @@ export default function PaymentMethodFormScreen() {
   const [color, setColor] = useState(method?.color ?? '#0B315B');
   const [saving, setSaving] = useState(false);
   const types: { value: PaymentMethodType; label: string }[] = [
-    { value: 'cash', label: t('paymentMethods.cash') },
+    ...(method?.type === 'cash' ? [{ value: 'cash' as const, label: t('paymentMethods.cash') }] : []),
     { value: 'debit', label: t('paymentMethods.debit') },
     { value: 'prepaid', label: t('paymentMethods.prepaid') },
     { value: 'credit', label: t('paymentMethods.credit') },
@@ -98,6 +98,10 @@ export default function PaymentMethodFormScreen() {
 
   const confirmDelete = async () => {
     if (!method) return;
+    if (method.systemKey === 'cash') {
+      Alert.alert(t('expenses.cannotDelete'), t('paymentMethods.cashProtectedHint'));
+      return;
+    }
     if (settings.defaultPaymentMethodId === method.id) {
       Alert.alert(
         t('expenses.cannotDelete'), t('paymentMethods.favoriteBlockedHint')
@@ -274,9 +278,11 @@ export default function PaymentMethodFormScreen() {
           <View style={[styles.preferenceCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
             <View style={styles.preferenceCopy}>
               <ThemedText type="defaultSemiBold">{t('common.active')}</ThemedText>
+              {method.systemKey === 'cash' && <ThemedText style={styles.hint}>{t('paymentMethods.cashProtectedHint')}</ThemedText>}
             </View>
             <Switch
               value={method.active}
+              disabled={method.systemKey === 'cash'}
               onValueChange={(active) => {
                 setPaymentMethodActive(method.id, active)
                   .then(() => showToast(t(active
@@ -298,7 +304,7 @@ export default function PaymentMethodFormScreen() {
                 ? t('paymentMethods.removeFavorite', { name: method.name })
                 : t('paymentMethods.markFavorite', { name: method.name })}
               accessibilityRole="button"
-              disabled={!method.active}
+              disabled={!method.active || (method.systemKey === 'cash' && settings.defaultPaymentMethodId === method.id)}
               onPress={() => {
                 const favorite = settings.defaultPaymentMethodId !== method.id;
                 setDefaultPaymentMethod(favorite ? method.id : null)
@@ -309,7 +315,10 @@ export default function PaymentMethodFormScreen() {
                     Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain'));
                   });
               }}
-              style={[styles.favoriteButton, !method.active && styles.favoriteDisabled]}>
+              style={[
+                styles.favoriteButton,
+                (!method.active || (method.systemKey === 'cash' && settings.defaultPaymentMethodId === method.id)) && styles.favoriteDisabled,
+              ]}>
               <Ionicons
                 name={settings.defaultPaymentMethodId === method.id ? 'star' : 'star-outline'}
                 size={24}
@@ -332,7 +341,7 @@ export default function PaymentMethodFormScreen() {
         <Pressable disabled={saving} onPress={save} style={[styles.save, saving && { opacity: 0.6 }]}>
           <ThemedText style={styles.saveText}>{method ? t('common.saveChanges') : t('paymentMethods.add')}</ThemedText>
         </Pressable>
-        {method && settings.defaultPaymentMethodId !== method.id && (
+        {method && method.systemKey !== 'cash' && settings.defaultPaymentMethodId !== method.id && (
           <Pressable
             disabled={saving}
             onPress={() => void confirmDelete()}

@@ -102,16 +102,12 @@ export default function PaymentMethodDetailScreen() {
             </View>
             <Ionicons name={isCredit ? 'card' : 'wallet'} size={30} color="#fff" />
           </View>
-          {method.type !== 'cash' && (
-            <>
-              <ThemedText style={styles.onCardLabel}>
-                {isCredit ? t('paymentMethods.availableCredit') : t('paymentMethods.availableBalance')}
-              </ThemedText>
-              <ThemedText style={styles.balance}>
-                {method.availableBalance == null ? '—' : formatCLP(method.availableBalance)}
-              </ThemedText>
-            </>
-          )}
+          <ThemedText style={styles.onCardLabel}>
+            {isCredit ? t('paymentMethods.availableCredit') : t('paymentMethods.availableBalance')}
+          </ThemedText>
+          <ThemedText style={styles.balance}>
+            {method.availableBalance == null ? '—' : formatCLP(method.availableBalance)}
+          </ThemedText>
           {isCredit && method.creditLimit != null && (
             <>
               <View style={styles.track}>
@@ -146,7 +142,7 @@ export default function PaymentMethodDetailScreen() {
           )}
         </View>
 
-        {method.type !== 'cash' && method.availableBalance == null && (
+        {method.availableBalance == null && (
           <ThemedView style={[styles.setupCard, { borderColor: colors.secondary }]}>
             <View style={[styles.setupIcon, { backgroundColor: `${colors.secondary}22` }]}>
               <Ionicons name="sync-outline" size={23} color={colors.action} />
@@ -168,9 +164,9 @@ export default function PaymentMethodDetailScreen() {
             </Pressable>
           </ThemedView>
         )}
-        {method.type !== 'cash' && method.reportedBalance != null && method.availableBalance != null && (
+        {method.reportedBalance != null && method.availableBalance != null && (
           <ThemedView style={styles.calculationCard}>
-            <ThemedText type="subtitle">{t('paymentMethods.calculationTitle')}</ThemedText>
+            <ThemedText type="subtitle">{t(isCredit ? 'paymentMethods.calculationTitle' : 'paymentMethods.balanceCalculationTitle')}</ThemedText>
             {method.balanceUpdatedAt && (
               <ThemedText style={styles.hint}>
                 {t('paymentMethods.calculationSince', {
@@ -226,7 +222,7 @@ export default function PaymentMethodDetailScreen() {
         )}
 
         <View style={styles.actions}>
-          {method.type !== 'cash' && action(
+          {action(
             'refresh-outline',
             t('paymentMethods.updateBalance'),
             () => router.push({ pathname: '/modal/payment-method-balance', params: { id: String(method.id) } })

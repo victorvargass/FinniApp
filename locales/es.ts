@@ -904,6 +904,8 @@ const es = {
     installmentPurchaseTotal: 'Compra en cuotas · total descontado del cupo',
     incomeReceived: 'Ingreso recibido',
     savingsWithdrawalReceivedFrom: 'Retiro recibido desde %{name}',
+    balanceCalculationTitle: 'Cálculo del saldo',
+    cashProtectedHint: 'Efectivo es el medio base de FinniApp: siempre permanece activo y no se puede eliminar.',
   },
   settings: {
     financialManagement: 'Gestión financiera',
@@ -1364,6 +1366,8 @@ const es = {
     incomeAmountPositive: 'Ingresa un monto de ingreso mayor que cero',
     incomePaymentMethodRequired: 'Selecciona un medio de pago para recibir el dinero',
     incomeCreditDestinationInvalid: 'Los ingresos y retiros de ahorro no se pueden recibir en una tarjeta de crédito',
+    cashAccountRequired: 'Efectivo es el medio de pago base y no se puede desactivar ni eliminar',
+    cashAccountAlreadyProvided: 'FinniApp ya incluye Efectivo como medio de pago base',
   },
 } as const;
 

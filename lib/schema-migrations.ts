@@ -10,6 +10,7 @@ export const SCHEMA_MIGRATIONS = [
   { version: 3, name: 'credit-card-installment-commitments' },
   { version: 4, name: 'payment-method-balance-sync-timestamps' },
   { version: 5, name: 'income-payment-destinations' },
+  { version: 6, name: 'reserved-default-cash-account' },
 ] as const;
 
 export async function recordAppliedSchema(database: MigrationDatabase): Promise<void> {

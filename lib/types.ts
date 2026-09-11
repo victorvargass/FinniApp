@@ -131,11 +131,13 @@ export type ExpenseWithCategory = Expense & {
 };
 
 export type PaymentMethodType = 'cash' | 'debit' | 'prepaid' | 'credit';
+export type PaymentMethodSystemKey = 'cash';
 
 export type PaymentMethod = {
   id: number;
   name: string;
   type: PaymentMethodType;
+  systemKey: PaymentMethodSystemKey | null;
   billingDay: number | null;
   color: string;
   active: boolean;

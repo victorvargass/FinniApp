@@ -76,8 +76,7 @@ export default function PaymentMethodsScreen() {
                 <ThemedText style={styles.secondary}>
                   {typeLabels[item.type]}{item.billingDay ? t('paymentMethods.approximateBilling', { day: item.billingDay }) : ''}
                 </ThemedText>
-                {item.type !== 'cash' && (
-                  item.availableBalance == null ? (
+                {item.availableBalance == null ? (
                     <Pressable
                       accessibilityRole="button"
                       onPress={(event) => {
@@ -97,8 +96,7 @@ export default function PaymentMethodsScreen() {
                     <ThemedText type="defaultSemiBold" style={styles.balance}>
                       {`${item.type === 'credit' ? t('paymentMethods.availableCredit') : t('paymentMethods.availableBalance')}: ${new Intl.NumberFormat(undefined, { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.availableBalance)}`}
                     </ThemedText>
-                  )
-                )}
+                  )}
               </View>
             </Pressable>
             <Pressable
@@ -106,7 +104,7 @@ export default function PaymentMethodsScreen() {
                 ? t('paymentMethods.removeDefault', { name: item.name })
                 : t('paymentMethods.useAsDefault', { name: item.name })}
               accessibilityRole="button"
-              disabled={!item.active}
+              disabled={!item.active || (item.systemKey === 'cash' && settings.defaultPaymentMethodId === item.id)}
               onPress={() => {
                 const willBeDefault = settings.defaultPaymentMethodId !== item.id;
                 setDefaultPaymentMethod(willBeDefault ? item.id : null)
@@ -118,7 +116,10 @@ export default function PaymentMethodsScreen() {
                     error instanceof Error ? error.message : t('common.tryAgain')
                   ));
               }}
-              style={[styles.star, !item.active && styles.starDisabled]}>
+              style={[
+                styles.star,
+                (!item.active || (item.systemKey === 'cash' && settings.defaultPaymentMethodId === item.id)) && styles.starDisabled,
+              ]}>
               <Ionicons
                 name={settings.defaultPaymentMethodId === item.id ? 'star' : 'star-outline'}
                 size={22}
