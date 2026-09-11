@@ -31,8 +31,8 @@ module.exports = ({ config }) => {
     LOCALIZATION_PLUGIN,
     {
       supportedLocales: {
-        ios: ['es'],
-        android: ['es'],
+        ios: ['es', 'en'],
+        android: ['es', 'en'],
       },
     },
   ]);
