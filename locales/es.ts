@@ -244,6 +244,8 @@ const es = {
     notificationsDisabled: 'Notificaciones desactivadas',
     notificationsDisabledHint: 'Activa las notificaciones del sistema para usar el modo con confirmación.',
     createdWithRecurrence: 'Gasto y recurrencia creados correctamente',
+    moreOptions: 'Más opciones',
+    moreOptionsHint: 'Dividir monto, cambiar fecha, usar cuotas o crear una recurrencia.',
     splitDescription: 'Guarda el total de la compra y registra solamente la parte que pagaste tú',
     customPercentage: 'Tu porcentaje',
     otherPercentage: 'Otro',
@@ -264,6 +266,8 @@ const es = {
   incomes: {
     add: 'Agregar ingreso',
     amount: 'Monto (CLP)',
+    moreOptions: 'Más opciones',
+    moreOptionsHint: 'Cambiar fecha, retirar ahorro o crear una recurrencia.',
     created: 'Ingreso creado correctamente',
     delete: 'Eliminar ingreso',
     deleted: 'Ingreso eliminado correctamente',

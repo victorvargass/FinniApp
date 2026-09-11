@@ -65,6 +65,7 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [makeIncomeRecurring, setMakeIncomeRecurring] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(Boolean(income || initialSavingsGoal));
   const [incomeSchedule, setIncomeSchedule] = useState<NewRecurringSchedule>(() =>
     getDefaultRecurringSchedule(date)
   );
@@ -187,7 +188,26 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
         keyboardType="number-pad"
       />
 
-      {income?.recurringIncomeId == null && selectableSavingsGoals.length > 0 && (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showAdvancedOptions }}
+        onPress={() => setShowAdvancedOptions((current) => !current)}
+        style={[styles.advancedOptions, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+        <View style={styles.advancedOptionsCopy}>
+          <Ionicons name="options-outline" size={21} color={colors.action} />
+          <View style={styles.advancedOptionsText}>
+            <ThemedText type="defaultSemiBold">{t('incomes.moreOptions')}</ThemedText>
+            <ThemedText style={styles.shareDescription}>{t('incomes.moreOptionsHint')}</ThemedText>
+          </View>
+        </View>
+        <Ionicons
+          name={showAdvancedOptions ? 'chevron-up' : 'chevron-down'}
+          size={21}
+          color={colors.icon}
+        />
+      </Pressable>
+
+      {showAdvancedOptions && income?.recurringIncomeId == null && selectableSavingsGoals.length > 0 && (
         <>
           <ColorSelect
             label={t('savings.withdrawFromGoalOptional')}
@@ -217,35 +237,39 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
         </>
       )}
 
-      <ThemedText style={styles.label}>{t('forms.date')}</ThemedText>
-      <Pressable
-        style={[styles.dateButton, { borderColor: colors.icon }]}
-        onPress={() => setShowDatePicker(true)}>
-        <ThemedText>{formatDate(date)}</ThemedText>
-      </Pressable>
+      {showAdvancedOptions && (
+        <>
+          <ThemedText style={styles.label}>{t('forms.date')}</ThemedText>
+          <Pressable
+            style={[styles.dateButton, { borderColor: colors.icon }]}
+            onPress={() => setShowDatePicker(true)}>
+            <ThemedText>{formatDate(date)}</ThemedText>
+          </Pressable>
 
-      {showDatePicker && (
-        <DateTimePicker
-          value={date}
-          minimumDate={formPeriod ? parseDateString(formPeriod.startDate) : undefined}
-          maximumDate={formPeriod ? parseDateString(formPeriod.endDate) : undefined}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(_, selected) => {
-            if (Platform.OS === 'android') setShowDatePicker(false);
-            if (selected) {
-              setDate(selected);
-            }
-          }}
-        />
-      )}
-      {Platform.OS === 'ios' && showDatePicker && (
-        <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>
-          <ThemedText type="link">{t('common.done')}</ThemedText>
-        </Pressable>
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              minimumDate={formPeriod ? parseDateString(formPeriod.startDate) : undefined}
+              maximumDate={formPeriod ? parseDateString(formPeriod.endDate) : undefined}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(_, selected) => {
+                if (Platform.OS === 'android') setShowDatePicker(false);
+                if (selected) {
+                  setDate(selected);
+                }
+              }}
+            />
+          )}
+          {Platform.OS === 'ios' && showDatePicker && (
+            <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>
+              <ThemedText type="link">{t('common.done')}</ThemedText>
+            </Pressable>
+          )}
+        </>
       )}
 
-      {savingsGoalId == null && (!income || income.recurringIncomeId == null) && (
+      {showAdvancedOptions && savingsGoalId == null && (!income || income.recurringIncomeId == null) && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}>
           <Pressable onPress={() => setMakeIncomeRecurring((current) => !current)} style={styles.recurringHeader}>
             <View style={styles.recurringHeaderCopy}>

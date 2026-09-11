@@ -98,6 +98,7 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
     getDefaultRecurringSchedule(date)
   );
   const [billingCycleHint, setBillingCycleHint] = useState<string | null>(null);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(Boolean(expense));
   const [saving, setSaving] = useState(false);
   const totalAmount = parseAmount(amountText as string);
   const percentage = Number(percentageText.replace(',', '.'));
@@ -429,7 +430,7 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />
-      {!isInstallmentPurchase && !isCardPayment && <View style={styles.shareSection}>
+      {showAdvancedOptions && !isInstallmentPurchase && !isCardPayment && <View style={styles.shareSection}>
         <View style={styles.shareToggleRow}>
           <View style={styles.shareToggleCopy}>
             <ThemedText style={styles.shareLabel}>{t('forms.splitAmount')}</ThemedText>
@@ -724,7 +725,26 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
         </ThemedText>
       )}
 
-      {!expense && isCreditPurchase && (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showAdvancedOptions }}
+        onPress={() => setShowAdvancedOptions((current) => !current)}
+        style={[styles.advancedOptions, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+        <View style={styles.advancedOptionsCopy}>
+          <Ionicons name="options-outline" size={21} color={colors.action} />
+          <View style={styles.advancedOptionsText}>
+            <ThemedText type="defaultSemiBold">{t('expenses.moreOptions')}</ThemedText>
+            <ThemedText style={styles.shareDescription}>{t('expenses.moreOptionsHint')}</ThemedText>
+          </View>
+        </View>
+        <Ionicons
+          name={showAdvancedOptions ? 'chevron-up' : 'chevron-down'}
+          size={21}
+          color={colors.icon}
+        />
+      </Pressable>
+
+      {showAdvancedOptions && !expense && isCreditPurchase && (
         <View style={[styles.installmentBox, { borderColor: colors.border }]}> 
           <View style={styles.installmentHeader}>
             <View style={styles.shareToggleCopy}>
@@ -801,33 +821,37 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
         </View>
       )}
 
-      <ThemedText style={styles.label}>{t('forms.date')}</ThemedText>
-      <Pressable
-        style={[styles.dateButton, { borderColor: colors.icon }]}
-        onPress={() => setShowDatePicker(true)}>
-        <ThemedText>{formatDate(date)}</ThemedText>
-      </Pressable>
+      {showAdvancedOptions && (
+        <>
+          <ThemedText style={styles.label}>{t('forms.date')}</ThemedText>
+          <Pressable
+            style={[styles.dateButton, { borderColor: colors.icon }]}
+            onPress={() => setShowDatePicker(true)}>
+            <ThemedText>{formatDate(date)}</ThemedText>
+          </Pressable>
 
-      {showDatePicker && (
-        <DateTimePicker
-          value={date}
-          minimumDate={formPeriod ? parseDateString(formPeriod.startDate) : undefined}
-          maximumDate={formPeriod ? parseDateString(formPeriod.endDate) : undefined}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(_, selected) => {
-            if (Platform.OS === 'android') setShowDatePicker(false);
-            if (selected) setDate(selected);
-          }}
-        />
-      )}
-      {Platform.OS === 'ios' && showDatePicker && (
-        <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>
-          <ThemedText type="link">{t('common.done')}</ThemedText>
-        </Pressable>
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              minimumDate={formPeriod ? parseDateString(formPeriod.startDate) : undefined}
+              maximumDate={formPeriod ? parseDateString(formPeriod.endDate) : undefined}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(_, selected) => {
+                if (Platform.OS === 'android') setShowDatePicker(false);
+                if (selected) setDate(selected);
+              }}
+            />
+          )}
+          {Platform.OS === 'ios' && showDatePicker && (
+            <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>
+              <ThemedText type="link">{t('common.done')}</ThemedText>
+            </Pressable>
+          )}
+        </>
       )}
 
-      {!expense && !isCardPayment && !isInstallmentPurchase && savingsKind !== 'funded_expense' && (
+      {showAdvancedOptions && !expense && !isCardPayment && !isInstallmentPurchase && savingsKind !== 'funded_expense' && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}>
           <Pressable
             accessibilityRole="button"

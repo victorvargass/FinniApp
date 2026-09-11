@@ -244,6 +244,8 @@ const en = {
     notificationsDisabled: 'Notifications disabled',
     notificationsDisabledHint: 'Turn on system notifications to use confirmation mode.',
     createdWithRecurrence: 'Expense and recurrence created successfully',
+    moreOptions: 'More options',
+    moreOptionsHint: 'Split the amount, change the date, use installments, or create a recurrence.',
     splitDescription: 'Save the total of the purchase and record only the part you paid',
     customPercentage: 'Your percentage',
     otherPercentage: 'other',
@@ -264,6 +266,8 @@ const en = {
   incomes: {
     add: 'Add income',
     amount: 'Amount (CLP)',
+    moreOptions: 'More options',
+    moreOptionsHint: 'Change the date, withdraw savings, or create a recurrence.',
     created: 'Income created successfully',
     delete: 'Delete income',
     deleted: 'Income deleted successfully',
