@@ -70,7 +70,8 @@ name: FinniApp financial smoke test
 
 # Un gasto recorre creación, edición y eliminación persistiendo en SQLite.
 - tapOn:
-    id: 'tab-expenses'
+    id: 'tab-movements'
+- tapOn: 'Gastos'
 - tapOn: 'Agregar gasto'
 - tapOn:
     id: 'expense-name-input'
@@ -95,14 +96,17 @@ name: FinniApp financial smoke test
 - extendedWaitUntil:
     visible: 'Compra E2E editada'
     timeout: 15000
-- longPressOn: 'Compra E2E editada'
+- tapOn: 'Acciones para Compra E2E editada'
+- assertVisible: 'Selecciona qué deseas hacer'
+- tapOn: 'Eliminar'
 - assertVisible: '¿Eliminar "Compra E2E editada"?'
 - tapOn: 'Eliminar'
 - assertNotVisible: 'Compra E2E editada'
 
 # Un ingreso independiente valida el segundo formulario ya separado.
 - tapOn:
-    id: 'tab-incomes'
+    id: 'tab-movements'
+- tapOn: 'Ingresos'
 - tapOn: 'Agregar ingreso'
 - tapOn:
     id: 'income-name-input'
@@ -116,7 +120,9 @@ name: FinniApp financial smoke test
 - extendedWaitUntil:
     visible: 'Ingreso E2E'
     timeout: 15000
-- longPressOn: 'Ingreso E2E'
+- tapOn: 'Acciones para Ingreso E2E'
+- assertVisible: 'Selecciona qué deseas hacer'
+- tapOn: 'Eliminar'
 - assertVisible: '¿Eliminar "Ingreso E2E"?'
 - tapOn: 'Eliminar'
 - assertNotVisible: 'Ingreso E2E'
