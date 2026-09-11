@@ -13,6 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
+import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
@@ -479,6 +480,23 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
     ]);
   };
 
+  const handleActions = (id: number, name: string) => {
+    Alert.alert(name, t('common.selectAction'), [
+      {
+        text: t('common.edit'),
+        onPress: () => router.push({ pathname: '/modal/expense-form', params: { id: String(id) } }),
+      },
+      { text: t('common.delete'), style: 'destructive', onPress: () => handleDelete(id, name) },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
+  const clearAllFilters = () => {
+    setSearch('');
+    setCategoryFilter([]);
+    setPaymentMethodFilter([]);
+  };
+
   const selectSort = (value: SortOption) => {
     setSortBy(value);
     setSortModalVisible(false);
@@ -692,11 +710,23 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          <ThemedText style={styles.empty}>
-            {expenses.length === 0
-              ? t('expenses.empty')
-              : t('expenses.emptyFiltered')}
-          </ThemedText>
+          expenses.length === 0 ? (
+            <EmptyState
+              icon="arrow-up-circle-outline"
+              title={t('emptyStates.expensesTitle')}
+              description={t('emptyStates.expensesDescription')}
+              actionLabel={t('expenses.add')}
+              onAction={() => router.push('/modal/expense-form')}
+            />
+          ) : (
+            <EmptyState
+              icon="search-outline"
+              title={t('emptyStates.noResultsTitle')}
+              description={t('expenses.emptyFiltered')}
+              actionLabel={t('emptyStates.clearFilters')}
+              onAction={clearAllFilters}
+            />
+          )
         }
         renderItem={({ item }) => {
           if (item.type === 'group') {
@@ -782,7 +812,16 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
                
                   </View>
                 </View>
-                <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(expense.amount)}</ThemedText>
+                <View style={styles.itemActions}>
+                  <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(expense.amount)}</ThemedText>
+                  <Pressable
+                    onPress={() => handleActions(expense.id, expense.name)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.actionsFor', { name: expense.name })}>
+                    <Ionicons name="ellipsis-vertical" size={20} color={colors.icon} />
+                  </Pressable>
+                </View>
               </ThemedView>
             </Pressable>
           );
@@ -947,11 +986,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 100,
   },
-  empty: {
-    textAlign: 'center',
-    opacity: 0.6,
-    marginTop: 40,
-  },
   categoryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -995,6 +1029,11 @@ const styles = StyleSheet.create({
   itemInfo: {
     flex: 1,
     gap: 2,
+  },
+  itemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   expenseNameRow: {
     flexDirection: 'row',

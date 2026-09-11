@@ -1,4 +1,5 @@
 import { HistoricalPeriodModal } from '@/components/HistoricalPeriodModal';
+import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
@@ -244,9 +245,13 @@ export default function HistoricalSummaryScreen() {
           </ThemedView>
         ) : (
           <ThemedView style={styles.card}>
-            <View style={styles.center}>
-              <ThemedText>{t('history.empty')}</ThemedText>
-            </View>
+            <EmptyState
+              icon="bar-chart-outline"
+              title={t('emptyStates.historyTitle')}
+              description={t('emptyStates.historyDescription')}
+              actionLabel={t('emptyStates.goHome')}
+              onAction={() => router.navigate('/(tabs)/period')}
+            />
           </ThemedView>
         )}
       </ScrollView>

@@ -13,6 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
+import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
@@ -192,6 +193,17 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
     ]);
   };
 
+  const handleActions = (id: number, name: string) => {
+    Alert.alert(name, t('common.selectAction'), [
+      {
+        text: t('common.edit'),
+        onPress: () => router.push({ pathname: '/modal/income-form', params: { id: String(id) } }),
+      },
+      { text: t('common.delete'), style: 'destructive', onPress: () => handleDelete(id, name) },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
   const selectSort = (value: SortOption) => {
     setSortBy(value);
     setSortModalVisible(false);
@@ -271,11 +283,23 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          <ThemedText style={styles.empty}>
-            {incomes.length === 0
-              ? t('incomes.empty')
-              : t('incomes.emptyFiltered')}
-          </ThemedText>
+          incomes.length === 0 ? (
+            <EmptyState
+              icon="arrow-down-circle-outline"
+              title={t('emptyStates.incomesTitle')}
+              description={t('emptyStates.incomesDescription')}
+              actionLabel={t('incomes.add')}
+              onAction={() => router.push('/modal/income-form')}
+            />
+          ) : (
+            <EmptyState
+              icon="search-outline"
+              title={t('emptyStates.noResultsTitle')}
+              description={t('incomes.emptyFiltered')}
+              actionLabel={t('emptyStates.clearSearch')}
+              onAction={() => setSearch('')}
+            />
+          )
         }
         renderItem={({ item }) => (
           <Pressable
@@ -325,7 +349,16 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
                   </ThemedText>
                 </View>
               </View>
-              <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(item.amount)}</ThemedText>
+              <View style={styles.itemActions}>
+                <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(item.amount)}</ThemedText>
+                <Pressable
+                  onPress={() => handleActions(item.id, item.name)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.actionsFor', { name: item.name })}>
+                  <Ionicons name="ellipsis-vertical" size={20} color={colors.icon} />
+                </Pressable>
+              </View>
             </ThemedView>
           </Pressable>
         )}
@@ -457,11 +490,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 100,
   },
-  empty: {
-    textAlign: 'center',
-    opacity: 0.6,
-    marginTop: 40,
-  },
   item: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -484,6 +512,11 @@ const styles = StyleSheet.create({
   itemInfo: {
     flex: 1,
     gap: 2,
+  },
+  itemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   incomeNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   meta: {
