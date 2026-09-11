@@ -621,7 +621,7 @@ export function buildPeriodReportHtml(
 
       <section class="section transactions${expenses.length <= 8 ? ' keep-together' : ''}">
         <h2 class="section-title">${t('report.detailExpenses')}</h2>
-        <div class="section-subtitle">${expenses.length} ${expenses.length === 1 ? 'movimiento' : 'movimientos'}</div>
+        <div class="section-subtitle">${expenses.length} ${expenses.length === 1 ? t('report.movementOne') : t('report.movementOther')}</div>
         <table>
           <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th>${t('navigation.category')}</th><th>${t('navigation.paymentMethod')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
           <tbody>${expenseRows(expenses)}</tbody>
@@ -631,7 +631,7 @@ export function buildPeriodReportHtml(
 
       <section class="section transactions${incomes.length <= 8 ? ' keep-together' : ''}">
         <h2 class="section-title">${t('report.detailIncomes')}</h2>
-        <div class="section-subtitle">${incomes.length} ${incomes.length === 1 ? 'movimiento' : 'movimientos'}</div>
+        <div class="section-subtitle">${incomes.length} ${incomes.length === 1 ? t('report.movementOne') : t('report.movementOther')}</div>
         <table>
           <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
           <tbody>${incomeRows(incomes)}</tbody>
