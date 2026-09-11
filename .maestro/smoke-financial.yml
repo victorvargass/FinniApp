@@ -123,7 +123,7 @@ name: FinniApp financial smoke test
 
 # Con cualquier ingreso o gasto, cerrar período debe estar habilitado.
 - tapOn:
-    id: 'tab-period'
+    id: 'tab-home'
 - scrollUntilVisible:
     element:
       id: 'period-close'

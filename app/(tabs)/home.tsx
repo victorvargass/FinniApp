@@ -33,7 +33,7 @@ function parseDateString(value: string): Date {
   return new Date(y, m - 1, d);
 }
 
-export default function PeriodScreen() {
+export default function HomeScreen() {
   const { scrollToTop } = useLocalSearchParams<{ scrollToTop?: string }>();
   const scrollRef = useRef<ScrollView>(null);
   const {

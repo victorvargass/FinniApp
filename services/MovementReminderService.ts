@@ -6,7 +6,7 @@ import { t } from '@/lib/i18n';
 
 const CHANNEL = 'movement-reminders';
 const KIND = 'movement-reminder';
-export const MOVEMENT_REMINDER_URL = '/(tabs)/period' as const;
+export const MOVEMENT_REMINDER_URL = '/(tabs)/home' as const;
 
 export class NotificationPermissionError extends Error {
   constructor(public readonly canAskAgain: boolean) {

@@ -141,7 +141,7 @@ export default function OnboardingScreen() {
 
   useEffect(() => {
     if (shouldLeaveRestoredOnboarding) {
-      router.replace('/(tabs)/period');
+      router.replace('/(tabs)/home');
     }
   }, [shouldLeaveRestoredOnboarding]);
 
@@ -164,7 +164,7 @@ export default function OnboardingScreen() {
         return;
       }
       await completeOnboarding();
-      router.replace('/(tabs)/period');
+      router.replace('/(tabs)/home');
     } finally {
       setFinishing(false);
     }

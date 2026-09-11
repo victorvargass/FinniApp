@@ -25,10 +25,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="period"
+        name="home"
         options={{
           title: t('navigation.home'),
-          tabBarButtonTestID: 'tab-period',
+          tabBarButtonTestID: 'tab-home',
           tabBarLabel: t('navigation.home'),
           tabBarIcon: ({ color }) => <Ionicons name="home" size={24} color={color} />,
         }}

@@ -250,7 +250,7 @@ export default function HistoricalSummaryScreen() {
               title={t('emptyStates.historyTitle')}
               description={t('emptyStates.historyDescription')}
               actionLabel={t('emptyStates.goHome')}
-              onAction={() => router.navigate('/(tabs)/period')}
+              onAction={() => router.navigate('/(tabs)/home')}
             />
           </ThemedView>
         )}
@@ -268,7 +268,7 @@ export default function HistoricalSummaryScreen() {
           setShowPeriodModal(false);
           setSelectedPeriod(null);
           router.navigate({
-            pathname: '/(tabs)/period',
+            pathname: '/(tabs)/home',
             params: { scrollToTop: String(Date.now()) },
           });
         }}
