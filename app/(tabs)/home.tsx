@@ -22,6 +22,7 @@ import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { calculateDailyAvailable, findMostUrgentCategoryLimit } from '@/lib/home-insights';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
+import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
 import { showToast } from '@/lib/toast';
 import { buildWeeklyInsight, findSavingsMilestone } from '@/lib/weekly-insights';
 import { exportPeriodReport } from '@/services/PeriodReportService';
@@ -76,6 +77,11 @@ export default function HomeScreen() {
   const periodSavingsAvailable = periodSavingsWithdrawals + periodSavingsFundingTotal;
   const periodBalance = periodIncomesTotal + periodSavingsAvailable - periodExpensesTotal;
   const selectedPeriodReport = periodHistory.find((period) => period.periodId === selectedPeriod?.id);
+  const previousPeriodReport = selectedPeriod
+    ? [...periodHistory]
+      .filter((period) => period.endDate < selectedPeriod.startDate)
+      .sort((first, second) => second.endDate.localeCompare(first.endDate))[0]
+    : undefined;
   const hasPeriodMovements = expenses.length > 0 || incomes.length > 0;
   const dailyAvailable = isCurrentPeriod && selectedPeriod
     ? calculateDailyAvailable(periodBalance, selectedPeriod.endDate)
@@ -94,6 +100,16 @@ export default function HomeScreen() {
     (method) => method.active && method.availableBalance != null && method.availableBalance < 0
   );
   const activeCreditCards = paymentMethods.filter((method) => method.active && method.type === 'credit');
+  const closeInsights = selectedPeriodReport
+    ? buildPeriodCloseInsights(
+      periodBalance,
+      periodExpensesTotal,
+      selectedPeriodReport.categories,
+      previousPeriodReport
+        ? previousPeriodReport.categories.reduce((sum, category) => sum + category.total, 0)
+        : null
+    )
+    : null;
   const attentionItems: HomeAttentionItem[] = [];
 
   if (isCurrentPeriod && pendingConfirmationCount > 0) {
@@ -462,6 +478,26 @@ export default function HomeScreen() {
                     expenses: formatCLP(periodExpensesTotal),
                     balance: formatCLP(periodBalance),
                   }),
+                  insights: closeInsights
+                    ? t('period.finishInsights', {
+                      balance: t(`period.finishBalance${closeInsights.balanceStatus === 'positive' ? 'Positive' : closeInsights.balanceStatus === 'negative' ? 'Negative' : 'Even'}`, {
+                        amount: formatCLP(Math.abs(periodBalance)),
+                      }),
+                      comparison: closeInsights.comparisonStatus === 'first'
+                        ? t('period.finishComparisonFirst')
+                        : closeInsights.comparisonStatus === 'same'
+                          ? t('period.finishComparisonSame')
+                          : t(closeInsights.comparisonStatus === 'less' ? 'period.finishComparisonLess' : 'period.finishComparisonMore', {
+                            percent: closeInsights.comparisonPercent ?? 0,
+                          }),
+                      category: closeInsights.topCategoryName
+                        ? t('period.finishTopCategory', {
+                          category: closeInsights.topCategoryName,
+                          amount: formatCLP(closeInsights.topCategoryAmount),
+                        })
+                        : t('period.finishNoExpenses'),
+                    })
+                    : '',
                 }),
                 [
                   {
