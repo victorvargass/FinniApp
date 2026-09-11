@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -21,6 +22,8 @@ import { ensureRecurringNotificationPermission } from '@/services/RecurringNotif
 import { getDefaultRecurringSchedule, getEstimatedBillingDate, getNameSuggestions, parseDateString } from './helpers';
 import { ColorSelect, NameSuggestions } from './shared';
 import { styles } from './styles';
+
+const LAST_EXPENSE_PAYMENT_METHOD_KEY = '@finniapp/last-expense-payment-method-id';
 
 type ExpenseFormProps = {
   expense?: Expense;
@@ -78,6 +81,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
     initialExpense?.paymentMethodId ?? settings.defaultPaymentMethodId
   );
+  const [hasLoadedLastPaymentMethod, setHasLoadedLastPaymentMethod] = useState(false);
   const [date, setDate] = useState(
     expense?.date
       ? parseDateString(expense.date)
@@ -167,6 +171,30 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
         return estimated;
       })()
     : null;
+
+  useEffect(() => {
+    if (hasLoadedLastPaymentMethod) return;
+    if (initialExpense || initialCreditPaymentTargetId || settings.defaultPaymentMethodId != null) {
+      setHasLoadedLastPaymentMethod(true);
+      return;
+    }
+    if (paymentMethods.length === 0) return;
+
+    let cancelled = false;
+    AsyncStorage.getItem(LAST_EXPENSE_PAYMENT_METHOD_KEY)
+      .then((storedId) => {
+        if (cancelled || storedId == null) return;
+        const parsedId = Number(storedId);
+        const rememberedMethod = paymentMethods.find(
+          (method) => method.id === parsedId && method.active
+        );
+        if (rememberedMethod) setPaymentMethodId(rememberedMethod.id);
+      })
+      .finally(() => {
+        if (!cancelled) setHasLoadedLastPaymentMethod(true);
+      });
+    return () => { cancelled = true; };
+  }, [hasLoadedLastPaymentMethod, initialCreditPaymentTargetId, initialExpense, paymentMethods, settings.defaultPaymentMethodId]);
 
   useEffect(() => {
     if (!isCreditPurchase) setIsInstallmentPurchase(false);
@@ -385,6 +413,10 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
           );
         }
         showToast(isInstallmentPurchase ? t('installments.projectedToast') : makeRecurring ? t('expenses.createdWithRecurrence') : t('expenses.created'));
+      }
+      if (paymentMethodId != null && !isSavingsRelated && !isCardPayment) {
+        await AsyncStorage.setItem(LAST_EXPENSE_PAYMENT_METHOD_KEY, String(paymentMethodId))
+          .catch(() => undefined);
       }
       onSuccess();
     } catch (error) {
