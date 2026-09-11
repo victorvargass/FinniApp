@@ -145,7 +145,7 @@ const es = {
     googleTitle: 'Google Drive opcional',
     googleBody: 'Si conectas Google, usamos tu perfil básico y la carpeta privada de FinniApp en Drive para respaldar o restaurar la base de datos. Puedes usar la app sin iniciar sesión.',
     sharingTitle: 'Reportes y transferencias',
-    sharingBody: 'Los reportes PDF se generan localmente. Solo salen del dispositivo cuando eliges compartirlos. Los respaldos viajan directamente a Google Drive mediante HTTPS.',
+    sharingBody: 'Los reportes PDF se generan localmente y se abren en el lector del dispositivo. Solo salen del dispositivo si después decides compartirlos, imprimirlos o guardarlos. Los respaldos viajan directamente a Google Drive mediante HTTPS.',
     deletionTitle: 'Conservación y eliminación',
     deletionBody: 'Puedes borrar los datos locales desde Configuración. Cerrar la sesión de Google no elimina automáticamente el respaldo almacenado en Drive.',
     securityTitle: 'Protección',

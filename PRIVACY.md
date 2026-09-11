@@ -21,7 +21,7 @@ Si el usuario decide conectar Google Drive, FinniApp accede al nombre, correo el
 
 Cuando se usa el respaldo, la información viaja mediante HTTPS directamente entre el dispositivo y Google Drive. El archivo se almacena en el espacio privado de la aplicación dentro de la cuenta del usuario. Se aplican las condiciones y la política de privacidad de Google. FinniApp no envía esta información a un servidor del desarrollador.
 
-Los reportes PDF se generan localmente y solo salen del dispositivo cuando el usuario elige compartirlos mediante otra aplicación.
+Los reportes PDF se generan localmente. Al generarlos, FinniApp solicita al sistema abrirlos en un lector PDF compatible. Solo salen del dispositivo si el usuario decide compartirlos, imprimirlos o guardarlos mediante el lector o el sistema.
 
 ## Conservación y eliminación
 

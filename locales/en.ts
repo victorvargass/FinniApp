@@ -145,7 +145,7 @@ const en = {
     googleTitle: 'Google Drive optional',
     googleBody: 'If you connect Google, we use your basic profile and the private FinniApp folder in Drive to backup or restore the database. You can use the app without logging in.',
     sharingTitle: 'Reports and transfers',
-    sharingBody: 'PDF reports are generated locally. They only leave the device when you choose to share them. Backups travel directly to Google Drive over HTTPS.',
+    sharingBody: 'PDF reports are generated locally and opened in the device reader. They only leave the device if you later choose to share, print, or save them. Backups travel directly to Google Drive over HTTPS.',
     deletionTitle: 'Data retention and deletion',
     deletionBody: 'You can clear local data from Settings. Signing out of Google does not automatically delete the backup stored in Drive.',
     securityTitle: 'Protection',
