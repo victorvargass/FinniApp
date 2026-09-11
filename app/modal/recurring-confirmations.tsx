@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { EmptyState } from '@/components/empty-state';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -142,7 +143,13 @@ export default function RecurringConfirmationsScreen() {
         keyExtractor={(item) => `${item.kind}-${item.recurringId}-${item.scheduledDate}`}
         contentContainerStyle={styles.list}
         ListEmptyComponent={(
-          <ThemedText style={styles.empty}>{t('recurrence.decisionsEmpty')}</ThemedText>
+          <EmptyState
+            icon="checkmark-done-circle-outline"
+            title={t('recurrence.decisionsEmptyTitle')}
+            description={t('recurrence.decisionsEmpty')}
+            actionLabel={t('navigation.recurringMovements')}
+            onAction={() => router.push('/modal/recurring-expenses')}
+          />
         )}
         renderSectionHeader={({ section }) => (
           <ThemedText type="subtitle" style={styles.sectionTitle}>{section.title}</ThemedText>

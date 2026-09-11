@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
+import { EmptyState } from '@/components/empty-state';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -122,7 +123,15 @@ export default function RecurringExpensesScreen() {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.list}
           ListHeaderComponent={tabs}
-          ListEmptyComponent={<ThemedText style={styles.empty}>{t('recurrence.emptyIncomes')}</ThemedText>}
+          ListEmptyComponent={(
+            <EmptyState
+              icon="repeat-outline"
+              title={t('recurrence.emptyIncomeTitle')}
+              description={t('recurrence.emptyIncomes')}
+              actionLabel={t('incomes.add')}
+              onAction={() => router.push('/modal/income-form')}
+            />
+          )}
           renderItem={({ item }) => (
             <ThemedView style={[styles.card, !item.active && styles.inactive]}>
               <View style={styles.cardHeader}>
@@ -200,7 +209,13 @@ export default function RecurringExpensesScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={tabs}
         ListEmptyComponent={(
-          <ThemedText style={styles.empty}>{t('recurrence.emptyExpenses')}</ThemedText>
+          <EmptyState
+            icon="repeat-outline"
+            title={t('recurrence.emptyExpenseTitle')}
+            description={t('recurrence.emptyExpenses')}
+            actionLabel={t('expenses.add')}
+            onAction={() => router.push('/modal/expense-form')}
+          />
         )}
         renderItem={({ item }) => (
           <ThemedView style={[styles.card, !item.active && styles.inactive]}>
