@@ -34,3 +34,11 @@ El procesamiento exclusivamente local no se declara normalmente como recopilaci�
 4. Confirmar que no se añadió analítica, crash reporting o publicidad después de este inventario.
 5. Repetir `npm audit` y revisar el índice de SDK de Google Play.
 6. Probar eliminación local y documentar cómo borrar el respaldo de Drive.
+
+## Permisos Android revisados
+
+- `POST_NOTIFICATIONS`: Android lo solicita al usuario cuando activa recordatorios. La app funciona sin concederlo.
+- `RECEIVE_BOOT_COMPLETED`: `expo-notifications` lo incorpora para restaurar notificaciones programadas después de reiniciar el dispositivo.
+- `SCHEDULE_EXACT_ALARM`: se conserva porque los recordatorios de movimientos se programan para una hora elegida por el usuario. Expo SDK 54 lo requiere en Android 12 o superior para disparar una notificación local a una hora exacta.
+
+Esta justificación debe volver a comprobarse si los recordatorios dejan de usar una hora exacta; en ese caso conviene retirar `SCHEDULE_EXACT_ALARM` del manifiesto.
