@@ -12,25 +12,9 @@ name: FinniApp financial smoke test
     visible: 'Período actual'
     timeout: 20000
 
-# Carga el escenario integral para verificar los dominios con datos reales de SQLite.
+# Los módulos secundarios deben abrir correctamente aun sin datos ficticios.
 - tapOn:
     id: 'tab-user'
-- scrollUntilVisible:
-    element:
-      id: 'settings-load-test-data'
-    direction: DOWN
-    visibilityPercentage: 50
-    timeout: 30000
-- tapOn:
-    id: 'settings-load-test-data'
-- assertVisible: '¿Cargar escenario de prueba?'
-- tapOn: 'Cargar datos de prueba'
-- extendedWaitUntil:
-    visible: 'Datos de prueba cargados'
-    timeout: 30000
-- back
-
-# Los módulos secundarios deben abrir y exponer la información sembrada.
 - scrollUntilVisible:
     element:
       text: 'Deudas y cuotas'
@@ -38,7 +22,7 @@ name: FinniApp financial smoke test
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Gestionar deudas y cuotas'
-- assertVisible: '.*Préstamo familiar'
+- assertVisible: 'Todavía no tienes deudas'
 - back
 - scrollUntilVisible:
     element:
@@ -47,7 +31,7 @@ name: FinniApp financial smoke test
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Gestionar metas de ahorro'
-- assertVisible: '.*Fondo de emergencia'
+- assertVisible: 'Aún no tienes metas activas'
 - back
 - scrollUntilVisible:
     element:
@@ -56,7 +40,7 @@ name: FinniApp financial smoke test
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Configurar movimientos recurrentes'
-- assertVisible: '.*Sueldo recurrente'
+- assertVisible: 'Programa tu primer ingreso'
 - back
 - scrollUntilVisible:
     element:
@@ -65,14 +49,14 @@ name: FinniApp financial smoke test
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Configurar medios de pago'
-- assertVisible: '.*Tarjeta crédito'
+- assertVisible: 'Efectivo'
 - back
 
-# Un gasto recorre creación, edición y eliminación persistiendo en SQLite.
+# El botón global + permite crear un gasto, editarlo y eliminarlo.
 - tapOn:
-    id: 'tab-movements'
-- tapOn: 'Gastos'
-- tapOn: 'Agregar gasto'
+    id: 'tab-add-movement'
+- assertVisible: '¿Qué deseas registrar?'
+- tapOn: 'Nuevo gasto'
 - tapOn:
     id: 'expense-name-input'
 - inputText: 'Compra E2E'
@@ -103,11 +87,11 @@ name: FinniApp financial smoke test
 - tapOn: 'Eliminar'
 - assertNotVisible: 'Compra E2E editada'
 
-# Un ingreso independiente valida el segundo formulario ya separado.
+# El mismo botón global + permite crear y eliminar un ingreso.
 - tapOn:
-    id: 'tab-movements'
-- tapOn: 'Ingresos'
-- tapOn: 'Agregar ingreso'
+    id: 'tab-add-movement'
+- assertVisible: '¿Qué deseas registrar?'
+- tapOn: 'Nuevo ingreso'
 - tapOn:
     id: 'income-name-input'
 - inputText: 'Ingreso E2E'
@@ -127,7 +111,24 @@ name: FinniApp financial smoke test
 - tapOn: 'Eliminar'
 - assertNotVisible: 'Ingreso E2E'
 
-# Con cualquier ingreso o gasto, cerrar período debe estar habilitado.
+# Deja un movimiento real para comprobar que el cierre acepta gasto O ingreso.
+- tapOn:
+    id: 'tab-add-movement'
+- tapOn: 'Nuevo gasto'
+- tapOn:
+    id: 'expense-name-input'
+- inputText: 'Movimiento para cierre'
+- tapOn:
+    id: 'expense-amount-input'
+- inputText: '1000'
+- hideKeyboard
+- tapOn:
+    id: 'expense-save'
+- extendedWaitUntil:
+    visible: 'Movimiento para cierre'
+    timeout: 15000
+
+# Con un solo gasto, cerrar período debe estar habilitado.
 - tapOn:
     id: 'tab-home'
 - scrollUntilVisible:
