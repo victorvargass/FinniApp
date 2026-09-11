@@ -13,6 +13,7 @@ import { ProgressiveSetup } from '@/components/progressive-setup';
 import { SavingsGoalsPeriodCard } from '@/components/SavingsGoalsPeriodCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WeeklyInsightCard } from '@/components/weekly-insight-card';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -22,8 +23,9 @@ import { calculateDailyAvailable, findMostUrgentCategoryLimit } from '@/lib/home
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { showToast } from '@/lib/toast';
+import { buildWeeklyInsight, findSavingsMilestone } from '@/lib/weekly-insights';
 import { exportPeriodReport } from '@/services/PeriodReportService';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 // Parse a date string like "2026-07-23" as a local date
 function parseDateString(value: string): Date {
@@ -78,6 +80,14 @@ export default function PeriodScreen() {
   const dailyAvailable = isCurrentPeriod && selectedPeriod
     ? calculateDailyAvailable(periodBalance, selectedPeriod.endDate)
     : null;
+  const weeklyInsight = useMemo(
+    () => buildWeeklyInsight(expenses, incomes, toDateString(new Date())),
+    [expenses, incomes]
+  );
+  const savingsMilestone = useMemo(
+    () => findSavingsMilestone(periodSavingsGoalActivity),
+    [periodSavingsGoalActivity]
+  );
   const pendingConfirmationCount = recurringDecisions.filter((item) => item.status === 'pending').length;
   const urgentLimit = findMostUrgentCategoryLimit(periodCategoryExpensesTotals);
   const negativePaymentMethod = paymentMethods.find(
@@ -233,6 +243,9 @@ export default function PeriodScreen() {
             onAddMovement={() => router.push('/modal/expense-form')}
             onOpenBackup={() => router.push('/modal/google-drive')}
           />
+        )}
+        {isCurrentPeriod && (
+          <WeeklyInsightCard insight={weeklyInsight} savingsMilestone={savingsMilestone} />
         )}
         <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
           <ThemedText type="subtitle">{t('home.periodDetails')}</ThemedText>
@@ -438,7 +451,15 @@ export default function PeriodScreen() {
 
               Alert.alert(
                 t('period.finishTitle'),
-                t('period.finishMessage', { start: proximoInicio, end: proximoTermino }),
+                t('period.finishMessage', {
+                  start: proximoInicio,
+                  end: proximoTermino,
+                  summary: t('period.finishSummary', {
+                    incomes: formatCLP(periodIncomesTotal),
+                    expenses: formatCLP(periodExpensesTotal),
+                    balance: formatCLP(periodBalance),
+                  }),
+                }),
                 [
                   {
                     text: t('common.cancel'),
