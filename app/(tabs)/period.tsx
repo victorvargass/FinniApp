@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryChart } from '@/components/CategoryChart';
 import { BreakdownSection, type BreakdownMode } from '@/components/breakdown-section';
+import { HomeOverview, type HomeAttentionItem } from '@/components/home-overview';
 import { LimitProgressBar } from '@/components/LimitProgressBar';
 import { PaymentMethodChart } from '@/components/PaymentMethodChart';
 import { PeriodSelector } from '@/components/period-selector';
@@ -16,6 +17,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
+import { calculateDailyAvailable, findMostUrgentCategoryLimit } from '@/lib/home-insights';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { showToast } from '@/lib/toast';
@@ -41,6 +43,8 @@ export default function PeriodScreen() {
     periodSavingsGoalActivity,
     periodSavingsFundingTotal,
     paymentMethodTotals,
+    paymentMethods,
+    recurringDecisions,
     isPeriodChanging,
     setPeriodStartDate,
     setPeriodEndDate,
@@ -69,6 +73,65 @@ export default function PeriodScreen() {
   const periodBalance = periodIncomesTotal + periodSavingsAvailable - periodExpensesTotal;
   const selectedPeriodReport = periodHistory.find((period) => period.periodId === selectedPeriod?.id);
   const hasPeriodMovements = expenses.length > 0 || incomes.length > 0;
+  const dailyAvailable = isCurrentPeriod && selectedPeriod
+    ? calculateDailyAvailable(periodBalance, selectedPeriod.endDate)
+    : null;
+  const pendingConfirmationCount = recurringDecisions.filter((item) => item.status === 'pending').length;
+  const urgentLimit = findMostUrgentCategoryLimit(periodCategoryExpensesTotals);
+  const negativePaymentMethod = paymentMethods.find(
+    (method) => method.active && method.availableBalance != null && method.availableBalance < 0
+  );
+  const activeCreditCards = paymentMethods.filter((method) => method.active && method.type === 'credit');
+  const attentionItems: HomeAttentionItem[] = [];
+
+  if (isCurrentPeriod && pendingConfirmationCount > 0) {
+    attentionItems.push({
+      key: 'recurrences',
+      icon: 'notifications-outline',
+      title: t('home.pendingRecurringTitle'),
+      body: t('home.pendingRecurringBody', { count: pendingConfirmationCount }),
+      tone: 'warning',
+      onPress: () => router.push('/modal/recurring-confirmations'),
+    });
+  }
+  if (isCurrentPeriod && urgentLimit?.periodLimit) {
+    const exceeded = urgentLimit.ratio >= 1;
+    attentionItems.push({
+      key: `limit-${urgentLimit.categoryId ?? 'none'}`,
+      icon: exceeded ? 'alert-circle-outline' : 'speedometer-outline',
+      title: t(exceeded ? 'home.limitExceededTitle' : 'home.limitNearTitle'),
+      body: t(exceeded ? 'home.limitExceededBody' : 'home.limitNearBody', {
+        category: urgentLimit.categoryName,
+        spent: formatCLP(urgentLimit.total),
+        limit: formatCLP(urgentLimit.periodLimit),
+      }),
+      tone: exceeded ? 'danger' : 'warning',
+      onPress: () => router.navigate({
+        pathname: '/(tabs)/expenses',
+        params: {
+          categoryFilter: urgentLimit.categoryId == null ? 'none' : String(urgentLimit.categoryId),
+          paymentMethodFilter: '',
+          filterRequestId: String(Date.now()),
+        },
+      }),
+    });
+  }
+  if (isCurrentPeriod && negativePaymentMethod?.availableBalance != null) {
+    attentionItems.push({
+      key: `payment-${negativePaymentMethod.id}`,
+      icon: 'card-outline',
+      title: t('home.negativeBalanceTitle'),
+      body: t('home.negativeBalanceBody', {
+        name: negativePaymentMethod.name,
+        amount: formatCLP(Math.abs(negativePaymentMethod.availableBalance)),
+      }),
+      tone: 'danger',
+      onPress: () => router.push({
+        pathname: '/modal/payment-method-detail',
+        params: { id: String(negativePaymentMethod.id) },
+      }),
+    });
+  }
 
   async function saveStartDate(selected: Date) {
     const selectedDateStr = toDateString(selected);
@@ -134,8 +197,30 @@ export default function PeriodScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top']}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
         <PeriodSelector />
+        <HomeOverview
+          balance={periodBalance}
+          dailyAvailable={dailyAvailable}
+          incomeTotal={periodIncomesTotal}
+          expenseTotal={periodExpensesTotal}
+          attentionItems={attentionItems}
+          showActions={Boolean(isCurrentPeriod)}
+          onAddExpense={() => router.push('/modal/expense-form')}
+          onAddIncome={() => router.push('/modal/income-form')}
+          onPayCard={() => {
+            if (activeCreditCards.length === 1) {
+              router.push({
+                pathname: '/modal/expense-form',
+                params: { creditPaymentTargetId: String(activeCreditCards[0].id) },
+              });
+            } else if (activeCreditCards.length > 1) {
+              router.push('/modal/debts');
+            } else {
+              router.push('/modal/payment-methods');
+            }
+          }}
+        />
         <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
-          <ThemedText type="title">{t('period.summary')}</ThemedText>
+          <ThemedText type="subtitle">{t('home.periodDetails')}</ThemedText>
           <View style={styles.dateRangeContainer}>
             <View style={styles.dateContainer}>
               <ThemedText>{t('period.start')}</ThemedText>
@@ -216,26 +301,11 @@ export default function PeriodScreen() {
           </View>
         </ThemedView>
 
-        <View style={styles.totalsContainer}>
-          <ThemedView style={[{ flex: 1, backgroundColor: colors.surface }, styles.card, styles.centered]}>
-            <ThemedText type="subtitle">{t('navigation.incomes')}</ThemedText>
-            <ThemedText style={styles.totalIncomes}>{formatCLP(periodIncomesTotal)}</ThemedText>
-          </ThemedView>
-          <ThemedView style={[{ flex: 1, backgroundColor: colors.surface }, styles.card, styles.centered]}>
-            <ThemedText type="subtitle">{t('navigation.expenses')}</ThemedText>
-            <ThemedText style={styles.totalExpenses}>{formatCLP(periodExpensesTotal)}</ThemedText>
-          </ThemedView>
-        </View>
-   
-        <ThemedView style={[styles.card, styles.centered, { backgroundColor: colors.surface }]}>
-          <ThemedText type="subtitle">{t('period.balance')}</ThemedText>
-          <ThemedText style={periodBalance >= 0 ? styles.totalPositiveBalance : styles.totalNegativeBalance}>{formatCLP(periodBalance)}</ThemedText>
-          {periodSavingsAvailable > 0 && (
-            <ThemedText style={styles.savingsBalanceNote}>
-              {t('savings.releasedInBalance', { amount: formatCLP(periodSavingsAvailable) })}
-            </ThemedText>
-          )}
-        </ThemedView>
+        {periodSavingsAvailable > 0 && (
+          <ThemedText style={styles.savingsBalanceNote}>
+            {t('savings.releasedInBalance', { amount: formatCLP(periodSavingsAvailable) })}
+          </ThemedText>
+        )}
 
         {selectedPeriod && (
           <SavingsGoalsPeriodCard
@@ -419,9 +489,10 @@ const styles = StyleSheet.create({
   },
   header: {
     justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    borderRadius: 14,
+    gap: 12,
   },
   card: {
     borderRadius: 12,
@@ -432,10 +503,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
-  },
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   limits: {
     gap: 16,
@@ -462,34 +529,10 @@ const styles = StyleSheet.create({
   dateContainer: {
     flex: 1,
   },
-  totalsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  totalIncomes: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1FAF78',
-  },
-  totalExpenses: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#E95353',
-  },
-  totalPositiveBalance: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#174A73',
-  },
-  totalNegativeBalance: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#E95353',
-  },
   savingsBalanceNote: {
     fontSize: 12,
     textAlign: 'center',
-    opacity: 0.65,
+    opacity: 0.7,
   },
   exportButton: {
     minHeight: 48,
