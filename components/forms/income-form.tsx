@@ -22,11 +22,12 @@ import { styles } from './styles';
 
 type IncomeFormProps = {
   income?: Income;
+  templateIncome?: Income;
   initialSavingsGoalId?: number | null;
   onSuccess: () => void;
 };
 
-export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: IncomeFormProps) {
+export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null, onSuccess }: IncomeFormProps) {
   const {
     incomeNames,
     addIncome,
@@ -39,15 +40,16 @@ export function IncomeForm({ income, initialSavingsGoalId = null, onSuccess }: I
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
+  const initialIncome = income ?? templateIncome;
 
   const initialSavingsGoal = !income && initialSavingsGoalId != null
     ? savingsGoals.find((goal) => goal.id === initialSavingsGoalId && goal.status === 'active')
     : undefined;
   const [name, setName] = useState(
-    income?.name ?? (initialSavingsGoal ? `Retiro de ${initialSavingsGoal.name}` : '')
+    initialIncome?.name ?? (initialSavingsGoal ? `Retiro de ${initialSavingsGoal.name}` : '')
   );
   const [isNameFocused, setIsNameFocused] = useState(false);
-  const [amountText, setAmountText] = useState<string>(income?.amount ? formatCLPInput(income.amount) : '');
+  const [amountText, setAmountText] = useState<string>(initialIncome?.amount ? formatCLPInput(initialIncome.amount) : '');
   const [savingsGoalId, setSavingsGoalId] = useState<number | null>(
     income?.savingsGoalId ?? initialSavingsGoal?.id ?? null
   );

@@ -480,13 +480,22 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
     ]);
   };
 
-  const handleActions = (id: number, name: string) => {
-    Alert.alert(name, t('common.selectAction'), [
+  const handleActions = (expense: ExpenseWithCategory) => {
+    const canRepeat = expense.debtPlanId == null
+      && expense.debtId == null
+      && expense.installmentNumber == null
+      && expense.savingsGoalId == null
+      && expense.creditPaymentTargetId == null;
+    Alert.alert(expense.name, t('common.selectAction'), [
+      ...(canRepeat ? [{
+        text: t('common.repeat'),
+        onPress: () => router.push({ pathname: '/modal/expense-form', params: { repeatId: String(expense.id) } }),
+      }] : []),
       {
         text: t('common.edit'),
-        onPress: () => router.push({ pathname: '/modal/expense-form', params: { id: String(id) } }),
+        onPress: () => router.push({ pathname: '/modal/expense-form', params: { id: String(expense.id) } }),
       },
-      { text: t('common.delete'), style: 'destructive', onPress: () => handleDelete(id, name) },
+      { text: t('common.delete'), style: 'destructive', onPress: () => handleDelete(expense.id, expense.name) },
       { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
@@ -815,7 +824,7 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
                 <View style={styles.itemActions}>
                   <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(expense.amount)}</ThemedText>
                   <Pressable
-                    onPress={() => handleActions(expense.id, expense.name)}
+                    onPress={() => handleActions(expense)}
                     hitSlop={8}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.actionsFor', { name: expense.name })}>

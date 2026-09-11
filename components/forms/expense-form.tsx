@@ -24,11 +24,12 @@ import { styles } from './styles';
 
 type ExpenseFormProps = {
   expense?: Expense;
+  templateExpense?: Expense;
   initialCreditPaymentTargetId?: number;
   onSuccess: () => void;
 };
 
-export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }: ExpenseFormProps) {
+export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTargetId, onSuccess }: ExpenseFormProps) {
   const {
     categories,
     paymentMethods,
@@ -45,28 +46,29 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
+  const initialExpense = expense ?? templateExpense;
 
-  const [name, setName] = useState(expense?.name ?? '');
+  const [name, setName] = useState(initialExpense?.name ?? '');
   const [isNameFocused, setIsNameFocused] = useState(false);
   const expenseWasSplit =
-    expense?.originalAmount != null && expense.splitPercentage != null;
+    initialExpense?.originalAmount != null && initialExpense.splitPercentage != null;
   const [amountText, setAmountText] = useState<string>(
-    expense ? formatCLPInput(expense.originalAmount ?? expense.amount) : ''
+    initialExpense ? formatCLPInput(initialExpense.originalAmount ?? initialExpense.amount) : ''
   );
   const [isSplitAmount, setIsSplitAmount] = useState(expenseWasSplit);
   const [splitMode, setSplitMode] = useState<'percentage' | 'amount'>('percentage');
   const [percentageText, setPercentageText] = useState(
-    expenseWasSplit ? String(expense.splitPercentage) : '50'
+    expenseWasSplit ? String(initialExpense?.splitPercentage) : '50'
   );
   const [shareAmountText, setShareAmountText] = useState(
-    expenseWasSplit ? formatCLPInput(expense.amount) : ''
+    expenseWasSplit && initialExpense ? formatCLPInput(initialExpense.amount) : ''
   );
   const [usesCustomPercentage, setUsesCustomPercentage] = useState(
-    expenseWasSplit && ![50, 25].includes(expense.splitPercentage!)
+    expenseWasSplit && ![50, 25].includes(initialExpense!.splitPercentage!)
   );
   const creditPaymentCategory = categories.find((category) => category.systemKey === 'credit_payment');
   const [categoryId, setCategoryId] = useState<number | null>(
-    expense?.categoryId ?? (initialCreditPaymentTargetId ? creditPaymentCategory?.id ?? null : null)
+    initialExpense?.categoryId ?? (initialCreditPaymentTargetId ? creditPaymentCategory?.id ?? null : null)
   );
   const [creditPaymentTargetId, setCreditPaymentTargetId] = useState<number | null>(
     expense?.creditPaymentTargetId ?? initialCreditPaymentTargetId ?? null
@@ -74,7 +76,7 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
   const [savingsGoalId, setSavingsGoalId] = useState<number | null>(expense?.savingsGoalId ?? null);
   const [savingsKind, setSavingsKind] = useState<SavingsExpenseKind | null>(expense?.savingsKind ?? null);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
-    expense ? expense.paymentMethodId : settings.defaultPaymentMethodId
+    initialExpense?.paymentMethodId ?? settings.defaultPaymentMethodId
   );
   const [date, setDate] = useState(
     expense?.date
@@ -98,7 +100,7 @@ export function ExpenseForm({ expense, initialCreditPaymentTargetId, onSuccess }
     getDefaultRecurringSchedule(date)
   );
   const [billingCycleHint, setBillingCycleHint] = useState<string | null>(null);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(Boolean(expense));
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(Boolean(expense || expenseWasSplit));
   const [saving, setSaving] = useState(false);
   const totalAmount = parseAmount(amountText as string);
   const percentage = Number(percentageText.replace(',', '.'));

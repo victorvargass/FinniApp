@@ -193,13 +193,17 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
     ]);
   };
 
-  const handleActions = (id: number, name: string) => {
-    Alert.alert(name, t('common.selectAction'), [
+  const handleActions = (income: Income) => {
+    Alert.alert(income.name, t('common.selectAction'), [
+      ...(income.savingsGoalId == null ? [{
+        text: t('common.repeat'),
+        onPress: () => router.push({ pathname: '/modal/income-form', params: { repeatId: String(income.id) } }),
+      }] : []),
       {
         text: t('common.edit'),
-        onPress: () => router.push({ pathname: '/modal/income-form', params: { id: String(id) } }),
+        onPress: () => router.push({ pathname: '/modal/income-form', params: { id: String(income.id) } }),
       },
-      { text: t('common.delete'), style: 'destructive', onPress: () => handleDelete(id, name) },
+      { text: t('common.delete'), style: 'destructive', onPress: () => handleDelete(income.id, income.name) },
       { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
@@ -352,7 +356,7 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
               <View style={styles.itemActions}>
                 <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(item.amount)}</ThemedText>
                 <Pressable
-                  onPress={() => handleActions(item.id, item.name)}
+                  onPress={() => handleActions(item)}
                   hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel={t('common.actionsFor', { name: item.name })}>

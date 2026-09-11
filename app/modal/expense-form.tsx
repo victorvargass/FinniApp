@@ -11,20 +11,23 @@ import * as db from '@/lib/db';
 import type { ExpenseWithCategory } from '@/lib/types';
 
 export default function ExpenseFormModal() {
-  const { id, creditPaymentTargetId } = useLocalSearchParams<{ id?: string; creditPaymentTargetId?: string }>();
+  const { id, repeatId, creditPaymentTargetId } = useLocalSearchParams<{ id?: string; repeatId?: string; creditPaymentTargetId?: string }>();
   const { expenses } = useDatabase();
   const navigation = useNavigation();
+  const sourceId = id ?? repeatId;
+  const isRepeating = repeatId != null && id == null;
 
-  const expenseFromSelectedPeriod = id ? expenses.find((e) => e.id === Number(id)) : undefined;
+  const expenseFromSelectedPeriod = sourceId ? expenses.find((e) => e.id === Number(sourceId)) : undefined;
   const [loadedExpense, setLoadedExpense] = useState<ExpenseWithCategory | null>(
     expenseFromSelectedPeriod ?? null
   );
-  const [loading, setLoading] = useState(Boolean(id && !expenseFromSelectedPeriod));
-  const expense = expenseFromSelectedPeriod ?? loadedExpense ?? undefined;
+  const [loading, setLoading] = useState(Boolean(sourceId && !expenseFromSelectedPeriod));
+  const sourceExpense = expenseFromSelectedPeriod ?? loadedExpense ?? undefined;
+  const expense = isRepeating ? undefined : sourceExpense;
 
   useEffect(() => {
-    const expenseId = Number(id);
-    if (!id || expenseFromSelectedPeriod || !Number.isInteger(expenseId)) return;
+    const expenseId = Number(sourceId);
+    if (!sourceId || expenseFromSelectedPeriod || !Number.isInteger(expenseId)) return;
     let cancelled = false;
     setLoading(true);
     db.getExpenseById(expenseId)
@@ -35,13 +38,13 @@ export default function ExpenseFormModal() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [expenseFromSelectedPeriod, id]);
+  }, [expenseFromSelectedPeriod, sourceId]);
 
   useEffect(() => {
     navigation.setOptions({
-      title: expense ? t('expenses.edit') : t('expenses.new'),
+      title: isRepeating ? t('expenses.repeat') : expense ? t('expenses.edit') : t('expenses.new'),
     });
-  }, [navigation, expense]);
+  }, [navigation, expense, isRepeating]);
 
   useEffect(() => {
     if (expense?.debtEntryId == null || expense.debtId == null) return;
@@ -63,7 +66,7 @@ export default function ExpenseFormModal() {
     );
   }
 
-  if (id && !expense) {
+  if (sourceId && !sourceExpense) {
     return (
       <ThemedView style={[styles.container, styles.center]}>
         <ThemedText>{t('expenses.originMissing')}</ThemedText>
@@ -84,6 +87,7 @@ export default function ExpenseFormModal() {
     <ThemedView style={styles.container}>
       <ExpenseForm
         expense={expense}
+        templateExpense={isRepeating ? sourceExpense : undefined}
         initialCreditPaymentTargetId={creditPaymentTargetId ? Number(creditPaymentTargetId) : undefined}
         onSuccess={() => router.back()}
       />

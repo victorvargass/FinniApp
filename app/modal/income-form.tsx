@@ -11,19 +11,22 @@ import { t } from '@/lib/i18n';
 import type { Income } from '@/lib/types';
 
 export default function IncomeFormModal() {
-  const { id, savingsGoalId } = useLocalSearchParams<{ id?: string; savingsGoalId?: string }>();
+  const { id, repeatId, savingsGoalId } = useLocalSearchParams<{ id?: string; repeatId?: string; savingsGoalId?: string }>();
   const { incomes } = useDatabase();
   const navigation = useNavigation();
+  const sourceId = id ?? repeatId;
+  const isRepeating = repeatId != null && id == null;
 
-  const incomeFromSelectedPeriod = id ? incomes.find((i) => i.id === Number(id)) : undefined;
+  const incomeFromSelectedPeriod = sourceId ? incomes.find((i) => i.id === Number(sourceId)) : undefined;
   const [loadedIncome, setLoadedIncome] = useState<Income | null>(incomeFromSelectedPeriod ?? null);
-  const [loading, setLoading] = useState(Boolean(id && !incomeFromSelectedPeriod));
-  const income = incomeFromSelectedPeriod ?? loadedIncome ?? undefined;
+  const [loading, setLoading] = useState(Boolean(sourceId && !incomeFromSelectedPeriod));
+  const sourceIncome = incomeFromSelectedPeriod ?? loadedIncome ?? undefined;
+  const income = isRepeating ? undefined : sourceIncome;
   const requestedSavingsGoalId = Number(savingsGoalId);
 
   useEffect(() => {
-    const incomeId = Number(id);
-    if (!id || incomeFromSelectedPeriod || !Number.isInteger(incomeId)) return;
+    const incomeId = Number(sourceId);
+    if (!sourceId || incomeFromSelectedPeriod || !Number.isInteger(incomeId)) return;
     let cancelled = false;
     setLoading(true);
     db.getIncomeById(incomeId)
@@ -34,15 +37,17 @@ export default function IncomeFormModal() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [id, incomeFromSelectedPeriod]);
+  }, [incomeFromSelectedPeriod, sourceId]);
 
   useEffect(() => {
     navigation.setOptions({
-      title: income
+      title: isRepeating
+        ? t('incomes.repeat')
+        : income
         ? income.savingsGoalId != null ? t('savings.editWithdrawal') : t('incomes.edit')
         : Number.isInteger(requestedSavingsGoalId) ? t('savings.withdraw') : t('incomes.new'),
     });
-  }, [navigation, income, requestedSavingsGoalId]);
+  }, [navigation, income, isRepeating, requestedSavingsGoalId]);
 
   if (loading) {
     return (
@@ -53,7 +58,7 @@ export default function IncomeFormModal() {
     );
   }
 
-  if (id && !income) {
+  if (sourceId && !sourceIncome) {
     return (
       <ThemedView style={[styles.container, styles.center]}>
         <ThemedText>{t('database.incomeMissing')}</ThemedText>
@@ -65,6 +70,7 @@ export default function IncomeFormModal() {
     <ThemedView style={styles.container}>
       <IncomeForm
         income={income}
+        templateIncome={isRepeating ? sourceIncome : undefined}
         initialSavingsGoalId={Number.isInteger(requestedSavingsGoalId) ? requestedSavingsGoalId : null}
         onSuccess={() => router.back()}
       />
