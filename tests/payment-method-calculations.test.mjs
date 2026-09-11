@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   calculateAvailableBalance,
+  findUrgentCardPayment,
   getEstimatedPaymentDueDate,
 } from '../lib/payment-method-calculations.ts';
 
@@ -20,4 +21,33 @@ test('due date uses the next valid occurrence of the configured day', () => {
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 5).toISOString().slice(0, 10), '2026-10-05');
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 25).toISOString().slice(0, 10), '2026-09-25');
   assert.equal(getEstimatedPaymentDueDate('2026-01-31', 31).toISOString().slice(0, 10), '2026-02-28');
+});
+
+test('urgent card payment selects the closest billed credit card', () => {
+  const base = {
+    active: true,
+    type: 'credit',
+    paymentDueDay: 15,
+    billedAmount: 120_000,
+    statementDate: '2026-09-01',
+  };
+  const urgent = findUrgentCardPayment([
+    { ...base, id: 1, name: 'Card A' },
+    { ...base, id: 2, name: 'Card B', paymentDueDay: 12 },
+  ], new Date(2026, 8, 10));
+
+  assert.equal(urgent?.method.name, 'Card B');
+  assert.equal(urgent?.daysUntil, 2);
+});
+
+test('card payment outside the next week is not urgent', () => {
+  const urgent = findUrgentCardPayment([{
+    active: true,
+    type: 'credit',
+    paymentDueDay: 25,
+    billedAmount: 120_000,
+    statementDate: '2026-09-01',
+  }], new Date(2026, 8, 10));
+
+  assert.equal(urgent, null);
 });

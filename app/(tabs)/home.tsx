@@ -22,6 +22,7 @@ import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { calculateDailyAvailable, findMostUrgentCategoryLimit } from '@/lib/home-insights';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
+import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
 import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
 import { showToast } from '@/lib/toast';
 import { buildWeeklyInsight, findSavingsMilestone } from '@/lib/weekly-insights';
@@ -100,6 +101,7 @@ export default function HomeScreen() {
     (method) => method.active && method.availableBalance != null && method.availableBalance < 0
   );
   const activeCreditCards = paymentMethods.filter((method) => method.active && method.type === 'credit');
+  const urgentCardPayment = findUrgentCardPayment(paymentMethods);
   const closeInsights = selectedPeriodReport
     ? buildPeriodCloseInsights(
       periodBalance,
@@ -111,6 +113,25 @@ export default function HomeScreen() {
     )
     : null;
   const attentionItems: HomeAttentionItem[] = [];
+
+  if (isCurrentPeriod && urgentCardPayment) {
+    const isOverdue = urgentCardPayment.daysUntil < 0;
+    attentionItems.push({
+      key: `card-due-${urgentCardPayment.method.id}`,
+      icon: isOverdue ? 'alert-circle-outline' : 'calendar-outline',
+      title: t(isOverdue ? 'home.cardPaymentOverdueTitle' : 'home.cardPaymentDueTitle'),
+      body: t(isOverdue ? 'home.cardPaymentOverdueBody' : 'home.cardPaymentDueBody', {
+        name: urgentCardPayment.method.name,
+        amount: formatCLP(urgentCardPayment.method.billedAmount),
+        date: formatDate(urgentCardPayment.dueDate),
+      }),
+      tone: isOverdue ? 'danger' : 'warning',
+      onPress: () => router.push({
+        pathname: '/modal/payment-method-detail',
+        params: { id: String(urgentCardPayment.method.id) },
+      }),
+    });
+  }
 
   if (isCurrentPeriod && pendingConfirmationCount > 0) {
     attentionItems.push({
