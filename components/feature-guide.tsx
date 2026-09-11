@@ -198,7 +198,8 @@ const styles = StyleSheet.create({
     lineHeight: 31,
   },
   body: {
-    flex: 1,
+    minHeight: 96,
+    flexShrink: 0,
     fontSize: 16,
     lineHeight: 24,
   },
