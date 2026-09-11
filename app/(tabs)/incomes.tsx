@@ -350,6 +350,7 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
                   <ThemedText style={[styles.meta, { fontSize: 12 }]}>
                     {formatDate(new Date(`${item.date}T12:00:00`))}
                     {item.savingsGoalName ? t('savings.incomeWithdrawalFrom', { name: item.savingsGoalName }) : ''}
+                    {item.paymentMethodName ? t('incomes.receivedInMeta', { name: item.paymentMethodName }) : ''}
                   </ThemedText>
                 </View>
               </View>

@@ -315,6 +315,13 @@ const en = {
     recurringDescription: 'Automatically register this income on the next dates',
     loading: 'Loading income...',
     deleteError: 'The income could not be deleted.',
+    receiveIn: 'Receive in',
+    withdrawalDestination: 'Deposit withdrawal in',
+    destination: 'Destination',
+    destinationHint: 'The income will automatically increase this payment method’s available balance.',
+    withdrawalDestinationHint: 'The withdrawal will leave the goal and increase this payment method’s available balance.',
+    destinationRequired: 'Select where you will receive the money.',
+    receivedInMeta: ' · Received in %{name}',
   },
   filters: {
     allCategories: 'All categories',
@@ -886,6 +893,7 @@ const en = {
     registeredExpenses: 'Recorded expenses',
     installmentCommitments: 'Installment purchases (total)',
     registeredPayments: 'Recorded payments',
+    registeredIncomes: 'Income and withdrawals received',
     calculatedAvailable: 'Calculated available amount',
     overLimitAmount: 'The credit limit is exceeded by %{amount}.',
     differenceFromCalculated: 'Difference from FinniApp calculation: %{amount}',
@@ -894,6 +902,8 @@ const en = {
     syncDifferenceMessage: 'The bank amount differs from FinniApp’s calculation by %{amount}. After syncing, it will be used as the new starting point.',
     syncAction: 'Sync',
     installmentPurchaseTotal: 'Installment purchase · full amount charged to credit',
+    incomeReceived: 'Income received',
+    savingsWithdrawalReceivedFrom: 'Withdrawal received from %{name}',
   },
   settings: {
     financialManagement: 'Financial management',
@@ -1352,6 +1362,8 @@ const en = {
     fundedExpenseCannotRecur: 'An expense financed from savings cannot be made recurring',
     withdrawalCannotRecur: 'A withdrawal from savings cannot be set up as recurring income',
     incomeAmountPositive: 'Enter an income amount greater than zero',
+    incomePaymentMethodRequired: 'Select a payment method to receive the money',
+    incomeCreditDestinationInvalid: 'Income and savings withdrawals cannot be received on a credit card',
   },
 } as const;
 

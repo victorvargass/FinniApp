@@ -111,6 +111,10 @@ export type Income = {
   periodId: number;
   date: string;
   recurringIncomeId: number | null;
+  paymentMethodId: number | null;
+  paymentMethodName: string | null;
+  paymentMethodType: PaymentMethodType | null;
+  paymentMethodColor: string | null;
   savingsGoalId: number | null;
   savingsGoalName: string | null;
   savingsGoalColor: string | null;
@@ -143,6 +147,7 @@ export type PaymentMethod = {
   usedAmount: number | null;
   registeredCharges: number;
   registeredPayments: number;
+  registeredIncomes: number;
   installmentCommitments: number;
   paymentDueDay: number | null;
   billedAmount: number;
@@ -154,7 +159,7 @@ export type PaymentMethodMovement = {
   name: string;
   amount: number;
   date: string;
-  kind: 'expense' | 'credit_payment' | 'installment_purchase';
+  kind: 'expense' | 'credit_payment' | 'installment_purchase' | 'income' | 'savings_withdrawal';
   categoryName: string | null;
   relatedPaymentMethodName: string | null;
 };
@@ -510,6 +515,7 @@ export type RecurringDecisionItem = RecurringConfirmationSchedule & {
 export type NewRecurringIncome = NewRecurringSchedule & {
   name: string;
   amount: number;
+  paymentMethodId: number | null;
   sourceIncomeId?: number | null;
 };
 
@@ -524,6 +530,7 @@ export type NewIncome = {
   name: string;
   amount: number;
   date: string;
+  paymentMethodId: number | null;
   savingsGoalId?: number | null;
 };
 

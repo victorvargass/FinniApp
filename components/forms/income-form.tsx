@@ -34,6 +34,8 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     editIncome,
     addRecurringIncomeFromSource,
     savingsGoals,
+    paymentMethods,
+    settings,
     periods,
     selectedPeriod,
   } = useDatabase();
@@ -41,6 +43,12 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   const colors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   const initialIncome = income ?? templateIncome;
+  const eligiblePaymentMethods = paymentMethods.filter(
+    (method) => method.type !== 'credit' && (method.active || method.id === initialIncome?.paymentMethodId)
+  );
+  const defaultPaymentMethodId = eligiblePaymentMethods.find(
+    (method) => method.id === settings.defaultPaymentMethodId && method.active
+  )?.id ?? eligiblePaymentMethods.find((method) => method.active)?.id ?? null;
 
   const initialSavingsGoal = !income && initialSavingsGoalId != null
     ? savingsGoals.find((goal) => goal.id === initialSavingsGoalId && goal.status === 'active')
@@ -52,6 +60,9 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   const [amountText, setAmountText] = useState<string>(initialIncome?.amount ? formatCLPInput(initialIncome.amount) : '');
   const [savingsGoalId, setSavingsGoalId] = useState<number | null>(
     income?.savingsGoalId ?? initialSavingsGoal?.id ?? null
+  );
+  const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
+    initialIncome?.paymentMethodId ?? defaultPaymentMethodId
   );
   const [date, setDate] = useState(
     income?.date
@@ -90,6 +101,10 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
       Alert.alert(t('common.error'), t('validation.invalidAmount'));
       return;
     }
+    if (paymentMethodId == null) {
+      Alert.alert(t('common.error'), t('incomes.destinationRequired'));
+      return;
+    }
 
     // La fecha siempre debe pertenecer al período que el usuario está editando.
     if (formPeriod) {
@@ -118,7 +133,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
 
     setSaving(true);
     try {
-      const data = { name: name.trim(), amount, date: toDateString(date), savingsGoalId };
+      const data = { name: name.trim(), amount, date: toDateString(date), savingsGoalId, paymentMethodId };
       if (income) {
         await editIncome(income.id, data);
         if (makeIncomeRecurring && income.recurringIncomeId == null) {
@@ -189,6 +204,20 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />
+
+      <ColorSelect
+        label={savingsGoalId != null ? t('incomes.withdrawalDestination') : t('incomes.receiveIn')}
+        value={paymentMethodId}
+        onChange={setPaymentMethodId}
+        options={eligiblePaymentMethods.map((method) => ({
+          value: method.id,
+          label: `${method.name} · ${t(`paymentMethods.${method.type}`)}`,
+          color: method.color,
+        }))}
+      />
+      <ThemedText style={styles.shareDescription}>
+        {savingsGoalId != null ? t('incomes.withdrawalDestinationHint') : t('incomes.destinationHint')}
+      </ThemedText>
 
       <Pressable
         accessibilityRole="button"

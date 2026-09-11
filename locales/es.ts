@@ -315,6 +315,13 @@ const es = {
     recurringDescription: 'Registra automáticamente este ingreso en las próximas fechas',
     loading: 'Cargando ingreso...',
     deleteError: 'No se pudo eliminar el ingreso.',
+    receiveIn: 'Recibir en',
+    withdrawalDestination: 'Depositar retiro en',
+    destination: 'Destino',
+    destinationHint: 'El ingreso aumentará automáticamente el saldo disponible de este medio.',
+    withdrawalDestinationHint: 'El retiro saldrá de la meta y aumentará el saldo disponible de este medio.',
+    destinationRequired: 'Selecciona dónde recibirás el dinero.',
+    receivedInMeta: ' · Recibido en %{name}',
   },
   filters: {
     allCategories: 'Todas las categorías',
@@ -886,6 +893,7 @@ const es = {
     registeredExpenses: 'Gastos registrados',
     installmentCommitments: 'Compras en cuotas (total)',
     registeredPayments: 'Abonos registrados',
+    registeredIncomes: 'Ingresos y retiros recibidos',
     calculatedAvailable: 'Disponible calculado',
     overLimitAmount: 'El cupo se encuentra excedido en %{amount}.',
     differenceFromCalculated: 'Diferencia respecto al cálculo de FinniApp: %{amount}',
@@ -894,6 +902,8 @@ const es = {
     syncDifferenceMessage: 'El monto del banco tiene una diferencia de %{amount} respecto al cálculo de FinniApp. Al sincronizar, se utilizará como nuevo punto de partida.',
     syncAction: 'Sincronizar',
     installmentPurchaseTotal: 'Compra en cuotas · total descontado del cupo',
+    incomeReceived: 'Ingreso recibido',
+    savingsWithdrawalReceivedFrom: 'Retiro recibido desde %{name}',
   },
   settings: {
     financialManagement: 'Gestión financiera',
@@ -1352,6 +1362,8 @@ const es = {
     fundedExpenseCannotRecur: 'Un gasto financiado desde ahorros no puede hacerse recurrente',
     withdrawalCannotRecur: 'Un retiro desde ahorros no puede configurarse como ingreso recurrente',
     incomeAmountPositive: 'Ingresa un monto de ingreso mayor que cero',
+    incomePaymentMethodRequired: 'Selecciona un medio de pago para recibir el dinero',
+    incomeCreditDestinationInvalid: 'Los ingresos y retiros de ahorro no se pueden recibir en una tarjeta de crédito',
   },
 } as const;
 

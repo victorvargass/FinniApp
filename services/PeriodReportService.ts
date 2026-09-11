@@ -307,7 +307,7 @@ function expenseRows(expenses: ExpenseWithCategory[]): string {
 
 function incomeRows(incomes: Income[]): string {
   if (incomes.length === 0) {
-    return `<tr><td colspan="3" class="empty-cell">${t('report.noIncomes')}</td></tr>`;
+    return `<tr><td colspan="4" class="empty-cell">${t('report.noIncomes')}</td></tr>`;
   }
 
   return incomes
@@ -315,6 +315,7 @@ function incomeRows(incomes: Income[]): string {
       <tr>
         <td class="date">${formatShortDate(income.date)}</td>
         <td><strong>${escapeHtml(income.name)}</strong>${income.savingsGoalId != null ? `<div class="row-note">${escapeHtml(t('report.savingsTransferFrom', { goal: income.savingsGoalName ?? t('savings.goal') }))}</div>` : ''}${income.recurringIncomeId != null ? `<div class="row-note">${t('report.recurringMovement')}</div>` : ''}</td>
+        <td class="payment-method-cell"><span class="tag" style="border-color:${income.paymentMethodColor && /^#[0-9a-f]{3,8}$/i.test(income.paymentMethodColor) ? income.paymentMethodColor : COLORS.muted}">${escapeHtml(income.paymentMethodName ?? t('common.notSpecified'))}</span></td>
         <td class="amount income">+${formatCLP(income.amount)}</td>
       </tr>`)
     .join('');
@@ -633,7 +634,7 @@ export function buildPeriodReportHtml(
         <h2 class="section-title">${t('report.detailIncomes')}</h2>
         <div class="section-subtitle">${incomes.length} ${incomes.length === 1 ? t('report.movementOne') : t('report.movementOther')}</div>
         <table>
-          <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
+          <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th>${t('incomes.destination')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
           <tbody>${incomeRows(incomes)}</tbody>
         </table>
         <div class="table-total"><span>${t('report.totalEntries')}</span><span class="income">${formatCLP(incomesTotal + savingsWithdrawals)}</span></div>

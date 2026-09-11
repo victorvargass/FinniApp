@@ -196,6 +196,10 @@ export default function PaymentMethodDetailScreen() {
               <ThemedText>{t('paymentMethods.registeredPayments')}</ThemedText>
               <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredPayments)}</ThemedText>
             </View>
+            <View style={styles.calculationRow}>
+              <ThemedText>{t('paymentMethods.registeredIncomes')}</ThemedText>
+              <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredIncomes)}</ThemedText>
+            </View>
             <View style={[styles.calculationRow, styles.calculationTotal, { borderTopColor: colors.border }]}>
               <ThemedText type="defaultSemiBold">{t('paymentMethods.calculatedAvailable')}</ThemedText>
               <ThemedText type="defaultSemiBold">{formatCLP(method.availableBalance)}</ThemedText>
@@ -271,12 +275,19 @@ export default function PaymentMethodDetailScreen() {
           ) : recentMovements.map((movement) => {
             const isPaymentReceived = movement.kind === 'credit_payment';
             const isInstallmentPurchase = movement.kind === 'installment_purchase';
+            const isIncome = movement.kind === 'income' || movement.kind === 'savings_withdrawal';
             const detail = isInstallmentPurchase
               ? t('paymentMethods.installmentPurchaseTotal')
               : isPaymentReceived
               ? t('paymentMethods.paymentReceivedFrom', {
                   name: movement.relatedPaymentMethodName ?? t('common.notSpecified'),
                 })
+              : movement.kind === 'savings_withdrawal'
+                ? t('paymentMethods.savingsWithdrawalReceivedFrom', {
+                    name: movement.relatedPaymentMethodName ?? t('savings.goal'),
+                  })
+                : isIncome
+                  ? t('paymentMethods.incomeReceived')
               : movement.relatedPaymentMethodName
                 ? t('paymentMethods.paymentSentTo', { name: movement.relatedPaymentMethodName })
                 : movement.categoryName ?? t('expenses.noCategory');
@@ -286,6 +297,8 @@ export default function PaymentMethodDetailScreen() {
                 key={`${movement.kind}-${movement.id}`}
                 onPress={() => router.push(isInstallmentPurchase
                   ? { pathname: '/modal/debt-detail', params: { id: String(movement.id) } }
+                  : isIncome
+                    ? { pathname: '/modal/income-form', params: { id: String(movement.id) } }
                   : { pathname: '/modal/expense-form', params: { id: String(movement.id) } })}
                 style={({ pressed }) => [
                   styles.movementRow,
@@ -294,12 +307,12 @@ export default function PaymentMethodDetailScreen() {
                 ]}>
                 <View style={[
                   styles.movementIcon,
-                  { backgroundColor: isPaymentReceived ? `${colors.success}20` : `${colors.expense}18` },
+                  { backgroundColor: isPaymentReceived || isIncome ? `${colors.success}20` : `${colors.expense}18` },
                 ]}>
                   <Ionicons
-                    name={isPaymentReceived ? 'arrow-down' : isInstallmentPurchase ? 'card-outline' : 'arrow-up'}
+                    name={isPaymentReceived || isIncome ? 'arrow-down' : isInstallmentPurchase ? 'card-outline' : 'arrow-up'}
                     size={19}
-                    color={isPaymentReceived ? colors.success : colors.expense}
+                    color={isPaymentReceived || isIncome ? colors.success : colors.expense}
                   />
                 </View>
                 <View style={styles.movementCopy}>
@@ -310,9 +323,9 @@ export default function PaymentMethodDetailScreen() {
                 </View>
                 <ThemedText style={[
                   styles.movementAmount,
-                  { color: isPaymentReceived ? colors.success : colors.expense },
+                  { color: isPaymentReceived || isIncome ? colors.success : colors.expense },
                 ]}>
-                  {isPaymentReceived ? '+' : '−'}{formatCLP(movement.amount)}
+                  {isPaymentReceived || isIncome ? '+' : '−'}{formatCLP(movement.amount)}
                 </ThemedText>
               </Pressable>
             );

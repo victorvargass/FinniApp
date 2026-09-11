@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
+import { ColorSelect } from '@/components/forms/shared';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
@@ -20,11 +21,12 @@ function showResult(message: string) {
 
 export default function RecurringIncomeFormScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { recurringIncomes, editRecurringIncome, removeRecurringIncome } = useDatabase();
+  const { recurringIncomes, editRecurringIncome, removeRecurringIncome, paymentMethods } = useDatabase();
   const recurring = recurringIncomes.find((item) => item.id === Number(id));
   const colors = Colors[useColorScheme() ?? 'light'];
   const [name, setName] = useState(recurring?.name ?? '');
   const [amountText, setAmountText] = useState(recurring ? formatCLPInput(recurring.amount) : '');
+  const [paymentMethodId, setPaymentMethodId] = useState<number | null>(recurring?.paymentMethodId ?? null);
   const [schedule, setSchedule] = useState<NewRecurringSchedule>(() => recurring ? {
     frequency: recurring.frequency, intervalMonths: recurring.intervalMonths,
     executionDay: recurring.executionDay, startDate: recurring.startDate,
@@ -37,10 +39,12 @@ export default function RecurringIncomeFormScreen() {
   const save = async () => {
     const amount = parseAmount(amountText);
     if (!name.trim() || amount == null) return Alert.alert(t('validation.missingData'), t('recurrence.invalidNameAmount'));
+    if (paymentMethodId == null) return Alert.alert(t('common.error'), t('incomes.destinationRequired'));
     setSaving(true);
     try {
       await editRecurringIncome(recurring.id, {
         name: name.trim(), amount, sourceIncomeId: recurring.sourceIncomeId,
+        paymentMethodId,
         frequency: schedule.frequency, intervalMonths: schedule.intervalMonths,
         executionDay: schedule.executionDay, startDate: schedule.startDate,
         endDate: schedule.endDate, active: schedule.active, registrationMode: schedule.registrationMode,
@@ -54,6 +58,18 @@ export default function RecurringIncomeFormScreen() {
   return <SafeAreaView style={styles.safe} edges={['bottom']}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <ThemedText style={styles.label}>{t('common.name')}</ThemedText><TextInput value={name} onChangeText={setName} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
     <ThemedText style={styles.label}>{t('filters.amount')}</ThemedText><TextInput value={amountText} onChangeText={(value) => setAmountText(formatCLPInput(value))} keyboardType="number-pad" style={[styles.input, { color: colors.text, borderColor: colors.border }]} />
+    <ColorSelect
+      label={t('incomes.receiveIn')}
+      value={paymentMethodId}
+      onChange={setPaymentMethodId}
+      options={paymentMethods
+        .filter((method) => method.type !== 'credit' && (method.active || method.id === paymentMethodId))
+        .map((method) => ({
+          value: method.id,
+          label: `${method.name} · ${t(`paymentMethods.${method.type}`)}`,
+          color: method.color,
+        }))}
+    />
     <RecurringScheduleFields value={schedule} onChange={setSchedule} showActiveToggle fixedStartDate={recurring.startDate} storedNextDate={recurring.nextDate} movementKind="ingreso" />
     <Pressable disabled={saving} onPress={save} style={styles.save}><ThemedText style={styles.saveText}>{saving ? t('common.saving') : t('common.saveChanges')}</ThemedText></Pressable>
     <Pressable disabled={saving} onPress={() => Alert.alert(t('recurrence.delete'), t('recurrence.keepPreviousIncomes'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => removeRecurringIncome(recurring.id).then(() => { showResult(t('recurrence.deleted')); router.back(); }).catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain'))) }])} style={styles.remove}><ThemedText style={styles.removeText}>{t('recurrence.delete')}</ThemedText></Pressable>

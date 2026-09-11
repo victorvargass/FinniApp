@@ -17,6 +17,11 @@ test('installment purchases consume their full total only once', () => {
   assert.equal(calculateAvailableBalance(1_000_000, 100_000, 80_000, 600_000), 380_000);
 });
 
+test('income received after the snapshot increases the available balance', () => {
+  assert.equal(calculateAvailableBalance(100_000, 30_000, 0, 0, 80_000), 150_000);
+  assert.equal(calculateAvailableBalance(500_000, 25_000, 40_000, 100_000, 10_000), 425_000);
+});
+
 test('due date uses the next valid occurrence of the configured day', () => {
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 5).toISOString().slice(0, 10), '2026-10-05');
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 25).toISOString().slice(0, 10), '2026-09-25');
