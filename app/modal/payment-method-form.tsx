@@ -133,7 +133,7 @@ export default function PaymentMethodFormScreen() {
               removePaymentMethod(method.id)
                 .then(() => {
                   showResult(t('paymentMethods.deleted'));
-                  router.back();
+                  router.dismissTo('/modal/payment-methods');
                 })
                 .catch((error) => Alert.alert(
                   t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain')
