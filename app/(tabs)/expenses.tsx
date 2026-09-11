@@ -747,7 +747,7 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
                 ]}
                 onPress={() => toggleGroupCollapsed(item.key)}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.isCollapsed ? 'Mostrar' : 'Ocultar'} gastos de ${item.name}`}
+                accessibilityLabel={t(item.isCollapsed ? 'accessibility.showExpenseGroup' : 'accessibility.hideExpenseGroup', { name: item.name })}
                 accessibilityState={{ expanded: !item.isCollapsed }}>
                 <View style={styles.categoryHeaderLeft}>
                   <View style={[styles.dot, { backgroundColor: item.color }]} />
@@ -825,7 +825,7 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
                   <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(expense.amount)}</ThemedText>
                   <Pressable
                     onPress={() => handleActions(expense)}
-                    hitSlop={8}
+                    style={styles.itemActionButton}
                     accessibilityRole="button"
                     accessibilityLabel={t('common.actionsFor', { name: expense.name })}>
                     <Ionicons name="ellipsis-vertical" size={20} color={colors.icon} />
@@ -1043,6 +1043,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  itemActionButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -10,
+    marginRight: -10,
   },
   expenseNameRow: {
     flexDirection: 'row',

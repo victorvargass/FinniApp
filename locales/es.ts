@@ -202,6 +202,8 @@ const es = {
     toggleDarkMode: 'Activar modo oscuro',
     toggleExpenseSplit: 'Dividir monto del gasto',
     toggleReminder: 'Activar recordatorio de movimientos',
+    showExpenseGroup: 'Mostrar gastos de %{name}',
+    hideExpenseGroup: 'Ocultar gastos de %{name}',
   },
   validation: {
     invalidAmount: 'Ingresa un monto válido',

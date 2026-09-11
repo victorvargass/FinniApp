@@ -357,7 +357,7 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
                 <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(item.amount)}</ThemedText>
                 <Pressable
                   onPress={() => handleActions(item)}
-                  hitSlop={8}
+                  style={styles.itemActionButton}
                   accessibilityRole="button"
                   accessibilityLabel={t('common.actionsFor', { name: item.name })}>
                   <Ionicons name="ellipsis-vertical" size={20} color={colors.icon} />
@@ -521,6 +521,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  itemActionButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -10,
+    marginRight: -10,
   },
   incomeNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   meta: {

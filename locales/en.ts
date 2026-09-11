@@ -202,6 +202,8 @@ const en = {
     toggleDarkMode: 'Activate dark mode',
     toggleExpenseSplit: 'Split expense amount',
     toggleReminder: 'Activate transaction reminder',
+    showExpenseGroup: 'Show %{name} expenses',
+    hideExpenseGroup: 'Hide %{name} expenses',
   },
   validation: {
     invalidAmount: 'Enter a valid amount',
