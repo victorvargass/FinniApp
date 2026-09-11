@@ -365,6 +365,16 @@ const en = {
     negativeBalanceBody: '%{name} has a difference of %{amount}.',
     periodDetails: 'Period dates',
   },
+  setup: {
+    title: 'Set up FinniApp at your pace',
+    progress: '%{complete} of %{total} steps completed',
+    period: 'Set your period dates',
+    paymentMethod: 'Set up a payment method',
+    categories: 'Review your categories and limits',
+    firstMovement: 'Record your first transaction',
+    backup: 'Protect your data with a backup',
+    skipForNow: 'Not now',
+  },
   history: {
     categories: 'Categories',
     empty: 'There is no history yet.',

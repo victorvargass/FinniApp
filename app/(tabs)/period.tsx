@@ -9,6 +9,7 @@ import { HomeOverview, type HomeAttentionItem } from '@/components/home-overview
 import { LimitProgressBar } from '@/components/LimitProgressBar';
 import { PaymentMethodChart } from '@/components/PaymentMethodChart';
 import { PeriodSelector } from '@/components/period-selector';
+import { ProgressiveSetup } from '@/components/progressive-setup';
 import { SavingsGoalsPeriodCard } from '@/components/SavingsGoalsPeriodCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -36,6 +37,7 @@ export default function PeriodScreen() {
   const {
     expenses,
     incomes,
+    categories,
     periodCategoryExpensesTotals,
     periodIncomesTotal,
     periodExpensesTotal,
@@ -219,6 +221,19 @@ export default function PeriodScreen() {
             }
           }}
         />
+        {isCurrentPeriod && (
+          <ProgressiveSetup
+            hasPeriod={Boolean(selectedPeriod)}
+            hasPaymentMethod={paymentMethods.length > 0}
+            hasCategories={categories.length > 0}
+            hasMovements={hasPeriodMovements}
+            onOpenPeriod={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+            onOpenPaymentMethods={() => router.push('/modal/payment-methods')}
+            onOpenCategories={() => router.push('/modal/categories')}
+            onAddMovement={() => router.push('/modal/expense-form')}
+            onOpenBackup={() => router.push('/modal/google-drive')}
+          />
+        )}
         <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
           <ThemedText type="subtitle">{t('home.periodDetails')}</ThemedText>
           <View style={styles.dateRangeContainer}>
