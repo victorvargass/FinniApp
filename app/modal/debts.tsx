@@ -60,6 +60,56 @@ export default function DebtsScreen() {
   const activeDebts = debts.filter((item) => item.status !== 'archived');
   const totalDebtBalance = activeDebts.reduce((sum, item) => sum + item.currentBalance, 0)
     + creditCards.reduce((sum, item) => sum + (item.usedAmount ?? 0), 0);
+  const planList = (
+    <>
+      {plans.length === 0 && (
+        <ThemedView style={styles.empty}>
+          <Ionicons name="wallet-outline" size={34} color={colors.icon} />
+          <ThemedText>{t('installments.noPurchases')}</ThemedText>
+          <ThemedText style={styles.secondary}>{t('installments.createHint')}</ThemedText>
+        </ThemedView>
+      )}
+      {plans.map((plan) => (
+        <Pressable
+          key={plan.id}
+          onPress={() => router.push({
+            pathname: '/modal/debt-detail',
+            params: { id: String(plan.id) },
+          })}>
+          <ThemedView style={styles.card}>
+            <View style={styles.header}>
+              <View style={[styles.dot, { backgroundColor: plan.paymentMethodColor }]} />
+              <View style={styles.copy}>
+                <ThemedText type="defaultSemiBold">{plan.name}</ThemedText>
+                <ThemedText style={styles.secondary}>{plan.paymentMethodName}</ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={21} color={colors.icon} />
+            </View>
+            <View style={styles.row}>
+              <ThemedText>{t('installments.progress')}</ThemedText>
+              <ThemedText type="defaultSemiBold">
+                {t('installments.progressValue', {
+                  posted: plan.postedInstallments,
+                  total: plan.totalInstallments,
+                })}
+              </ThemedText>
+            </View>
+            <View style={styles.row}>
+              <ThemedText>{t('installments.projectedBalance')}</ThemedText>
+              <ThemedText>{formatCLP(plan.remainingAmount)}</ThemedText>
+            </View>
+            <ThemedText
+              style={[
+                styles.status,
+                { color: plan.status === 'active' ? '#1FAF78' : colors.primary },
+              ]}>
+              {statusLabel(plan.status)}
+            </ThemedText>
+          </ThemedView>
+        </Pressable>
+      ))}
+    </>
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -93,7 +143,19 @@ export default function DebtsScreen() {
                 </ThemedView>
               </Pressable>
             ))}
-            <ThemedText type="subtitle">{t('debts.title')}</ThemedText>
+            <View style={styles.sectionHeading}>
+              <View style={styles.copy}>
+                <ThemedText type="subtitle">{t('debts.cardPurchases')}</ThemedText>
+                <ThemedText style={styles.secondary}>{t('debts.cardPurchasesHint')}</ThemedText>
+              </View>
+            </View>
+            {planList}
+            <View style={styles.sectionHeading}>
+              <View style={styles.copy}>
+                <ThemedText type="subtitle">{t('debts.otherDebts')}</ThemedText>
+                <ThemedText style={styles.secondary}>{t('debts.otherDebtsHint')}</ThemedText>
+              </View>
+            </View>
             {debts.length === 0 && (
               <ThemedView style={styles.empty}>
                 <Ionicons name="document-text-outline" size={34} color={colors.icon} />
@@ -115,7 +177,6 @@ export default function DebtsScreen() {
                 </ThemedView>
               </Pressable>
             ))}
-            <ThemedText type="subtitle" style={styles.sectionTitle}>{t('debts.cardPurchases')}</ThemedText>
           </>
         )}
         {method?.type === 'credit' && (
@@ -127,30 +188,17 @@ export default function DebtsScreen() {
             </View>
           </ThemedView>
         )}
-        {plans.length === 0 && (
-          <ThemedView style={styles.empty}>
-            <Ionicons name="wallet-outline" size={34} color={colors.icon} />
-            <ThemedText>{t('installments.noPurchases')}</ThemedText>
-            <ThemedText style={styles.secondary}>{t('installments.createHint')}</ThemedText>
-          </ThemedView>
-        )}
-        {plans.map((plan) => (
-          <Pressable key={plan.id} onPress={() => router.push({ pathname: '/modal/debt-detail', params: { id: String(plan.id) } })}>
-            <ThemedView style={styles.card}>
-              <View style={styles.header}>
-                <View style={[styles.dot, { backgroundColor: plan.paymentMethodColor }]} />
-                <View style={styles.copy}>
-                  <ThemedText type="defaultSemiBold">{plan.name}</ThemedText>
-                  <ThemedText style={styles.secondary}>{plan.paymentMethodName}</ThemedText>
-                </View>
-                <Ionicons name="chevron-forward" size={21} color={colors.icon} />
+        {methodId != null && (
+          <>
+            <View style={styles.sectionHeading}>
+              <View style={styles.copy}>
+                <ThemedText type="subtitle">{t('debts.cardPurchases')}</ThemedText>
+                <ThemedText style={styles.secondary}>{t('debts.cardPurchasesHint')}</ThemedText>
               </View>
-              <View style={styles.row}><ThemedText>{t('installments.progress')}</ThemedText><ThemedText type="defaultSemiBold">{t('installments.progressValue', { posted: plan.postedInstallments, total: plan.totalInstallments })}</ThemedText></View>
-              <View style={styles.row}><ThemedText>{t('installments.projectedBalance')}</ThemedText><ThemedText>{formatCLP(plan.remainingAmount)}</ThemedText></View>
-              <ThemedText style={[styles.status, { color: plan.status === 'active' ? '#1FAF78' : colors.primary }]}>{statusLabel(plan.status)}</ThemedText>
-            </ThemedView>
-          </Pressable>
-        ))}
+            </View>
+            {planList}
+          </>
+        )}
       </ScrollView>
       <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
       {methodId == null && (
@@ -172,6 +220,6 @@ const styles = StyleSheet.create({
   dot: { width: 16, height: 16, borderRadius: 6 }, copy: { flex: 1 }, secondary: { opacity: 0.62, fontSize: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 }, status: { fontSize: 12, fontWeight: '700' },
   summaryCard: { borderRadius: 12, padding: 16, gap: 5 },
-  debtIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, archived: { opacity: 0.62 }, sectionTitle: { marginTop: 6 },
+  debtIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, archived: { opacity: 0.62 },
   sectionHeading: { marginTop: 4 }, methodSummary: { borderRadius: 12, padding: 16, gap: 10 }, methodActions: { flexDirection: 'row', gap: 10 }, methodButton: { flex: 1, minHeight: 45, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
 });
