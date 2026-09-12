@@ -24,6 +24,11 @@ import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
 import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
+import {
+  DEFAULT_CATEGORY_COUNT,
+  hasConfiguredFirstPeriod,
+  markFirstPeriodConfigured,
+} from '@/lib/setup-progress';
 import { showToast } from '@/lib/toast';
 import { buildWeeklyInsight, findSavingsMilestone } from '@/lib/weekly-insights';
 import { exportPeriodReport } from '@/services/PeriodReportService';
@@ -72,6 +77,7 @@ export default function HomeScreen() {
   const [categorySelectionReset, setCategorySelectionReset] = useState(0);
   const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>('category');
   const [isExporting, setIsExporting] = useState(false);
+  const [hasConfiguredPeriod, setHasConfiguredPeriod] = useState(false);
 
   const withLimits = periodCategoryExpensesTotals.filter((item) => item.periodLimit != null && item.periodLimit > 0);
   const periodSavingsWithdrawals = periodSavingsGoalActivity.reduce((sum, item) => sum + item.withdrawals, 0);
@@ -189,6 +195,8 @@ export default function HomeScreen() {
     }
     try {
       await setPeriodStartDate(selectedDateStr);
+      await markFirstPeriodConfigured();
+      setHasConfiguredPeriod(true);
       setStartDate(selected);
       showToast(t('period.startDateUpdated'));
     } catch (error) {
@@ -205,6 +213,8 @@ export default function HomeScreen() {
     }
     try {
       await setPeriodEndDate(selectedDateStr);
+      await markFirstPeriodConfigured();
+      setHasConfiguredPeriod(true);
       setEndDate(selected);
       showToast(t('period.endDateUpdated'));
     } catch (error) {
@@ -228,6 +238,14 @@ export default function HomeScreen() {
   }
 
   // Sync the editable range with the period being viewed.
+  useEffect(() => {
+    let active = true;
+    void hasConfiguredFirstPeriod().then((configured) => {
+      if (active) setHasConfiguredPeriod(configured);
+    });
+    return () => { active = false; };
+  }, []);
+
   useEffect(() => {
     if (!selectedPeriod) return;
     setStartDate(parseDateString(selectedPeriod.startDate));
@@ -266,9 +284,9 @@ export default function HomeScreen() {
         />
         {isCurrentPeriod && (
           <ProgressiveSetup
-            hasPeriod={Boolean(selectedPeriod)}
-            hasPaymentMethod={paymentMethods.length > 0}
-            hasCategories={categories.length > 0}
+            hasConfiguredPeriod={hasConfiguredPeriod}
+            hasAdditionalPaymentMethod={paymentMethods.some((method) => method.systemKey !== 'cash')}
+            hasAdditionalCategory={categories.length > DEFAULT_CATEGORY_COUNT}
             hasMovements={hasPeriodMovements}
             onOpenPeriod={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
             onOpenPaymentMethods={() => router.push('/modal/payment-methods')}

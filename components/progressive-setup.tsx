@@ -9,15 +9,13 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
+import { BACKUP_SKIPPED_KEY, SETUP_COMPLETE_KEY } from '@/lib/setup-progress';
 import { GoogleAuthService } from '@/services/GoogleAuthService';
 
-const COMPLETE_KEY = '@finniapp/progressive-setup-v1/complete';
-const BACKUP_SKIPPED_KEY = '@finniapp/progressive-setup-v1/backup-skipped';
-
 type ProgressiveSetupProps = {
-  hasPeriod: boolean;
-  hasPaymentMethod: boolean;
-  hasCategories: boolean;
+  hasConfiguredPeriod: boolean;
+  hasAdditionalPaymentMethod: boolean;
+  hasAdditionalCategory: boolean;
   hasMovements: boolean;
   onOpenPeriod: () => void;
   onOpenPaymentMethods: () => void;
@@ -27,9 +25,9 @@ type ProgressiveSetupProps = {
 };
 
 export function ProgressiveSetup({
-  hasPeriod,
-  hasPaymentMethod,
-  hasCategories,
+  hasConfiguredPeriod,
+  hasAdditionalPaymentMethod,
+  hasAdditionalCategory,
   hasMovements,
   onOpenPeriod,
   onOpenPaymentMethods,
@@ -45,7 +43,7 @@ export function ProgressiveSetup({
 
   useEffect(() => {
     let active = true;
-    Promise.all([AsyncStorage.getItem(COMPLETE_KEY), AsyncStorage.getItem(BACKUP_SKIPPED_KEY)])
+    Promise.all([AsyncStorage.getItem(SETUP_COMPLETE_KEY), AsyncStorage.getItem(BACKUP_SKIPPED_KEY)])
       .then(([complete, skipped]) => {
         if (!active) return;
         setCompletedPermanently(complete === 'true');
@@ -62,17 +60,17 @@ export function ProgressiveSetup({
 
   const backupReady = googleConnected || backupSkipped;
   const steps = useMemo(() => [
-    { key: 'period', label: t('setup.period'), complete: hasPeriod, onPress: onOpenPeriod },
-    { key: 'payment', label: t('setup.paymentMethod'), complete: hasPaymentMethod, onPress: onOpenPaymentMethods },
-    { key: 'categories', label: t('setup.categories'), complete: hasCategories, onPress: onOpenCategories },
+    { key: 'period', label: t('setup.period'), complete: hasConfiguredPeriod, onPress: onOpenPeriod },
+    { key: 'payment', label: t('setup.paymentMethod'), complete: hasAdditionalPaymentMethod, onPress: onOpenPaymentMethods },
+    { key: 'categories', label: t('setup.categories'), complete: hasAdditionalCategory, onPress: onOpenCategories },
     { key: 'movement', label: t('setup.firstMovement'), complete: hasMovements, onPress: onAddMovement },
     { key: 'backup', label: t('setup.backup'), complete: backupReady, onPress: onOpenBackup, optional: true },
   ], [
     backupReady,
-    hasCategories,
+    hasAdditionalCategory,
+    hasAdditionalPaymentMethod,
+    hasConfiguredPeriod,
     hasMovements,
-    hasPaymentMethod,
-    hasPeriod,
     onAddMovement,
     onOpenBackup,
     onOpenCategories,
@@ -84,7 +82,7 @@ export function ProgressiveSetup({
   useEffect(() => {
     if (!loaded || completedPermanently || completedCount !== steps.length) return;
     setCompletedPermanently(true);
-    void AsyncStorage.setItem(COMPLETE_KEY, 'true');
+    void AsyncStorage.setItem(SETUP_COMPLETE_KEY, 'true');
   }, [completedCount, completedPermanently, loaded, steps.length]);
 
   if (!loaded || completedPermanently) return null;
