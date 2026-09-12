@@ -192,6 +192,13 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
             ? t('expenses.moreOptionsHint')
             : t('expenses.moreOptionsStandardHint');
 
+  const toggleAdvancedOptions = () => {
+    if (showAdvancedOptions) {
+      setMakeRecurring(false);
+    }
+    setShowAdvancedOptions((current) => !current);
+  };
+
   useEffect(() => {
     if (hasLoadedLastPaymentMethod) return;
     if (initialExpense || initialCreditPaymentTargetId || settings.defaultPaymentMethodId != null) {
@@ -785,7 +792,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: showAdvancedOptions }}
-        onPress={() => setShowAdvancedOptions((current) => !current)}
+        onPress={toggleAdvancedOptions}
         style={[styles.advancedOptions, { borderColor: colors.border, backgroundColor: colors.surface }]}>
         <View style={styles.advancedOptionsCopy}>
           <Ionicons name="options-outline" size={21} color={colors.action} />

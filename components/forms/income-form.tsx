@@ -106,6 +106,13 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     ? periods.find((period) => period.id === income.periodId) ?? selectedPeriod
     : selectedPeriod;
 
+  const toggleAdvancedOptions = () => {
+    if (showAdvancedOptions) {
+      setMakeIncomeRecurring(false);
+    }
+    setShowAdvancedOptions((current) => !current);
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert(t('common.error'), t('validation.invalidIncomeName'));
@@ -267,7 +274,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: showAdvancedOptions }}
-        onPress={() => setShowAdvancedOptions((current) => !current)}
+        onPress={toggleAdvancedOptions}
         style={[styles.advancedOptions, { borderColor: colors.border, backgroundColor: colors.surface }]}>
         <View style={styles.advancedOptionsCopy}>
           <Ionicons name="options-outline" size={21} color={colors.action} />
