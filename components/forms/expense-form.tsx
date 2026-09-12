@@ -136,6 +136,9 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
   const isCardPayment = selectedCategory?.systemKey === 'credit_payment';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
   const targetCreditCard = paymentMethods.find((method) => method.id === creditPaymentTargetId);
+  const isCreditPaymentTargetLocked = expense == null
+    && initialCreditPaymentTargetId != null
+    && targetCreditCard?.type === 'credit';
   const balanceReferenceMethods = isCardPayment
     ? [selectedPaymentMethod, targetCreditCard]
     : [selectedPaymentMethod];
@@ -619,6 +622,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
           label={t('paymentMethods.targetCreditCard')}
           value={creditPaymentTargetId}
           onChange={setCreditPaymentTargetId}
+          disabled={isCreditPaymentTargetLocked}
           options={paymentMethods
             .filter((method) => method.type === 'credit' && (method.active || method.id === creditPaymentTargetId))
             .map((method) => ({ value: method.id, label: method.name, color: method.color }))}

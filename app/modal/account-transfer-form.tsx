@@ -84,6 +84,9 @@ export default function AccountTransferFormScreen() {
   }, [destinationId, sourceId, transferAccounts]);
 
   const source = transferAccounts.find((method) => method.id === sourceId);
+  const isSourceLocked = !Number.isInteger(transferId)
+    && Number.isInteger(requestedSourceId)
+    && source?.id === requestedSourceId;
   const parsedAmount = parseAmount(amount);
   const projectedSourceBalance = getProjectedSourceBalance(source, existing, sourceId, destinationId, parsedAmount);
   const exceedsBalance = projectedSourceBalance != null && projectedSourceBalance < 0;
@@ -174,7 +177,13 @@ export default function AccountTransferFormScreen() {
             <ThemedText style={[styles.explanationText, { color: colors.textSecondary }]}>{t('transfers.accountHistory')}</ThemedText>
           </ThemedView>
 
-          <ColorSelect label={t('transfers.from')} value={sourceId} options={accountOptions} onChange={setSourceId} />
+          <ColorSelect
+            label={t('transfers.from')}
+            value={sourceId}
+            options={accountOptions}
+            onChange={setSourceId}
+            disabled={isSourceLocked}
+          />
           {source && (
             <ThemedText style={[styles.balanceHint, { color: exceedsBalance ? colors.danger : colors.textSecondary }]}>
               {source.availableBalance == null

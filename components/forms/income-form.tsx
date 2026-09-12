@@ -50,13 +50,14 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     (method) => method.id === settings.defaultPaymentMethodId && method.active
   )?.id ?? eligiblePaymentMethods.find((method) => method.active)?.id ?? null;
 
-  const initialSavingsGoal = !income && initialSavingsGoalId != null
+  const initialSavingsGoal = !income && !templateIncome && initialSavingsGoalId != null
     ? savingsGoals.find((goal) => (
         goal.id === initialSavingsGoalId
         && goal.status === 'active'
         && goal.allowWithdrawals
       ))
     : undefined;
+  const isContextualSavingsWithdrawal = initialSavingsGoal != null;
   const [name, setName] = useState(
     initialIncome?.name ?? (initialSavingsGoal ? `Retiro de ${initialSavingsGoal.name}` : '')
   );
@@ -237,6 +238,25 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
         {savingsGoalId != null ? t('incomes.withdrawalDestinationHint') : t('incomes.destinationHint')}
       </ThemedText>
 
+      {isContextualSavingsWithdrawal && (
+        <>
+          <ColorSelect
+            label={t('savings.withdrawalSource')}
+            value={savingsGoalId}
+            onChange={setSavingsGoalId}
+            disabled
+            options={selectableSavingsGoals.map((goal) => ({
+              value: goal.id,
+              label: `${goal.name} · ${formatCLP(goal.currentAmount)}`,
+              color: goal.color,
+            }))}
+          />
+          <ThemedText style={styles.savingsHint}>
+            {t('savings.withdrawalHint')}
+          </ThemedText>
+        </>
+      )}
+
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: showAdvancedOptions }}
@@ -256,7 +276,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
         />
       </Pressable>
 
-      {showAdvancedOptions && income?.recurringIncomeId == null && selectableSavingsGoals.length > 0 && (
+      {showAdvancedOptions && !isContextualSavingsWithdrawal && income?.recurringIncomeId == null && selectableSavingsGoals.length > 0 && (
         <>
           <View style={styles.shareToggleRow}>
             <View style={styles.shareToggleCopy}>

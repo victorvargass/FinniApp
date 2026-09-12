@@ -48,12 +48,14 @@ export function ColorSelect({
   options,
   onChange,
   showColor = true,
+  disabled = false,
 }: {
   label: string;
   value: number | null;
   options: ColorSelectOption[];
   onChange: (value: number | null) => void;
   showColor?: boolean;
+  disabled?: boolean;
 }) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -67,23 +69,26 @@ export function ColorSelect({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${selected.label}`}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
         onPress={() => setVisible(true)}
         style={({ pressed }) => [
           styles.selectButton,
           { borderColor: colors.border },
-          pressed && styles.selectPressed,
+          pressed && !disabled && styles.selectPressed,
+          disabled && { opacity: 0.72 },
         ]}>
         <View style={styles.selectValue}>
           {showColor && <View style={[styles.selectDot, { backgroundColor: selected.color }]} />}
           <ThemedText type="defaultSemiBold" numberOfLines={1}>{selected.label}</ThemedText>
         </View>
-        <Ionicons name="chevron-down" size={20} color={colors.icon} />
+        <Ionicons name={disabled ? 'lock-closed-outline' : 'chevron-down'} size={20} color={colors.icon} />
       </Pressable>
 
       <Modal
         animationType="slide"
         transparent
-        visible={visible}
+        visible={visible && !disabled}
         onRequestClose={() => setVisible(false)}>
         <Pressable style={styles.selectOverlay} onPress={() => setVisible(false)}>
           <Pressable style={styles.selectSheet} onPress={(event) => event.stopPropagation()}>
