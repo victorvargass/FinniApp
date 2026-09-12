@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
@@ -65,6 +65,9 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   const [savingsGoalId, setSavingsGoalId] = useState<number | null>(
     income?.savingsGoalId ?? initialSavingsGoal?.id ?? null
   );
+  const [isSavingsWithdrawal, setIsSavingsWithdrawal] = useState(
+    (income?.savingsGoalId ?? initialSavingsGoal?.id) != null
+  );
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
     initialIncome?.paymentMethodId ?? defaultPaymentMethodId
   );
@@ -109,6 +112,10 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
       Alert.alert(t('common.error'), t('incomes.destinationRequired'));
       return;
     }
+    if (isSavingsWithdrawal && savingsGoalId == null) {
+      Alert.alert(t('common.error'), t('savings.withdrawalSourceRequired'));
+      return;
+    }
 
     // La fecha siempre debe pertenecer al período que el usuario está editando.
     if (formPeriod) {
@@ -137,7 +144,14 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
 
     setSaving(true);
     try {
-      const data = { name: name.trim(), amount, date: toDateString(date), savingsGoalId, paymentMethodId };
+      const effectiveSavingsGoalId = isSavingsWithdrawal ? savingsGoalId : null;
+      const data = {
+        name: name.trim(),
+        amount,
+        date: toDateString(date),
+        savingsGoalId: effectiveSavingsGoalId,
+        paymentMethodId,
+      };
       if (income) {
         await editIncome(income.id, data);
         if (makeIncomeRecurring && income.recurringIncomeId == null) {
@@ -150,7 +164,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
             registrationMode: incomeSchedule.registrationMode,
           });
         }
-        showToast(savingsGoalId != null ? t('savings.withdrawalUpdated') : makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'));
+        showToast(effectiveSavingsGoalId != null ? t('savings.withdrawalUpdated') : makeIncomeRecurring ? t('incomes.updatedWithRecurrence') : t('incomes.updated'));
       } else {
         await addIncome(data, makeIncomeRecurring ? {
           ...incomeSchedule,
@@ -160,7 +174,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
             : null,
           registrationMode: incomeSchedule.registrationMode,
         } : undefined);
-        showToast(savingsGoalId != null ? t('savings.withdrawalRegistered') : t('incomes.created'));
+        showToast(effectiveSavingsGoalId != null ? t('savings.withdrawalRegistered') : t('incomes.created'));
       }
       onSuccess();
     } catch (error) {
@@ -244,27 +258,50 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
 
       {showAdvancedOptions && income?.recurringIncomeId == null && selectableSavingsGoals.length > 0 && (
         <>
-          <ColorSelect
-            label={t('savings.withdrawFromGoalOptional')}
-            value={savingsGoalId}
-            onChange={(value) => {
-              setSavingsGoalId(value);
-              if (value != null) {
-                setMakeIncomeRecurring(false);
+          <View style={styles.shareToggleRow}>
+            <View style={styles.shareToggleCopy}>
+              <ThemedText style={styles.shareLabel}>{t('savings.withdrawalToggle')}</ThemedText>
+              <ThemedText style={styles.shareDescription}>{t('savings.withdrawalToggleHint')}</ThemedText>
+            </View>
+            <Switch
+              accessibilityLabel={t('savings.withdrawalToggle')}
+              onValueChange={(enabled) => {
+                setIsSavingsWithdrawal(enabled);
+                if (enabled) {
+                  const nextGoalId = savingsGoalId ?? selectableSavingsGoals[0]?.id ?? null;
+                  setSavingsGoalId(nextGoalId);
+                  const selectedGoal = selectableSavingsGoals.find((goal) => goal.id === nextGoalId);
+                  if (!name.trim() && selectedGoal) {
+                    setName(t('savings.withdrawalName', { name: selectedGoal.name }));
+                  }
+                  setMakeIncomeRecurring(false);
+                } else {
+                  setSavingsGoalId(null);
+                }
+              }}
+              trackColor={{ true: colors.tint }}
+              value={isSavingsWithdrawal}
+            />
+          </View>
+          {isSavingsWithdrawal && (
+            <ColorSelect
+              label={t('savings.withdrawalSource')}
+              value={savingsGoalId}
+              onChange={(value) => {
+                setSavingsGoalId(value);
                 const selectedGoal = selectableSavingsGoals.find((goal) => goal.id === value);
-                if (!name.trim() && selectedGoal) setName(t('savings.withdrawalName', { name: selectedGoal.name }));
-              }
-            }}
-            options={[
-              { value: null, label: t('savings.normalIncome'), color: '#1FAF78' },
-              ...selectableSavingsGoals.map((goal) => ({
+                if (!name.trim() && selectedGoal) {
+                  setName(t('savings.withdrawalName', { name: selectedGoal.name }));
+                }
+              }}
+              options={selectableSavingsGoals.map((goal) => ({
                 value: goal.id,
                 label: `${goal.name} · ${formatCLP(goal.currentAmount)}`,
                 color: goal.color,
-              })),
-            ]}
-          />
-          {savingsGoalId != null && (
+              }))}
+            />
+          )}
+          {isSavingsWithdrawal && savingsGoalId != null && (
             <ThemedText style={styles.savingsHint}>
               {t('savings.withdrawalHint')}
             </ThemedText>
@@ -304,7 +341,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
         </>
       )}
 
-      {showAdvancedOptions && savingsGoalId == null && (!income || income.recurringIncomeId == null) && (
+      {showAdvancedOptions && !isSavingsWithdrawal && (!income || income.recurringIncomeId == null) && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}>
           <Pressable onPress={() => setMakeIncomeRecurring((current) => !current)} style={styles.recurringHeader}>
             <View style={styles.recurringHeaderCopy}>
