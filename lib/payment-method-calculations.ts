@@ -3,13 +3,17 @@ export function calculateAvailableBalance(
   chargesAfterSnapshot: number,
   paymentsAfterSnapshot: number,
   installmentPurchasesAfterSnapshot = 0,
-  incomesAfterSnapshot = 0
+  incomesAfterSnapshot = 0,
+  transfersInAfterSnapshot = 0,
+  transfersOutAfterSnapshot = 0
 ) {
   return reportedBalance
     - chargesAfterSnapshot
     - installmentPurchasesAfterSnapshot
     + paymentsAfterSnapshot
-    + incomesAfterSnapshot;
+    + incomesAfterSnapshot
+    + transfersInAfterSnapshot
+    - transfersOutAfterSnapshot;
 }
 
 export function getEstimatedPaymentDueDate(statementDate: string, dueDay: number) {

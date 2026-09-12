@@ -1,7 +1,10 @@
 export {
+  createAccountTransfer,
   createCreditCardCycle,
   createPaymentMethod,
   deletePaymentMethod,
+  deleteAccountTransfer,
+  getAccountTransfer,
   getCreditCardCycles,
   getPaymentMethodDeletionInfo,
   getPaymentMethodMovements,
@@ -12,6 +15,7 @@ export {
   setPaymentMethodActive,
   unreconcileCreditCardCycle,
   updateCreditCardCycle,
+  updateAccountTransfer,
   updatePaymentMethod,
   updatePaymentMethodBalance,
 } from '@/lib/db';

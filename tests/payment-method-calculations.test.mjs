@@ -22,6 +22,15 @@ test('income received after the snapshot increases the available balance', () =>
   assert.equal(calculateAvailableBalance(500_000, 25_000, 40_000, 100_000, 10_000), 425_000);
 });
 
+test('transfers move money without creating or destroying the combined balance', () => {
+  const source = calculateAvailableBalance(100_000, 0, 0, 0, 0, 0, 25_000);
+  const destination = calculateAvailableBalance(50_000, 0, 0, 0, 0, 25_000, 0);
+
+  assert.equal(source, 75_000);
+  assert.equal(destination, 75_000);
+  assert.equal(source + destination, 150_000);
+});
+
 test('due date uses the next valid occurrence of the configured day', () => {
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 5).toISOString().slice(0, 10), '2026-10-05');
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 25).toISOString().slice(0, 10), '2026-09-25');

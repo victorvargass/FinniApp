@@ -196,6 +196,18 @@ export default function PaymentMethodDetailScreen() {
               <ThemedText>{t('paymentMethods.registeredIncomes')}</ThemedText>
               <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredIncomes)}</ThemedText>
             </View>
+            {method.registeredTransfersOut > 0 && (
+              <View style={styles.calculationRow}>
+                <ThemedText>{t('transfers.sent')}</ThemedText>
+                <ThemedText style={{ color: colors.expense }}>−{formatCLP(method.registeredTransfersOut)}</ThemedText>
+              </View>
+            )}
+            {method.registeredTransfersIn > 0 && (
+              <View style={styles.calculationRow}>
+                <ThemedText>{t('transfers.received')}</ThemedText>
+                <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredTransfersIn)}</ThemedText>
+              </View>
+            )}
             <View style={[styles.calculationRow, styles.calculationTotal, { borderTopColor: colors.border }]}>
               <ThemedText type="defaultSemiBold">{t('paymentMethods.calculatedAvailable')}</ThemedText>
               <ThemedText type="defaultSemiBold">{formatCLP(method.availableBalance)}</ThemedText>
@@ -231,6 +243,11 @@ export default function PaymentMethodDetailScreen() {
             'cash-outline',
             t('paymentMethods.payCard'),
             () => router.push({ pathname: '/modal/expense-form', params: { creditPaymentTargetId: String(method.id) } })
+          )}
+          {!isCredit && action(
+            'swap-horizontal-outline',
+            t('transfers.action'),
+            () => router.push({ pathname: '/modal/account-transfer-form', params: { sourcePaymentMethodId: String(method.id) } } as never)
           )}
           {isCredit && action(
             'wallet-outline',
@@ -272,7 +289,13 @@ export default function PaymentMethodDetailScreen() {
             const isPaymentReceived = movement.kind === 'credit_payment';
             const isInstallmentPurchase = movement.kind === 'installment_purchase';
             const isIncome = movement.kind === 'income' || movement.kind === 'savings_withdrawal';
-            const detail = isInstallmentPurchase
+            const isTransfer = movement.kind === 'transfer_in' || movement.kind === 'transfer_out';
+            const isIncoming = isPaymentReceived || isIncome || movement.kind === 'transfer_in';
+            const detail = movement.kind === 'transfer_in'
+              ? t('transfers.receivedFrom', { name: movement.relatedPaymentMethodName ?? t('common.notSpecified') })
+              : movement.kind === 'transfer_out'
+                ? t('transfers.sentTo', { name: movement.relatedPaymentMethodName ?? t('common.notSpecified') })
+                : isInstallmentPurchase
               ? t('paymentMethods.installmentPurchaseTotal')
               : isPaymentReceived
               ? t('paymentMethods.paymentReceivedFrom', {
@@ -291,11 +314,13 @@ export default function PaymentMethodDetailScreen() {
               <Pressable
                 accessibilityRole="button"
                 key={`${movement.kind}-${movement.id}`}
-                onPress={() => router.push(isInstallmentPurchase
+                onPress={() => router.push((isTransfer
+                  ? { pathname: '/modal/account-transfer-form', params: { id: String(movement.id) } }
+                  : isInstallmentPurchase
                   ? { pathname: '/modal/debt-detail', params: { id: String(movement.id) } }
                   : isIncome
                     ? { pathname: '/modal/income-form', params: { id: String(movement.id) } }
-                  : { pathname: '/modal/expense-form', params: { id: String(movement.id) } })}
+                  : { pathname: '/modal/expense-form', params: { id: String(movement.id) } }) as never)}
                 style={({ pressed }) => [
                   styles.movementRow,
                   { borderColor: colors.border },
@@ -303,25 +328,25 @@ export default function PaymentMethodDetailScreen() {
                 ]}>
                 <View style={[
                   styles.movementIcon,
-                  { backgroundColor: isPaymentReceived || isIncome ? `${colors.success}20` : `${colors.expense}18` },
+                  { backgroundColor: isIncoming ? `${colors.success}20` : `${colors.expense}18` },
                 ]}>
                   <Ionicons
-                    name={isPaymentReceived || isIncome ? 'arrow-down' : isInstallmentPurchase ? 'card-outline' : 'arrow-up'}
+                    name={isTransfer ? 'swap-horizontal-outline' : isIncoming ? 'arrow-down' : isInstallmentPurchase ? 'card-outline' : 'arrow-up'}
                     size={19}
-                    color={isPaymentReceived || isIncome ? colors.success : colors.expense}
+                    color={isIncoming ? colors.success : colors.expense}
                   />
                 </View>
                 <View style={styles.movementCopy}>
-                  <ThemedText type="defaultSemiBold" numberOfLines={1}>{movement.name}</ThemedText>
+                  <ThemedText type="defaultSemiBold" numberOfLines={1}>{movement.name || t('transfers.defaultName')}</ThemedText>
                   <ThemedText style={styles.movementMeta} numberOfLines={1}>
                     {formatDate(new Date(`${movement.date}T12:00:00`))} · {detail}
                   </ThemedText>
                 </View>
                 <ThemedText style={[
                   styles.movementAmount,
-                  { color: isPaymentReceived || isIncome ? colors.success : colors.expense },
+                  { color: isIncoming ? colors.success : colors.expense },
                 ]}>
-                  {isPaymentReceived || isIncome ? '+' : '−'}{formatCLP(movement.amount)}
+                  {isIncoming ? '+' : '−'}{formatCLP(movement.amount)}
                 </ThemedText>
               </Pressable>
             );

@@ -5,10 +5,11 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as Print from 'expo-print';
 import { Platform } from 'react-native';
 
-import { getPeriodFinancialDetails, getPeriodSavingsGoalActivity, getPeriodStatement } from '@/lib/db';
+import { getAccountTransfersForPeriod, getPeriodFinancialDetails, getPeriodSavingsGoalActivity, getPeriodStatement } from '@/lib/db';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import type {
+  AccountTransfer,
   ExpenseWithCategory,
   Income,
   PaymentMethodType,
@@ -347,6 +348,16 @@ function savingsGoalRows(items: SavingsGoalPeriodActivity[]): string {
     .join('');
 }
 
+function accountTransferRows(transfers: AccountTransfer[]): string {
+  return transfers.map((transfer) => `
+    <tr>
+      <td class="date">${formatShortDate(transfer.date)}</td>
+      <td><strong>${escapeHtml(transfer.sourcePaymentMethodName)}</strong></td>
+      <td><strong>${escapeHtml(transfer.destinationPaymentMethodName)}</strong>${transfer.note ? `<div class="row-note">${escapeHtml(transfer.note)}</div>` : ''}</td>
+      <td class="amount">${formatCLP(transfer.amount)}</td>
+    </tr>`).join('');
+}
+
 const EMPTY_FINANCIAL_DETAILS: PeriodFinancialDetails = {
   debts: [],
   installments: [],
@@ -410,7 +421,8 @@ export function buildPeriodReportHtml(
   savingsGoals: SavingsGoalPeriodActivity[] = [],
   financialDetails: PeriodFinancialDetails = EMPTY_FINANCIAL_DETAILS,
   logoDataUri: string | null = null,
-  fonts: { regular: string | null; bold: string | null } = { regular: null, bold: null }
+  fonts: { regular: string | null; bold: string | null } = { regular: null, bold: null },
+  accountTransfers: AccountTransfer[] = []
 ): string {
   const expensesTotal = total(expenses);
   const savingsWithdrawals = total(incomes.filter((income) => income.savingsGoalId != null));
@@ -641,6 +653,15 @@ export function buildPeriodReportHtml(
         <div class="table-total"><span>${t('report.totalEntries')}</span><span class="income">${formatCLP(incomesTotal + savingsWithdrawals)}</span></div>
       </section>
 
+      ${accountTransfers.length > 0 ? `<section class="section transactions${accountTransfers.length <= 8 ? ' keep-together' : ''}">
+        <h2 class="section-title">${t('report.accountTransfers')}</h2>
+        <div class="section-subtitle">${t('report.accountTransfersSubtitle')}</div>
+        <table>
+          <thead><tr><th>${t('forms.date')}</th><th>${t('report.sourceAccount')}</th><th>${t('report.destinationAccount')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
+          <tbody>${accountTransferRows(accountTransfers)}</tbody>
+        </table>
+      </section>` : ''}
+
       <footer class="footer">${t('report.generatedFrom')}</footer>
     </body>
   </html>`;
@@ -654,10 +675,11 @@ export async function exportPeriodReport(
   period: PeriodHistory,
   options: ExportPeriodReportOptions = {}
 ): Promise<void> {
-  const [{ expenses, incomes }, savingsGoals, financialDetails, logoDataUri, regularFont, boldFont] = await Promise.all([
+  const [{ expenses, incomes }, savingsGoals, financialDetails, accountTransfers, logoDataUri, regularFont, boldFont] = await Promise.all([
     getPeriodStatement(period.periodId),
     getPeriodSavingsGoalActivity(period.periodId),
     getPeriodFinancialDetails(period.periodId),
+    getAccountTransfersForPeriod(period.periodId),
     loadReportLogoDataUri(),
     loadReportFontDataUri(REPORT_FONT_REGULAR),
     loadReportFontDataUri(REPORT_FONT_BOLD),
@@ -665,7 +687,7 @@ export async function exportPeriodReport(
   const html = buildPeriodReportHtml(period, expenses, incomes, savingsGoals, financialDetails, logoDataUri, {
     regular: regularFont,
     bold: boldFont,
-  });
+  }, accountTransfers);
 
   if (Platform.OS === 'web') {
     await Print.printAsync({ html });

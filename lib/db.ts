@@ -12,6 +12,7 @@ import { recordAppliedSchema } from './schema-migrations';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
 import type {
+  AccountTransfer,
   Category,
   CreditCardCycle,
   DebtPlan,
@@ -21,6 +22,7 @@ import type {
   Debt,
   DebtEntry,
   NewCategory,
+  NewAccountTransfer,
   NewCreditCardCycle,
   NewExpense,
   NewIncome,
@@ -538,7 +540,22 @@ async function initializeDatabase(): Promise<void> {
       balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_income_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0,
+      balance_transfer_anchor_id INTEGER NOT NULL DEFAULT 0,
       payment_due_day INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS account_transfers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_payment_method_id INTEGER NOT NULL,
+      destination_payment_method_id INTEGER NOT NULL,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      date TEXT NOT NULL,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CHECK (source_payment_method_id != destination_payment_method_id),
+      FOREIGN KEY(source_payment_method_id) REFERENCES payment_methods(id) ON DELETE RESTRICT,
+      FOREIGN KEY(destination_payment_method_id) REFERENCES payment_methods(id) ON DELETE RESTRICT
     );
 
     CREATE TABLE IF NOT EXISTS credit_card_cycles (
@@ -942,6 +959,20 @@ async function initializeDatabase(): Promise<void> {
       WHERE balance_updated_at IS NOT NULL;
     `);
   }
+  if (!paymentMethodColumns.some((column) => column.name === 'balance_transfer_anchor_id')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_transfer_anchor_id INTEGER NOT NULL DEFAULT 0;');
+    await db.execAsync(`
+      UPDATE payment_methods
+      SET balance_transfer_anchor_id = COALESCE((
+        SELECT MAX(transfer.id)
+        FROM account_transfers transfer
+        WHERE (transfer.source_payment_method_id = payment_methods.id
+          OR transfer.destination_payment_method_id = payment_methods.id)
+          AND transfer.date <= payment_methods.balance_updated_at
+      ), 0)
+      WHERE balance_updated_at IS NOT NULL;
+    `);
+  }
   if (!paymentMethodColumns.some((column) => column.name === 'balance_synced_at')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_synced_at TEXT;');
   }
@@ -1032,6 +1063,8 @@ async function initializeDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_recurring_savings_goal ON recurring_expenses(savings_goal_id);
     CREATE INDEX IF NOT EXISTS idx_manual_debt_entries_debt ON manual_debt_entries(debt_id, date);
     CREATE INDEX IF NOT EXISTS idx_manual_debt_entries_expense ON manual_debt_entries(expense_id);
+    CREATE INDEX IF NOT EXISTS idx_account_transfers_source_date ON account_transfers(source_payment_method_id, date);
+    CREATE INDEX IF NOT EXISTS idx_account_transfers_destination_date ON account_transfers(destination_payment_method_id, date);
 
     INSERT OR IGNORE INTO periods (id, start_date, end_date)
     VALUES (
@@ -1223,6 +1256,7 @@ export async function resetLocalData(): Promise<void> {
       DELETE FROM recurring_income_occurrences;
       DELETE FROM credit_card_cycles;
       DELETE FROM debt_installments;
+      DELETE FROM account_transfers;
       DELETE FROM expenses;
       DELETE FROM incomes;
       DELETE FROM recurring_expenses;
@@ -2236,6 +2270,8 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
   const registeredCharges = Number(row.registered_charges ?? 0);
   const registeredPayments = Number(row.registered_payments ?? 0);
   const registeredIncomes = Number(row.registered_incomes ?? 0);
+  const registeredTransfersIn = Number(row.registered_transfers_in ?? 0);
+  const registeredTransfersOut = Number(row.registered_transfers_out ?? 0);
   const installmentCommitments = Number(row.installment_commitments ?? 0);
   const availableBalance = reportedBalance == null
     ? null
@@ -2244,7 +2280,9 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
         registeredCharges,
         registeredPayments,
         installmentCommitments,
-        registeredIncomes
+        registeredIncomes,
+        registeredTransfersIn,
+        registeredTransfersOut
       );
   return {
     id: row.id as number,
@@ -2265,6 +2303,8 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
     registeredCharges,
     registeredPayments,
     registeredIncomes,
+    registeredTransfersIn,
+    registeredTransfersOut,
     installmentCommitments,
     paymentDueDay: row.payment_due_day == null ? null : Number(row.payment_due_day),
     billedAmount: Math.max(0, Number(row.billed_amount ?? 0)),
@@ -2298,6 +2338,20 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
            AND (income.date > method.balance_updated_at
              OR (income.date = method.balance_updated_at AND income.id > method.balance_income_anchor_id))
        ), 0) AS registered_incomes,
+       COALESCE((
+         SELECT SUM(transfer.amount) FROM account_transfers transfer
+         WHERE transfer.destination_payment_method_id = method.id
+           AND transfer.date <= DATE('now', 'localtime')
+           AND (transfer.date > method.balance_updated_at
+             OR (transfer.date = method.balance_updated_at AND transfer.id > method.balance_transfer_anchor_id))
+       ), 0) AS registered_transfers_in,
+       COALESCE((
+         SELECT SUM(transfer.amount) FROM account_transfers transfer
+         WHERE transfer.source_payment_method_id = method.id
+           AND transfer.date <= DATE('now', 'localtime')
+           AND (transfer.date > method.balance_updated_at
+             OR (transfer.date = method.balance_updated_at AND transfer.id > method.balance_transfer_anchor_id))
+       ), 0) AS registered_transfers_out,
        COALESCE((
          SELECT SUM(plan.total_amount) FROM debt_plans plan
          WHERE plan.payment_method_id = method.id
@@ -2391,9 +2445,39 @@ export async function getPaymentMethodMovements(
        LEFT JOIN savings_goal_movements savings_movement ON savings_movement.income_id = income.id
        LEFT JOIN savings_goals savings_goal ON savings_goal.id = savings_movement.goal_id
        WHERE income.payment_method_id = ?
+
+       UNION ALL
+
+       SELECT
+         transfer.id,
+         COALESCE(NULLIF(TRIM(transfer.note), ''), '') AS name,
+         transfer.amount,
+         transfer.date,
+         'transfer_out' AS kind,
+         NULL AS category_name,
+         destination.name AS related_payment_method_name
+       FROM account_transfers transfer
+       INNER JOIN payment_methods destination ON destination.id = transfer.destination_payment_method_id
+       WHERE transfer.source_payment_method_id = ?
+
+       UNION ALL
+
+       SELECT
+         transfer.id,
+         COALESCE(NULLIF(TRIM(transfer.note), ''), '') AS name,
+         transfer.amount,
+         transfer.date,
+         'transfer_in' AS kind,
+         NULL AS category_name,
+         source.name AS related_payment_method_name
+       FROM account_transfers transfer
+       INNER JOIN payment_methods source ON source.id = transfer.source_payment_method_id
+       WHERE transfer.destination_payment_method_id = ?
      )
      ORDER BY date DESC, id DESC
      LIMIT ?`,
+    paymentMethodId,
+    paymentMethodId,
     paymentMethodId,
     paymentMethodId,
     paymentMethodId,
@@ -2413,6 +2497,130 @@ export async function getPaymentMethodMovements(
       ? null
       : String(row.related_payment_method_name),
   }));
+}
+
+function mapAccountTransfer(row: Record<string, unknown>): AccountTransfer {
+  return {
+    id: Number(row.id),
+    sourcePaymentMethodId: Number(row.source_payment_method_id),
+    sourcePaymentMethodName: String(row.source_payment_method_name),
+    sourcePaymentMethodColor: String(row.source_payment_method_color),
+    destinationPaymentMethodId: Number(row.destination_payment_method_id),
+    destinationPaymentMethodName: String(row.destination_payment_method_name),
+    destinationPaymentMethodColor: String(row.destination_payment_method_color),
+    amount: Number(row.amount),
+    date: String(row.date),
+    note: row.note == null ? null : String(row.note),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+const ACCOUNT_TRANSFER_SELECT = `
+  SELECT transfer.*,
+    source.name AS source_payment_method_name,
+    source.color AS source_payment_method_color,
+    destination.name AS destination_payment_method_name,
+    destination.color AS destination_payment_method_color
+  FROM account_transfers transfer
+  INNER JOIN payment_methods source ON source.id = transfer.source_payment_method_id
+  INNER JOIN payment_methods destination ON destination.id = transfer.destination_payment_method_id`;
+
+export async function getAccountTransfer(id: number): Promise<AccountTransfer | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<Record<string, unknown>>(
+    `${ACCOUNT_TRANSFER_SELECT} WHERE transfer.id = ?`,
+    id
+  );
+  return row ? mapAccountTransfer(row) : null;
+}
+
+export async function getAccountTransfersForPeriod(periodId: number): Promise<AccountTransfer[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `${ACCOUNT_TRANSFER_SELECT}
+     INNER JOIN periods period ON period.id = ?
+     WHERE transfer.date BETWEEN period.start_date AND period.end_date
+     ORDER BY transfer.date DESC, transfer.id DESC`,
+    periodId
+  );
+  return rows.map(mapAccountTransfer);
+}
+
+async function validateAccountTransfer(
+  db: SQLite.SQLiteDatabase,
+  data: NewAccountTransfer,
+  requireActive: boolean
+): Promise<void> {
+  if (!Number.isInteger(data.amount) || data.amount <= 0) {
+    throw new Error(t('database.transferAmountInvalid'));
+  }
+  if (!isValidIsoDate(data.date)) throw new Error(t('database.transferDateInvalid'));
+  if (data.sourcePaymentMethodId === data.destinationPaymentMethodId) {
+    throw new Error(t('database.transferSameAccount'));
+  }
+  const methods = await db.getAllAsync<{ id: number; type: PaymentMethod['type']; active: number }>(
+    `SELECT id, type, active FROM payment_methods WHERE id IN (?, ?)`,
+    data.sourcePaymentMethodId,
+    data.destinationPaymentMethodId
+  );
+  if (methods.length !== 2) throw new Error(t('database.transferAccountMissing'));
+  if (methods.some((method) => method.type === 'credit')) {
+    throw new Error(t('database.transferCreditUnsupported'));
+  }
+  if (requireActive && methods.some((method) => Number(method.active) !== 1)) {
+    throw new Error(t('database.transferActiveAccountRequired'));
+  }
+}
+
+export async function createAccountTransfer(data: NewAccountTransfer): Promise<number> {
+  const db = await getDb();
+  let transferId = 0;
+  await withExclusiveTransaction(db, async (transaction) => {
+    await validateAccountTransfer(transaction, data, true);
+    const result = await transaction.runAsync(
+      `INSERT INTO account_transfers (
+         source_payment_method_id, destination_payment_method_id, amount, date, note
+       ) VALUES (?, ?, ?, ?, ?)`,
+      data.sourcePaymentMethodId,
+      data.destinationPaymentMethodId,
+      data.amount,
+      data.date,
+      data.note?.trim() || null
+    );
+    transferId = result.lastInsertRowId;
+  });
+  return transferId;
+}
+
+export async function updateAccountTransfer(id: number, data: NewAccountTransfer): Promise<void> {
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    const current = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT id FROM account_transfers WHERE id = ?',
+      id
+    );
+    if (!current) throw new Error(t('database.transferMissing'));
+    await validateAccountTransfer(transaction, data, false);
+    await transaction.runAsync(
+      `UPDATE account_transfers
+       SET source_payment_method_id = ?, destination_payment_method_id = ?, amount = ?,
+           date = ?, note = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      data.sourcePaymentMethodId,
+      data.destinationPaymentMethodId,
+      data.amount,
+      data.date,
+      data.note?.trim() || null,
+      id
+    );
+  });
+}
+
+export async function deleteAccountTransfer(id: number): Promise<void> {
+  const db = await getDb();
+  const result = await db.runAsync('DELETE FROM account_transfers WHERE id = ?', id);
+  if (result.changes === 0) throw new Error(t('database.transferMissing'));
 }
 
 function validatePaymentMethod(data: NewPaymentMethod) {
@@ -2514,12 +2722,19 @@ export async function updatePaymentMethodBalance(
       id,
       data.date
     );
+    const transferAnchor = await transaction.getFirstAsync<{ id: number }>(
+      `SELECT COALESCE(MAX(id), 0) AS id FROM account_transfers
+       WHERE (source_payment_method_id = ? OR destination_payment_method_id = ?) AND date <= ?`,
+      id,
+      id,
+      data.date
+    );
     await transaction.runAsync(
       `UPDATE payment_methods
        SET reported_balance = ?, balance_updated_at = ?,
            balance_synced_at = ?,
            balance_expense_anchor_id = ?, balance_payment_anchor_id = ?, balance_income_anchor_id = ?,
-           balance_debt_plan_anchor_id = ?
+           balance_debt_plan_anchor_id = ?, balance_transfer_anchor_id = ?
        WHERE id = ?`,
       data.balance,
       data.date,
@@ -2528,6 +2743,7 @@ export async function updatePaymentMethodBalance(
       Number(paymentAnchor?.id ?? 0),
       Number(incomeAnchor?.id ?? 0),
       Number(debtPlanAnchor?.id ?? 0),
+      Number(transferAnchor?.id ?? 0),
       id
     );
   });
@@ -2581,23 +2797,28 @@ export async function getPaymentMethodDeletionInfo(id: number): Promise<{
   expenseCount: number;
   debtPlanCount: number;
   receivedPaymentCount: number;
+  transferCount: number;
 }> {
   const db = await getDb();
   const row = await db.getFirstAsync<{
     expense_count: number;
     debt_plan_count: number;
     received_payment_count: number;
+    transfer_count: number;
   }>(
     `SELECT
       (SELECT COUNT(*) FROM expenses WHERE payment_method_id = ?) AS expense_count,
       (SELECT COUNT(*) FROM debt_plans WHERE payment_method_id = ?) AS debt_plan_count,
-      (SELECT COUNT(*) FROM expenses WHERE credit_payment_target_id = ?) AS received_payment_count`,
-    id, id, id
+      (SELECT COUNT(*) FROM expenses WHERE credit_payment_target_id = ?) AS received_payment_count,
+      (SELECT COUNT(*) FROM account_transfers
+       WHERE source_payment_method_id = ? OR destination_payment_method_id = ?) AS transfer_count`,
+    id, id, id, id, id
   );
   return {
     expenseCount: Number(row?.expense_count ?? 0),
     debtPlanCount: Number(row?.debt_plan_count ?? 0),
     receivedPaymentCount: Number(row?.received_payment_count ?? 0),
+    transferCount: Number(row?.transfer_count ?? 0),
   };
 }
 
@@ -2626,6 +2847,15 @@ export async function deletePaymentMethod(id: number): Promise<void> {
     );
     if (Number(receivedPayments?.count ?? 0) > 0) {
       throw new Error(t('database.paymentReceivedPaymentsDelete'));
+    }
+    const transfers = await transaction.getFirstAsync<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM account_transfers
+       WHERE source_payment_method_id = ? OR destination_payment_method_id = ?`,
+      id,
+      id
+    );
+    if (Number(transfers?.count ?? 0) > 0) {
+      throw new Error(t('database.paymentTransferDelete'));
     }
     await transaction.runAsync('UPDATE expenses SET payment_method_id = NULL WHERE payment_method_id = ?', id);
     await transaction.runAsync('UPDATE recurring_expenses SET payment_method_id = NULL WHERE payment_method_id = ?', id);

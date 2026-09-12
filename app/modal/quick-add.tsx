@@ -28,6 +28,14 @@ export default function QuickAddScreen() {
       accent: colors.success,
       onPress: () => router.replace('/modal/income-form'),
     },
+    {
+      key: 'transfer',
+      icon: 'swap-horizontal-outline' as const,
+      title: t('quickAdd.transferTitle'),
+      description: t('quickAdd.transferDescription'),
+      accent: colors.secondary,
+      onPress: () => router.replace('/modal/account-transfer-form' as never),
+    },
   ];
 
   return (

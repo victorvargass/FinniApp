@@ -6,6 +6,7 @@ import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import type {
+  AccountTransfer,
   Category,
   CreditCardCycle,
   DebtPlan,
@@ -13,6 +14,7 @@ import type {
   Income,
   Debt,
   NewCategory,
+  NewAccountTransfer,
   NewExpense,
   NewIncome,
   NewInstallmentPurchase,
@@ -90,6 +92,10 @@ type DatabaseContextValue = {
   setDefaultPaymentMethod: (id: number | null) => Promise<void>;
   getPaymentMethodDeletionInfo: (id: number) => Promise<PaymentMethodDeletionInfo>;
   removePaymentMethod: (id: number) => Promise<void>;
+  getAccountTransfer: (id: number) => Promise<AccountTransfer | null>;
+  addAccountTransfer: (data: NewAccountTransfer) => Promise<number>;
+  editAccountTransfer: (id: number, data: NewAccountTransfer) => Promise<void>;
+  removeAccountTransfer: (id: number) => Promise<void>;
   getCreditCardCycles: (paymentMethodId: number) => Promise<CreditCardCycle[]>;
   addCreditCardCycle: (data: NewCreditCardCycle) => Promise<void>;
   editCreditCardCycle: (id: number, statementAmount: number | null, status: CreditCardCycle['status']) => Promise<void>;
@@ -492,6 +498,24 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const getAccountTransfer = useCallback((id: number) => db.getAccountTransfer(id), []);
+
+  const addAccountTransfer = useCallback(async (data: NewAccountTransfer) => {
+    const id = await db.createAccountTransfer(data);
+    await refresh();
+    return id;
+  }, [refresh]);
+
+  const editAccountTransfer = useCallback(async (id: number, data: NewAccountTransfer) => {
+    await db.updateAccountTransfer(id, data);
+    await refresh();
+  }, [refresh]);
+
+  const removeAccountTransfer = useCallback(async (id: number) => {
+    await db.deleteAccountTransfer(id);
+    await refresh();
+  }, [refresh]);
+
   const updatePaymentMethodBalance = useCallback(async (id: number, data: NewPaymentMethodBalance) => {
     await db.updatePaymentMethodBalance(id, data);
     await refresh();
@@ -762,6 +786,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setDefaultPaymentMethod,
       getPaymentMethodDeletionInfo,
       removePaymentMethod,
+      getAccountTransfer,
+      addAccountTransfer,
+      editAccountTransfer,
+      removeAccountTransfer,
       getCreditCardCycles,
       addCreditCardCycle,
       editCreditCardCycle,
@@ -852,6 +880,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setDefaultPaymentMethod,
       getPaymentMethodDeletionInfo,
       removePaymentMethod,
+      getAccountTransfer,
+      addAccountTransfer,
+      editAccountTransfer,
+      removeAccountTransfer,
       getCreditCardCycles,
       addCreditCardCycle,
       editCreditCardCycle,

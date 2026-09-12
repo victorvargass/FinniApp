@@ -102,6 +102,10 @@ function AppContent() {
                   options={{ presentation: 'modal', title: t('paymentMethods.updateBalance') }}
                 />
                 <Stack.Screen
+                  name="modal/account-transfer-form"
+                  options={{ presentation: 'modal', title: t('navigation.transfer') }}
+                />
+                <Stack.Screen
                   name="modal/card-cycles"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.reconciliation') }}
                 />
