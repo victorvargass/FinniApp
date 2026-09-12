@@ -180,6 +180,17 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
         return estimated;
       })()
     : null;
+  const moreOptionsHint = isCardPayment
+    ? t('expenses.moreOptionsCardPaymentHint')
+    : savingsKind === 'funded_expense'
+      ? t('expenses.moreOptionsSavingsWithdrawalHint')
+      : isSavingsCategory
+        ? t('expenses.moreOptionsSavingsHint')
+        : isInstallmentPurchase
+          ? t('expenses.moreOptionsInstallmentHint')
+          : isCreditPurchase
+            ? t('expenses.moreOptionsHint')
+            : t('expenses.moreOptionsStandardHint');
 
   useEffect(() => {
     if (hasLoadedLastPaymentMethod) return;
@@ -780,7 +791,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
           <Ionicons name="options-outline" size={21} color={colors.action} />
           <View style={styles.advancedOptionsText}>
             <ThemedText type="defaultSemiBold">{t('expenses.moreOptions')}</ThemedText>
-            <ThemedText style={styles.shareDescription}>{t('expenses.moreOptionsHint')}</ThemedText>
+            <ThemedText style={styles.shareDescription}>{moreOptionsHint}</ThemedText>
           </View>
         </View>
         <Ionicons
