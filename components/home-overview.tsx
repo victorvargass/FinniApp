@@ -25,6 +25,7 @@ type HomeOverviewProps = {
   expenseTotal: number;
   attentionItems: HomeAttentionItem[];
   showActions: boolean;
+  showPayCard: boolean;
   onAddExpense: () => void;
   onAddIncome: () => void;
   onPayCard: () => void;
@@ -37,6 +38,7 @@ export function HomeOverview({
   expenseTotal,
   attentionItems,
   showActions,
+  showPayCard,
   onAddExpense,
   onAddIncome,
   onPayCard,
@@ -45,7 +47,9 @@ export function HomeOverview({
   const actions = [
     { key: 'expense', icon: 'arrow-up', label: t('home.addExpense'), onPress: onAddExpense },
     { key: 'income', icon: 'arrow-down', label: t('home.addIncome'), onPress: onAddIncome },
-    { key: 'payment', icon: 'card-outline', label: t('home.payCard'), onPress: onPayCard },
+    ...(showPayCard
+      ? [{ key: 'payment', icon: 'card-outline' as const, label: t('home.payCard'), onPress: onPayCard }]
+      : []),
   ] as const;
 
   return (

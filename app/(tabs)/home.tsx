@@ -254,6 +254,7 @@ export default function HomeScreen() {
           expenseTotal={periodExpensesTotal}
           attentionItems={attentionItems}
           showActions={Boolean(isCurrentPeriod)}
+          showPayCard={activeCreditCards.length > 0}
           onAddExpense={() => router.push('/modal/expense-form')}
           onAddIncome={() => router.push('/modal/income-form')}
           onPayCard={() => {
@@ -264,8 +265,6 @@ export default function HomeScreen() {
               });
             } else if (activeCreditCards.length > 1) {
               router.push('/modal/debts');
-            } else {
-              router.push('/modal/payment-methods');
             }
           }}
         />
