@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
+import * as MailComposer from 'expo-mail-composer';
 import React from 'react';
 import {
   Modal,
@@ -150,13 +151,18 @@ export default function UserScreen() {
       const diagnosticText = diagnostics.length > 0
         ? diagnostics.map((item) => `${item.timestamp} | ${item.context} | ${item.category}`).join('\n')
         : t('settings.noDiagnostics');
-      const subject = encodeURIComponent(t('settings.supportEmailSubject'));
-      const body = encodeURIComponent(t('settings.supportEmailBody', { diagnostics: diagnosticText }));
-      const url = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
-      if (!await Linking.canOpenURL(url)) {
-        showToast(t('settings.supportUnavailable', { email: SUPPORT_EMAIL }));
+      const subject = t('settings.supportEmailSubject');
+      const body = t('settings.supportEmailBody', { diagnostics: diagnosticText });
+      if (await MailComposer.isAvailableAsync()) {
+        await MailComposer.composeAsync({
+          recipients: [SUPPORT_EMAIL],
+          subject,
+          body,
+        });
         return;
       }
+
+      const url = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       await Linking.openURL(url);
     } catch {
       showToast(t('settings.supportUnavailable', { email: SUPPORT_EMAIL }));

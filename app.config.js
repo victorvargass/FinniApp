@@ -2,6 +2,7 @@ const GOOGLE_SIGN_IN_PLUGIN = '@react-native-google-signin/google-signin';
 const LOCALIZATION_PLUGIN = 'expo-localization';
 const LOCAL_AUTHENTICATION_PLUGIN = 'expo-local-authentication';
 const ASSET_PLUGIN = 'expo-asset';
+const MAIL_COMPOSER_PLUGIN = 'expo-mail-composer';
 const nativeSpanish = require('./locales/native-es.json');
 
 function getGoogleIosUrlScheme(clientId) {
@@ -22,10 +23,12 @@ module.exports = ({ config }) => {
     return name !== GOOGLE_SIGN_IN_PLUGIN
       && name !== LOCALIZATION_PLUGIN
       && name !== LOCAL_AUTHENTICATION_PLUGIN
-      && name !== ASSET_PLUGIN;
+      && name !== ASSET_PLUGIN
+      && name !== MAIL_COMPOSER_PLUGIN;
   });
 
   plugins.push(ASSET_PLUGIN);
+  plugins.push(MAIL_COMPOSER_PLUGIN);
 
   plugins.push([
     LOCALIZATION_PLUGIN,
