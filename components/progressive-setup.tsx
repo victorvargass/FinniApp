@@ -9,17 +9,23 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
-import { BACKUP_SKIPPED_KEY, SETUP_COMPLETE_KEY } from '@/lib/setup-progress';
+import {
+  BACKUP_SKIPPED_KEY,
+  SAVINGS_SKIPPED_KEY,
+  SETUP_COMPLETE_KEY,
+} from '@/lib/setup-progress';
 import { GoogleAuthService } from '@/services/GoogleAuthService';
 
 type ProgressiveSetupProps = {
   hasConfiguredPeriod: boolean;
   hasAdditionalPaymentMethod: boolean;
   hasAdditionalCategory: boolean;
+  hasSavingsGoal: boolean;
   hasMovements: boolean;
   onOpenPeriod: () => void;
   onOpenPaymentMethods: () => void;
   onOpenCategories: () => void;
+  onOpenSavings: () => void;
   onAddMovement: () => void;
   onOpenBackup: () => void;
 };
@@ -28,10 +34,12 @@ export function ProgressiveSetup({
   hasConfiguredPeriod,
   hasAdditionalPaymentMethod,
   hasAdditionalCategory,
+  hasSavingsGoal,
   hasMovements,
   onOpenPeriod,
   onOpenPaymentMethods,
   onOpenCategories,
+  onOpenSavings,
   onAddMovement,
   onOpenBackup,
 }: ProgressiveSetupProps) {
@@ -39,15 +47,21 @@ export function ProgressiveSetup({
   const [loaded, setLoaded] = useState(false);
   const [completedPermanently, setCompletedPermanently] = useState(false);
   const [backupSkipped, setBackupSkipped] = useState(false);
+  const [savingsSkipped, setSavingsSkipped] = useState(false);
   const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
     let active = true;
-    Promise.all([AsyncStorage.getItem(SETUP_COMPLETE_KEY), AsyncStorage.getItem(BACKUP_SKIPPED_KEY)])
-      .then(([complete, skipped]) => {
+    Promise.all([
+      AsyncStorage.getItem(SETUP_COMPLETE_KEY),
+      AsyncStorage.getItem(BACKUP_SKIPPED_KEY),
+      AsyncStorage.getItem(SAVINGS_SKIPPED_KEY),
+    ])
+      .then(([complete, skippedBackup, skippedSavings]) => {
         if (!active) return;
         setCompletedPermanently(complete === 'true');
-        setBackupSkipped(skipped === 'true');
+        setBackupSkipped(skippedBackup === 'true');
+        setSavingsSkipped(skippedSavings === 'true');
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -59,23 +73,47 @@ export function ProgressiveSetup({
   }, []));
 
   const backupReady = googleConnected || backupSkipped;
+  const savingsReady = hasSavingsGoal || savingsSkipped;
   const steps = useMemo(() => [
     { key: 'period', label: t('setup.period'), complete: hasConfiguredPeriod, onPress: onOpenPeriod },
     { key: 'payment', label: t('setup.paymentMethod'), complete: hasAdditionalPaymentMethod, onPress: onOpenPaymentMethods },
     { key: 'categories', label: t('setup.categories'), complete: hasAdditionalCategory, onPress: onOpenCategories },
+    {
+      key: 'savings',
+      label: t('setup.savingsGoal'),
+      complete: savingsReady,
+      onPress: onOpenSavings,
+      optional: true,
+      onSkip: () => {
+        setSavingsSkipped(true);
+        void AsyncStorage.setItem(SAVINGS_SKIPPED_KEY, 'true');
+      },
+    },
     { key: 'movement', label: t('setup.firstMovement'), complete: hasMovements, onPress: onAddMovement },
-    { key: 'backup', label: t('setup.backup'), complete: backupReady, onPress: onOpenBackup, optional: true },
+    {
+      key: 'backup',
+      label: t('setup.backup'),
+      complete: backupReady,
+      onPress: onOpenBackup,
+      optional: true,
+      onSkip: () => {
+        setBackupSkipped(true);
+        void AsyncStorage.setItem(BACKUP_SKIPPED_KEY, 'true');
+      },
+    },
   ], [
     backupReady,
     hasAdditionalCategory,
     hasAdditionalPaymentMethod,
     hasConfiguredPeriod,
     hasMovements,
+    onOpenSavings,
     onAddMovement,
     onOpenBackup,
     onOpenCategories,
     onOpenPaymentMethods,
     onOpenPeriod,
+    savingsReady,
   ]);
   const completedCount = steps.filter((step) => step.complete).length;
 
@@ -134,8 +172,7 @@ export function ProgressiveSetup({
                 hitSlop={8}
                 onPress={(event) => {
                   event.stopPropagation();
-                  setBackupSkipped(true);
-                  void AsyncStorage.setItem(BACKUP_SKIPPED_KEY, 'true');
+                  step.onSkip?.();
                 }}>
                 <ThemedText style={[styles.skip, { color: colors.action }]}>{t('setup.skipForNow')}</ThemedText>
               </Pressable>

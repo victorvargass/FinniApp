@@ -3,12 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const DEFAULT_CATEGORY_COUNT = 12;
 
 const PERIOD_CONFIGURED_KEY = '@finniapp/progressive-setup-v2/period-configured';
-export const SETUP_COMPLETE_KEY = '@finniapp/progressive-setup-v2/complete';
-export const BACKUP_SKIPPED_KEY = '@finniapp/progressive-setup-v2/backup-skipped';
+export const SETUP_COMPLETE_KEY = '@finniapp/progressive-setup-v3/complete';
+export const BACKUP_SKIPPED_KEY = '@finniapp/progressive-setup-v3/backup-skipped';
+export const SAVINGS_SKIPPED_KEY = '@finniapp/progressive-setup-v3/savings-skipped';
 
 const LEGACY_SETUP_KEYS = [
   '@finniapp/progressive-setup-v1/complete',
   '@finniapp/progressive-setup-v1/backup-skipped',
+  '@finniapp/progressive-setup-v2/complete',
+  '@finniapp/progressive-setup-v2/backup-skipped',
 ];
 
 export async function hasConfiguredFirstPeriod(): Promise<boolean> {
@@ -24,6 +27,7 @@ export async function resetSetupProgress(): Promise<void> {
     PERIOD_CONFIGURED_KEY,
     SETUP_COMPLETE_KEY,
     BACKUP_SKIPPED_KEY,
+    SAVINGS_SKIPPED_KEY,
     ...LEGACY_SETUP_KEYS,
   ]);
 }

@@ -491,7 +491,8 @@ const en = {
     paymentMethod: 'Add another payment method',
     categories: 'Review the categories and create another one',
     firstMovement: 'Record your first transaction',
-    backup: 'Protect your data with a backup',
+    savingsGoal: 'Create a savings goal',
+    backup: 'Connect your Google account to back up your data',
     skipForNow: 'Not now',
   },
   history: {

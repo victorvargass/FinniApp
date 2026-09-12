@@ -56,6 +56,7 @@ export default function HomeScreen() {
     paymentMethodTotals,
     paymentMethods,
     recurringDecisions,
+    savingsGoals,
     isPeriodChanging,
     setPeriodStartDate,
     setPeriodEndDate,
@@ -287,10 +288,12 @@ export default function HomeScreen() {
             hasConfiguredPeriod={hasConfiguredPeriod}
             hasAdditionalPaymentMethod={paymentMethods.some((method) => method.systemKey !== 'cash')}
             hasAdditionalCategory={categories.length > DEFAULT_CATEGORY_COUNT}
+            hasSavingsGoal={savingsGoals.length > 0}
             hasMovements={hasPeriodMovements}
             onOpenPeriod={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
             onOpenPaymentMethods={() => router.push('/modal/payment-methods')}
             onOpenCategories={() => router.push('/modal/categories')}
+            onOpenSavings={() => router.push('/modal/savings-goals')}
             onAddMovement={() => router.push('/modal/expense-form')}
             onOpenBackup={() => router.push('/modal/google-drive')}
           />

@@ -491,7 +491,8 @@ const es = {
     paymentMethod: 'Agrega un medio de pago adicional',
     categories: 'Revisa las categorías y crea una adicional',
     firstMovement: 'Registra tu primer movimiento',
-    backup: 'Protege tus datos con un respaldo',
+    savingsGoal: 'Crea una meta de ahorro',
+    backup: 'Conecta tu cuenta Google para respaldar tus datos',
     skipForNow: 'Ahora no',
   },
   history: {
