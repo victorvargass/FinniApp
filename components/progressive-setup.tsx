@@ -78,17 +78,6 @@ export function ProgressiveSetup({
     { key: 'period', label: t('setup.period'), complete: hasConfiguredPeriod, onPress: onOpenPeriod },
     { key: 'payment', label: t('setup.paymentMethod'), complete: hasAdditionalPaymentMethod, onPress: onOpenPaymentMethods },
     { key: 'categories', label: t('setup.categories'), complete: hasAdditionalCategory, onPress: onOpenCategories },
-    {
-      key: 'savings',
-      label: t('setup.savingsGoal'),
-      complete: savingsReady,
-      onPress: onOpenSavings,
-      optional: true,
-      onSkip: () => {
-        setSavingsSkipped(true);
-        void AsyncStorage.setItem(SAVINGS_SKIPPED_KEY, 'true');
-      },
-    },
     { key: 'movement', label: t('setup.firstMovement'), complete: hasMovements, onPress: onAddMovement },
     {
       key: 'backup',
@@ -99,6 +88,17 @@ export function ProgressiveSetup({
       onSkip: () => {
         setBackupSkipped(true);
         void AsyncStorage.setItem(BACKUP_SKIPPED_KEY, 'true');
+      },
+    },
+    {
+      key: 'savings',
+      label: t('setup.savingsGoal'),
+      complete: savingsReady,
+      onPress: onOpenSavings,
+      optional: true,
+      onSkip: () => {
+        setSavingsSkipped(true);
+        void AsyncStorage.setItem(SAVINGS_SKIPPED_KEY, 'true');
       },
     },
   ], [
