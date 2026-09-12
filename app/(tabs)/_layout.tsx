@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 import React from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { t } from '@/lib/i18n';
@@ -10,11 +11,13 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
+  const colors = Colors[colorScheme ?? 'light'];
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: colors.tabIconSelected,
+        tabBarInactiveTintColor: colors.tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
       }}>
@@ -60,7 +63,11 @@ export default function TabLayout() {
           title: t('navigation.addMovement'),
           tabBarButtonTestID: 'tab-add-movement',
           tabBarLabel: t('navigation.add'),
-          tabBarIcon: ({ color }) => <Ionicons name="add-circle" size={34} color={color} />,
+          tabBarIcon: () => (
+            <View style={[styles.addIcon, { backgroundColor: colors.action }]}>
+              <Ionicons name="add" size={22} color={colors.onPrimary} />
+            </View>
+          ),
           tabBarButton: (props) => (
             <HapticTab
               {...props}
@@ -91,3 +98,13 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  addIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
