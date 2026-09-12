@@ -20,7 +20,6 @@ export type HomeAttentionItem = {
 
 type HomeOverviewProps = {
   balance: number;
-  dailyAvailable: number | null;
   incomeTotal: number;
   expenseTotal: number;
   attentionItems: HomeAttentionItem[];
@@ -33,7 +32,6 @@ type HomeOverviewProps = {
 
 export function HomeOverview({
   balance,
-  dailyAvailable,
   incomeTotal,
   expenseTotal,
   attentionItems,
@@ -63,14 +61,6 @@ export function HomeOverview({
           style={[styles.balance, { color: balance >= 0 ? colors.onPrimary : colors.danger }]}>
           {formatCLP(balance)}
         </ThemedText>
-        {dailyAvailable != null && (
-          <View style={[styles.dailyChip, { backgroundColor: `${colors.secondary}22` }]}>
-            <Ionicons name="calendar-outline" size={17} color={colors.secondary} />
-            <ThemedText style={[styles.dailyText, { color: colors.onPrimary }]}>
-              {t('home.dailyAvailable', { amount: formatCLP(dailyAvailable) })}
-            </ThemedText>
-          </View>
-        )}
         <View style={styles.totals}>
           <View style={styles.totalItem}>
             <ThemedText style={[styles.totalLabel, { color: colors.onPrimary }]}>{t('navigation.incomes')}</ThemedText>
@@ -165,8 +155,6 @@ const styles = StyleSheet.create({
   hero: { borderRadius: 20, padding: 20, gap: 10, elevation: 3 },
   eyebrow: { fontFamily: Fonts.medium, opacity: 0.78 },
   balance: { fontFamily: Fonts.bold, fontSize: 34, lineHeight: 41 },
-  dailyChip: { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 7 },
-  dailyText: { fontFamily: Fonts.semiBold, fontSize: 13, lineHeight: 18 },
   totals: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   totalItem: { flex: 1, gap: 2 },
   totalDivider: { width: StyleSheet.hairlineWidth, height: 42, marginHorizontal: 16 },

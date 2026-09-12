@@ -443,7 +443,6 @@ const es = {
   home: {
     availableThisPeriod: 'Disponible en este período',
     availableAmount: 'Saldo disponible: %{amount}',
-    dailyAvailable: 'Puedes gastar aproximadamente %{amount} por día',
     quickActions: 'Acciones rápidas',
     addExpense: 'Gasto',
     addIncome: 'Ingreso',

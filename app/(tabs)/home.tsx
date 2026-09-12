@@ -19,7 +19,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
-import { calculateDailyAvailable, findMostUrgentCategoryLimit } from '@/lib/home-insights';
+import { findMostUrgentCategoryLimit } from '@/lib/home-insights';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
@@ -84,9 +84,6 @@ export default function HomeScreen() {
       .sort((first, second) => second.endDate.localeCompare(first.endDate))[0]
     : undefined;
   const hasPeriodMovements = expenses.length > 0 || incomes.length > 0;
-  const dailyAvailable = isCurrentPeriod && selectedPeriod
-    ? calculateDailyAvailable(periodBalance, selectedPeriod.endDate)
-    : null;
   const weeklyInsight = useMemo(
     () => buildWeeklyInsight(expenses, incomes, toDateString(new Date())),
     [expenses, incomes]
@@ -249,7 +246,6 @@ export default function HomeScreen() {
         <PeriodSelector />
         <HomeOverview
           balance={periodBalance}
-          dailyAvailable={dailyAvailable}
           incomeTotal={periodIncomesTotal}
           expenseTotal={periodExpensesTotal}
           attentionItems={attentionItems}
