@@ -5715,6 +5715,26 @@ export async function setPeriodStartDate(
   );
 }
 
+export async function setPeriodDates(
+  id: number,
+  startDate: string,
+  endDate: string
+): Promise<void> {
+  if (startDate > endDate) {
+    throw new Error(t('database.startAfterEnd'));
+  }
+
+  const database = await getDb();
+  await withExclusiveTransaction(database, async (transaction) => {
+    await transaction.runAsync(
+      'UPDATE periods SET start_date = ?, end_date = ? WHERE id = ?',
+      startDate,
+      endDate,
+      id
+    );
+  });
+}
+
 export async function setPeriodEndDate(
   id:number,
   endDate:string

@@ -145,6 +145,7 @@ type DatabaseContextValue = {
   removeIncome: (id: number) => Promise<void>;
   setPeriodStartDate: (date: string) => Promise<void>;
   setPeriodEndDate: (date: string) => Promise<void>;
+  setPeriodDates: (startDate: string, endDate: string) => Promise<void>;
   setMovementReminder: (data: MovementReminderSettings) => Promise<void>;
   resetLocalData: () => Promise<void>;
 };
@@ -718,6 +719,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     [settings, refresh]
   );
 
+  const setPeriodDates = useCallback(
+    async (startDate: string, endDate: string) => {
+      const period = settings.currentPeriod;
+      if (!period) return;
+      await db.setPeriodDates(period.id, startDate, endDate);
+      await refresh();
+    },
+    [settings, refresh]
+  );
+
   const closeCurrentPeriod = useCallback(
     async () => {
       const nextPeriod = await db.closeCurrentPeriod();
@@ -839,6 +850,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       removeIncome,
       setPeriodStartDate,
       setPeriodEndDate,
+      setPeriodDates,
       setMovementReminder,
       resetLocalData,
     }),
@@ -933,6 +945,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       removeIncome,
       setPeriodStartDate,
       setPeriodEndDate,
+      setPeriodDates,
       setMovementReminder,
       resetLocalData,
     ]

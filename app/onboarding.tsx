@@ -1,18 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GoogleLogo } from '@/components/google-logo';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Colors, Fonts } from '@/constants/theme';
+import { useDatabase } from '@/contexts/DatabaseContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Alert } from '@/lib/alert';
+import { formatDate, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { markFirstPeriodConfigured } from '@/lib/setup-progress';
+import { showToast } from '@/lib/toast';
 
 const wordmark = require('@/assets/images/splash-icon.png');
 const darkWordmark = require('@/assets/images/splash-icon-dark.png');
@@ -60,11 +66,11 @@ function SetupOverview() {
       <View style={styles.setupDivider} />
       <View style={styles.setupRow}>
         <View style={[styles.setupIcon, styles.calendarIcon]}>
-          <Ionicons name="calendar-outline" size={23} color={BrandColors.navy} />
+          <Ionicons name="wallet-outline" size={23} color={BrandColors.navy} />
         </View>
         <View style={styles.setupCopy}>
-          <ThemedText style={styles.setupTitle}>{t('onboarding.customPeriod')}</ThemedText>
-          <ThemedText style={styles.setupHint}>01 sep - 30 sep</ThemedText>
+          <ThemedText style={styles.setupTitle}>{t('onboarding.paymentMethods')}</ThemedText>
+          <ThemedText style={styles.setupHint}>{t('onboarding.paymentMethodsHint')}</ThemedText>
         </View>
       </View>
       <View style={styles.setupDivider} />
@@ -80,6 +86,94 @@ function SetupOverview() {
           <View style={styles.progressTrack}><View style={styles.progressValue} /></View>
         </View>
       </View>
+    </View>
+  );
+}
+
+function parsePeriodDate(value?: string): Date {
+  if (!value) return new Date();
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+function PeriodSetupOverview() {
+  const { selectedPeriod, setPeriodDates } = useDatabase();
+  const [startDate, setStartDate] = useState(() => parsePeriodDate(selectedPeriod?.startDate));
+  const [endDate, setEndDate] = useState(() => parsePeriodDate(selectedPeriod?.endDate));
+  const [activePicker, setActivePicker] = useState<'start' | 'end' | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!selectedPeriod) return;
+    setStartDate(parsePeriodDate(selectedPeriod.startDate));
+    setEndDate(parsePeriodDate(selectedPeriod.endDate));
+  }, [selectedPeriod]);
+
+  const savePeriod = async () => {
+    if (startDate > endDate) {
+      Alert.alert(t('common.error'), t('period.invalidStart'));
+      return;
+    }
+    setSaving(true);
+    try {
+      await setPeriodDates(toDateString(startDate), toDateString(endDate));
+      await markFirstPeriodConfigured();
+      setSaved(true);
+      showToast(t('onboarding.periodSaved'));
+    } catch (error) {
+      Alert.alert(t('common.error'), error instanceof Error ? error.message : t('period.updateEndError'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View style={styles.periodCard}>
+      <View style={styles.periodIcon}>
+        <Ionicons name="calendar-outline" size={30} color={BrandColors.navy} />
+      </View>
+      <View style={styles.periodFields}>
+        <View style={styles.periodField}>
+          <ThemedText style={styles.periodLabel}>{t('onboarding.periodStart')}</ThemedText>
+          <Pressable onPress={() => setActivePicker('start')} style={styles.periodDateButton}>
+            <ThemedText style={styles.periodDate}>{formatDate(startDate)}</ThemedText>
+          </Pressable>
+        </View>
+        <View style={styles.periodField}>
+          <ThemedText style={styles.periodLabel}>{t('onboarding.periodEnd')}</ThemedText>
+          <Pressable onPress={() => setActivePicker('end')} style={styles.periodDateButton}>
+            <ThemedText style={styles.periodDate}>{formatDate(endDate)}</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+      {activePicker && (
+        <>
+          <DateTimePicker
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            maximumDate={activePicker === 'start' ? endDate : undefined}
+            minimumDate={activePicker === 'end' ? startDate : undefined}
+            mode="date"
+            onChange={(_, selected) => {
+              if (Platform.OS === 'android') setActivePicker(null);
+              if (!selected) return;
+              if (activePicker === 'start') setStartDate(selected);
+              else setEndDate(selected);
+              setSaved(false);
+            }}
+            value={activePicker === 'start' ? startDate : endDate}
+          />
+          {Platform.OS === 'ios' && (
+            <Pressable onPress={() => setActivePicker(null)} style={styles.periodDone}>
+              <ThemedText style={styles.periodDoneText}>{t('common.done')}</ThemedText>
+            </Pressable>
+          )}
+        </>
+      )}
+      <Pressable disabled={saving} onPress={() => { void savePeriod(); }} style={[styles.periodSave, saved && styles.periodSaved]}>
+        <Ionicons name={saved ? 'checkmark-circle' : 'checkmark'} size={19} color="#FFFFFF" />
+        <ThemedText style={styles.periodSaveText}>{t(saved ? 'onboarding.periodSavedButton' : 'onboarding.savePeriod')}</ThemedText>
+      </Pressable>
     </View>
   );
 }
@@ -121,6 +215,7 @@ function TextAccent({ children }: { children: React.ReactNode }) {
 
 const slides = [
   { title: 'onboarding.welcomeTitle', body: 'onboarding.welcomeBody', visual: MoneyOverview },
+  { title: 'onboarding.periodSetupTitle', body: 'onboarding.periodSetupBody', visual: PeriodSetupOverview },
   { title: 'onboarding.setupTitle', body: 'onboarding.setupBody', visual: SetupOverview },
   { title: 'onboarding.understandTitle', body: 'onboarding.understandBody', visual: ReportOverview },
 ] as const;
@@ -261,6 +356,12 @@ const styles = StyleSheet.create({
   incomeCard: { backgroundColor: '#E7F7F0' }, expenseCard: { backgroundColor: '#FDEDEC' },
   visualLabel: { color: BrandColors.navy, fontSize: 10, lineHeight: 13 }, visualAmount: { fontFamily: Fonts.bold, fontSize: 13, lineHeight: 18 },
   quickAdd: { position: 'absolute', bottom: -22, alignSelf: 'center', width: 50, height: 50, borderRadius: 25, backgroundColor: BrandColors.turquoise, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  periodCard: { width: '100%', maxWidth: 420, padding: 20, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E1E8', gap: 16, shadowColor: BrandColors.navy, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 22, elevation: 7 },
+  periodIcon: { width: 58, height: 58, borderRadius: 18, alignSelf: 'center', backgroundColor: '#E8F9F6', alignItems: 'center', justifyContent: 'center' },
+  periodFields: { flexDirection: 'row', gap: 10 }, periodField: { flex: 1, gap: 6 }, periodLabel: { color: BrandColors.blueGray, fontFamily: Fonts.semiBold, fontSize: 11, lineHeight: 15 },
+  periodDateButton: { minHeight: 48, borderWidth: 1, borderColor: '#D8E1E8', borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  periodDate: { color: BrandColors.navy, fontFamily: Fonts.semiBold, fontSize: 12, lineHeight: 16 }, periodDone: { alignSelf: 'flex-end', paddingHorizontal: 12, paddingVertical: 6 }, periodDoneText: { color: BrandColors.blueSecondary, fontFamily: Fonts.bold },
+  periodSave: { minHeight: 48, borderRadius: 13, backgroundColor: BrandColors.navy, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, periodSaved: { backgroundColor: BrandColors.turquoise }, periodSaveText: { color: '#FFFFFF', fontFamily: Fonts.bold, fontSize: 14 },
   setupCard: { width: '100%', maxWidth: 420, padding: 8, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E1E8', shadowColor: BrandColors.navy, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 22, elevation: 7 },
   setupRow: { minHeight: 88, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 12 },
   setupIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#F5F8FA', alignItems: 'center', justifyContent: 'center' },
