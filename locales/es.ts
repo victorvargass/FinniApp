@@ -457,7 +457,7 @@ const es = {
     quickActions: 'Acciones rápidas',
     addExpense: 'Gasto',
     addIncome: 'Ingreso',
-    payCard: 'Abonar',
+    transfer: 'Transferencia',
     attention: 'Requiere tu atención',
     upToDate: 'Todo está al día',
     upToDateHint: 'No hay pendientes importantes en este momento.',

@@ -457,7 +457,7 @@ const en = {
     quickActions: 'Quick actions',
     addExpense: 'Expense',
     addIncome: 'Income',
-    payCard: 'Make payment',
+    transfer: 'Transfer',
     attention: 'Needs your attention',
     upToDate: 'Everything is up to date',
     upToDateHint: 'There are no important pending items right now.',

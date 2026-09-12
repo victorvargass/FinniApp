@@ -104,7 +104,6 @@ export default function HomeScreen() {
   const negativePaymentMethod = paymentMethods.find(
     (method) => method.active && method.availableBalance != null && method.availableBalance < 0
   );
-  const activeCreditCards = paymentMethods.filter((method) => method.active && method.type === 'credit');
   const urgentCardPayment = findUrgentCardPayment(paymentMethods);
   const closeInsights = selectedPeriodReport
     ? buildPeriodCloseInsights(
@@ -269,19 +268,9 @@ export default function HomeScreen() {
           expenseTotal={periodExpensesTotal}
           attentionItems={attentionItems}
           showActions={Boolean(isCurrentPeriod)}
-          showPayCard={activeCreditCards.length > 0}
           onAddExpense={() => router.push('/modal/expense-form')}
           onAddIncome={() => router.push('/modal/income-form')}
-          onPayCard={() => {
-            if (activeCreditCards.length === 1) {
-              router.push({
-                pathname: '/modal/expense-form',
-                params: { creditPaymentTargetId: String(activeCreditCards[0].id) },
-              });
-            } else if (activeCreditCards.length > 1) {
-              router.push('/modal/debts');
-            }
-          }}
+          onTransfer={() => router.push('/modal/account-transfer-form')}
         />
         {isCurrentPeriod && (
           <ProgressiveSetup

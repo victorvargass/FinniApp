@@ -24,10 +24,9 @@ type HomeOverviewProps = {
   expenseTotal: number;
   attentionItems: HomeAttentionItem[];
   showActions: boolean;
-  showPayCard: boolean;
   onAddExpense: () => void;
   onAddIncome: () => void;
-  onPayCard: () => void;
+  onTransfer: () => void;
 };
 
 export function HomeOverview({
@@ -36,18 +35,15 @@ export function HomeOverview({
   expenseTotal,
   attentionItems,
   showActions,
-  showPayCard,
   onAddExpense,
   onAddIncome,
-  onPayCard,
+  onTransfer,
 }: HomeOverviewProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const actions = [
     { key: 'expense', icon: 'arrow-up', label: t('home.addExpense'), onPress: onAddExpense },
     { key: 'income', icon: 'arrow-down', label: t('home.addIncome'), onPress: onAddIncome },
-    ...(showPayCard
-      ? [{ key: 'payment', icon: 'card-outline' as const, label: t('home.payCard'), onPress: onPayCard }]
-      : []),
+    { key: 'transfer', icon: 'swap-horizontal-outline', label: t('home.transfer'), onPress: onTransfer },
   ] as const;
 
   return (
