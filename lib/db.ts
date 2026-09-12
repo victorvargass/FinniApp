@@ -5206,6 +5206,49 @@ export async function getRecurringIncomes(): Promise<RecurringIncome[]> {
   }));
 }
 
+export async function createRecurringIncome(data: NewRecurringIncome): Promise<number> {
+  if (!data.name.trim()) throw new Error(t('database.recurringIncomeName'));
+  if (!Number.isInteger(data.amount) || data.amount <= 0) {
+    throw new Error(t('database.incomeAmountPositive'));
+  }
+  if (data.frequency === 'custom' && (!Number.isInteger(data.intervalMonths) || data.intervalMonths < 1)) {
+    throw new Error(t('database.customInterval'));
+  }
+  if (
+    (data.frequency === 'monthly' || data.frequency === 'custom') &&
+    (data.executionDay == null || !Number.isInteger(data.executionDay) || data.executionDay < 1 || data.executionDay > 31)
+  ) {
+    throw new Error(t('database.invalidExecutionDay'));
+  }
+  if (data.endDate && data.endDate < data.startDate) {
+    throw new Error(t('database.endBeforeStart'));
+  }
+  const db = await getDb();
+  await assertIncomePaymentMethod(db, data.paymentMethodId, true);
+  let createdId = 0;
+  await withExclusiveTransaction(db, async (transaction) => {
+    const result = await transaction.runAsync(
+      `INSERT INTO recurring_incomes
+        (name, amount, frequency, interval_months, execution_day, registration_mode, start_date,
+         end_date, next_date, active, source_income_id, payment_method_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+      data.name.trim(),
+      data.amount,
+      data.frequency,
+      data.frequency === 'custom' ? data.intervalMonths : 1,
+      data.executionDay,
+      data.registrationMode,
+      data.startDate,
+      data.endDate,
+      data.startDate,
+      data.active ? 1 : 0,
+      data.paymentMethodId
+    );
+    createdId = result.lastInsertRowId;
+  });
+  return createdId;
+}
+
 export async function updateRecurringIncome(id: number, data: NewRecurringIncome): Promise<void> {
   const db = await getDb();
   await assertIncomePaymentMethod(db, data.paymentMethodId, false);

@@ -2,6 +2,7 @@ export {
   approveRecurringIncomeOccurrence,
   approveRecurringOccurrence,
   createRecurringExpense,
+  createRecurringIncome,
   createRecurringIncomeFromSource,
   deleteRecurringExpense,
   deleteRecurringIncome,

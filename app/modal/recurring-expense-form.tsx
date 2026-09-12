@@ -1,17 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
+import { ColorSelect } from '@/components/forms/shared';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, LayoutTokens } from '@/constants/theme';
+import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, toDateString } from '@/lib/format';
+import { formatCLP, formatCLPInput, parseAmount, toDateString } from '@/lib/format';
 import { parseIsoDate } from '@/lib/recurrence';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
@@ -21,7 +22,7 @@ import { ensureRecurringNotificationPermission } from '@/services/RecurringNotif
 function defaultSchedule(date = new Date()): NewRecurringSchedule {
   return {
     frequency: 'monthly',
-    intervalMonths: 2,
+    intervalMonths: 1,
     executionDay: date.getDate(),
     registrationMode: 'confirmation',
     startDate: toDateString(date),
@@ -51,6 +52,9 @@ export default function RecurringExpenseFormScreen() {
   const {
     recurringExpenses,
     expenses,
+    categories,
+    paymentMethods,
+    settings,
     addRecurringExpense,
     editRecurringExpense,
     removeRecurringExpense,
@@ -77,15 +81,29 @@ export default function RecurringExpenseFormScreen() {
   const [removing, setRemoving] = useState(false);
   const [useStoredNextDate, setUseStoredNextDate] = useState(recurring != null);
 
+  const expenseDetails = recurring ?? requestedSource;
+  const defaultPaymentMethodId = paymentMethods.find(
+    (method) => method.id === settings.defaultPaymentMethodId && method.active
+  )?.id ?? paymentMethods.find((method) => method.active)?.id ?? null;
+  const [name, setName] = useState(expenseDetails?.name ?? '');
+  const [amountText, setAmountText] = useState(
+    expenseDetails ? formatCLPInput(expenseDetails.amount) : ''
+  );
+  const [categoryId, setCategoryId] = useState<number | null>(expenseDetails?.categoryId ?? null);
+  const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
+    expenseDetails?.paymentMethodId ?? defaultPaymentMethodId
+  );
+  const canEditMovement = expenseDetails == null || (recurring != null && recurring.sourceExpenseId == null);
+
   useEffect(() => {
-    navigation.setOptions({ title: recurring ? t('recurrence.edit') : t('recurrence.new') });
+    navigation.setOptions({ title: recurring ? t('recurrence.edit') : t('recurrence.newExpense') });
   }, [navigation, recurring]);
 
-  const expenseDetails = recurring ?? requestedSource;
-
   const save = async () => {
-    if (!expenseDetails) {
-      return Alert.alert(t('recurrence.selectExpense'), t('recurrence.selectExpenseHint'));
+    const amount = canEditMovement ? parseAmount(amountText) : expenseDetails?.amount;
+    const recurringName = canEditMovement ? name.trim() : expenseDetails?.name ?? '';
+    if (!recurringName || amount == null || amount <= 0) {
+      return Alert.alert(t('validation.missingData'), t('recurrence.invalidNameAmount'));
     }
     const notificationsGranted = await ensureRecurringNotificationPermission();
     if (!notificationsGranted && schedule.registrationMode === 'confirmation') {
@@ -96,14 +114,14 @@ export default function RecurringExpenseFormScreen() {
     setSaving(true);
     try {
       const data = {
-        name: expenseDetails.name,
-        amount: expenseDetails.amount,
-        originalAmount: expenseDetails.originalAmount,
-        splitPercentage: expenseDetails.splitPercentage,
-        categoryId: expenseDetails.categoryId,
-        paymentMethodId: expenseDetails.paymentMethodId,
-        savingsGoalId: expenseDetails.savingsGoalId,
-        savingsKind: expenseDetails.savingsKind === 'contribution' ? 'contribution' as const : null,
+        name: recurringName,
+        amount,
+        originalAmount: expenseDetails?.originalAmount ?? null,
+        splitPercentage: expenseDetails?.splitPercentage ?? null,
+        categoryId: canEditMovement ? categoryId : expenseDetails?.categoryId ?? null,
+        paymentMethodId: canEditMovement ? paymentMethodId : expenseDetails?.paymentMethodId ?? null,
+        savingsGoalId: expenseDetails?.savingsGoalId ?? null,
+        savingsKind: expenseDetails?.savingsKind === 'contribution' ? 'contribution' as const : null,
         ...schedule,
         sourceExpenseId: recurring ? recurring.sourceExpenseId : requestedSource?.id ?? null,
       };
@@ -150,7 +168,7 @@ export default function RecurringExpenseFormScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        {expenseDetails ? (
+        {expenseDetails && !canEditMovement ? (
           <ThemedView style={[styles.detailsCard, { borderColor: colors.border }]}>
             <View style={styles.detailsHeader}>
               <View style={styles.sourceCopy}>
@@ -190,7 +208,50 @@ export default function RecurringExpenseFormScreen() {
             )}
           </ThemedView>
         ) : (
-          <ThemedText style={styles.emptyHint}>{t('recurrence.selectExpenseEmpty')}</ThemedText>
+          <View style={styles.newMovementFields}>
+            <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder={t('expenses.namePlaceholder')}
+              placeholderTextColor={colors.icon}
+              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+            />
+            <ThemedText style={styles.label}>{t('filters.amount')}</ThemedText>
+            <TextInput
+              value={amountText}
+              onChangeText={(value) => setAmountText(formatCLPInput(value))}
+              keyboardType="number-pad"
+              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+            />
+            <ColorSelect
+              label={t('expenses.categoryOptional')}
+              value={categoryId}
+              onChange={setCategoryId}
+              options={[
+                { value: null, label: t('expenses.noCategory'), color: colors.icon },
+                ...categories
+                  .filter((category) => category.systemKey == null)
+                  .map((category) => ({ value: category.id, label: category.name, color: category.color })),
+              ]}
+            />
+            <ColorSelect
+              label={t('expenses.paymentMethodOptional')}
+              value={paymentMethodId}
+              onChange={setPaymentMethodId}
+              options={[
+                { value: null, label: t('expenses.noPaymentMethod'), color: colors.icon },
+                ...paymentMethods
+                  .filter((method) => method.active)
+                  .map((method) => ({
+                    value: method.id,
+                    label: `${method.name} · ${t(`paymentMethods.${method.type}`)}`,
+                    color: method.color,
+                  })),
+              ]}
+            />
+            <ThemedText style={styles.emptyHint}>{t('recurrence.standaloneHint')}</ThemedText>
+          </View>
         )}
 
         <View style={[styles.divider, { borderTopColor: colors.border }]} />
@@ -264,6 +325,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   emptyHint: { textAlign: 'center', opacity: 0.65, marginVertical: 16 },
+  newMovementFields: { gap: 10 },
+  label: { fontFamily: Fonts.bold, marginTop: 4 },
+  input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 16, fontFamily: Fonts.regular },
   divider: { borderTopWidth: 1, marginVertical: 10 },
   save: { marginTop: 18, borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0B315B' },
   saveText: { color: '#fff', fontWeight: '700' },

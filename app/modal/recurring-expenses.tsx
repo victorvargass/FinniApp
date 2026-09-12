@@ -66,6 +66,19 @@ export default function RecurringExpensesScreen() {
           </Pressable>
         ))}
       </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push(
+          section === 'incomes'
+            ? '/modal/recurring-income-form'
+            : '/modal/recurring-expense-form'
+        )}
+        style={({ pressed }) => [styles.addRecurring, pressed && styles.pressed]}>
+        <Ionicons name="add-circle-outline" size={21} color="#FFFFFF" />
+        <ThemedText style={styles.addRecurringText}>
+          {t(section === 'incomes' ? 'recurrence.newIncome' : 'recurrence.newExpense')}
+        </ThemedText>
+      </Pressable>
     </View>
   );
 
@@ -128,8 +141,6 @@ export default function RecurringExpensesScreen() {
               icon="repeat-outline"
               title={t('recurrence.emptyIncomeTitle')}
               description={t('recurrence.emptyIncomes')}
-              actionLabel={t('incomes.add')}
-              onAction={() => router.push('/modal/income-form')}
             />
           )}
           renderItem={({ item }) => (
@@ -213,8 +224,6 @@ export default function RecurringExpensesScreen() {
             icon="repeat-outline"
             title={t('recurrence.emptyExpenseTitle')}
             description={t('recurrence.emptyExpenses')}
-            actionLabel={t('expenses.add')}
-            onAction={() => router.push('/modal/expense-form')}
           />
         )}
         renderItem={({ item }) => (
@@ -327,4 +336,7 @@ const styles = StyleSheet.create({
   action: { flex: 1, borderWidth: 1, borderRadius: 9, padding: 10, alignItems: 'center' },
   approve: { borderColor: '#0B315B', backgroundColor: '#0B315B' },
   approveText: { color: '#fff', fontWeight: '700' },
+  addRecurring: { minHeight: 46, borderRadius: 10, backgroundColor: '#0B315B', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14 },
+  addRecurringText: { color: '#FFFFFF', fontWeight: '700' },
+  pressed: { opacity: 0.72 },
 });

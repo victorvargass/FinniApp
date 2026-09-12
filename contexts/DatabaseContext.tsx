@@ -129,6 +129,7 @@ type DatabaseContextValue = {
   setRecurringExpenseActive: (id: number, active: boolean) => Promise<void>;
   removeRecurringExpense: (id: number) => Promise<void>;
   editRecurringIncome: (id: number, data: NewRecurringIncome) => Promise<void>;
+  addRecurringIncome: (data: NewRecurringIncome) => Promise<void>;
   setRecurringIncomeActive: (id: number, active: boolean) => Promise<void>;
   removeRecurringIncome: (id: number) => Promise<void>;
   addRecurringIncomeFromSource: (sourceIncomeId: number, schedule: NewRecurringSchedule) => Promise<void>;
@@ -567,6 +568,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const addRecurringIncome = useCallback(async (data: NewRecurringIncome) => {
+    await db.createRecurringIncome(data);
+    await refresh();
+  }, [refresh]);
+
   const setRecurringIncomeActive = useCallback(async (id: number, active: boolean) => {
     await db.setRecurringIncomeActive(id, active);
     await refresh();
@@ -834,6 +840,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setRecurringExpenseActive,
       removeRecurringExpense,
       editRecurringIncome,
+      addRecurringIncome,
       setRecurringIncomeActive,
       removeRecurringIncome,
       addRecurringIncomeFromSource,
@@ -929,6 +936,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setRecurringExpenseActive,
       removeRecurringExpense,
       editRecurringIncome,
+      addRecurringIncome,
       setRecurringIncomeActive,
       removeRecurringIncome,
       addRecurringIncomeFromSource,

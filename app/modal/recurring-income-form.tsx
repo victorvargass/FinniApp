@@ -1,5 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,46 +10,70 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLPInput, parseAmount } from '@/lib/format';
+import { formatCLPInput, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import type { NewRecurringSchedule } from '@/lib/types';
+import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
 function showResult(message: string) {
   showToast(message);
 }
 
 export default function RecurringIncomeFormScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { recurringIncomes, editRecurringIncome, removeRecurringIncome, paymentMethods } = useDatabase();
-  const recurring = recurringIncomes.find((item) => item.id === Number(id));
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const {
+    recurringIncomes,
+    addRecurringIncome,
+    editRecurringIncome,
+    removeRecurringIncome,
+    paymentMethods,
+    settings,
+  } = useDatabase();
+  const recurring = id ? recurringIncomes.find((item) => item.id === Number(id)) : undefined;
+  const navigation = useNavigation();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [name, setName] = useState(recurring?.name ?? '');
   const [amountText, setAmountText] = useState(recurring ? formatCLPInput(recurring.amount) : '');
-  const [paymentMethodId, setPaymentMethodId] = useState<number | null>(recurring?.paymentMethodId ?? null);
+  const defaultPaymentMethodId = paymentMethods.find(
+    (method) => method.id === settings.defaultPaymentMethodId && method.active && method.type !== 'credit'
+  )?.id ?? paymentMethods.find((method) => method.active && method.type !== 'credit')?.id ?? null;
+  const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
+    recurring?.paymentMethodId ?? defaultPaymentMethodId
+  );
   const [schedule, setSchedule] = useState<NewRecurringSchedule>(() => recurring ? {
     frequency: recurring.frequency, intervalMonths: recurring.intervalMonths,
     executionDay: recurring.executionDay, startDate: recurring.startDate,
     endDate: recurring.endDate, active: recurring.active, registrationMode: recurring.registrationMode,
-  } : { frequency: 'monthly', intervalMonths: 1, executionDay: new Date().getDate(), startDate: '', endDate: null, active: true, registrationMode: 'confirmation' });
+  } : { frequency: 'monthly', intervalMonths: 1, executionDay: new Date().getDate(), startDate: toDateString(new Date()), endDate: null, active: true, registrationMode: 'confirmation' });
   const [saving, setSaving] = useState(false);
 
-  if (!recurring) return <SafeAreaView style={styles.safe}><ThemedText style={styles.empty}>{t('recurrence.missingIncome')}</ThemedText></SafeAreaView>;
+  useEffect(() => {
+    navigation.setOptions({ title: t(recurring ? 'recurrence.edit' : 'recurrence.newIncome') });
+  }, [navigation, recurring]);
+
+  if (id && !recurring) return <SafeAreaView style={styles.safe}><ThemedText style={styles.empty}>{t('recurrence.missingIncome')}</ThemedText></SafeAreaView>;
 
   const save = async () => {
     const amount = parseAmount(amountText);
     if (!name.trim() || amount == null) return Alert.alert(t('validation.missingData'), t('recurrence.invalidNameAmount'));
     if (paymentMethodId == null) return Alert.alert(t('common.error'), t('incomes.destinationRequired'));
+    const notificationsGranted = await ensureRecurringNotificationPermission();
+    if (!notificationsGranted && schedule.registrationMode === 'confirmation') {
+      return Alert.alert(t('expenses.notificationsDisabled'), t('expenses.notificationsDisabledHint'));
+    }
     setSaving(true);
     try {
-      await editRecurringIncome(recurring.id, {
-        name: name.trim(), amount, sourceIncomeId: recurring.sourceIncomeId,
+      const data = {
+        name: name.trim(), amount, sourceIncomeId: recurring?.sourceIncomeId ?? null,
         paymentMethodId,
         frequency: schedule.frequency, intervalMonths: schedule.intervalMonths,
         executionDay: schedule.executionDay, startDate: schedule.startDate,
         endDate: schedule.endDate, active: schedule.active, registrationMode: schedule.registrationMode,
-      });
-      showResult(t('recurrence.updated'));
+      };
+      if (recurring) await editRecurringIncome(recurring.id, data);
+      else await addRecurringIncome(data);
+      showResult(t(recurring ? 'recurrence.updated' : 'recurrence.created'));
       router.back();
     } catch (error) { Alert.alert(t('errors.couldNotSave'), error instanceof Error ? error.message : t('common.tryAgain')); }
     finally { setSaving(false); }
@@ -70,9 +94,9 @@ export default function RecurringIncomeFormScreen() {
           color: method.color,
         }))}
     />
-    <RecurringScheduleFields value={schedule} onChange={setSchedule} showActiveToggle fixedStartDate={recurring.startDate} storedNextDate={recurring.nextDate} movementKind="ingreso" />
-    <Pressable disabled={saving} onPress={save} style={styles.save}><ThemedText style={styles.saveText}>{saving ? t('common.saving') : t('common.saveChanges')}</ThemedText></Pressable>
-    <Pressable disabled={saving} onPress={() => Alert.alert(t('recurrence.delete'), t('recurrence.keepPreviousIncomes'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => removeRecurringIncome(recurring.id).then(() => { showResult(t('recurrence.deleted')); router.back(); }).catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain'))) }])} style={styles.remove}><ThemedText style={styles.removeText}>{t('recurrence.delete')}</ThemedText></Pressable>
+    <RecurringScheduleFields value={schedule} onChange={setSchedule} showActiveToggle fixedStartDate={recurring?.startDate} storedNextDate={recurring?.nextDate} movementKind="ingreso" />
+    <Pressable disabled={saving} onPress={save} style={styles.save}><ThemedText style={styles.saveText}>{saving ? t('common.saving') : t(recurring ? 'common.saveChanges' : 'recurrence.create')}</ThemedText></Pressable>
+    {recurring && <Pressable disabled={saving} onPress={() => Alert.alert(t('recurrence.delete'), t('recurrence.keepPreviousIncomes'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => removeRecurringIncome(recurring.id).then(() => { showResult(t('recurrence.deleted')); router.back(); }).catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain'))) }])} style={styles.remove}><ThemedText style={styles.removeText}>{t('recurrence.delete')}</ThemedText></Pressable>}
   </ScrollView></SafeAreaView>;
 }
 
