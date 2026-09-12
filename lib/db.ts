@@ -6269,3 +6269,12 @@ export function resetDatabaseConnection(): void {
   dbPromise = null;
   initializationPromise = null;
 }
+
+/**
+ * Forces schema initialization to run again without discarding the live
+ * native connection. Restores use this after replacing the database contents
+ * in place so React never keeps a reference to a closed SQLite handle.
+ */
+export function resetDatabaseInitialization(): void {
+  initializationPromise = null;
+}

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type LogContext =
   | 'database.initialize'
   | 'database.refresh'
+  | 'database.restore'
   | 'report.export';
 
 export type AppDiagnostic = {

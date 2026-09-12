@@ -1287,6 +1287,7 @@ const en = {
     invalidBackupIntegrity: 'The SQLite backup failed the integrity check.',
     invalidBackupRelations: 'The backup contains inconsistent data relationships and cannot be restored safely.',
     invalidBackupVersion: 'The backup does not belong to a valid version of FinniApp.',
+    restoreFailed: 'The backup could not be restored. Your current data was preserved.',
     googleIosNotConfigured: 'Google Drive is not yet set up for iOS. Add EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in EAS.',
     googleSignInCancelled: 'Sign-in canceled',
     googleDrivePermissionCancelled: 'Permission for Google Drive was canceled',

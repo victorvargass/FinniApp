@@ -25,7 +25,7 @@ function toMessage(error: unknown): string {
 }
 
 export function useGoogle() {
-  const { refresh } = useDatabase();
+  const { runDatabaseMaintenance } = useDatabase();
 
   const [state, setState] = useState<GoogleState>({
     user: null,
@@ -141,8 +141,7 @@ export function useGoogle() {
     }));
 
     try {
-      await RestoreService.restore(getDrive());
-      await refresh();
+      await runDatabaseMaintenance(() => RestoreService.restore(getDrive()));
       await refreshBackupInfo();
     } catch (error) {
       setState((current) => ({
@@ -153,7 +152,7 @@ export function useGoogle() {
     } finally {
       setState((current) => ({ ...current, isWorking: false }));
     }
-  }, [getDrive, refresh, refreshBackupInfo]);
+  }, [getDrive, runDatabaseMaintenance, refreshBackupInfo]);
 
   const logout = useCallback(async () => {
     setState((current) => ({

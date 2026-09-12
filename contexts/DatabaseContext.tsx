@@ -79,6 +79,7 @@ type DatabaseContextValue = {
   isReady: boolean;
   isPeriodChanging: boolean;
   refresh: () => Promise<void>;
+  runDatabaseMaintenance: (operation: () => Promise<void>) => Promise<void>;
   selectPeriod: (periodId: number) => void;
   closeCurrentPeriod: () => Promise<void>;
   addCategory: (data: NewCategory) => Promise<void>;
@@ -189,6 +190,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const selectedPeriodIdRef = useRef<number | null>(selectedPeriodId);
   const refreshPromiseRef = useRef<Promise<void> | null>(null);
   const refreshRequestedRef = useRef(false);
+  const maintenanceGateRef = useRef<Promise<void> | null>(null);
+  const recurringSyncPromiseRef = useRef<Promise<void> | null>(null);
 
   selectedPeriodIdRef.current = selectedPeriodId;
 
@@ -219,6 +222,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   );
 
   const refresh = useCallback((): Promise<void> => {
+    if (maintenanceGateRef.current) {
+      return maintenanceGateRef.current.then(() => refresh());
+    }
     if (refreshPromiseRef.current) {
       refreshRequestedRef.current = true;
       return refreshPromiseRef.current;
@@ -297,12 +303,37 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     return refreshPromise;
   }, []);
 
+  const runDatabaseMaintenance = useCallback(async (operation: () => Promise<void>) => {
+    let releaseGate: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+    maintenanceGateRef.current = gate;
+
+    try {
+      await refreshPromiseRef.current;
+      await recurringSyncPromiseRef.current;
+      await operation();
+    } finally {
+      maintenanceGateRef.current = null;
+      releaseGate();
+    }
+
+    await refresh();
+  }, [refresh]);
+
   useEffect(() => {
     if (!isReady || !hasRefreshed) return;
     const today = toIsoDate(new Date());
-    db.getUpcomingRecurringConfirmations(addIsoDays(today, 365), today)
+    const syncPromise = db.getUpcomingRecurringConfirmations(addIsoDays(today, 365), today)
       .then(syncRecurringNotifications)
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (recurringSyncPromiseRef.current === syncPromise) {
+          recurringSyncPromiseRef.current = null;
+        }
+      });
+    recurringSyncPromiseRef.current = syncPromise;
   }, [hasRefreshed, isReady, recurringNotificationKey]);
 
   useEffect(() => {
@@ -790,6 +821,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       isReady,
       isPeriodChanging,
       refresh,
+      runDatabaseMaintenance,
       selectPeriod,
       closeCurrentPeriod,
       addCategory,
@@ -886,6 +918,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       isReady,
       isPeriodChanging,
       refresh,
+      runDatabaseMaintenance,
       selectPeriod,
       closeCurrentPeriod,
       addCategory,
