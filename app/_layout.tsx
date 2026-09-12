@@ -175,7 +175,7 @@ function AppContent() {
                 />
                 </Stack.Protected>
               </Stack>
-              <StatusBar style="auto" />
+              <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
             </ThemeProvider>
           </DatabaseProvider>
         </BiometricGate>
