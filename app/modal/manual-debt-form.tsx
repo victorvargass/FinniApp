@@ -132,6 +132,7 @@ export default function DebtFormScreen() {
             </>
           )}
           <SimpleSelect label={t('debts.defaultCategory')} value={categoryId} onChange={setCategoryId} options={categoryOptions} />
+          <ThemedText style={styles.hint}>{t('debts.defaultCategoryHint')}</ThemedText>
           <SimpleSelect label={t('debts.defaultPaymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
           <Field label={t('debts.notes')} value={notes} onChangeText={setNotes} colors={colors} multiline placeholder={t('debts.notesPlaceholder')} />
         </ThemedView>
