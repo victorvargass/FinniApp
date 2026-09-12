@@ -493,7 +493,7 @@ const en = {
     firstMovement: 'Record your first transaction',
     savingsGoal: 'Create a savings goal',
     backup: 'Connect your Google account to back up your data',
-    skipForNow: 'Not now',
+    skipForNow: 'Skip',
   },
   history: {
     categories: 'Categories',

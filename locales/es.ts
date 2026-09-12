@@ -493,7 +493,7 @@ const es = {
     firstMovement: 'Registra tu primer movimiento',
     savingsGoal: 'Crea una meta de ahorro',
     backup: 'Conecta tu cuenta Google para respaldar tus datos',
-    skipForNow: 'Ahora no',
+    skipForNow: 'Omitir',
   },
   history: {
     categories: 'Categorías',
