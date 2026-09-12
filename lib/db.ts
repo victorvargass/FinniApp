@@ -669,6 +669,7 @@ async function initializeDatabase(): Promise<void> {
       name TEXT NOT NULL COLLATE NOCASE UNIQUE,
       target_amount INTEGER NOT NULL CHECK (target_amount > 0),
       initial_amount INTEGER NOT NULL DEFAULT 0 CHECK (initial_amount >= 0),
+      allow_withdrawals INTEGER NOT NULL DEFAULT 1,
       deadline TEXT NOT NULL,
       color TEXT NOT NULL DEFAULT '#0a7ea4',
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
@@ -885,6 +886,9 @@ async function initializeDatabase(): Promise<void> {
   );
   if (!paymentMethodColumns.some((column) => column.name === 'system_key')) {
     await db.execAsync("ALTER TABLE payment_methods ADD COLUMN system_key TEXT CHECK (system_key IS NULL OR system_key = 'cash');");
+  }
+  if (!savingsGoalColumns.some((column) => column.name === 'allow_withdrawals')) {
+    await db.execAsync('ALTER TABLE savings_goals ADD COLUMN allow_withdrawals INTEGER NOT NULL DEFAULT 1;');
   }
   await db.execAsync(
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_methods_system_key ON payment_methods(system_key) WHERE system_key IS NOT NULL;'
@@ -1499,6 +1503,9 @@ function validateSavingsGoal(data: NewSavingsGoal): void {
   if (data.initialAmount > data.targetAmount) {
     throw new Error(t('database.savingsInitialAboveTarget'));
   }
+  if (typeof data.allowWithdrawals !== 'boolean') {
+    throw new Error(t('database.savingsWithdrawalPolicyInvalid'));
+  }
   if (!isValidIsoDate(data.deadline)) throw new Error(t('database.savingsDeadlineInvalid'));
   if (!/^#[0-9a-f]{6}$/i.test(data.color)) throw new Error(t('database.savingsColorInvalid'));
 }
@@ -1617,6 +1624,22 @@ async function assertSavingsGoalCanReceiveMovement(
   }
 }
 
+async function assertSavingsGoalAllowsWithdrawal(
+  db: SQLite.SQLiteDatabase,
+  goalId: number,
+  existingMovement?: SavingsMovementLink | null
+): Promise<void> {
+  const goal = await db.getFirstAsync<{ allow_withdrawals: number }>(
+    'SELECT allow_withdrawals FROM savings_goals WHERE id = ?',
+    goalId
+  );
+  if (!goal) throw new Error(t('database.savingsGoalMissing'));
+  const keepsExistingWithdrawal = existingMovement?.goal_id === goalId;
+  if (Number(goal.allow_withdrawals) !== 1 && !keepsExistingWithdrawal) {
+    throw new Error(t('database.savingsWithdrawalsDisabled'));
+  }
+}
+
 async function assertSavingsGoalIsActive(
   db: SQLite.SQLiteDatabase,
   goalId: number
@@ -1717,6 +1740,7 @@ async function setExpenseSavingsMovement(
   if (!expense) throw new Error(t('database.savingsExpenseMissing'));
   await assertSavingsGoalCanReceiveMovement(db, selection.goalId, existing);
   if (selection.kind === 'funded_expense') {
+    await assertSavingsGoalAllowsWithdrawal(db, selection.goalId, existing);
     const balance = await getSavingsGoalBalanceAtDate(
       db,
       selection.goalId,
@@ -1763,6 +1787,7 @@ async function setIncomeSavingsMovement(
   );
   if (!income) throw new Error(t('database.savingsWithdrawalMissing'));
   await assertSavingsGoalCanReceiveMovement(db, goalId, existing);
+  await assertSavingsGoalAllowsWithdrawal(db, goalId, existing);
   const balance = await getSavingsGoalBalanceAtDate(db, goalId, income.date, existing?.id);
   if (balance == null || amount > balance) {
     throw new Error(t('database.insufficientSavingsWithdrawal'));
@@ -1837,6 +1862,7 @@ function mapSavingsGoal(row: Record<string, unknown>): SavingsGoal {
     name: String(row.name),
     targetAmount: Number(row.target_amount),
     initialAmount: Number(row.initial_amount),
+    allowWithdrawals: Number(row.allow_withdrawals) === 1,
     deadline: String(row.deadline),
     color: String(row.color),
     status: row.status as SavingsGoal['status'],
@@ -1996,11 +2022,12 @@ export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
   await assertUniqueSavingsGoalName(db, data.name);
   const result = await db.runAsync(
     `INSERT INTO savings_goals
-      (name, target_amount, initial_amount, deadline, color, status)
-     VALUES (?, ?, ?, ?, ?, 'active')`,
+      (name, target_amount, initial_amount, allow_withdrawals, deadline, color, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'active')`,
     data.name.trim(),
     data.targetAmount,
     data.initialAmount,
+    data.allowWithdrawals ? 1 : 0,
     data.deadline,
     data.color.toLowerCase()
   );
@@ -2020,12 +2047,13 @@ export async function updateSavingsGoal(id: number, data: NewSavingsGoal): Promi
     }
     await transaction.runAsync(
       `UPDATE savings_goals SET
-         name = ?, target_amount = ?, initial_amount = ?, deadline = ?, color = ?,
+         name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?, deadline = ?, color = ?,
          updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       data.name.trim(),
       data.targetAmount,
       data.initialAmount,
+      data.allowWithdrawals ? 1 : 0,
       data.deadline,
       data.color.toLowerCase(),
       id
@@ -2093,6 +2121,7 @@ export async function getPeriodSavingsGoalActivity(
        goal.name,
        goal.target_amount,
        goal.initial_amount,
+       goal.allow_withdrawals,
        goal.deadline,
        goal.color,
        CASE
@@ -2170,6 +2199,7 @@ export async function getPeriodSavingsGoalActivity(
       goalColor: String(row.color),
       targetAmount: Number(row.target_amount),
       initialAmount: Number(row.initial_amount),
+      allowWithdrawals: Number(row.allow_withdrawals) === 1,
       deadline: String(row.deadline),
       status: row.status as SavingsGoal['status'],
       openingAmount: Number(row.opening_amount),

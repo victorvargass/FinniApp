@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   TextInput,
   View,
 } from 'react-native';
@@ -87,6 +88,7 @@ export default function SavingsGoalFormScreen() {
   const [initialText, setInitialText] = useState(
     goal ? formatCLPInput(goal.initialAmount) : formatCLPInput(0)
   );
+  const [allowWithdrawals, setAllowWithdrawals] = useState(goal?.allowWithdrawals ?? true);
   const [deadline, setDeadline] = useState(
     goal ? parseDate(goal.deadline) : getDefaultDeadline()
   );
@@ -165,6 +167,7 @@ export default function SavingsGoalFormScreen() {
       name: name.trim(),
       targetAmount,
       initialAmount,
+      allowWithdrawals,
       deadline: toDateString(deadline),
       color: color.toLowerCase(),
     };
@@ -281,7 +284,7 @@ export default function SavingsGoalFormScreen() {
                 <ThemedText type="defaultSemiBold">{t('savings.updateBalance')}</ThemedText>
               </Pressable>
             )}
-            {goal.status === 'active' && goal.currentAmount > 0 && (
+            {goal.status === 'active' && goal.allowWithdrawals && goal.currentAmount > 0 && (
               <Pressable
                 accessibilityRole="button"
                 onPress={() => router.push({
@@ -295,6 +298,11 @@ export default function SavingsGoalFormScreen() {
                 ]}>
                 <ThemedText type="defaultSemiBold">{t('savings.withdraw')}</ThemedText>
               </Pressable>
+            )}
+            {goal.status === 'active' && !goal.allowWithdrawals && (
+              <ThemedText style={styles.withdrawalsDisabled}>
+                {t('savings.withdrawalsDisabled')}
+              </ThemedText>
             )}
           </ThemedView>
         )}
@@ -394,6 +402,20 @@ export default function SavingsGoalFormScreen() {
         <ThemedText style={styles.hint}>
           {t('savings.initialHint')}
         </ThemedText>
+
+        <View style={[styles.preferenceCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <View style={styles.preferenceCopy}>
+            <ThemedText type="defaultSemiBold">{t('savings.allowWithdrawals')}</ThemedText>
+            <ThemedText style={styles.hint}>{t('savings.allowWithdrawalsHint')}</ThemedText>
+          </View>
+          <Switch
+            accessibilityLabel={t('savings.allowWithdrawals')}
+            onValueChange={setAllowWithdrawals}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={allowWithdrawals ? colors.surface : colors.icon}
+            value={allowWithdrawals}
+          />
+        </View>
 
         <ThemedText style={styles.label}>{t('savings.deadline')}</ThemedText>
         <Pressable
@@ -552,6 +574,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     opacity: 0.62,
+  },
+  preferenceCard: {
+    minHeight: 74,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  preferenceCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  withdrawalsDisabled: {
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    opacity: 0.7,
   },
   dateButton: {
     minHeight: 48,

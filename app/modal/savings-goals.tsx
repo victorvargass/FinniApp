@@ -99,6 +99,13 @@ function GoalCard({ goal }: { goal: SavingsGoal }) {
               {statusLabel}
             </ThemedText>
           </View>
+          {!goal.allowWithdrawals && (
+            <View style={[styles.statusBadge, styles.withdrawalsDisabledBadge]}>
+              <ThemedText style={[styles.statusText, styles.withdrawalsDisabledText]}>
+                {t('savings.noWithdrawals')}
+              </ThemedText>
+            </View>
+          )}
         </View>
       </ThemedView>
     </Pressable>
@@ -301,6 +308,8 @@ const styles = StyleSheet.create({
   },
   statusRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
   },
   statusBadge: {
     borderRadius: 999,
@@ -321,6 +330,12 @@ const styles = StyleSheet.create({
     color: '#1FAF78',
   },
   archivedText: {
+    color: '#60758E',
+  },
+  withdrawalsDisabledBadge: {
+    backgroundColor: '#60758E26',
+  },
+  withdrawalsDisabledText: {
     color: '#60758E',
   },
   empty: {

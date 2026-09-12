@@ -334,6 +334,7 @@ function savingsGoalRows(items: SavingsGoalPeriodActivity[]): string {
         item.withdrawals > 0 ? t('report.savingsWithdrawn', { amount: formatCLP(item.withdrawals) }) : null,
         item.fundedExpenses > 0 ? t('report.savingsFunded', { amount: formatCLP(item.fundedExpenses) }) : null,
         item.adjustments !== 0 ? t('report.savingsAdjusted', { amount: formatCLP(item.adjustments) }) : null,
+        !item.allowWithdrawals ? t('report.savingsWithdrawalsDisabled') : null,
       ].filter(Boolean).join(' · ');
       const safeColor = /^#[0-9a-f]{3,8}$/i.test(item.goalColor) ? item.goalColor : COLORS.brand;
 

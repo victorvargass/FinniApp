@@ -31,6 +31,7 @@ export type NewSavingsGoal = {
   name: string;
   targetAmount: number;
   initialAmount: number;
+  allowWithdrawals: boolean;
   deadline: string;
   color: string;
 };
@@ -66,6 +67,7 @@ export type SavingsGoalPeriodActivity = {
   goalColor: string;
   targetAmount: number;
   initialAmount: number;
+  allowWithdrawals: boolean;
   deadline: string;
   status: SavingsGoalStatus;
   openingAmount: number;

@@ -156,6 +156,10 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
   const selectableSavingsGoals = savingsGoals.filter(
     (goal) => goal.status === 'active' || goal.id === savingsGoalId
   );
+  const withdrawableSavingsGoals = savingsGoals.filter(
+    (goal) => (goal.status === 'active' && goal.allowWithdrawals)
+      || (goal.id === savingsGoalId && savingsKind === 'funded_expense')
+  );
   const formPeriod = expense
     ? periods.find((period) => period.id === expense.periodId) ?? selectedPeriod
     : selectedPeriod;
@@ -672,7 +676,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
             if (value === VIRTUAL_SAVINGS_PAYMENT_METHOD_ID) {
               setPaymentMethodId(null);
               setSavingsKind('funded_expense');
-              setSavingsGoalId(selectableSavingsGoals[0]?.id ?? null);
+              setSavingsGoalId(withdrawableSavingsGoals[0]?.id ?? null);
               setMakeRecurring(false);
               return;
             }
@@ -680,7 +684,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
           }}
           options={[
             { value: null, label: t('common.notSpecified'), color: '#60758E' },
-            ...(!isCardPayment && !isSavingsCategory && !isInstallmentPurchase && selectableSavingsGoals.length > 0
+            ...(!isCardPayment && !isSavingsCategory && !isInstallmentPurchase && withdrawableSavingsGoals.length > 0
               ? [{
                   value: VIRTUAL_SAVINGS_PAYMENT_METHOD_ID,
                   label: t('savings.withdrawalPaymentMethod'),
@@ -730,13 +734,13 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
           </ThemedText>
         </View>
       )}
-      {savingsKind === 'funded_expense' && selectableSavingsGoals.length > 0 && (
+      {savingsKind === 'funded_expense' && withdrawableSavingsGoals.length > 0 && (
         <>
           <ColorSelect
             label={t('savings.savingsFund')}
             value={savingsGoalId}
             onChange={setSavingsGoalId}
-            options={selectableSavingsGoals.map((goal) => ({
+            options={withdrawableSavingsGoals.map((goal) => ({
               value: goal.id,
               label: `${goal.name} · ${formatCLP(goal.currentAmount)}`,
               color: goal.color,

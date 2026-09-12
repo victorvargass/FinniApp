@@ -51,7 +51,11 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   )?.id ?? eligiblePaymentMethods.find((method) => method.active)?.id ?? null;
 
   const initialSavingsGoal = !income && initialSavingsGoalId != null
-    ? savingsGoals.find((goal) => goal.id === initialSavingsGoalId && goal.status === 'active')
+    ? savingsGoals.find((goal) => (
+        goal.id === initialSavingsGoalId
+        && goal.status === 'active'
+        && goal.allowWithdrawals
+      ))
     : undefined;
   const [name, setName] = useState(
     initialIncome?.name ?? (initialSavingsGoal ? `Retiro de ${initialSavingsGoal.name}` : '')
@@ -85,7 +89,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   const [saving, setSaving] = useState(false);
   const nameSuggestions = getNameSuggestions(incomeNames, name);
   const selectableSavingsGoals = savingsGoals.filter(
-    (goal) => goal.status === 'active' || goal.id === savingsGoalId
+    (goal) => (goal.status === 'active' && goal.allowWithdrawals) || goal.id === savingsGoalId
   );
   const formPeriod = income
     ? periods.find((period) => period.id === income.periodId) ?? selectedPeriod
