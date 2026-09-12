@@ -20,11 +20,13 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useBiometric } from '@/contexts/BiometricContext';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { clearAppDiagnostics, getAppDiagnostics } from '@/lib/logger';
+import { resetSetupProgress } from '@/lib/setup-progress';
 import { showToast } from '@/lib/toast';
 import { NotificationPermissionError } from '@/services/MovementReminderService';
 
@@ -78,6 +80,7 @@ export default function UserScreen() {
   const colors = Colors[colorScheme];
   const { language, setLanguage } = useLanguage();
   const { setPreference: setThemePreference } = useThemePreference();
+  const { resetOnboarding } = useOnboarding();
   const { recurringDecisions, savingsGoals, settings, setMovementReminder, resetLocalData } = useDatabase();
   const [resetModalVisible, setResetModalVisible] = React.useState(false);
   const [resetConfirmation, setResetConfirmation] = React.useState('');
@@ -132,9 +135,12 @@ export default function UserScreen() {
     try {
       await resetLocalData();
       await clearAppDiagnostics();
+      await resetSetupProgress();
       setResetModalVisible(false);
       setResetConfirmation('');
       showToast(t('settings.resetCompleteMessage'));
+      await resetOnboarding();
+      router.replace('/onboarding');
     } catch (resetError) {
       Alert.alert(
         t('settings.resetError'),

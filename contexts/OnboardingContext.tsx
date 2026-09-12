@@ -7,6 +7,7 @@ type OnboardingContextValue = {
   hasCompletedOnboarding: boolean;
   isOnboardingReady: boolean;
   completeOnboarding: () => Promise<void>;
+  resetOnboarding: () => Promise<void>;
 };
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -38,6 +39,10 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
     completeOnboarding: async () => {
       await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
       setHasCompletedOnboarding(true);
+    },
+    resetOnboarding: async () => {
+      await AsyncStorage.removeItem(ONBOARDING_COMPLETE_KEY);
+      setHasCompletedOnboarding(false);
     },
   }), [hasCompletedOnboarding, isOnboardingReady]);
 
