@@ -9,8 +9,10 @@ import { t } from '@/lib/i18n';
 
 const SECTIONS = [
   ['privacy.localTitle', 'privacy.localBody'],
+  ['privacy.accountsTitle', 'privacy.accountsBody'],
   ['privacy.googleTitle', 'privacy.googleBody'],
-  ['privacy.sharingTitle', 'privacy.sharingBody'],
+  ['privacy.permissionsTitle', 'privacy.permissionsBody'],
+  ['privacy.reportsTitle', 'privacy.reportsBody'],
   ['privacy.deletionTitle', 'privacy.deletionBody'],
   ['privacy.securityTitle', 'privacy.securityBody'],
 ] as const;
