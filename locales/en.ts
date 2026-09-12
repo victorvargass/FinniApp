@@ -354,6 +354,8 @@ const en = {
     amount: 'Amount (CLP)',
     moreOptions: 'More options',
     moreOptionsHint: 'Change the date, withdraw savings, or create a recurrence.',
+    moreOptionsStandardHint: 'Change the date or create a recurrence.',
+    moreOptionsWithdrawalHint: 'Change the withdrawal date.',
     created: 'Income created successfully',
     delete: 'Delete income',
     deleted: 'Income deleted successfully',

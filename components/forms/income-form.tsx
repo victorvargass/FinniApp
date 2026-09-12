@@ -59,7 +59,9 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     : undefined;
   const isContextualSavingsWithdrawal = initialSavingsGoal != null;
   const [name, setName] = useState(
-    initialIncome?.name ?? (initialSavingsGoal ? `Retiro de ${initialSavingsGoal.name}` : '')
+    initialIncome?.name ?? (initialSavingsGoal
+      ? t('savings.withdrawalName', { name: initialSavingsGoal.name })
+      : '')
   );
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [amountText, setAmountText] = useState<string>(initialIncome?.amount ? formatCLPInput(initialIncome.amount) : '');
@@ -95,6 +97,11 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   const selectableSavingsGoals = savingsGoals.filter(
     (goal) => (goal.status === 'active' && goal.allowWithdrawals) || goal.id === savingsGoalId
   );
+  const moreOptionsHint = isContextualSavingsWithdrawal || isSavingsWithdrawal
+    ? t('incomes.moreOptionsWithdrawalHint')
+    : selectableSavingsGoals.length > 0
+      ? t('incomes.moreOptionsHint')
+      : t('incomes.moreOptionsStandardHint');
   const formPeriod = income
     ? periods.find((period) => period.id === income.periodId) ?? selectedPeriod
     : selectedPeriod;
@@ -266,7 +273,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
           <Ionicons name="options-outline" size={21} color={colors.action} />
           <View style={styles.advancedOptionsText}>
             <ThemedText type="defaultSemiBold">{t('incomes.moreOptions')}</ThemedText>
-            <ThemedText style={styles.shareDescription}>{t('incomes.moreOptionsHint')}</ThemedText>
+            <ThemedText style={styles.shareDescription}>{moreOptionsHint}</ThemedText>
           </View>
         </View>
         <Ionicons

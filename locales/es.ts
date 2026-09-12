@@ -354,6 +354,8 @@ const es = {
     amount: 'Monto (CLP)',
     moreOptions: 'Más opciones',
     moreOptionsHint: 'Cambiar fecha, retirar ahorro o crear una recurrencia.',
+    moreOptionsStandardHint: 'Cambiar la fecha o crear una recurrencia.',
+    moreOptionsWithdrawalHint: 'Cambiar la fecha del retiro.',
     created: 'Ingreso creado correctamente',
     delete: 'Eliminar ingreso',
     deleted: 'Ingreso eliminado correctamente',
