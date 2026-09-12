@@ -86,7 +86,11 @@ export function RecurringScheduleFields({
     addIsoMonths(referenceDate, 240),
     5000
   )[0] ?? null;
-  const nextExecutionDate = storedNextDate === undefined ? calculatedNextDate : storedNextDate;
+  const nextExecutionDate = storedNextDate === undefined
+    ? fixedStartDate == null
+      ? value.startDate
+      : calculatedNextDate
+    : storedNextDate;
 
   const changeFrequency = (frequency: RecurringFrequency) => {
     update({
