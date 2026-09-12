@@ -124,7 +124,6 @@ export default function DebtsScreen() {
             <View style={styles.row}><ThemedText>{t('paymentMethods.used')}</ThemedText><ThemedText>{formatCLP(method.usedAmount ?? 0)}</ThemedText></View>
             <View style={styles.methodActions}>
               <Pressable onPress={() => router.push({ pathname: '/modal/expense-form', params: { creditPaymentTargetId: String(method.id) } })} style={[styles.methodButton, { backgroundColor: colors.action }]}><ThemedText style={{ color: colors.onSecondary, fontWeight: '700' }}>{t('paymentMethods.payCard')}</ThemedText></Pressable>
-              <Pressable onPress={() => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(method.id) } })} style={[styles.methodButton, { borderColor: colors.border, borderWidth: 1 }]}><ThemedText type="defaultSemiBold">{t('paymentMethods.account')}</ThemedText></Pressable>
             </View>
           </ThemedView>
         )}
