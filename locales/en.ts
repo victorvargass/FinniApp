@@ -1266,6 +1266,7 @@ const en = {
     noDriveBackup: 'There is no backup in Google Drive.',
     emptyBackup: 'The backup file is empty or incomplete.',
     invalidBackupIntegrity: 'The SQLite backup failed the integrity check.',
+    invalidBackupRelations: 'The backup contains inconsistent data relationships and cannot be restored safely.',
     invalidBackupVersion: 'The backup does not belong to a valid version of FinniApp.',
     googleIosNotConfigured: 'Google Drive is not yet set up for iOS. Add EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in EAS.',
     googleSignInCancelled: 'Sign-in canceled',

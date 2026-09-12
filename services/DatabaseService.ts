@@ -20,22 +20,47 @@ import { t } from '@/lib/i18n';
 
 export class DatabaseService {
   /**
-   * Creates a consistent point-in-time SQLite copy without relying on the
-   * physical WAL files. serializeAsync includes the current database state.
+   * Creates a consistent point-in-time SQLite copy using the native backup
+   * API. The destination is changed back to the standalone DELETE journal
+   * mode so the uploaded file never depends on sidecar WAL files.
    */
   static async createBackupFile(): Promise<File> {
-    const bytes = await withDatabaseLock(async () => {
-      const db = await getDatabase();
-      return db.serializeAsync('main');
-    });
-
+    const backupName = `gastos-backup-${Date.now()}.db`;
     const backup = new File(
       Paths.cache,
-      `gastos-backup-${Date.now()}.db`
+      backupName
     );
 
-    backup.write(bytes);
-    return backup;
+    try {
+      await withDatabaseLock(async () => {
+        const source = await getDatabase();
+        const destination = await SQLite.openDatabaseAsync(
+          backupName,
+          {},
+          Paths.cache.uri
+        );
+
+        try {
+          await SQLite.backupDatabaseAsync({
+            sourceDatabase: source,
+            sourceDatabaseName: 'main',
+            destDatabase: destination,
+            destDatabaseName: 'main',
+          });
+          await destination.execAsync('PRAGMA journal_mode = DELETE');
+        } finally {
+          await destination.closeAsync();
+        }
+      });
+
+      // Never replace the last valid Drive copy with a file the restore path
+      // would reject.
+      await this.validateBackupFile(backup);
+      return backup;
+    } catch (error) {
+      if (backup.exists) backup.delete();
+      throw error;
+    }
   }
 
   /**
@@ -55,21 +80,12 @@ export class DatabaseService {
       throw new Error(t('errors.invalidBackupIntegrity'));
     }
 
-    const tempDirectory = new Directory(
-      Paths.cache,
-      `restore-${Date.now()}`
-    );
-    tempDirectory.create({ idempotent: true, intermediates: true });
-
-    const tempName = 'candidate.db';
-    const candidateFile = new File(tempDirectory, tempName);
-    candidateFile.write(bytes);
-
-    const candidate = await SQLite.openDatabaseAsync(
-      tempName,
-      {},
-      tempDirectory.uri
-    );
+    let candidate: SQLite.SQLiteDatabase;
+    try {
+      candidate = await SQLite.deserializeDatabaseAsync(bytes);
+    } catch {
+      throw new Error(t('errors.invalidBackupIntegrity'));
+    }
 
     try {
       const integrity = await candidate.getFirstAsync<{ integrity_check: string }>(
@@ -92,7 +108,7 @@ export class DatabaseService {
 
       const foreignKeyErrors = await candidate.getAllAsync('PRAGMA foreign_key_check');
       if (foreignKeyErrors.length > 0) {
-        throw new Error(t('errors.invalidBackupIntegrity'));
+        throw new Error(t('errors.invalidBackupRelations'));
       }
 
       const version = await candidate.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -106,8 +122,6 @@ export class DatabaseService {
       }
     } finally {
       await candidate.closeAsync();
-      candidateFile.delete();
-      tempDirectory.delete();
     }
   }
 
@@ -125,17 +139,8 @@ export class DatabaseService {
     );
     tempDirectory.create({ idempotent: true, intermediates: true });
 
-    const sourceName = 'restore-source.db';
     const rollbackName = 'rollback.db';
-
-    const sourceFile = new File(tempDirectory, sourceName);
-    sourceFile.write(bytes);
-
-    const source = await SQLite.openDatabaseAsync(
-      sourceName,
-      {},
-      tempDirectory.uri
-    );
+    const source = await SQLite.deserializeDatabaseAsync(bytes);
 
     await withDatabaseLock(async () => {
       let rollback: SQLite.SQLiteDatabase | null = null;
@@ -211,7 +216,6 @@ export class DatabaseService {
         await source.closeAsync();
         if (rollback) await rollback.closeAsync();
         if (destination) await destination.closeAsync();
-        sourceFile.delete();
         tempDirectory.delete();
         resetDatabaseConnection();
       }
