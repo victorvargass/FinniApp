@@ -917,23 +917,20 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
 
       {showAdvancedOptions && !expense && !isCardPayment && !isInstallmentPurchase && savingsKind !== 'funded_expense' && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: makeRecurring }}
-            onPress={() => setMakeRecurring((current) => !current)}
-            style={styles.recurringHeader}>
+          <View style={styles.recurringHeader}>
             <View style={styles.recurringHeaderCopy}>
               <ThemedText type="defaultSemiBold">{t('expenses.makeRecurring')}</ThemedText>
               <ThemedText style={styles.shareDescription}>
                 {t('expenses.recurringDescription')}
               </ThemedText>
             </View>
-            <Ionicons
-              name={makeRecurring ? 'chevron-up' : 'chevron-down'}
-              size={21}
-              color={colors.icon}
+            <Switch
+              accessibilityLabel={t('expenses.makeRecurring')}
+              onValueChange={setMakeRecurring}
+              trackColor={{ false: colors.border, true: colors.tint }}
+              value={makeRecurring}
             />
-          </Pressable>
+          </View>
           {makeRecurring && (
             <View style={[styles.recurringFields, { borderTopColor: colors.border }]}>
               <RecurringScheduleFields

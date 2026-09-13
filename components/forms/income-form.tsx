@@ -377,13 +377,18 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
 
       {showAdvancedOptions && !isSavingsWithdrawal && (!income || income.recurringIncomeId == null) && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}>
-          <Pressable onPress={() => setMakeIncomeRecurring((current) => !current)} style={styles.recurringHeader}>
+          <View style={styles.recurringHeader}>
             <View style={styles.recurringHeaderCopy}>
               <ThemedText type="defaultSemiBold">{t('expenses.makeRecurring')}</ThemedText>
               <ThemedText style={styles.shareDescription}>{t('incomes.recurringDescription')}</ThemedText>
             </View>
-            <Ionicons name={makeIncomeRecurring ? 'chevron-up' : 'chevron-down'} size={21} color={colors.icon} />
-          </Pressable>
+            <Switch
+              accessibilityLabel={t('expenses.makeRecurring')}
+              onValueChange={setMakeIncomeRecurring}
+              trackColor={{ false: colors.border, true: colors.tint }}
+              value={makeIncomeRecurring}
+            />
+          </View>
           {makeIncomeRecurring && (
             <View style={[styles.recurringFields, { borderTopColor: colors.border }]}>
               <RecurringScheduleFields
