@@ -494,6 +494,9 @@ const en = {
     savingsGoal: 'Create a savings goal',
     backup: 'Connect your Google account to back up your data',
     skipForNow: 'Skip',
+    completedTitle: 'Great start! 🎉',
+    completedBody: 'You have set up the essentials. You can now easily track your transactions, balances, and goals.',
+    completedAction: 'Go to home',
   },
   history: {
     categories: 'Categories',

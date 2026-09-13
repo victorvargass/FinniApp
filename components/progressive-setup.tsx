@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -121,6 +121,11 @@ export function ProgressiveSetup({
     if (!loaded || completedPermanently || completedCount !== steps.length) return;
     setCompletedPermanently(true);
     void AsyncStorage.setItem(SETUP_COMPLETE_KEY, 'true');
+    Alert.alert(
+      t('setup.completedTitle'),
+      t('setup.completedBody'),
+      [{ text: t('setup.completedAction') }]
+    );
   }, [completedCount, completedPermanently, loaded, steps.length]);
 
   if (!loaded || completedPermanently) return null;

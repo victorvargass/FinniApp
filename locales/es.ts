@@ -494,6 +494,9 @@ const es = {
     savingsGoal: 'Crea una meta de ahorro',
     backup: 'Conecta tu cuenta Google para respaldar tus datos',
     skipForNow: 'Omitir',
+    completedTitle: '¡Excelente comienzo! 🎉',
+    completedBody: 'Ya configuraste lo esencial. Desde ahora podrás seguir tus movimientos, saldos y metas fácilmente.',
+    completedAction: 'Ir al inicio',
   },
   history: {
     categories: 'Categorías',
