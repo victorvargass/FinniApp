@@ -2,13 +2,15 @@ import * as SQLite from 'expo-sqlite';
 import { Directory, File, Paths } from 'expo-file-system';
 
 import {
+  closeDatabase,
   getDatabase,
   initDatabase,
-  resetDatabaseInitialization,
+  resetDatabaseConnection,
 } from '@/lib/db';
 import { withDatabaseLock } from '@/lib/database-lock';
 import {
   DATABASE_APPLICATION_ID,
+  DATABASE_NAME,
   DATABASE_SCHEMA_VERSION,
   hasValidSQLiteHeader,
   MAX_BACKUP_SIZE_BYTES,
@@ -17,6 +19,34 @@ import {
 import { t } from '@/lib/i18n';
 
 export class DatabaseService {
+  private static async replaceDatabaseFrom(
+    source: SQLite.SQLiteDatabase
+  ): Promise<void> {
+    await closeDatabase();
+    await SQLite.deleteDatabaseAsync(
+      DATABASE_NAME,
+      SQLite.defaultDatabaseDirectory
+    );
+
+    let destination: SQLite.SQLiteDatabase | null = null;
+    try {
+      destination = await SQLite.openDatabaseAsync(
+        DATABASE_NAME,
+        {},
+        SQLite.defaultDatabaseDirectory
+      );
+      await SQLite.backupDatabaseAsync({
+        sourceDatabase: source,
+        sourceDatabaseName: 'main',
+        destDatabase: destination,
+        destDatabaseName: 'main',
+      });
+    } finally {
+      if (destination) await destination.closeAsync();
+      resetDatabaseConnection();
+    }
+  }
+
   /**
    * Creates a consistent point-in-time SQLite copy using the native backup
    * API. The destination is changed back to the standalone DELETE journal
@@ -124,9 +154,9 @@ export class DatabaseService {
   }
 
   /**
-   * Replaces the current database contents using SQLite's native backup API.
-   * The live connection stays open so no React query can retain a reference
-   * to a native database handle that has already been closed.
+   * Replaces the database only after closing its native handle. Some Android
+   * SQLite builds reject a backup whose destination is an open WAL database.
+   * DatabaseContext keeps reads paused for the complete operation.
    */
   static async restoreFromFile(file: File): Promise<void> {
     await this.validateBackupFile(file);
@@ -141,18 +171,17 @@ export class DatabaseService {
     const rollbackName = 'rollback.db';
     const source = await SQLite.deserializeDatabaseAsync(bytes);
 
-    await withDatabaseLock(async () => {
-      let rollback: SQLite.SQLiteDatabase | null = null;
-      try {
+    const rollback = await SQLite.openDatabaseAsync(
+      rollbackName,
+      {},
+      tempDirectory.uri
+    );
+
+    try {
+      await withDatabaseLock(async () => {
         // Keep a local rollback copy so a failed restore does not leave the
         // application without its previous database.
         const current = await getDatabase();
-        rollback = await SQLite.openDatabaseAsync(
-          rollbackName,
-          {},
-          tempDirectory.uri
-        );
-
         await SQLite.backupDatabaseAsync({
           sourceDatabase: current,
           sourceDatabaseName: 'main',
@@ -161,38 +190,29 @@ export class DatabaseService {
         });
 
         try {
-          await SQLite.backupDatabaseAsync({
-            sourceDatabase: source,
-            sourceDatabaseName: 'main',
-            destDatabase: current,
-            destDatabaseName: 'main',
-          });
-          await current.execAsync(`
-            PRAGMA journal_mode = WAL;
-            PRAGMA busy_timeout = 5000;
-            PRAGMA foreign_keys = ON;
-          `);
+          await this.replaceDatabaseFrom(source);
         } catch (restoreError) {
-          await SQLite.backupDatabaseAsync({
-            sourceDatabase: rollback,
-            sourceDatabaseName: 'main',
-            destDatabase: current,
-            destDatabaseName: 'main',
-          });
-          await current.execAsync('PRAGMA foreign_keys = ON');
+          await this.replaceDatabaseFrom(rollback);
           throw restoreError;
         }
-      } finally {
-        await source.closeAsync();
-        if (rollback) await rollback.closeAsync();
-        tempDirectory.delete();
-      }
-    });
+      });
 
-    // Apply additive migrations when restoring a backup created by an older
-    // app version before the UI starts querying the restored database.
-    resetDatabaseInitialization();
-    await initDatabase();
+      // Apply additive migrations while DatabaseContext still has all reads
+      // paused. If migration fails, restore the pre-operation snapshot too.
+      try {
+        await initDatabase();
+      } catch (migrationError) {
+        await withDatabaseLock(async () => {
+          await this.replaceDatabaseFrom(rollback);
+        });
+        await initDatabase();
+        throw migrationError;
+      }
+    } finally {
+      await source.closeAsync();
+      await rollback.closeAsync();
+      if (tempDirectory.exists) tempDirectory.delete();
+    }
   }
 
 }
