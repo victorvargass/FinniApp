@@ -26,8 +26,8 @@ import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
 import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
 import {
   DEFAULT_CATEGORY_COUNT,
+  confirmFirstPeriodDate,
   hasConfiguredFirstPeriod,
-  markFirstPeriodConfigured,
 } from '@/lib/setup-progress';
 import { showToast } from '@/lib/toast';
 import { buildWeeklyInsight, findSavingsMilestone } from '@/lib/weekly-insights';
@@ -188,17 +188,18 @@ export default function HomeScreen() {
 
   async function saveStartDate(selected: Date) {
     const selectedDateStr = toDateString(selected);
-    if (selectedDateStr === toDateString(startDate)) return;
     if (selected > endDate) {
       Alert.alert(t('common.error'), t('period.invalidStart'));
       return;
     }
     try {
-      await setPeriodStartDate(selectedDateStr);
-      await markFirstPeriodConfigured();
-      setHasConfiguredPeriod(true);
-      setStartDate(selected);
-      showToast(t('period.startDateUpdated'));
+      const changed = selectedDateStr !== toDateString(startDate);
+      if (changed) {
+        await setPeriodStartDate(selectedDateStr);
+        setStartDate(selected);
+        showToast(t('period.startDateUpdated'));
+      }
+      setHasConfiguredPeriod(await confirmFirstPeriodDate('start'));
     } catch (error) {
       Alert.alert(t('common.error'), error instanceof Error ? error.message : t('period.updateStartError'));
     }
@@ -206,17 +207,18 @@ export default function HomeScreen() {
 
   async function saveEndDate(selected: Date) {
     const selectedDateStr = toDateString(selected);
-    if (selectedDateStr === toDateString(endDate)) return;
     if (selected < startDate) {
       Alert.alert(t('common.error'), t('period.invalidEnd'));
       return;
     }
     try {
-      await setPeriodEndDate(selectedDateStr);
-      await markFirstPeriodConfigured();
-      setHasConfiguredPeriod(true);
-      setEndDate(selected);
-      showToast(t('period.endDateUpdated'));
+      const changed = selectedDateStr !== toDateString(endDate);
+      if (changed) {
+        await setPeriodEndDate(selectedDateStr);
+        setEndDate(selected);
+        showToast(t('period.endDateUpdated'));
+      }
+      setHasConfiguredPeriod(await confirmFirstPeriodDate('end'));
     } catch (error) {
       Alert.alert(t('common.error'), error instanceof Error ? error.message : t('period.updateEndError'));
     }
