@@ -166,7 +166,7 @@ const es = {
       paymentsBody: 'Los pagos reducen el saldo de una deuda. En un medio de pago de crédito, un abono también recupera cupo y queda visible entre sus movimientos.',
     },
     recurrences: {
-      scheduleTitle: 'Programa movimientos repetidos',
+      scheduleTitle: 'Programa movimientos recurrentes',
       scheduleBody: 'Crea la recurrencia desde un ingreso o gasto y define frecuencia, fecha de inicio y, si corresponde, fecha de término.',
       modeTitle: 'Automático o con confirmación',
       modeBody: 'El modo automático registra el movimiento cuando corresponde. Con confirmación, FinniApp espera tu aprobación antes de incorporarlo.',
@@ -514,7 +514,7 @@ const es = {
     guideIntro: 'Consulta cómo se crean y confirman los movimientos programados.',
     activeHint: 'Permite crear los próximos movimientos recurrentes',
     annual: 'Anual',
-    annualHint: 'Se repetirá una vez al año en esta fecha.',
+    annualHint: 'Se ejecutará una vez al año en esta fecha.',
     confirmation: 'Con confirmación',
     create: 'Crear recurrencia',
     custom: 'Personalizado',
