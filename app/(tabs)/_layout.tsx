@@ -15,6 +15,8 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      initialRouteName="home"
+      backBehavior="history"
       screenOptions={{
         tabBarActiveTintColor: colors.tabIconSelected,
         tabBarInactiveTintColor: colors.tabIconDefault,
