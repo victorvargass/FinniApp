@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -29,6 +29,8 @@ export default function DebtDetailScreen() {
   const planId = Number(id);
   const { periods, selectedPeriodId, getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, restoreRemovedInstallment, removeInstallmentPlan } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const { fontScale } = useWindowDimensions();
+  const usesLargeText = fontScale >= 1.2;
   const [plan, setPlan] = useState<DebtPlan | null>(null);
   const [periodId, setPeriodId] = useState<number | null>(selectedPeriodId);
   const [amountText, setAmountText] = useState('');
@@ -136,12 +138,12 @@ export default function DebtDetailScreen() {
           const isCompleted = installment.status === 'posted' || isSettled;
           return (
             <View key={installment.id}>
-              <ThemedView style={styles.installment}>
+              <ThemedView style={[styles.installment, usesLargeText && styles.installmentLargeText]}>
                 <View style={[styles.icon, isCompleted ? styles.posted : installment.status === 'cancelled' || installment.manuallyRemoved ? styles.cancelled : styles.projected]}>
                   <Ionicons name={isCompleted ? 'checkmark' : installment.status === 'cancelled' || installment.manuallyRemoved ? 'close' : 'time-outline'} size={17} color="#fff" />
                 </View>
                 <View style={styles.copy}><ThemedText type="defaultSemiBold">{t('installments.installmentNumber', { number: installment.number, total: plan.totalInstallments })}</ThemedText><ThemedText style={styles.secondary}>{formatDate(parseDate(installment.dueDate))} · {installment.manuallyRemoved ? t('installments.manuallyRemoved') : installment.status === 'posted' ? t('installments.posted') : isSettled ? t('installments.settledInstallment') : installment.status === 'cancelled' ? t('installments.cancelled') : t('installments.projected')}</ThemedText></View>
-                <ThemedText>{formatCLP(installment.projectedAmount)}</ThemedText>
+                <ThemedText style={[styles.installmentAmount, usesLargeText && styles.installmentAmountLargeText]}>{formatCLP(installment.projectedAmount)}</ThemedText>
               </ThemedView>
               {installment.expenseId != null && (
                 <Pressable onPress={() => router.push({ pathname: '/modal/expense-form', params: { id: String(installment.expenseId) } })} style={styles.inlineAction}>
@@ -224,7 +226,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: 12, padding: 15, gap: 11 }, secondary: { opacity: 0.65, lineHeight: 18 }, label: { fontWeight: '600' },
   input: { borderWidth: 1, borderRadius: 9, padding: 11, fontSize: 16, fontFamily: Fonts.regular }, periodSelect: { minHeight: 46, borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   primary: { minHeight: 46, backgroundColor: '#0B315B', borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' }, primaryText: { width: '100%', color: '#fff', fontWeight: '700', textAlign: 'center', flexShrink: 1 },
-  installment: { borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, icon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, posted: { backgroundColor: '#1FAF78' }, projected: { backgroundColor: '#D88916' }, cancelled: { backgroundColor: '#60758E' }, copy: { flex: 1 },
+  installment: { borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, installmentLargeText: { flexWrap: 'wrap', alignItems: 'flex-start' }, installmentAmount: { textAlign: 'right' }, installmentAmountLargeText: { width: '100%', paddingLeft: 38 }, icon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, posted: { backgroundColor: '#1FAF78' }, projected: { backgroundColor: '#D88916' }, cancelled: { backgroundColor: '#60758E' }, copy: { flex: 1, minWidth: 0 },
   inlineAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9 },
   restoreButton: { alignSelf: 'center', minHeight: 42, marginTop: 10, marginBottom: 4, borderWidth: 1, borderRadius: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 16, paddingVertical: 9 },
   restoreButtonText: { fontSize: 14, lineHeight: 20, fontWeight: '700' },

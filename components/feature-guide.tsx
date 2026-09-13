@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, Fonts } from '@/constants/theme';
@@ -107,24 +107,30 @@ export function FeatureGuide({ visible, slides, onClose }: FeatureGuideProps) {
             </Pressable>
           </View>
 
-          <View style={[styles.icon, { backgroundColor: `${colors.secondary}22` }]}>
-            <Ionicons name={slide.icon} size={40} color={colors.action} />
-          </View>
-          <ThemedText type="title" style={styles.title}>{slide.title}</ThemedText>
-          <ThemedText style={[styles.body, { color: colors.textSecondary }]}>{slide.body}</ThemedText>
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={styles.slideContent}
+            style={styles.slideScroll}
+            showsVerticalScrollIndicator={false}>
+            <View style={[styles.icon, { backgroundColor: `${colors.secondary}22` }]}>
+              <Ionicons name={slide.icon} size={40} color={colors.action} />
+            </View>
+            <ThemedText type="title" style={styles.title}>{slide.title}</ThemedText>
+            <ThemedText style={[styles.body, { color: colors.textSecondary }]}>{slide.body}</ThemedText>
 
-          <View style={styles.dots}>
-            {slides.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.dot,
-                  { backgroundColor: index === page ? colors.secondary : colors.border },
-                  index === page && styles.activeDot,
-                ]}
-              />
-            ))}
-          </View>
+            <View style={styles.dots}>
+              {slides.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    { backgroundColor: index === page ? colors.secondary : colors.border },
+                    index === page && styles.activeDot,
+                  ]}
+                />
+              ))}
+            </View>
+          </ScrollView>
 
           <View style={styles.actions}>
             {page > 0 && (
@@ -167,6 +173,7 @@ const styles = StyleSheet.create({
   },
   card: {
     minHeight: 430,
+    maxHeight: '92%',
     borderRadius: 24,
     padding: 22,
     gap: 16,
@@ -174,6 +181,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.24,
     shadowRadius: 18,
     elevation: 12,
+  },
+  slideContent: {
+    gap: 16,
+    paddingBottom: 2,
+  },
+  slideScroll: {
+    flexShrink: 1,
   },
   topRow: {
     flexDirection: 'row',
@@ -199,7 +213,6 @@ const styles = StyleSheet.create({
   },
   body: {
     minHeight: 96,
-    flexShrink: 0,
     fontSize: 16,
     lineHeight: 24,
   },
