@@ -171,15 +171,27 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
     : selectedPeriod;
   const todayString = toDateString(new Date());
   const canExtendCurrentPeriod = !expense && formPeriod?.id === settings.currentPeriodId;
-  const maximumMovementDate = formPeriod
-    ? parseDateString(
-        canExtendCurrentPeriod && formPeriod.endDate < todayString
-          ? todayString
-          : formPeriod.endDate
-      )
-    : undefined;
+  const minimumMovementDate = isInstallmentPurchase
+    ? undefined
+    : formPeriod
+      ? parseDateString(formPeriod.startDate)
+      : undefined;
+  const maximumMovementDate = isInstallmentPurchase
+    ? parseDateString(todayString)
+    : formPeriod
+      ? parseDateString(
+          canExtendCurrentPeriod && formPeriod.endDate < todayString
+            ? todayString
+            : formPeriod.endDate
+        )
+      : undefined;
 
   const selectMovementDate = (selected: Date) => {
+    if (isInstallmentPurchase) {
+      setDate(selected);
+      return;
+    }
+
     const selectedDate = toDateString(selected);
     if (!formPeriod || !canExtendCurrentPeriod || selectedDate <= formPeriod.endDate) {
       setDate(selected);
@@ -422,7 +434,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
       }
     }
 
-    if (formPeriod) {
+    if (formPeriod && !isInstallmentPurchase) {
       const startDate = parseDateString(formPeriod.startDate);
       const endDate = parseDateString(formPeriod.endDate);
 
@@ -929,7 +941,9 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
 
       {showAdvancedOptions && (
         <>
-          <ThemedText style={styles.label}>{t('forms.date')}</ThemedText>
+          <ThemedText style={styles.label}>
+            {isInstallmentPurchase ? t('installments.purchaseDate') : t('forms.date')}
+          </ThemedText>
           <Pressable
             style={[styles.dateButton, { borderColor: colors.icon }]}
             onPress={() => setShowDatePicker(true)}>
@@ -939,7 +953,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
           {showDatePicker && (
             <DateTimePicker
               value={date}
-              minimumDate={formPeriod ? parseDateString(formPeriod.startDate) : undefined}
+              minimumDate={minimumMovementDate}
               maximumDate={maximumMovementDate}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -948,6 +962,11 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
                 if (selected) selectMovementDate(selected);
               }}
             />
+          )}
+          {isInstallmentPurchase && (
+            <ThemedText style={styles.paymentHint}>
+              {t('installments.purchaseDateHint')}
+            </ThemedText>
           )}
           {Platform.OS === 'ios' && showDatePicker && (
             <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>

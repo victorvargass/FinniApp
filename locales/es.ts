@@ -628,6 +628,8 @@ const es = {
     currentClosing: 'Este cierre',
     nextClosing: 'Próximo cierre',
     estimatedDate: 'Fecha estimada: %{date}',
+    purchaseDate: 'Fecha de compra',
+    purchaseDateHint: 'Puede ser anterior al período actual. El cierre elegido define cuándo se registrará la primera cuota.',
     viewDetail: 'Ver detalle de cuotas',
     titleForMethod: 'Cuotas · %{name}',
     intro: 'Aquí puedes confirmar compras proyectadas, revisar su avance y administrar el saldo pendiente.',

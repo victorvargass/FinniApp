@@ -628,6 +628,8 @@ const en = {
     currentClosing: 'Current statement',
     nextClosing: 'Next statement',
     estimatedDate: 'Estimated date: %{date}',
+    purchaseDate: 'Purchase date',
+    purchaseDateHint: 'It can be before the current period. The selected statement determines when the first installment is recorded.',
     viewDetail: 'View installment details',
     titleForMethod: 'Installments · %{name}',
     intro: 'Here you can confirm projected purchases, review their progress and manage the outstanding balance.',
