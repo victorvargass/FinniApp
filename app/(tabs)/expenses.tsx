@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -37,6 +38,8 @@ type SortOption =
 type CategoryFilter = ('none' | number)[];
 type PaymentMethodFilter = ('none' | number)[];
 type GroupBy = 'none' | 'category' | 'payment-method';
+
+const EXPENSE_GROUP_BY_STORAGE_KEY = '@finniapp/expense-group-by';
 
 type ExpenseGroup = {
   name: string;
@@ -289,16 +292,43 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
   );
 
   useEffect(() => {
+    let cancelled = false;
+
+    AsyncStorage.getItem(EXPENSE_GROUP_BY_STORAGE_KEY)
+      .then((storedGroupBy) => {
+        if (
+          !cancelled &&
+          (storedGroupBy === 'category' ||
+            storedGroupBy === 'payment-method' ||
+            storedGroupBy === 'none')
+        ) {
+          setGroupBy(storedGroupBy);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     setSearch('');
     setCategoryFilter([]);
     setPaymentMethodFilter([]);
     setSortBy('date-desc');
-    setGroupBy('category');
     setCollapsedGroupKeys([]);
     setSortModalVisible(false);
     setFilterModalVisible(false);
     setGroupModalVisible(false);
   }, [selectedPeriodId]);
+
+  const selectGroupBy = (value: GroupBy) => {
+    setGroupBy(value);
+    setCollapsedGroupKeys([]);
+    setGroupModalVisible(false);
+    void AsyncStorage.setItem(EXPENSE_GROUP_BY_STORAGE_KEY, value).catch(() => undefined);
+  };
 
   useEffect(() => {
     if (!requestedCategory) return;
@@ -617,17 +647,17 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
         <ModalOption
           label={t('filters.groupByCategory')}
           selected={groupBy === 'category'}
-          onPress={() => { setGroupBy('category'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
+          onPress={() => selectGroupBy('category')}
         />
         <ModalOption
           label={t('filters.groupByPaymentMethod')}
           selected={groupBy === 'payment-method'}
-          onPress={() => { setGroupBy('payment-method'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
+          onPress={() => selectGroupBy('payment-method')}
         />
         <ModalOption
           label={t('filters.noGrouping')}
           selected={groupBy === 'none'}
-          onPress={() => { setGroupBy('none'); setCollapsedGroupKeys([]); setGroupModalVisible(false); }}
+          onPress={() => selectGroupBy('none')}
         />
       </OptionModal>
 
