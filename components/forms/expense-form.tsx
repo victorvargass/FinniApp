@@ -28,11 +28,12 @@ const LAST_EXPENSE_PAYMENT_METHOD_KEY = '@finniapp/last-expense-payment-method-i
 type ExpenseFormProps = {
   expense?: Expense;
   templateExpense?: Expense;
+  initialCardPayment?: boolean;
   initialCreditPaymentTargetId?: number;
   onSuccess: () => void;
 };
 
-export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTargetId, onSuccess }: ExpenseFormProps) {
+export function ExpenseForm({ expense, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, onSuccess }: ExpenseFormProps) {
   const {
     categories,
     paymentMethods,
@@ -72,7 +73,8 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
   );
   const creditPaymentCategory = categories.find((category) => category.systemKey === 'credit_payment');
   const [categoryId, setCategoryId] = useState<number | null>(
-    initialExpense?.categoryId ?? (initialCreditPaymentTargetId ? creditPaymentCategory?.id ?? null : null)
+    initialExpense?.categoryId
+      ?? (initialCreditPaymentTargetId || initialCardPayment ? creditPaymentCategory?.id ?? null : null)
   );
   const [creditPaymentTargetId, setCreditPaymentTargetId] = useState<number | null>(
     expense?.creditPaymentTargetId ?? initialCreditPaymentTargetId ?? null
@@ -282,9 +284,9 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
   }, [isCreditPurchase]);
 
   useEffect(() => {
-    if (!initialCreditPaymentTargetId || expense || !creditPaymentCategory) return;
+    if ((!initialCreditPaymentTargetId && !initialCardPayment) || expense || !creditPaymentCategory) return;
     setCategoryId(creditPaymentCategory.id);
-  }, [creditPaymentCategory, expense, initialCreditPaymentTargetId]);
+  }, [creditPaymentCategory, expense, initialCardPayment, initialCreditPaymentTargetId]);
 
   useEffect(() => {
     if (!isCardPayment) {

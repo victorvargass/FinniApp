@@ -68,6 +68,8 @@ const es = {
     incomeDescription: 'Sueldo, venta u otra entrada de dinero.',
     transferTitle: 'Nueva transferencia',
     transferDescription: 'Mueve dinero entre Efectivo, Débito y Prepago.',
+    cardPaymentTitle: 'Nuevo abono',
+    cardPaymentDescription: 'Abona a una tarjeta de crédito desde otro medio de pago.',
   },
   transfers: {
     title: 'Transferencia',

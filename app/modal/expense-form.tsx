@@ -11,7 +11,12 @@ import * as db from '@/lib/db';
 import type { ExpenseWithCategory } from '@/lib/types';
 
 export default function ExpenseFormModal() {
-  const { id, repeatId, creditPaymentTargetId } = useLocalSearchParams<{ id?: string; repeatId?: string; creditPaymentTargetId?: string }>();
+  const { id, repeatId, creditPaymentTargetId, cardPayment } = useLocalSearchParams<{
+    id?: string;
+    repeatId?: string;
+    creditPaymentTargetId?: string;
+    cardPayment?: string;
+  }>();
   const { expenses } = useDatabase();
   const navigation = useNavigation();
   const sourceId = id ?? repeatId;
@@ -88,6 +93,7 @@ export default function ExpenseFormModal() {
       <ExpenseForm
         expense={expense}
         templateExpense={isRepeating ? sourceExpense : undefined}
+        initialCardPayment={cardPayment === 'true'}
         initialCreditPaymentTargetId={creditPaymentTargetId ? Number(creditPaymentTargetId) : undefined}
         onSuccess={() => router.back()}
       />

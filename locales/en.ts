@@ -68,6 +68,8 @@ const en = {
     incomeDescription: 'Salary, sale, or other money coming in.',
     transferTitle: 'New transfer',
     transferDescription: 'Move money between Cash, Debit, and Prepaid accounts.',
+    cardPaymentTitle: 'New card payment',
+    cardPaymentDescription: 'Pay a credit card from another payment method.',
   },
   transfers: {
     title: 'Transfer',
