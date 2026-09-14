@@ -23,10 +23,7 @@ type HomeOverviewProps = {
   incomeTotal: number;
   expenseTotal: number;
   attentionItems: HomeAttentionItem[];
-  showActions: boolean;
-  onAddExpense: () => void;
-  onAddIncome: () => void;
-  onTransfer: () => void;
+  showAttention: boolean;
 };
 
 export function HomeOverview({
@@ -34,17 +31,9 @@ export function HomeOverview({
   incomeTotal,
   expenseTotal,
   attentionItems,
-  showActions,
-  onAddExpense,
-  onAddIncome,
-  onTransfer,
+  showAttention,
 }: HomeOverviewProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
-  const actions = [
-    { key: 'expense', icon: 'arrow-up', label: t('home.addExpense'), onPress: onAddExpense },
-    { key: 'income', icon: 'arrow-down', label: t('home.addIncome'), onPress: onAddIncome },
-    { key: 'transfer', icon: 'swap-horizontal-outline', label: t('home.transfer'), onPress: onTransfer },
-  ] as const;
 
   return (
     <View style={styles.container}>
@@ -70,41 +59,7 @@ export function HomeOverview({
         </View>
       </ThemedView>
 
-      {showActions && (
-        <View style={styles.section}>
-          <ThemedText type="subtitle">{t('home.quickActions')}</ThemedText>
-          <View style={styles.actions}>
-            {actions.map((action, index) => (
-            <Pressable
-              accessibilityLabel={action.label}
-              accessibilityRole="button"
-              key={action.key}
-              onPress={action.onPress}
-              style={({ pressed }) => [
-                styles.action,
-                {
-                  backgroundColor: index === 0 ? colors.secondary : colors.surface,
-                  borderColor: index === 0 ? colors.secondary : colors.border,
-                },
-                pressed && styles.pressed,
-              ]}>
-              <Ionicons
-                name={action.icon}
-                size={22}
-                color={index === 0 ? colors.onSecondary : colors.action}
-              />
-              <ThemedText
-                type="defaultSemiBold"
-                style={[styles.actionLabel, index === 0 && { color: colors.onSecondary }]}>
-                {action.label}
-              </ThemedText>
-            </Pressable>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {showActions && <View style={styles.section}>
+      {showAttention && <View style={styles.section}>
         <ThemedText type="subtitle">{t('home.attention')}</ThemedText>
         {attentionItems.length === 0 ? (
           <ThemedView style={[styles.upToDate, { borderColor: colors.border }]}>
@@ -157,9 +112,6 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 12, lineHeight: 17, opacity: 0.72 },
   totalValue: { fontFamily: Fonts.bold, fontSize: 15, lineHeight: 21 },
   section: { gap: 10 },
-  actions: { flexDirection: 'row', gap: 9 },
-  action: { flex: 1, minHeight: 76, borderWidth: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center', gap: 5, padding: 8 },
-  actionLabel: { fontSize: 12, lineHeight: 16, textAlign: 'center' },
   upToDate: { borderWidth: 1, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   attention: { borderWidth: 1, borderRadius: 14, padding: 13, flexDirection: 'row', alignItems: 'center', gap: 12 },
   attentionIcon: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },

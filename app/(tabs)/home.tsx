@@ -269,10 +269,7 @@ export default function HomeScreen() {
           incomeTotal={periodIncomesTotal}
           expenseTotal={periodExpensesTotal}
           attentionItems={attentionItems}
-          showActions={Boolean(isCurrentPeriod)}
-          onAddExpense={() => router.push('/modal/expense-form')}
-          onAddIncome={() => router.push('/modal/income-form')}
-          onTransfer={() => router.push('/modal/account-transfer-form')}
+          showAttention={Boolean(isCurrentPeriod)}
         />
         {isCurrentPeriod && (
           <ProgressiveSetup

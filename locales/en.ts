@@ -459,10 +459,6 @@ const en = {
   home: {
     availableThisPeriod: 'Available this period',
     availableAmount: 'Available balance: %{amount}',
-    quickActions: 'Quick actions',
-    addExpense: 'Expense',
-    addIncome: 'Income',
-    transfer: 'Transfer',
     attention: 'Needs your attention',
     upToDate: 'Everything is up to date',
     upToDateHint: 'There are no important pending items right now.',
