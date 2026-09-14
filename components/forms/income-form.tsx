@@ -38,6 +38,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     settings,
     periods,
     selectedPeriod,
+    setPeriodEndDate,
   } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -105,6 +106,47 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   const formPeriod = income
     ? periods.find((period) => period.id === income.periodId) ?? selectedPeriod
     : selectedPeriod;
+  const todayString = toDateString(new Date());
+  const canExtendCurrentPeriod = !income && formPeriod?.id === settings.currentPeriodId;
+  const maximumMovementDate = formPeriod
+    ? parseDateString(
+        canExtendCurrentPeriod && formPeriod.endDate < todayString
+          ? todayString
+          : formPeriod.endDate
+      )
+    : undefined;
+
+  const selectMovementDate = (selected: Date) => {
+    const selectedDate = toDateString(selected);
+    if (!formPeriod || !canExtendCurrentPeriod || selectedDate <= formPeriod.endDate) {
+      setDate(selected);
+      return;
+    }
+
+    Alert.alert(
+      t('period.extendForMovementTitle'),
+      t('period.extendForMovementMessage', {
+        end: formatDate(parseDateString(formPeriod.endDate)),
+        date: formatDate(selected),
+      }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('period.extendForMovementAction'),
+          onPress: () => {
+            void setPeriodEndDate(selectedDate)
+              .then(() => {
+                setDate(selected);
+                showToast(t('period.endDateUpdated'));
+              })
+              .catch((error) => {
+                Alert.alert(t('common.error'), error instanceof Error ? error.message : t('period.updateEndError'));
+              });
+          },
+        },
+      ]
+    );
+  };
 
   const toggleAdvancedOptions = () => {
     if (showAdvancedOptions) {
@@ -356,14 +398,12 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
             <DateTimePicker
               value={date}
               minimumDate={formPeriod ? parseDateString(formPeriod.startDate) : undefined}
-              maximumDate={formPeriod ? parseDateString(formPeriod.endDate) : undefined}
+              maximumDate={maximumMovementDate}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={(_, selected) => {
                 if (Platform.OS === 'android') setShowDatePicker(false);
-                if (selected) {
-                  setDate(selected);
-                }
+                if (selected) selectMovementDate(selected);
               }}
             />
           )}

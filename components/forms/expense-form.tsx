@@ -45,6 +45,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
     selectedPeriod,
     getCreditCardCycles,
     settings,
+    setPeriodEndDate,
   } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -168,6 +169,47 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
   const formPeriod = expense
     ? periods.find((period) => period.id === expense.periodId) ?? selectedPeriod
     : selectedPeriod;
+  const todayString = toDateString(new Date());
+  const canExtendCurrentPeriod = !expense && formPeriod?.id === settings.currentPeriodId;
+  const maximumMovementDate = formPeriod
+    ? parseDateString(
+        canExtendCurrentPeriod && formPeriod.endDate < todayString
+          ? todayString
+          : formPeriod.endDate
+      )
+    : undefined;
+
+  const selectMovementDate = (selected: Date) => {
+    const selectedDate = toDateString(selected);
+    if (!formPeriod || !canExtendCurrentPeriod || selectedDate <= formPeriod.endDate) {
+      setDate(selected);
+      return;
+    }
+
+    Alert.alert(
+      t('period.extendForMovementTitle'),
+      t('period.extendForMovementMessage', {
+        end: formatDate(parseDateString(formPeriod.endDate)),
+        date: formatDate(selected),
+      }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('period.extendForMovementAction'),
+          onPress: () => {
+            void setPeriodEndDate(selectedDate)
+              .then(() => {
+                setDate(selected);
+                showToast(t('period.endDateUpdated'));
+              })
+              .catch((error) => {
+                Alert.alert(t('common.error'), error instanceof Error ? error.message : t('period.updateEndError'));
+              });
+          },
+        },
+      ]
+    );
+  };
   const isCreditPurchase = !isCardPayment && !isSavingsRelated && selectedPaymentMethod?.type === 'credit';
   const installmentCount = Number(installmentCountText);
   const estimatedInstallmentAmount = amountToSave != null && Number.isInteger(installmentCount) && installmentCount > 0
@@ -898,12 +940,12 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
             <DateTimePicker
               value={date}
               minimumDate={formPeriod ? parseDateString(formPeriod.startDate) : undefined}
-              maximumDate={formPeriod ? parseDateString(formPeriod.endDate) : undefined}
+              maximumDate={maximumMovementDate}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={(_, selected) => {
                 if (Platform.OS === 'android') setShowDatePicker(false);
-                if (selected) setDate(selected);
+                if (selected) selectMovementDate(selected);
               }}
             />
           )}
