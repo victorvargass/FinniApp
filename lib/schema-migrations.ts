@@ -14,6 +14,7 @@ export const SCHEMA_MIGRATIONS = [
   { version: 7, name: 'savings-withdrawal-policy' },
   { version: 8, name: 'account-transfers' },
   { version: 9, name: 'payment-method-name-per-type' },
+  { version: 10, name: 'credit-card-refunds-and-adjustments' },
 ] as const;
 
 export async function recordAppliedSchema(database: MigrationDatabase): Promise<void> {

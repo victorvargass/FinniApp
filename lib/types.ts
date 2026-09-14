@@ -151,6 +151,7 @@ export type PaymentMethod = {
   usedAmount: number | null;
   registeredCharges: number;
   registeredPayments: number;
+  registeredAdjustments: number;
   registeredIncomes: number;
   registeredTransfersIn: number;
   registeredTransfersOut: number;
@@ -165,9 +166,23 @@ export type PaymentMethodMovement = {
   name: string;
   amount: number;
   date: string;
-  kind: 'expense' | 'credit_payment' | 'installment_purchase' | 'income' | 'savings_withdrawal' | 'transfer_in' | 'transfer_out';
+  kind: 'expense' | 'credit_payment' | 'credit_adjustment' | 'installment_purchase' | 'income' | 'savings_withdrawal' | 'transfer_in' | 'transfer_out';
   categoryName: string | null;
   relatedPaymentMethodName: string | null;
+};
+
+export type CreditCardAdjustmentKind = 'refund' | 'cancelled_purchase' | 'discount' | 'other';
+
+export type NewCreditCardAdjustment = {
+  paymentMethodId: number;
+  amount: number;
+  date: string;
+  kind: CreditCardAdjustmentKind;
+  note: string | null;
+};
+
+export type CreditCardAdjustment = NewCreditCardAdjustment & {
+  id: number;
 };
 
 export type NewPaymentMethod = {
@@ -218,6 +233,7 @@ export type PaymentMethodDeletionInfo = {
   expenseCount: number;
   debtPlanCount: number;
   receivedPaymentCount: number;
+  adjustmentCount: number;
   transferCount: number;
 };
 

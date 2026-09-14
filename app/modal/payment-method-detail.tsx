@@ -192,6 +192,12 @@ export default function PaymentMethodDetailScreen() {
               <ThemedText>{t('paymentMethods.registeredPayments')}</ThemedText>
               <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredPayments)}</ThemedText>
             </View>
+            {method.registeredAdjustments > 0 && (
+              <View style={styles.calculationRow}>
+                <ThemedText>{t('paymentMethods.registeredAdjustments')}</ThemedText>
+                <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredAdjustments)}</ThemedText>
+              </View>
+            )}
             <View style={styles.calculationRow}>
               <ThemedText>{t('paymentMethods.registeredIncomes')}</ThemedText>
               <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredIncomes)}</ThemedText>
@@ -287,16 +293,19 @@ export default function PaymentMethodDetailScreen() {
             </ThemedView>
           ) : recentMovements.map((movement) => {
             const isPaymentReceived = movement.kind === 'credit_payment';
+            const isAdjustment = movement.kind === 'credit_adjustment';
             const isInstallmentPurchase = movement.kind === 'installment_purchase';
             const isIncome = movement.kind === 'income' || movement.kind === 'savings_withdrawal';
             const isTransfer = movement.kind === 'transfer_in' || movement.kind === 'transfer_out';
-            const isIncoming = isPaymentReceived || isIncome || movement.kind === 'transfer_in';
+            const isIncoming = isPaymentReceived || isAdjustment || isIncome || movement.kind === 'transfer_in';
             const detail = movement.kind === 'transfer_in'
               ? t('transfers.receivedFrom', { name: movement.relatedPaymentMethodName ?? t('common.notSpecified') })
               : movement.kind === 'transfer_out'
                 ? t('transfers.sentTo', { name: movement.relatedPaymentMethodName ?? t('common.notSpecified') })
                 : isInstallmentPurchase
               ? t('paymentMethods.installmentPurchaseTotal')
+              : isAdjustment
+                ? t('paymentMethods.sameCardAdjustment')
               : isPaymentReceived
               ? t('paymentMethods.paymentReceivedFrom', {
                   name: movement.relatedPaymentMethodName ?? t('common.notSpecified'),
@@ -316,6 +325,8 @@ export default function PaymentMethodDetailScreen() {
                 key={`${movement.kind}-${movement.id}`}
                 onPress={() => router.push((isTransfer
                   ? { pathname: '/modal/account-transfer-form', params: { id: String(movement.id) } }
+                  : isAdjustment
+                    ? { pathname: '/modal/expense-form', params: { adjustmentId: String(movement.id) } }
                   : isInstallmentPurchase
                   ? { pathname: '/modal/debt-detail', params: { id: String(movement.id) } }
                   : isIncome

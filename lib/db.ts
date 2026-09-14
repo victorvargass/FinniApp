@@ -14,6 +14,7 @@ import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
 import type {
   AccountTransfer,
   Category,
+  CreditCardAdjustment,
   CreditCardCycle,
   DebtPlan,
   ExpenseWithCategory,
@@ -22,6 +23,7 @@ import type {
   Debt,
   DebtEntry,
   NewCategory,
+  NewCreditCardAdjustment,
   NewAccountTransfer,
   NewCreditCardCycle,
   NewExpense,
@@ -538,11 +540,24 @@ async function initializeDatabase(): Promise<void> {
       balance_synced_at TEXT,
       balance_expense_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0,
+      balance_adjustment_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_income_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_transfer_anchor_id INTEGER NOT NULL DEFAULT 0,
       payment_due_day INTEGER,
       UNIQUE(name, type)
+    );
+
+    CREATE TABLE IF NOT EXISTS credit_card_adjustments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payment_method_id INTEGER NOT NULL,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      date TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('refund', 'cancelled_purchase', 'discount', 'other')),
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(payment_method_id) REFERENCES payment_methods(id) ON DELETE RESTRICT
     );
 
     CREATE TABLE IF NOT EXISTS account_transfers (
@@ -931,6 +946,9 @@ async function initializeDatabase(): Promise<void> {
   if (!paymentMethodColumns.some((column) => column.name === 'balance_payment_anchor_id')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0;');
   }
+  if (!paymentMethodColumns.some((column) => column.name === 'balance_adjustment_anchor_id')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_adjustment_anchor_id INTEGER NOT NULL DEFAULT 0;');
+  }
   if (!paymentMethodColumns.some((column) => column.name === 'balance_income_anchor_id')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN balance_income_anchor_id INTEGER NOT NULL DEFAULT 0;');
     await db.execAsync(`
@@ -998,6 +1016,7 @@ async function initializeDatabase(): Promise<void> {
         balance_synced_at TEXT,
         balance_expense_anchor_id INTEGER NOT NULL DEFAULT 0,
         balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0,
+        balance_adjustment_anchor_id INTEGER NOT NULL DEFAULT 0,
         balance_income_anchor_id INTEGER NOT NULL DEFAULT 0,
         balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0,
         balance_transfer_anchor_id INTEGER NOT NULL DEFAULT 0,
@@ -1008,13 +1027,13 @@ async function initializeDatabase(): Promise<void> {
         id, name, type, system_key, billing_day, color, active, credit_limit,
         reported_balance, balance_updated_at, balance_synced_at,
         balance_expense_anchor_id, balance_payment_anchor_id, balance_income_anchor_id,
-        balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
+        balance_adjustment_anchor_id, balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
       )
       SELECT
         id, name, type, system_key, billing_day, color, active, credit_limit,
         reported_balance, balance_updated_at, balance_synced_at,
         balance_expense_anchor_id, balance_payment_anchor_id, balance_income_anchor_id,
-        balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
+        balance_adjustment_anchor_id, balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
       FROM payment_methods;
       DROP TABLE payment_methods;
       ALTER TABLE payment_methods_new RENAME TO payment_methods;
@@ -1110,6 +1129,7 @@ async function initializeDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_manual_debt_entries_expense ON manual_debt_entries(expense_id);
     CREATE INDEX IF NOT EXISTS idx_account_transfers_source_date ON account_transfers(source_payment_method_id, date);
     CREATE INDEX IF NOT EXISTS idx_account_transfers_destination_date ON account_transfers(destination_payment_method_id, date);
+    CREATE INDEX IF NOT EXISTS idx_credit_card_adjustments_method_date ON credit_card_adjustments(payment_method_id, date);
 
     INSERT OR IGNORE INTO periods (id, start_date, end_date)
     VALUES (
@@ -1300,6 +1320,7 @@ export async function resetLocalData(): Promise<void> {
       DELETE FROM recurring_expense_occurrences;
       DELETE FROM recurring_income_occurrences;
       DELETE FROM credit_card_cycles;
+      DELETE FROM credit_card_adjustments;
       DELETE FROM debt_installments;
       DELETE FROM account_transfers;
       DELETE FROM expenses;
@@ -2314,6 +2335,7 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
   const reportedBalance = row.reported_balance == null ? null : Number(row.reported_balance);
   const registeredCharges = Number(row.registered_charges ?? 0);
   const registeredPayments = Number(row.registered_payments ?? 0);
+  const registeredAdjustments = Number(row.registered_adjustments ?? 0);
   const registeredIncomes = Number(row.registered_incomes ?? 0);
   const registeredTransfersIn = Number(row.registered_transfers_in ?? 0);
   const registeredTransfersOut = Number(row.registered_transfers_out ?? 0);
@@ -2327,7 +2349,8 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
         installmentCommitments,
         registeredIncomes,
         registeredTransfersIn,
-        registeredTransfersOut
+        registeredTransfersOut,
+        registeredAdjustments
       );
   return {
     id: row.id as number,
@@ -2347,6 +2370,7 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
       : Math.max(0, creditLimit - availableBalance),
     registeredCharges,
     registeredPayments,
+    registeredAdjustments,
     registeredIncomes,
     registeredTransfersIn,
     registeredTransfersOut,
@@ -2376,6 +2400,14 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
            AND (payment.date > method.balance_updated_at
              OR (payment.date = method.balance_updated_at AND payment.id > method.balance_payment_anchor_id))
        ), 0) AS registered_payments,
+       COALESCE((
+         SELECT SUM(adjustment.amount) FROM credit_card_adjustments adjustment
+         WHERE adjustment.payment_method_id = method.id
+           AND adjustment.date <= DATE('now', 'localtime')
+           AND (adjustment.date > method.balance_updated_at
+             OR (adjustment.date = method.balance_updated_at
+               AND adjustment.id > method.balance_adjustment_anchor_id))
+       ), 0) AS registered_adjustments,
        COALESCE((
          SELECT SUM(income.amount) FROM incomes income
          WHERE income.payment_method_id = method.id
@@ -2415,6 +2447,11 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
          - COALESCE((SELECT SUM(payment.amount) FROM expenses payment
            WHERE payment.credit_payment_target_id = method.id
              AND payment.date >= COALESCE((SELECT cycle.end_date FROM credit_card_cycles cycle
+               WHERE cycle.payment_method_id = method.id
+               ORDER BY cycle.end_date DESC LIMIT 1), '9999-12-31')), 0)
+         - COALESCE((SELECT SUM(adjustment.amount) FROM credit_card_adjustments adjustment
+           WHERE adjustment.payment_method_id = method.id
+             AND adjustment.date >= COALESCE((SELECT cycle.end_date FROM credit_card_cycles cycle
                WHERE cycle.payment_method_id = method.id
                ORDER BY cycle.end_date DESC LIMIT 1), '9999-12-31')), 0)
        ) AS billed_amount
@@ -2461,6 +2498,19 @@ export async function getPaymentMethodMovements(
        LEFT JOIN payment_methods target_method ON target_method.id = expense.credit_payment_target_id
        WHERE (expense.payment_method_id = ? AND expense.debt_plan_id IS NULL)
           OR expense.credit_payment_target_id = ?
+
+       UNION ALL
+
+       SELECT
+         adjustment.id,
+         COALESCE(NULLIF(TRIM(adjustment.note), ''), '') AS name,
+         adjustment.amount,
+         adjustment.date,
+         'credit_adjustment' AS kind,
+         adjustment.kind AS category_name,
+         NULL AS related_payment_method_name
+       FROM credit_card_adjustments adjustment
+       WHERE adjustment.payment_method_id = ?
 
        UNION ALL
 
@@ -2529,11 +2579,20 @@ export async function getPaymentMethodMovements(
     paymentMethodId,
     paymentMethodId,
     paymentMethodId,
+    paymentMethodId,
     safeLimit
   );
   return rows.map((row) => ({
     id: Number(row.id),
-    name: String(row.name),
+    name: row.kind === 'credit_adjustment' && !String(row.name).trim()
+      ? t(row.category_name === 'refund'
+        ? 'paymentMethods.adjustmentKinds.refund'
+        : row.category_name === 'cancelled_purchase'
+          ? 'paymentMethods.adjustmentKinds.cancelled_purchase'
+          : row.category_name === 'discount'
+            ? 'paymentMethods.adjustmentKinds.discount'
+            : 'paymentMethods.adjustmentKinds.other')
+      : String(row.name),
     amount: Number(row.amount),
     date: String(row.date),
     kind: row.kind,
@@ -2542,6 +2601,117 @@ export async function getPaymentMethodMovements(
       ? null
       : String(row.related_payment_method_name),
   }));
+}
+
+function mapCreditCardAdjustment(row: Record<string, unknown>): CreditCardAdjustment {
+  return {
+    id: Number(row.id),
+    paymentMethodId: Number(row.payment_method_id),
+    amount: Number(row.amount),
+    date: String(row.date),
+    kind: row.kind as CreditCardAdjustment['kind'],
+    note: row.note == null ? null : String(row.note),
+  };
+}
+
+async function assertCreditCardAdjustment(
+  database: SQLite.SQLiteDatabase,
+  data: NewCreditCardAdjustment,
+  requireActive: boolean
+): Promise<void> {
+  if (!Number.isInteger(data.amount) || data.amount <= 0) {
+    throw new Error(t('database.creditAdjustmentAmountInvalid'));
+  }
+  if (!isValidIsoDate(data.date)) {
+    throw new Error(t('database.creditAdjustmentDateInvalid'));
+  }
+  if (!['refund', 'cancelled_purchase', 'discount', 'other'].includes(data.kind)) {
+    throw new Error(t('database.creditAdjustmentKindInvalid'));
+  }
+  const method = await database.getFirstAsync<{ type: PaymentMethod['type']; active: number }>(
+    'SELECT type, active FROM payment_methods WHERE id = ?',
+    data.paymentMethodId
+  );
+  if (!method) throw new Error(t('database.paymentMissing'));
+  if (method.type !== 'credit') throw new Error(t('database.creditPaymentTargetInvalid'));
+  if (requireActive && Number(method.active) !== 1) {
+    throw new Error(t('database.activePaymentOnly'));
+  }
+}
+
+export async function getCreditCardAdjustment(id: number): Promise<CreditCardAdjustment | null> {
+  const database = await getDb();
+  const row = await database.getFirstAsync<Record<string, unknown>>(
+    'SELECT * FROM credit_card_adjustments WHERE id = ?',
+    id
+  );
+  return row ? mapCreditCardAdjustment(row) : null;
+}
+
+export async function createCreditCardAdjustment(data: NewCreditCardAdjustment): Promise<number> {
+  const database = await getDb();
+  await assertCreditCardAdjustment(database, data, true);
+  await assertCreditCardCycleIsEditable(database, data.paymentMethodId, data.date);
+  let createdId = 0;
+  await withExclusiveTransaction(database, async (transaction) => {
+    const result = await transaction.runAsync(
+      `INSERT INTO credit_card_adjustments (payment_method_id, amount, date, kind, note)
+       VALUES (?, ?, ?, ?, ?)`,
+      data.paymentMethodId,
+      data.amount,
+      data.date,
+      data.kind,
+      data.note?.trim() || null
+    );
+    createdId = result.lastInsertRowId;
+  });
+  return createdId;
+}
+
+export async function updateCreditCardAdjustment(
+  id: number,
+  data: NewCreditCardAdjustment
+): Promise<void> {
+  const database = await getDb();
+  const current = await database.getFirstAsync<{
+    id: number;
+    payment_method_id: number;
+    date: string;
+  }>(
+    'SELECT id, payment_method_id, date FROM credit_card_adjustments WHERE id = ?',
+    id
+  );
+  if (!current) throw new Error(t('database.creditAdjustmentMissing'));
+  await assertCreditCardAdjustment(database, data, false);
+  await assertCreditCardCycleIsEditable(database, current.payment_method_id, current.date);
+  await assertCreditCardCycleIsEditable(database, data.paymentMethodId, data.date);
+  await withExclusiveTransaction(database, async (transaction) => {
+    await transaction.runAsync(
+      `UPDATE credit_card_adjustments
+       SET payment_method_id = ?, amount = ?, date = ?, kind = ?, note = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      data.paymentMethodId,
+      data.amount,
+      data.date,
+      data.kind,
+      data.note?.trim() || null,
+      id
+    );
+  });
+}
+
+export async function deleteCreditCardAdjustment(id: number): Promise<void> {
+  const database = await getDb();
+  const current = await database.getFirstAsync<{ payment_method_id: number; date: string }>(
+    'SELECT payment_method_id, date FROM credit_card_adjustments WHERE id = ?',
+    id
+  );
+  if (!current) throw new Error(t('database.creditAdjustmentMissing'));
+  await assertCreditCardCycleIsEditable(database, current.payment_method_id, current.date);
+  await withExclusiveTransaction(database, async (transaction) => {
+    const result = await transaction.runAsync('DELETE FROM credit_card_adjustments WHERE id = ?', id);
+    if (result.changes === 0) throw new Error(t('database.creditAdjustmentMissing'));
+  });
 }
 
 function mapAccountTransfer(row: Record<string, unknown>): AccountTransfer {
@@ -2774,6 +2944,11 @@ export async function updatePaymentMethodBalance(
       id,
       data.date
     );
+    const adjustmentAnchor = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT COALESCE(MAX(id), 0) AS id FROM credit_card_adjustments WHERE payment_method_id = ? AND date <= ?',
+      id,
+      data.date
+    );
     const debtPlanAnchor = await transaction.getFirstAsync<{ id: number }>(
       'SELECT COALESCE(MAX(id), 0) AS id FROM debt_plans WHERE payment_method_id = ? AND purchase_date <= ?',
       id,
@@ -2795,7 +2970,7 @@ export async function updatePaymentMethodBalance(
       `UPDATE payment_methods
        SET reported_balance = ?, balance_updated_at = ?,
            balance_synced_at = ?,
-           balance_expense_anchor_id = ?, balance_payment_anchor_id = ?, balance_income_anchor_id = ?,
+           balance_expense_anchor_id = ?, balance_payment_anchor_id = ?, balance_adjustment_anchor_id = ?, balance_income_anchor_id = ?,
            balance_debt_plan_anchor_id = ?, balance_transfer_anchor_id = ?
        WHERE id = ?`,
       data.balance,
@@ -2803,6 +2978,7 @@ export async function updatePaymentMethodBalance(
       new Date().toISOString(),
       Number(chargeAnchor?.id ?? 0),
       Number(paymentAnchor?.id ?? 0),
+      Number(adjustmentAnchor?.id ?? 0),
       Number(incomeAnchor?.id ?? 0),
       Number(debtPlanAnchor?.id ?? 0),
       Number(transferAnchor?.id ?? 0),
@@ -2859,6 +3035,7 @@ export async function getPaymentMethodDeletionInfo(id: number): Promise<{
   expenseCount: number;
   debtPlanCount: number;
   receivedPaymentCount: number;
+  adjustmentCount: number;
   transferCount: number;
 }> {
   const db = await getDb();
@@ -2866,20 +3043,23 @@ export async function getPaymentMethodDeletionInfo(id: number): Promise<{
     expense_count: number;
     debt_plan_count: number;
     received_payment_count: number;
+    adjustment_count: number;
     transfer_count: number;
   }>(
     `SELECT
       (SELECT COUNT(*) FROM expenses WHERE payment_method_id = ?) AS expense_count,
       (SELECT COUNT(*) FROM debt_plans WHERE payment_method_id = ?) AS debt_plan_count,
       (SELECT COUNT(*) FROM expenses WHERE credit_payment_target_id = ?) AS received_payment_count,
+      (SELECT COUNT(*) FROM credit_card_adjustments WHERE payment_method_id = ?) AS adjustment_count,
       (SELECT COUNT(*) FROM account_transfers
        WHERE source_payment_method_id = ? OR destination_payment_method_id = ?) AS transfer_count`,
-    id, id, id, id, id
+    id, id, id, id, id, id
   );
   return {
     expenseCount: Number(row?.expense_count ?? 0),
     debtPlanCount: Number(row?.debt_plan_count ?? 0),
     receivedPaymentCount: Number(row?.received_payment_count ?? 0),
+    adjustmentCount: Number(row?.adjustment_count ?? 0),
     transferCount: Number(row?.transfer_count ?? 0),
   };
 }
@@ -2909,6 +3089,13 @@ export async function deletePaymentMethod(id: number): Promise<void> {
     );
     if (Number(receivedPayments?.count ?? 0) > 0) {
       throw new Error(t('database.paymentReceivedPaymentsDelete'));
+    }
+    const adjustments = await transaction.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) AS count FROM credit_card_adjustments WHERE payment_method_id = ?',
+      id
+    );
+    if (Number(adjustments?.count ?? 0) > 0) {
+      throw new Error(t('database.paymentAdjustmentsDelete'));
     }
     const transfers = await transaction.getFirstAsync<{ count: number }>(
       `SELECT COUNT(*) AS count FROM account_transfers
@@ -2978,16 +3165,18 @@ export async function getCreditCardCycles(paymentMethodId: number): Promise<Cred
        cc.status,
        COALESCE(bank_charge.amount, 0) AS bankChargeAmount,
        COALESCE(adjustment.amount, 0) AS adjustmentAmount,
-       COALESCE(SUM(e.amount), 0) AS recordedTotal
+       (SELECT COALESCE(SUM(expense.amount), 0)
+        FROM expenses expense
+        WHERE expense.payment_method_id = cc.payment_method_id
+          AND expense.date BETWEEN cc.start_date AND cc.end_date)
+       - (SELECT COALESCE(SUM(credit.amount), 0)
+          FROM credit_card_adjustments credit
+          WHERE credit.payment_method_id = cc.payment_method_id
+            AND credit.date BETWEEN cc.start_date AND cc.end_date) AS recordedTotal
      FROM credit_card_cycles cc
      LEFT JOIN expenses bank_charge ON bank_charge.id = cc.bank_charge_expense_id
      LEFT JOIN expenses adjustment ON adjustment.id = cc.adjustment_expense_id
-     LEFT JOIN expenses e
-       ON e.payment_method_id = cc.payment_method_id
-      AND e.date >= cc.start_date
-      AND e.date <= cc.end_date
      WHERE cc.payment_method_id = ?
-     GROUP BY cc.id
      ORDER BY cc.end_date DESC`,
     paymentMethodId
   );
@@ -3094,14 +3283,16 @@ export async function reconcileCreditCardCycle(
         cycle.payment_method_id,
         cycle.end_date,
         cycle.status,
-        COALESCE(SUM(expense.amount), 0) AS recorded_total
+        (SELECT COALESCE(SUM(expense.amount), 0)
+         FROM expenses expense
+         WHERE expense.payment_method_id = cycle.payment_method_id
+           AND expense.date BETWEEN cycle.start_date AND cycle.end_date)
+        - (SELECT COALESCE(SUM(credit.amount), 0)
+           FROM credit_card_adjustments credit
+           WHERE credit.payment_method_id = cycle.payment_method_id
+             AND credit.date BETWEEN cycle.start_date AND cycle.end_date) AS recorded_total
        FROM credit_card_cycles cycle
-       LEFT JOIN expenses expense
-         ON expense.payment_method_id = cycle.payment_method_id
-        AND expense.date >= cycle.start_date
-        AND expense.date <= cycle.end_date
-       WHERE cycle.id = ?
-       GROUP BY cycle.id`,
+       WHERE cycle.id = ?`,
       id
     );
     if (!cycle) throw new Error(t('database.cycleMissing'));

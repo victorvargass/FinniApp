@@ -16,7 +16,13 @@ import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
-import type { Expense, NewRecurringSchedule, SavingsExpenseKind } from '@/lib/types';
+import type {
+  CreditCardAdjustment,
+  CreditCardAdjustmentKind,
+  Expense,
+  NewRecurringSchedule,
+  SavingsExpenseKind,
+} from '@/lib/types';
 import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
 import { getDefaultRecurringSchedule, getEstimatedBillingDate, getNameSuggestions, parseDateString } from './helpers';
@@ -27,20 +33,24 @@ const LAST_EXPENSE_PAYMENT_METHOD_KEY = '@finniapp/last-expense-payment-method-i
 
 type ExpenseFormProps = {
   expense?: Expense;
+  creditAdjustment?: CreditCardAdjustment;
   templateExpense?: Expense;
   initialCardPayment?: boolean;
   initialCreditPaymentTargetId?: number;
   onSuccess: () => void;
 };
 
-export function ExpenseForm({ expense, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, onSuccess }: ExpenseFormProps) {
+export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, onSuccess }: ExpenseFormProps) {
   const {
     categories,
     paymentMethods,
     expenseNames,
     addExpense,
+    addCreditCardAdjustment,
     addInstallmentPurchase,
     editExpense,
+    editCreditCardAdjustment,
+    removeCreditCardAdjustment,
     savingsGoals,
     periods,
     selectedPeriod,
@@ -53,12 +63,16 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
   const insets = useSafeAreaInsets();
   const initialExpense = expense ?? templateExpense;
 
-  const [name, setName] = useState(initialExpense?.name ?? '');
+  const [name, setName] = useState(creditAdjustment?.note ?? initialExpense?.name ?? '');
   const [isNameFocused, setIsNameFocused] = useState(false);
   const expenseWasSplit =
     initialExpense?.originalAmount != null && initialExpense.splitPercentage != null;
   const [amountText, setAmountText] = useState<string>(
-    initialExpense ? formatCLPInput(initialExpense.originalAmount ?? initialExpense.amount) : ''
+    creditAdjustment
+      ? formatCLPInput(creditAdjustment.amount)
+      : initialExpense
+        ? formatCLPInput(initialExpense.originalAmount ?? initialExpense.amount)
+        : ''
   );
   const [isSplitAmount, setIsSplitAmount] = useState(expenseWasSplit);
   const [splitMode, setSplitMode] = useState<'percentage' | 'amount'>('percentage');
@@ -74,10 +88,16 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
   const creditPaymentCategory = categories.find((category) => category.systemKey === 'credit_payment');
   const [categoryId, setCategoryId] = useState<number | null>(
     initialExpense?.categoryId
-      ?? (initialCreditPaymentTargetId || initialCardPayment ? creditPaymentCategory?.id ?? null : null)
+      ?? (initialCreditPaymentTargetId || initialCardPayment || creditAdjustment ? creditPaymentCategory?.id ?? null : null)
   );
   const [creditPaymentTargetId, setCreditPaymentTargetId] = useState<number | null>(
-    expense?.creditPaymentTargetId ?? initialCreditPaymentTargetId ?? null
+    expense?.creditPaymentTargetId ?? creditAdjustment?.paymentMethodId ?? initialCreditPaymentTargetId ?? null
+  );
+  const [cardPaymentOrigin, setCardPaymentOrigin] = useState<'external' | 'adjustment'>(
+    creditAdjustment ? 'adjustment' : 'external'
+  );
+  const [creditAdjustmentKind, setCreditAdjustmentKind] = useState<CreditCardAdjustmentKind>(
+    creditAdjustment?.kind ?? 'refund'
   );
   const [savingsGoalId, setSavingsGoalId] = useState<number | null>(expense?.savingsGoalId ?? null);
   const [savingsKind, setSavingsKind] = useState<SavingsExpenseKind | null>(expense?.savingsKind ?? null);
@@ -86,8 +106,8 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
   );
   const [hasLoadedLastPaymentMethod, setHasLoadedLastPaymentMethod] = useState(false);
   const [date, setDate] = useState(
-    expense?.date
-      ? parseDateString(expense.date)
+    creditAdjustment?.date || expense?.date
+      ? parseDateString(creditAdjustment?.date ?? expense!.date)
       : selectedPeriod
         ? (() => {
             const today = new Date();
@@ -107,7 +127,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
     getDefaultRecurringSchedule(date)
   );
   const [billingCycleHint, setBillingCycleHint] = useState<string | null>(null);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(Boolean(expense || expenseWasSplit));
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(Boolean(expense || creditAdjustment || expenseWasSplit));
   const [saving, setSaving] = useState(false);
   const totalAmount = parseAmount(amountText as string);
   const percentage = Number(percentageText.replace(',', '.'));
@@ -137,11 +157,12 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
   const selectedCategory = categories.find((category) => category.id === categoryId);
   const isSavingsCategory = selectedCategory?.purpose === 'savings';
   const isCardPayment = selectedCategory?.systemKey === 'credit_payment';
+  const isCardAdjustment = isCardPayment && cardPaymentOrigin === 'adjustment';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
   const targetCreditCard = paymentMethods.find((method) => method.id === creditPaymentTargetId);
   const canUseCreditPayment = paymentMethods.some((method) => method.active && method.type === 'credit')
     || targetCreditCard?.type === 'credit';
-  const isCreditPaymentTargetLocked = expense == null
+  const isCreditPaymentTargetLocked = expense == null && creditAdjustment == null
     && initialCreditPaymentTargetId != null
     && targetCreditCard?.type === 'credit';
   const balanceReferenceMethods = isCardPayment
@@ -173,12 +194,12 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
     : selectedPeriod;
   const todayString = toDateString(new Date());
   const canExtendCurrentPeriod = !expense && formPeriod?.id === settings.currentPeriodId;
-  const minimumMovementDate = isInstallmentPurchase
+  const minimumMovementDate = isInstallmentPurchase || isCardAdjustment
     ? undefined
     : formPeriod
       ? parseDateString(formPeriod.startDate)
       : undefined;
-  const maximumMovementDate = isInstallmentPurchase
+  const maximumMovementDate = isInstallmentPurchase || isCardAdjustment
     ? parseDateString(todayString)
     : formPeriod
       ? parseDateString(
@@ -189,7 +210,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
       : undefined;
 
   const selectMovementDate = (selected: Date) => {
-    if (isInstallmentPurchase) {
+    if (isInstallmentPurchase || isCardAdjustment) {
       setDate(selected);
       return;
     }
@@ -237,7 +258,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
       })()
     : null;
   const moreOptionsHint = isCardPayment
-    ? t('expenses.moreOptionsCardPaymentHint')
+    ? t(isCardAdjustment ? 'expenses.moreOptionsCardAdjustmentHint' : 'expenses.moreOptionsCardPaymentHint')
     : savingsKind === 'funded_expense'
       ? t('expenses.moreOptionsSavingsWithdrawalHint')
       : isSavingsCategory
@@ -257,7 +278,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
 
   useEffect(() => {
     if (hasLoadedLastPaymentMethod) return;
-    if (initialExpense || initialCreditPaymentTargetId || settings.defaultPaymentMethodId != null) {
+    if (initialExpense || creditAdjustment || initialCreditPaymentTargetId || settings.defaultPaymentMethodId != null) {
       setHasLoadedLastPaymentMethod(true);
       return;
     }
@@ -277,7 +298,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
         if (!cancelled) setHasLoadedLastPaymentMethod(true);
       });
     return () => { cancelled = true; };
-  }, [hasLoadedLastPaymentMethod, initialCreditPaymentTargetId, initialExpense, paymentMethods, settings.defaultPaymentMethodId]);
+  }, [creditAdjustment, hasLoadedLastPaymentMethod, initialCreditPaymentTargetId, initialExpense, paymentMethods, settings.defaultPaymentMethodId]);
 
   useEffect(() => {
     if (!isCreditPurchase) setIsInstallmentPurchase(false);
@@ -307,16 +328,8 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
     setIsSplitAmount(false);
     setSavingsGoalId(null);
     setSavingsKind(null);
-    if (selectedPaymentMethod?.type === 'credit') setPaymentMethodId(null);
-  }, [creditPaymentTargetId, isCardPayment, paymentMethods, selectedPaymentMethod]);
-
-  useEffect(() => {
-    if (!isCardPayment || expense || !targetCreditCard) return;
-    setName((current) => {
-      if (current.trim() && current !== creditPaymentCategory?.name) return current;
-      return `${creditPaymentCategory?.name ?? ''} · ${targetCreditCard.name}`;
-    });
-  }, [creditPaymentCategory?.name, creditPaymentTargetId, expense, isCardPayment, targetCreditCard]);
+    if (isCardAdjustment || selectedPaymentMethod?.type === 'credit') setPaymentMethodId(null);
+  }, [creditPaymentTargetId, isCardAdjustment, isCardPayment, paymentMethods, selectedPaymentMethod]);
 
   useEffect(() => {
     if (isSavingsRelated && selectedPaymentMethod?.type === 'credit') {
@@ -385,7 +398,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
   }, [date, expense, makeRecurring]);
 
   const handleSave = async (skipAvailableBalanceWarning = false) => {
-    if (!name.trim()) {
+    if (!name.trim() && !isCardAdjustment) {
       Alert.alert(t('common.error'), t('validation.invalidExpenseName'));
       return;
     }
@@ -405,7 +418,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
       Alert.alert(t('common.error'), t('database.creditPaymentTargetRequired'));
       return;
     }
-    if (isCardPayment && paymentMethodId == null) {
+    if (isCardPayment && !isCardAdjustment && paymentMethodId == null) {
       Alert.alert(t('common.error'), t('database.creditPaymentSourceRequired'));
       return;
     }
@@ -440,7 +453,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
       }
     }
 
-    if (formPeriod && !isInstallmentPurchase) {
+    if (formPeriod && !isInstallmentPurchase && !isCardAdjustment) {
       const startDate = parseDateString(formPeriod.startDate);
       const endDate = parseDateString(formPeriod.endDate);
 
@@ -459,6 +472,24 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
     
     setSaving(true);
     try {
+      if (isCardAdjustment) {
+        const adjustmentData = {
+          paymentMethodId: creditPaymentTargetId!,
+          amount: amountToSave,
+          date: toDateString(date),
+          kind: creditAdjustmentKind,
+          note: name.trim() || null,
+        };
+        if (creditAdjustment) {
+          await editCreditCardAdjustment(creditAdjustment.id, adjustmentData);
+          showToast(t('paymentMethods.adjustmentUpdated'));
+        } else {
+          await addCreditCardAdjustment(adjustmentData);
+          showToast(t('paymentMethods.adjustmentCreated'));
+        }
+        onSuccess();
+        return;
+      }
       const data = {
         name: name.trim(),
         amount: amountToSave,
@@ -513,12 +544,44 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
     }
   };
 
+  const confirmDeleteAdjustment = () => {
+    if (!creditAdjustment || saving) return;
+    Alert.alert(
+      t('paymentMethods.deleteAdjustment'),
+      t('paymentMethods.deleteAdjustmentQuestion'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: () => {
+            setSaving(true);
+            void removeCreditCardAdjustment(creditAdjustment.id)
+              .then(() => {
+                showToast(t('paymentMethods.adjustmentDeleted'));
+                onSuccess();
+              })
+              .catch((error) => {
+                Alert.alert(
+                  t('common.error'),
+                  error instanceof Error ? error.message : t('errors.couldNotDelete')
+                );
+              })
+              .finally(() => setSaving(false));
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.formShell}>
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
+      <ThemedText style={styles.label}>
+        {t(isCardAdjustment ? 'paymentMethods.adjustmentNote' : 'common.name')}
+      </ThemedText>
       <TextInput
-        accessibilityLabel={t('common.name')}
+        accessibilityLabel={t(isCardAdjustment ? 'paymentMethods.adjustmentNote' : 'common.name')}
         testID="expense-name-input"
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={name}
@@ -528,16 +591,18 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
         }}
         onFocus={() => setIsNameFocused(true)}
         onBlur={() => setIsNameFocused(false)}
-        placeholder={t('expenses.namePlaceholder')}
+        placeholder={t(isCardAdjustment ? 'paymentMethods.adjustmentNotePlaceholder' : 'expenses.namePlaceholder')}
         placeholderTextColor={colors.icon}
       />
-      <NameSuggestions
-        suggestions={isNameFocused ? nameSuggestions : []}
-        onSelect={(suggestion) => {
-          setName(suggestion);
-          setIsNameFocused(false);
-        }}
-      />
+      {!isCardAdjustment && (
+        <NameSuggestions
+          suggestions={isNameFocused ? nameSuggestions : []}
+          onSelect={(suggestion) => {
+            setName(suggestion);
+            setIsNameFocused(false);
+          }}
+        />
+      )}
 
       <View style={styles.formRemainder} onTouchStart={() => setIsNameFocused(false)}>
       <ThemedText style={styles.label}>{t('expenses.amountTotal')}</ThemedText>
@@ -683,7 +748,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
         )}
       </View>}
 
-      <ColorSelect
+      {!creditAdjustment && <ColorSelect
         label={t('expenses.categoryOptional')}
         value={categoryId}
         onChange={setCategoryId}
@@ -697,17 +762,79 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
             color: category.color,
             })),
         ]}
-      />
+      />}
 
       {isCardPayment && (
+        <>
+          <ColorSelect
+            label={t('paymentMethods.targetCreditCard')}
+            value={creditPaymentTargetId}
+            onChange={setCreditPaymentTargetId}
+            disabled={isCreditPaymentTargetLocked}
+            options={paymentMethods
+              .filter((method) => method.type === 'credit' && (method.active || method.id === creditPaymentTargetId))
+              .map((method) => ({ value: method.id, label: method.name, color: method.color }))}
+          />
+          <ThemedText style={styles.label}>{t('paymentMethods.paymentOrigin')}</ThemedText>
+          <View style={styles.shareOptions}>
+            {([
+              ['external', t('paymentMethods.externalPayment')],
+              ['adjustment', t('paymentMethods.sameCardAdjustment')],
+            ] as const).map(([value, label]) => (
+              <Pressable
+                key={value}
+                disabled={creditAdjustment != null}
+                onPress={() => {
+                  setCardPaymentOrigin(value);
+                  if (value === 'adjustment') {
+                    setPaymentMethodId(null);
+                    if (!creditAdjustment) setDate(new Date());
+                  } else if (paymentMethodId == null) {
+                    const preferredSource = paymentMethods.find(
+                      (method) => method.id === settings.defaultPaymentMethodId
+                        && method.active
+                        && method.type !== 'credit'
+                    ) ?? paymentMethods.find(
+                      (method) => method.active && method.type !== 'credit'
+                    );
+                    setPaymentMethodId(preferredSource?.id ?? null);
+                  }
+                }}
+                style={[
+                  styles.shareButton,
+                  { borderColor: colors.icon },
+                  cardPaymentOrigin === value && styles.shareButtonSelected,
+                  creditAdjustment != null && value !== cardPaymentOrigin && { opacity: 0.45 },
+                ]}>
+                <ThemedText
+                  style={cardPaymentOrigin === value ? styles.shareButtonTextSelected : undefined}>
+                  {label}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </View>
+          <ThemedText style={styles.paymentHint}>
+            {t(isCardAdjustment
+              ? 'paymentMethods.sameCardAdjustmentHint'
+              : 'paymentMethods.externalPaymentHint')}
+          </ThemedText>
+        </>
+      )}
+
+      {isCardAdjustment && (
         <ColorSelect
-          label={t('paymentMethods.targetCreditCard')}
-          value={creditPaymentTargetId}
-          onChange={setCreditPaymentTargetId}
-          disabled={isCreditPaymentTargetLocked}
-          options={paymentMethods
-            .filter((method) => method.type === 'credit' && (method.active || method.id === creditPaymentTargetId))
-            .map((method) => ({ value: method.id, label: method.name, color: method.color }))}
+          label={t('paymentMethods.adjustmentKind')}
+          value={(['refund', 'cancelled_purchase', 'discount', 'other'] as const).indexOf(creditAdjustmentKind)}
+          onChange={(value) => {
+            const kind = (['refund', 'cancelled_purchase', 'discount', 'other'] as const)[value ?? 0];
+            setCreditAdjustmentKind(kind);
+          }}
+          showColor={false}
+          options={(['refund', 'cancelled_purchase', 'discount', 'other'] as const).map((kind, index) => ({
+            value: index,
+            label: t(`paymentMethods.adjustmentKinds.${kind}`),
+            color: colors.primary,
+          }))}
         />
       )}
 
@@ -754,7 +881,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
             <Ionicons name="lock-closed-outline" size={18} color={colors.icon} />
           </View>
         </>
-      ) : (
+      ) : !isCardAdjustment ? (
         <ColorSelect
           label={isCardPayment ? t('paymentMethods.sourcePaymentMethod') : t('expenses.paymentMethodOptional')}
           value={paymentMethodId}
@@ -784,7 +911,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
             })),
           ]}
         />
-      )}
+      ) : null}
       {savingsKind !== 'funded_expense' && selectedPaymentMethod && selectedPaymentMethod.type !== 'cash' && (
         selectedPaymentMethod.availableBalance == null ? (
           <ThemedText style={[styles.paymentHint, { color: colors.textSecondary }]}>
@@ -1038,6 +1165,18 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
         </View>
       )}
 
+      {creditAdjustment && (
+        <Pressable
+          accessibilityRole="button"
+          disabled={saving}
+          onPress={confirmDeleteAdjustment}
+          style={styles.deleteButton}>
+          <ThemedText style={styles.deleteButtonText}>
+            {t('paymentMethods.deleteAdjustment')}
+          </ThemedText>
+        </Pressable>
+      )}
+
       </View>
     </ScrollView>
     <View style={[styles.formFooter, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, LayoutTokens.formFooterBottom) }]}>
@@ -1047,7 +1186,7 @@ export function ExpenseForm({ expense, templateExpense, initialCardPayment = fal
         onPress={() => { void handleSave(); }}
         disabled={saving}>
         <ThemedText style={styles.buttonText}>
-          {expense ? t('common.update') : t('common.save')}
+          {expense || creditAdjustment ? t('common.update') : t('common.save')}
         </ThemedText>
       </Pressable>
     </View>

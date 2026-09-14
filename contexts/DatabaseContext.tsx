@@ -8,12 +8,14 @@ import { AppLoadingScreen } from '@/components/app-loading-screen';
 import type {
   AccountTransfer,
   Category,
+  CreditCardAdjustment,
   CreditCardCycle,
   DebtPlan,
   ExpenseWithCategory,
   Income,
   Debt,
   NewCategory,
+  NewCreditCardAdjustment,
   NewAccountTransfer,
   NewExpense,
   NewIncome,
@@ -93,6 +95,10 @@ type DatabaseContextValue = {
   setDefaultPaymentMethod: (id: number | null) => Promise<void>;
   getPaymentMethodDeletionInfo: (id: number) => Promise<PaymentMethodDeletionInfo>;
   removePaymentMethod: (id: number) => Promise<void>;
+  getCreditCardAdjustment: (id: number) => Promise<CreditCardAdjustment | null>;
+  addCreditCardAdjustment: (data: NewCreditCardAdjustment) => Promise<number>;
+  editCreditCardAdjustment: (id: number, data: NewCreditCardAdjustment) => Promise<void>;
+  removeCreditCardAdjustment: (id: number) => Promise<void>;
   getAccountTransfer: (id: number) => Promise<AccountTransfer | null>;
   addAccountTransfer: (data: NewAccountTransfer) => Promise<number>;
   editAccountTransfer: (id: number, data: NewAccountTransfer) => Promise<void>;
@@ -531,6 +537,30 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const getCreditCardAdjustment = useCallback(
+    (id: number) => db.getCreditCardAdjustment(id),
+    []
+  );
+
+  const addCreditCardAdjustment = useCallback(async (data: NewCreditCardAdjustment) => {
+    const id = await db.createCreditCardAdjustment(data);
+    await refresh();
+    return id;
+  }, [refresh]);
+
+  const editCreditCardAdjustment = useCallback(async (
+    id: number,
+    data: NewCreditCardAdjustment
+  ) => {
+    await db.updateCreditCardAdjustment(id, data);
+    await refresh();
+  }, [refresh]);
+
+  const removeCreditCardAdjustment = useCallback(async (id: number) => {
+    await db.deleteCreditCardAdjustment(id);
+    await refresh();
+  }, [refresh]);
+
   const getAccountTransfer = useCallback((id: number) => db.getAccountTransfer(id), []);
 
   const addAccountTransfer = useCallback(async (data: NewAccountTransfer) => {
@@ -835,6 +865,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setDefaultPaymentMethod,
       getPaymentMethodDeletionInfo,
       removePaymentMethod,
+      getCreditCardAdjustment,
+      addCreditCardAdjustment,
+      editCreditCardAdjustment,
+      removeCreditCardAdjustment,
       getAccountTransfer,
       addAccountTransfer,
       editAccountTransfer,
@@ -932,6 +966,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setDefaultPaymentMethod,
       getPaymentMethodDeletionInfo,
       removePaymentMethod,
+      getCreditCardAdjustment,
+      addCreditCardAdjustment,
+      editCreditCardAdjustment,
+      removeCreditCardAdjustment,
       getAccountTransfer,
       addAccountTransfer,
       editAccountTransfer,

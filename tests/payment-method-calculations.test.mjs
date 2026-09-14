@@ -31,6 +31,21 @@ test('transfers move money without creating or destroying the combined balance',
   assert.equal(source + destination, 150_000);
 });
 
+test('refunds and card adjustments restore available credit without spending another balance', () => {
+  const available = calculateAvailableBalance(
+    500_000,
+    120_000,
+    0,
+    0,
+    0,
+    0,
+    0,
+    35_000
+  );
+
+  assert.equal(available, 415_000);
+});
+
 test('due date uses the next valid occurrence of the configured day', () => {
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 5).toISOString().slice(0, 10), '2026-10-05');
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 25).toISOString().slice(0, 10), '2026-09-25');

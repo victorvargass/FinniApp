@@ -114,6 +114,10 @@ export default function PaymentMethodFormScreen() {
         Alert.alert(t('expenses.cannotDelete'), t('paymentMethods.receivedPaymentDelete'));
         return;
       }
+      if (info.adjustmentCount > 0) {
+        Alert.alert(t('expenses.cannotDelete'), t('paymentMethods.adjustmentDeleteBlocked'));
+        return;
+      }
       if (info.transferCount > 0) {
         Alert.alert(t('expenses.cannotDelete'), t('transfers.accountDeleteBlocked'));
         return;
