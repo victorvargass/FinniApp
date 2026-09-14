@@ -306,11 +306,15 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
     setSavingsGoalId(null);
     setSavingsKind(null);
     if (selectedPaymentMethod?.type === 'credit') setPaymentMethodId(null);
-    const target = paymentMethods.find((method) => method.id === creditPaymentTargetId);
-    if (!expense && target && (!name.trim() || name === creditPaymentCategory?.name)) {
-      setName(`${creditPaymentCategory?.name ?? ''} · ${target.name}`);
-    }
-  }, [creditPaymentCategory?.name, creditPaymentTargetId, expense, isCardPayment, name, paymentMethods, selectedPaymentMethod]);
+  }, [creditPaymentTargetId, isCardPayment, paymentMethods, selectedPaymentMethod]);
+
+  useEffect(() => {
+    if (!isCardPayment || expense || !targetCreditCard) return;
+    setName((current) => {
+      if (current.trim() && current !== creditPaymentCategory?.name) return current;
+      return `${creditPaymentCategory?.name ?? ''} · ${targetCreditCard.name}`;
+    });
+  }, [creditPaymentCategory?.name, creditPaymentTargetId, expense, isCardPayment, targetCreditCard]);
 
   useEffect(() => {
     if (isSavingsRelated && selectedPaymentMethod?.type === 'credit') {
