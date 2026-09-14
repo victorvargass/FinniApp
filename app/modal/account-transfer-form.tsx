@@ -90,7 +90,11 @@ export default function AccountTransferFormScreen() {
   const parsedAmount = parseAmount(amount);
   const projectedSourceBalance = getProjectedSourceBalance(source, existing, sourceId, destinationId, parsedAmount);
   const exceedsBalance = projectedSourceBalance != null && projectedSourceBalance < 0;
-  const accountOptions = transferAccounts.map((method) => ({ value: method.id, label: method.name, color: method.color }));
+  const accountOptions = transferAccounts.map((method) => ({
+    value: method.id,
+    label: `${method.name} · ${t(`paymentMethods.${method.type}`)}`,
+    color: method.color,
+  }));
   const destinationOptions = accountOptions.filter((option) => option.value !== sourceId);
 
   const persist = async () => {

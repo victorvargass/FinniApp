@@ -97,7 +97,11 @@ export default function DebtPaymentScreen() {
     { value: null, label: t('common.notSpecified') },
     ...paymentMethods
       .filter((item) => item.active || item.id === paymentMethodId)
-      .map((item) => ({ value: item.id, label: item.name, color: item.color })),
+      .map((item) => ({
+        value: item.id,
+        label: `${item.name} · ${t(`paymentMethods.${item.type}`)}`,
+        color: item.color,
+      })),
   ];
 
   return (

@@ -526,7 +526,7 @@ async function initializeDatabase(): Promise<void> {
 
     CREATE TABLE IF NOT EXISTS payment_methods (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
       type TEXT NOT NULL CHECK (type IN ('cash', 'debit', 'prepaid', 'credit')),
       system_key TEXT CHECK (system_key IS NULL OR system_key = 'cash'),
       billing_day INTEGER,
@@ -541,7 +541,8 @@ async function initializeDatabase(): Promise<void> {
       balance_income_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_transfer_anchor_id INTEGER NOT NULL DEFAULT 0,
-      payment_due_day INTEGER
+      payment_due_day INTEGER,
+      UNIQUE(name, type)
     );
 
     CREATE TABLE IF NOT EXISTS account_transfers (
@@ -907,9 +908,6 @@ async function initializeDatabase(): Promise<void> {
   if (!savingsGoalColumns.some((column) => column.name === 'allow_withdrawals')) {
     await db.execAsync('ALTER TABLE savings_goals ADD COLUMN allow_withdrawals INTEGER NOT NULL DEFAULT 1;');
   }
-  await db.execAsync(
-    'CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_methods_system_key ON payment_methods(system_key) WHERE system_key IS NOT NULL;'
-  );
   if (!paymentMethodColumns.some((column) => column.name === 'color')) {
     await db.execAsync("ALTER TABLE payment_methods ADD COLUMN color TEXT NOT NULL DEFAULT '#0a7ea4';");
   }
@@ -979,6 +977,53 @@ async function initializeDatabase(): Promise<void> {
   if (!paymentMethodColumns.some((column) => column.name === 'payment_due_day')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN payment_due_day INTEGER;');
   }
+  const paymentMethodTable = await db.getFirstAsync<{ sql: string }>(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'payment_methods'"
+  );
+  if (/name\s+TEXT\s+NOT\s+NULL\s+UNIQUE/i.test(paymentMethodTable?.sql ?? '')) {
+    await db.execAsync(`
+      PRAGMA foreign_keys = OFF;
+      DROP TABLE IF EXISTS payment_methods_new;
+      CREATE TABLE payment_methods_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL CHECK (type IN ('cash', 'debit', 'prepaid', 'credit')),
+        system_key TEXT CHECK (system_key IS NULL OR system_key = 'cash'),
+        billing_day INTEGER,
+        color TEXT NOT NULL DEFAULT '#0a7ea4',
+        active INTEGER NOT NULL DEFAULT 1,
+        credit_limit INTEGER,
+        reported_balance INTEGER,
+        balance_updated_at TEXT,
+        balance_synced_at TEXT,
+        balance_expense_anchor_id INTEGER NOT NULL DEFAULT 0,
+        balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0,
+        balance_income_anchor_id INTEGER NOT NULL DEFAULT 0,
+        balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0,
+        balance_transfer_anchor_id INTEGER NOT NULL DEFAULT 0,
+        payment_due_day INTEGER,
+        UNIQUE(name, type)
+      );
+      INSERT INTO payment_methods_new (
+        id, name, type, system_key, billing_day, color, active, credit_limit,
+        reported_balance, balance_updated_at, balance_synced_at,
+        balance_expense_anchor_id, balance_payment_anchor_id, balance_income_anchor_id,
+        balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
+      )
+      SELECT
+        id, name, type, system_key, billing_day, color, active, credit_limit,
+        reported_balance, balance_updated_at, balance_synced_at,
+        balance_expense_anchor_id, balance_payment_anchor_id, balance_income_anchor_id,
+        balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
+      FROM payment_methods;
+      DROP TABLE payment_methods;
+      ALTER TABLE payment_methods_new RENAME TO payment_methods;
+      PRAGMA foreign_keys = ON;
+    `);
+  }
+  await db.execAsync(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_methods_system_key ON payment_methods(system_key) WHERE system_key IS NOT NULL;'
+  );
 
   const creditCardCycleColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(credit_card_cycles)'
@@ -2645,10 +2690,26 @@ function validatePaymentMethod(data: NewPaymentMethod) {
   }
 }
 
+async function assertUniquePaymentMethodName(
+  db: SQLite.SQLiteDatabase,
+  data: NewPaymentMethod,
+  excludeId?: number
+): Promise<void> {
+  const duplicate = await db.getFirstAsync<{ id: number }>(
+    `SELECT id FROM payment_methods
+     WHERE lower(trim(name)) = lower(?) AND type = ? AND id != ?`,
+    data.name.trim(),
+    data.type,
+    excludeId ?? -1
+  );
+  if (duplicate) throw new Error(t('database.paymentNameExistsForType'));
+}
+
 export async function createPaymentMethod(data: NewPaymentMethod): Promise<void> {
   validatePaymentMethod(data);
   const db = await getDb();
   if (data.type === 'cash') throw new Error(t('database.cashAccountAlreadyProvided'));
+  await assertUniquePaymentMethodName(db, data);
   await db.runAsync(
     `INSERT INTO payment_methods (
        name, type, billing_day, color, active, credit_limit, reported_balance,
@@ -2675,6 +2736,7 @@ export async function updatePaymentMethod(id: number, data: NewPaymentMethod): P
   if (!current) throw new Error(t('database.paymentMissing'));
   const immutableTypeData = { ...data, type: current.type };
   validatePaymentMethod(immutableTypeData);
+  await assertUniquePaymentMethodName(db, immutableTypeData, id);
   await db.runAsync(
     `UPDATE payment_methods
      SET name = ?, billing_day = ?, color = ?, credit_limit = ?, payment_due_day = ?

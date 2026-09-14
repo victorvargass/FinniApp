@@ -777,7 +777,7 @@ export function ExpenseForm({ expense, templateExpense, initialCreditPaymentTarg
               : []),
             ...selectablePaymentMethods.map((method) => ({
               value: method.id,
-              label: `${method.name}${method.active ? '' : t('paymentMethods.inactiveSuffix')}`,
+              label: `${method.name} · ${t(`paymentMethods.${method.type}`)}${method.active ? '' : t('paymentMethods.inactiveSuffix')}`,
               color: method.color,
             })),
           ]}
