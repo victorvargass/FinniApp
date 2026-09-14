@@ -257,6 +257,8 @@ const es = {
     toggleReminder: 'Activar recordatorio de movimientos',
     showExpenseGroup: 'Mostrar gastos de %{name}',
     hideExpenseGroup: 'Ocultar gastos de %{name}',
+    showIncomeGroup: 'Mostrar ingresos recibidos en %{name}',
+    hideIncomeGroup: 'Ocultar ingresos recibidos en %{name}',
   },
   validation: {
     invalidAmount: 'Ingresa un monto válido',
@@ -409,6 +411,7 @@ const es = {
     lowest: 'Menor a mayor',
     sortBy: 'Ordenar por',
     groupExpenses: 'Agrupar gastos',
+    groupIncomes: 'Agrupar ingresos',
     filterExpenses: 'Filtrar gastos',
   },
   forms: {

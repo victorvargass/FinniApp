@@ -33,6 +33,25 @@ type SortOption =
   | 'date-asc'
   | 'date-desc';
 
+type GroupBy = 'none' | 'payment-method';
+
+type IncomeGroup = {
+  name: string;
+  color: string;
+  incomes: Income[];
+};
+
+type IncomeListItem =
+  | { type: 'income'; income: Income }
+  | {
+      type: 'group';
+      key: string;
+      name: string;
+      color: string;
+      total: number;
+      isCollapsed: boolean;
+    };
+
 const SORT_OPTIONS: { value: SortOption; label: string; group: string }[] = [
   { value: 'date-desc', label: t('filters.newest'), group: t('filters.date') },
   { value: 'date-asc', label: t('filters.oldest'), group: t('filters.date') },
@@ -62,6 +81,34 @@ function sortIncomes(items: Income[], sortBy: SortOption) {
     case 'date-desc':
       return sorted.sort((a, b) => b.date.localeCompare(a.date));
   }
+}
+
+function getPaymentMethodLabel(income: Income): string {
+  if (!income.paymentMethodName) return t('common.notSpecified');
+  return income.paymentMethodType
+    ? `${income.paymentMethodName} · ${t(`paymentMethods.${income.paymentMethodType}`)}`
+    : income.paymentMethodName;
+}
+
+function compareIncomeGroups(first: IncomeGroup, second: IncomeGroup, sortBy: SortOption) {
+  const nameComparison = first.name.localeCompare(second.name, 'es');
+  if (sortBy === 'name-asc') return nameComparison;
+  if (sortBy === 'name-desc') return -nameComparison;
+  if (sortBy === 'amount-asc' || sortBy === 'amount-desc') {
+    const firstTotal = first.incomes.reduce((sum, item) => sum + item.amount, 0);
+    const secondTotal = second.incomes.reduce((sum, item) => sum + item.amount, 0);
+    const comparison = firstTotal - secondTotal;
+    return (sortBy === 'amount-asc' ? comparison : -comparison) || nameComparison;
+  }
+
+  const selectDate = (group: IncomeGroup) => group.incomes.reduce(
+    (selected, item) => sortBy === 'date-asc'
+      ? (item.date < selected ? item.date : selected)
+      : (item.date > selected ? item.date : selected),
+    group.incomes[0].date
+  );
+  const comparison = selectDate(first).localeCompare(selectDate(second));
+  return (sortBy === 'date-asc' ? comparison : -comparison) || nameComparison;
 }
 
 type OptionModalProps = {
@@ -145,7 +192,10 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
 
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
+  const [groupBy, setGroupBy] = useState<GroupBy>('payment-method');
+  const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<string[]>([]);
   const [sortModalVisible, setSortModalVisible] = useState(false);
+  const [groupModalVisible, setGroupModalVisible] = useState(false);
   const activeRecurringIncomeIds = useMemo(
     () => new Set(recurringIncomes.filter((item) => item.active).map((item) => item.id)),
     [recurringIncomes]
@@ -154,7 +204,10 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
   useEffect(() => {
     setSearch('');
     setSortBy('date-desc');
+    setGroupBy('payment-method');
+    setCollapsedGroupKeys([]);
     setSortModalVisible(false);
+    setGroupModalVisible(false);
   }, [selectedPeriodId]);
 
   const filteredIncomes = useMemo(() => {
@@ -171,6 +224,46 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
   }, [incomes, search, sortBy]);
 
   const isSortActive = sortBy !== 'date-desc';
+
+  const listItems = useMemo<IncomeListItem[]>(() => {
+    if (groupBy === 'none') {
+      return filteredIncomes.map((income) => ({ type: 'income', income }));
+    }
+
+    const groups = new Map<string, IncomeGroup>();
+    filteredIncomes.forEach((income) => {
+      const key = income.paymentMethodId == null ? 'none' : String(income.paymentMethodId);
+      const group = groups.get(key) ?? {
+        name: getPaymentMethodLabel(income),
+        color: income.paymentMethodColor ?? '#60758E',
+        incomes: [],
+      };
+      group.incomes.push(income);
+      groups.set(key, group);
+    });
+
+    return [...groups.entries()]
+      .sort(([, first], [, second]) => compareIncomeGroups(first, second, sortBy))
+      .flatMap(([key, group]) => [
+        {
+          type: 'group' as const,
+          key,
+          name: group.name,
+          color: group.color,
+          total: group.incomes.reduce((sum, income) => sum + income.amount, 0),
+          isCollapsed: collapsedGroupKeys.includes(key),
+        },
+        ...(collapsedGroupKeys.includes(key)
+          ? []
+          : group.incomes.map((income) => ({ type: 'income' as const, income }))),
+      ]);
+  }, [collapsedGroupKeys, filteredIncomes, groupBy, sortBy]);
+
+  const toggleGroupCollapsed = (key: string) => {
+    setCollapsedGroupKeys((current) => current.includes(key)
+      ? current.filter((groupKey) => groupKey !== key)
+      : [...current, key]);
+  };
 
   const handleDelete = (id: number, name: string) => {
     Alert.alert(t('incomes.delete'), t('incomes.deleteQuestion', { name }), [
@@ -258,6 +351,22 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
               </ThemedText>
             </View>
           </Pressable>
+
+          <Pressable
+            style={[
+              styles.toolbarButton,
+              { borderColor: colors.icon },
+              groupBy !== 'none' && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
+            ]}
+            onPress={() => setGroupModalVisible(true)}>
+            <Ionicons name="layers-outline" size={18} color={groupBy !== 'none' ? colors.primary : colors.icon} />
+            <View style={styles.toolbarButtonText}>
+              <ThemedText type="defaultSemiBold">{t('filters.group')}</ThemedText>
+              <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
+                {groupBy === 'payment-method' ? t('navigation.paymentMethod') : t('filters.noGrouping')}
+              </ThemedText>
+            </View>
+          </Pressable>
         </View>
       </ThemedView>
 
@@ -280,10 +389,36 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
         ))}
       </OptionModal>
 
+      <OptionModal
+        visible={groupModalVisible}
+        title={t('filters.groupIncomes')}
+        onClose={() => setGroupModalVisible(false)}>
+        <ModalOption
+          label={t('filters.groupByPaymentMethod')}
+          selected={groupBy === 'payment-method'}
+          onPress={() => {
+            setGroupBy('payment-method');
+            setCollapsedGroupKeys([]);
+            setGroupModalVisible(false);
+          }}
+        />
+        <ModalOption
+          label={t('filters.noGrouping')}
+          selected={groupBy === 'none'}
+          onPress={() => {
+            setGroupBy('none');
+            setCollapsedGroupKeys([]);
+            setGroupModalVisible(false);
+          }}
+        />
+      </OptionModal>
+
       <FlatList
         style={{ marginTop: 8 }}
-        data={filteredIncomes}
-        keyExtractor={(item) => String(item.id)}
+        data={listItems}
+        keyExtractor={(item) => item.type === 'group'
+          ? `group-${item.key}`
+          : `income-${item.income.id}`}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
@@ -305,15 +440,47 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
             />
           )
         }
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          if (item.type === 'group') {
+            return (
+              <Pressable
+                style={[
+                  styles.groupHeader,
+                  { borderLeftColor: item.color, backgroundColor: `${item.color}18` },
+                ]}
+                onPress={() => toggleGroupCollapsed(item.key)}
+                accessibilityRole="button"
+                accessibilityLabel={t(
+                  item.isCollapsed ? 'accessibility.showIncomeGroup' : 'accessibility.hideIncomeGroup',
+                  { name: item.name }
+                )}
+                accessibilityState={{ expanded: !item.isCollapsed }}>
+                <View style={styles.groupHeaderLeft}>
+                  <View style={[styles.dot, { backgroundColor: item.color }]} />
+                  <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
+                </View>
+                <View style={styles.groupHeaderRight}>
+                  <ThemedText type="defaultSemiBold">{formatCLP(item.total)}</ThemedText>
+                  <Ionicons
+                    name={item.isCollapsed ? 'chevron-down' : 'chevron-up'}
+                    size={20}
+                    color={item.color}
+                  />
+                </View>
+              </Pressable>
+            );
+          }
+
+          const income = item.income;
+          return (
           <Pressable
             onPress={() =>
               router.push({
                 pathname: '/modal/income-form',
-                params: { id: String(item.id) },
+                params: { id: String(income.id) },
               })
             }
-            onLongPress={() => handleDelete(item.id, item.name)}
+            onLongPress={() => handleDelete(income.id, income.name)}
             delayLongPress={500}>
             <ThemedView
               style={[
@@ -326,47 +493,52 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
               ]}
             >
               <View style={[styles.itemLeft, { gap: 6 }]}>
-                <View
-                  style={[
-                    styles.dot,
-                    { backgroundColor: '#1FAF78', width: 11, height: 11, borderRadius: 5.5 }
-                  ]}
-                />
+                {groupBy === 'none' && (
+                  <View
+                    style={[
+                      styles.dot,
+                      { backgroundColor: income.paymentMethodColor ?? '#1FAF78', width: 11, height: 11, borderRadius: 5.5 }
+                    ]}
+                  />
+                )}
                 <View style={styles.itemInfo}>
                   <View style={styles.incomeNameRow}>
-                    <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{item.name}</ThemedText>
-                    {item.recurringIncomeId != null && activeRecurringIncomeIds.has(item.recurringIncomeId) && (
+                    <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{income.name}</ThemedText>
+                    {income.recurringIncomeId != null && activeRecurringIncomeIds.has(income.recurringIncomeId) && (
                       <Ionicons name="sync-circle-outline" size={18} color={colors.primary} accessibilityLabel={t('accessibility.recurringIncome')} />
                     )}
-                    {item.savingsGoalId != null && (
+                    {income.savingsGoalId != null && (
                       <Ionicons
                         name="flag-outline"
                         size={17}
-                        color={item.savingsGoalColor ?? colors.primary}
+                        color={income.savingsGoalColor ?? colors.primary}
                         accessibilityLabel={t('savings.withdrawalAccessibility')}
                       />
                     )}
                   </View>
                   <ThemedText style={[styles.meta, { fontSize: 12 }]}>
-                    {formatDate(new Date(`${item.date}T12:00:00`))}
-                    {item.savingsGoalName ? t('savings.incomeWithdrawalFrom', { name: item.savingsGoalName }) : ''}
-                    {item.paymentMethodName ? t('incomes.receivedInMeta', { name: item.paymentMethodName }) : ''}
+                    {formatDate(new Date(`${income.date}T12:00:00`))}
+                    {income.savingsGoalName ? t('savings.incomeWithdrawalFrom', { name: income.savingsGoalName }) : ''}
+                    {groupBy === 'none' && income.paymentMethodName
+                      ? t('incomes.receivedInMeta', { name: getPaymentMethodLabel(income) })
+                      : ''}
                   </ThemedText>
                 </View>
               </View>
               <View style={styles.itemActions}>
-                <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(item.amount)}</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(income.amount)}</ThemedText>
                 <Pressable
-                  onPress={() => handleActions(item)}
+                  onPress={() => handleActions(income)}
                   style={styles.itemActionButton}
                   accessibilityRole="button"
-                  accessibilityLabel={t('common.actionsFor', { name: item.name })}>
+                  accessibilityLabel={t('common.actionsFor', { name: income.name })}>
                   <Ionicons name="ellipsis-vertical" size={20} color={colors.icon} />
                 </Pressable>
               </View>
             </ThemedView>
           </Pressable>
-        )}
+          );
+        }}
       />
       <FloatingActionButton
         href="/modal/income-form"
@@ -494,6 +666,27 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     gap: 10,
     paddingBottom: 100,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderLeftWidth: 4,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+  groupHeaderLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  groupHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   item: {
     flexDirection: 'row',

@@ -257,6 +257,8 @@ const en = {
     toggleReminder: 'Activate transaction reminder',
     showExpenseGroup: 'Show %{name} expenses',
     hideExpenseGroup: 'Hide %{name} expenses',
+    showIncomeGroup: 'Show income received in %{name}',
+    hideIncomeGroup: 'Hide income received in %{name}',
   },
   validation: {
     invalidAmount: 'Enter a valid amount',
@@ -409,6 +411,7 @@ const en = {
     lowest: 'Lowest to highest',
     sortBy: 'Sort by',
     groupExpenses: 'Group expenses',
+    groupIncomes: 'Group income',
     filterExpenses: 'Filter expenses',
   },
   forms: {
