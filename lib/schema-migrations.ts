@@ -19,6 +19,7 @@ export const SCHEMA_MIGRATIONS = [
   { version: 12, name: 'savings-balance-starting-points' },
   { version: 13, name: 'zero-savings-start-at-creation' },
   { version: 14, name: 'manual-debt-balance-starting-points' },
+  { version: 15, name: 'savings-reported-balance-history' },
 ] as const;
 
 export async function recordAppliedSchema(database: MigrationDatabase): Promise<void> {
