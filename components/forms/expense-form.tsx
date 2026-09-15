@@ -174,7 +174,10 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const trackedAvailableBalance = selectedPaymentMethod?.type === 'cash'
     ? null
     : selectedPaymentMethod?.availableBalance ?? null;
+  const isBeforeSelectedBalanceSnapshot = selectedPaymentMethod?.balanceUpdatedAt != null
+    && toDateString(date) < selectedPaymentMethod.balanceUpdatedAt;
   const exceedsAvailableBalance = !expense
+    && !isBeforeSelectedBalanceSnapshot
     && amountToSave != null
     && trackedAvailableBalance != null
     && amountToSave > trackedAvailableBalance;
