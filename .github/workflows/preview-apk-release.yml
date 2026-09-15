@@ -1,0 +1,44 @@
+name: Preview APK Release
+
+on:
+  push:
+    tags:
+      - "preview-apk-*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - run: npm ci
+      - name: Configure preview update channel
+        run: >-
+          node -e "const fs=require('fs');const app=JSON.parse(fs.readFileSync('app.json','utf8'));app.expo.updates.requestHeaders={'expo-channel-name':'preview'};fs.writeFileSync('app.json',JSON.stringify(app,null,2)+'\n')"
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --no-install
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew :app:assembleRelease
+      - name: Prepare download
+        run: cp android/app/build/outputs/apk/release/app-release.apk FinniApp-preview-OTA.apk
+      - name: Publish APK
+        uses: softprops/action-gh-release@v2
+        with:
+          name: FinniApp Preview APK
+          body: APK interno de FinniApp conectado al canal OTA preview.
+          prerelease: true
+          make_latest: false
+          files: FinniApp-preview-OTA.apk
