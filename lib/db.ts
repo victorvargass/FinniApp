@@ -10,6 +10,7 @@ import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financi
 import { calculateAvailableBalance } from './payment-method-calculations';
 import { recordAppliedSchema } from './schema-migrations';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
+import { resolveSavingsBalanceStartDate } from './savings-balance';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
 import type {
   AccountTransfer,
@@ -460,6 +461,8 @@ async function syncRecurringSourceExpenses(db: SQLite.SQLiteDatabase): Promise<v
 
 async function initializeDatabase(): Promise<void> {
   const db = await getDb();
+  const schemaState = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  const previousSchemaVersion = Number(schemaState?.user_version ?? 0);
 
   await db.execAsync(`
     PRAGMA application_id = ${DATABASE_APPLICATION_ID};
@@ -943,6 +946,23 @@ async function initializeDatabase(): Promise<void> {
   }
   if (!savingsAdjustmentColumns.some((column) => column.name === 'movement_anchor_id')) {
     await db.execAsync('ALTER TABLE savings_goal_adjustments ADD COLUMN movement_anchor_id INTEGER NOT NULL DEFAULT 0;');
+  }
+  if (previousSchemaVersion < 13) {
+    await db.runAsync(`
+      UPDATE savings_goals
+      SET balance_updated_at = date(created_at, 'localtime'),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE initial_amount = 0
+        AND balance_movement_anchor_id = 0
+        AND balance_updated_at IS NOT NULL
+        AND balance_updated_at > date(created_at, 'localtime')
+        AND NOT EXISTS (
+          SELECT 1
+          FROM savings_goal_adjustments adjustment
+          WHERE adjustment.goal_id = savings_goals.id
+            AND adjustment.reported_balance IS NOT NULL
+        )
+    `);
   }
   const manualDebtEntryColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(manual_debt_entries)'
@@ -2344,7 +2364,7 @@ export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
     data.targetAmount,
     data.initialAmount,
     data.allowWithdrawals ? 1 : 0,
-    toLocalIsoDate(new Date()),
+    resolveSavingsBalanceStartDate(data.initialAmount, data.creationDate, toLocalIsoDate(new Date())),
     `${data.creationDate} 12:00:00`,
     data.deadline,
     data.color.toLowerCase()
