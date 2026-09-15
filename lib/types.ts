@@ -47,6 +47,7 @@ export type SavingsGoal = NewSavingsGoal & {
   id: number;
   status: SavingsGoalStatus;
   currentAmount: number;
+  balanceUpdatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -60,6 +61,7 @@ export type SavingsGoalMovement = {
   date: string;
   expenseId: number | null;
   incomeId: number | null;
+  reportedBalance: number | null;
 };
 
 export type SavingsGoalPeriodActivity = {

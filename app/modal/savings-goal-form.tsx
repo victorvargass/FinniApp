@@ -318,12 +318,12 @@ export default function SavingsGoalFormScreen() {
             {goal.initialAmount > 0 && (
               <View style={[styles.movementRow, { borderBottomColor: colors.border }]}>
                 <View style={styles.movementCopy}>
-                  <ThemedText type="defaultSemiBold">{t('savings.initialAmount')}</ThemedText>
+                  <ThemedText type="defaultSemiBold">{t('savings.reportedStartingBalance')}</ThemedText>
                   <ThemedText style={styles.movementMeta}>
-                    {formatCreatedAt(goal.createdAt)}
+                    {formatCreatedAt(goal.balanceUpdatedAt ?? goal.createdAt)}
                   </ThemedText>
                 </View>
-                <ThemedText style={styles.positiveMovement}>+{formatCLP(goal.initialAmount)}</ThemedText>
+                <ThemedText type="defaultSemiBold">{formatCLP(goal.initialAmount)}</ThemedText>
               </View>
             )}
             {loadingMovements ? (
@@ -332,8 +332,7 @@ export default function SavingsGoalFormScreen() {
               <ThemedText style={styles.emptyMovements}>{t('savings.noMovements')}</ThemedText>
             ) : (
               movements.map((movement) => {
-                const positive = movement.kind === 'contribution'
-                  || (movement.kind === 'adjustment' && movement.amount > 0);
+                const positive = movement.kind === 'contribution';
                 const label = movement.kind === 'contribution'
                   ? t('savings.contribution')
                   : movement.kind === 'withdrawal'
@@ -364,8 +363,12 @@ export default function SavingsGoalFormScreen() {
                         {label} · {formatMovementDate(movement.date)}
                       </ThemedText>
                     </View>
-                    <ThemedText style={positive ? styles.positiveMovement : styles.negativeMovement}>
-                      {positive ? '+' : '−'}{formatCLP(Math.abs(movement.amount))}
+                    <ThemedText style={movement.kind === 'adjustment'
+                      ? undefined
+                      : positive ? styles.positiveMovement : styles.negativeMovement}>
+                      {movement.kind === 'adjustment'
+                        ? formatCLP(movement.reportedBalance ?? Math.abs(movement.amount))
+                        : `${positive ? '+' : '−'}${formatCLP(Math.abs(movement.amount))}`}
                     </ThemedText>
                   </Pressable>
                 );
@@ -395,7 +398,9 @@ export default function SavingsGoalFormScreen() {
           value={targetText}
         />
 
-        <ThemedText style={styles.label}>{t('savings.initialAmountClp')}</ThemedText>
+        <ThemedText style={styles.label}>
+          {t(goal ? 'savings.initialAmountClp' : 'savings.currentStartingBalanceClp')}
+        </ThemedText>
         <TextInput
           keyboardType="number-pad"
           onChangeText={(value) => setInitialText(formatCLPInput(value))}
@@ -405,7 +410,7 @@ export default function SavingsGoalFormScreen() {
           value={initialText}
         />
         <ThemedText style={styles.hint}>
-          {t('savings.initialHint')}
+          {t(goal ? 'savings.initialHint' : 'savings.currentStartingBalanceHint')}
         </ThemedText>
 
         <View style={[styles.preferenceCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
