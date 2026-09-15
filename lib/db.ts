@@ -8,6 +8,7 @@ import {
 } from './database-schema';
 import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financial-calculations';
 import { calculateAvailableBalance } from './payment-method-calculations';
+import { getNextDebtDueDate } from './debt-calculations';
 import { recordAppliedSchema } from './schema-migrations';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
 import { resolveSavingsBalanceStartDate } from './savings-balance';
@@ -752,6 +753,8 @@ async function initializeDatabase(): Promise<void> {
       name TEXT NOT NULL,
       creditor TEXT,
       initial_amount INTEGER NOT NULL CHECK (initial_amount > 0),
+      balance_updated_at TEXT,
+      balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0,
       installment_amount INTEGER,
       frequency TEXT CHECK (frequency IN ('weekly', 'monthly', 'annual')),
       first_due_date TEXT,
@@ -967,11 +970,44 @@ async function initializeDatabase(): Promise<void> {
   const manualDebtEntryColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(manual_debt_entries)'
   );
+  const manualDebtColumns = await db.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(manual_debts)'
+  );
+  if (!manualDebtColumns.some((column) => column.name === 'balance_updated_at')) {
+    await db.execAsync('ALTER TABLE manual_debts ADD COLUMN balance_updated_at TEXT;');
+  }
+  if (!manualDebtColumns.some((column) => column.name === 'balance_payment_anchor_id')) {
+    await db.execAsync('ALTER TABLE manual_debts ADD COLUMN balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0;');
+  }
   if (!manualDebtEntryColumns.some((column) => column.name === 'reported_balance')) {
     await db.execAsync('ALTER TABLE manual_debt_entries ADD COLUMN reported_balance INTEGER;');
   }
   if (!manualDebtEntryColumns.some((column) => column.name === 'payment_anchor_id')) {
     await db.execAsync('ALTER TABLE manual_debt_entries ADD COLUMN payment_anchor_id INTEGER NOT NULL DEFAULT 0;');
+  }
+  if (previousSchemaVersion < 14) {
+    await db.runAsync(`
+      UPDATE manual_debts
+      SET balance_updated_at = date(updated_at, 'localtime'),
+          balance_payment_anchor_id = 0
+      WHERE balance_updated_at IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM manual_debt_entries snapshot
+          WHERE snapshot.debt_id = manual_debts.id
+            AND snapshot.kind = 'adjustment'
+            AND snapshot.reported_balance IS NOT NULL
+        )
+        AND (
+          NOT EXISTS (
+            SELECT 1 FROM manual_debt_entries payment
+            WHERE payment.debt_id = manual_debts.id AND payment.kind = 'payment'
+          )
+          OR COALESCE((
+            SELECT MAX(payment.date) FROM manual_debt_entries payment
+            WHERE payment.debt_id = manual_debts.id AND payment.kind = 'payment'
+          ), '9999-12-31') < date(updated_at, 'localtime')
+        )
+    `);
   }
   if (!paymentMethodColumns.some((column) => column.name === 'color')) {
     await db.execAsync("ALTER TABLE payment_methods ADD COLUMN color TEXT NOT NULL DEFAULT '#0a7ea4';");
@@ -3749,17 +3785,6 @@ function validateDebt(data: NewDebt): void {
   }
 }
 
-function nextDebtDueDate(
-  firstDueDate: string | null,
-  frequency: Debt['frequency'],
-  paymentCount: number
-): string | null {
-  if (!firstDueDate || !frequency) return null;
-  if (frequency === 'weekly') return addIsoDays(firstDueDate, paymentCount * 7);
-  if (frequency === 'annual') return addIsoMonths(firstDueDate, paymentCount * 12);
-  return addIsoMonths(firstDueDate, paymentCount);
-}
-
 function mapDebt(row: Record<string, unknown>): Debt {
   const initialAmount = Number(row.initial_amount);
   const currentBalance = Math.max(0, Number(row.current_balance));
@@ -3787,7 +3812,7 @@ function mapDebt(row: Record<string, unknown>): Debt {
     entryCount: Number(row.entry_count),
     totalInstallments: row.type === 'fixed' && installmentAmount != null ? Math.ceil(initialAmount / installmentAmount) : null,
     nextDueDate: status === 'active'
-      ? nextDebtDueDate(
+      ? getNextDebtDueDate(
           row.first_due_date == null ? null : String(row.first_due_date),
           row.frequency == null ? null : row.frequency as Debt['frequency'],
           paymentCount
@@ -3803,13 +3828,31 @@ export async function getDebts(): Promise<Debt[]> {
   const rows = await db.getAllAsync<Record<string, unknown>>(`
     SELECT d.*,
       COUNT(entry.id) AS entry_count,
-      COALESCE(SUM(CASE WHEN entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0) AS paid_amount,
-      COALESCE(SUM(CASE WHEN entry.kind = 'payment' THEN 1 ELSE 0 END), 0) AS payment_count,
+      COALESCE(SUM(CASE WHEN entry.kind = 'payment'
+        AND (snapshot.id IS NOT NULL AND (entry.date > snapshot.date
+          OR (entry.date = snapshot.date AND entry.id > snapshot.payment_anchor_id))
+          OR snapshot.id IS NULL AND (d.balance_updated_at IS NULL
+            OR entry.date > d.balance_updated_at
+            OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id)))
+        THEN entry.amount ELSE 0 END), 0) AS paid_amount,
+      COALESCE(SUM(CASE WHEN entry.kind = 'payment'
+        AND (snapshot.id IS NOT NULL AND (entry.date > snapshot.date
+          OR (entry.date = snapshot.date AND entry.id > snapshot.payment_anchor_id))
+          OR snapshot.id IS NULL AND (d.balance_updated_at IS NULL
+            OR entry.date > d.balance_updated_at
+            OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id)))
+        THEN 1 ELSE 0 END), 0) AS payment_count,
       COALESCE(snapshot.reported_balance, d.initial_amount)
-        + CASE WHEN snapshot.id IS NULL THEN COALESCE(SUM(CASE WHEN entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0) ELSE 0 END
+        + CASE WHEN snapshot.id IS NULL THEN COALESCE(SUM(CASE WHEN entry.kind = 'adjustment'
+          AND (d.balance_updated_at IS NULL OR entry.date > d.balance_updated_at
+            OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id))
+          THEN entry.amount ELSE 0 END), 0) ELSE 0 END
         - COALESCE(SUM(CASE WHEN entry.kind = 'payment'
-          AND (snapshot.id IS NULL OR entry.date > snapshot.date
+          AND (snapshot.id IS NOT NULL AND (entry.date > snapshot.date
             OR (entry.date = snapshot.date AND entry.id > snapshot.payment_anchor_id))
+            OR snapshot.id IS NULL AND (d.balance_updated_at IS NULL
+              OR entry.date > d.balance_updated_at
+              OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id)))
           THEN entry.amount ELSE 0 END), 0)
         AS current_balance
     FROM manual_debts d
@@ -3817,7 +3860,7 @@ export async function getDebts(): Promise<Debt[]> {
       SELECT adjustment.id FROM manual_debt_entries adjustment
       WHERE adjustment.debt_id = d.id AND adjustment.kind = 'adjustment'
         AND adjustment.reported_balance IS NOT NULL
-      ORDER BY adjustment.id DESC LIMIT 1
+      ORDER BY adjustment.date DESC, adjustment.id DESC LIMIT 1
     )
     LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
     GROUP BY d.id
@@ -3860,10 +3903,11 @@ export async function createDebt(data: NewDebt): Promise<number> {
   const db = await getDb();
   const result = await db.runAsync(
     `INSERT INTO manual_debts
-      (type, name, creditor, initial_amount, installment_amount, frequency,
-       first_due_date, category_id, payment_method_id, notes, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (type, name, creditor, initial_amount, balance_updated_at, balance_payment_anchor_id,
+       installment_amount, frequency, first_due_date, category_id, payment_method_id, notes, created_at)
+     VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
     data.type, data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
+    toLocalIsoDate(new Date()),
     data.installmentAmount,
     data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
     data.installmentAmount != null ? data.firstDueDate : null,
@@ -3899,23 +3943,34 @@ export async function updateDebt(id: number, data: NewDebt): Promise<void> {
   );
 }
 
-async function getDebtBalance(db: SQLite.SQLiteDatabase, id: number): Promise<number> {
+async function getDebtBalance(
+  db: SQLite.SQLiteDatabase,
+  id: number,
+  excludePaymentId = -1
+): Promise<number> {
   const row = await db.getFirstAsync<{ balance: number }>(
     `SELECT COALESCE(snapshot.reported_balance, d.initial_amount)
-      + CASE WHEN snapshot.id IS NULL THEN COALESCE(SUM(CASE WHEN entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0) ELSE 0 END
+      + CASE WHEN snapshot.id IS NULL THEN COALESCE(SUM(CASE WHEN entry.kind = 'adjustment'
+        AND (d.balance_updated_at IS NULL OR entry.date > d.balance_updated_at
+          OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id))
+        THEN entry.amount ELSE 0 END), 0) ELSE 0 END
       - COALESCE(SUM(CASE WHEN entry.kind = 'payment'
-        AND (snapshot.id IS NULL OR entry.date > snapshot.date
+        AND entry.id != ?
+        AND (snapshot.id IS NOT NULL AND (entry.date > snapshot.date
           OR (entry.date = snapshot.date AND entry.id > snapshot.payment_anchor_id))
+          OR snapshot.id IS NULL AND (d.balance_updated_at IS NULL
+            OR entry.date > d.balance_updated_at
+            OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id)))
         THEN entry.amount ELSE 0 END), 0) AS balance
      FROM manual_debts d
      LEFT JOIN manual_debt_entries snapshot ON snapshot.id = (
        SELECT adjustment.id FROM manual_debt_entries adjustment
        WHERE adjustment.debt_id = d.id AND adjustment.kind = 'adjustment'
          AND adjustment.reported_balance IS NOT NULL
-       ORDER BY adjustment.id DESC LIMIT 1
+       ORDER BY adjustment.date DESC, adjustment.id DESC LIMIT 1
      )
      LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
-     WHERE d.id = ? GROUP BY d.id`, id
+     WHERE d.id = ? GROUP BY d.id`, excludePaymentId, id
   );
   if (!row) throw new Error(t('database.debtMissing'));
   return Math.max(0, Number(row.balance));
@@ -3940,10 +3995,16 @@ async function getDebtBalanceAtDate(
      )
      SELECT COALESCE((SELECT reported_balance FROM snapshot), d.initial_amount)
        + CASE WHEN NOT EXISTS (SELECT 1 FROM snapshot) THEN COALESCE(SUM(CASE
-           WHEN entry.kind = 'adjustment' AND entry.date <= ? THEN entry.amount ELSE 0 END), 0) ELSE 0 END
+           WHEN entry.kind = 'adjustment' AND entry.date <= ?
+             AND (d.balance_updated_at IS NULL OR entry.date > d.balance_updated_at
+               OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id))
+           THEN entry.amount ELSE 0 END), 0) ELSE 0 END
        - COALESCE(SUM(CASE WHEN entry.kind = 'payment' AND entry.date <= ?
-           AND (NOT EXISTS (SELECT 1 FROM snapshot) OR entry.date > (SELECT date FROM snapshot)
+           AND (EXISTS (SELECT 1 FROM snapshot) AND (entry.date > (SELECT date FROM snapshot)
              OR (entry.date = (SELECT date FROM snapshot) AND entry.id > (SELECT payment_anchor_id FROM snapshot)))
+             OR NOT EXISTS (SELECT 1 FROM snapshot) AND (d.balance_updated_at IS NULL
+               OR entry.date > d.balance_updated_at
+               OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id)))
            THEN entry.amount ELSE 0 END), 0) AS balance
      FROM manual_debts d LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
      WHERE d.id = ? GROUP BY d.id`,
@@ -4009,7 +4070,7 @@ export async function updateDebtPayment(entryId: number, data: NewDebtPayment): 
     if (!entry) throw new Error(t('database.debtPaymentMissing'));
     await assertCreditCardCycleIsEditable(transaction, entry.payment_method_id, entry.expense_date);
     await assertCreditCardCycleIsEditable(transaction, data.paymentMethodId, data.date);
-    const available = await getDebtBalance(transaction, entry.debt_id) + entry.amount;
+    const available = await getDebtBalance(transaction, entry.debt_id, entryId);
     if (data.amount > available) throw new Error(t('database.debtPaymentTooHigh'));
     await transaction.runAsync(
       `UPDATE expenses SET name = ?, amount = ?, category_id = ?, period_id = ?, date = ?,
@@ -4547,7 +4608,7 @@ export async function updateExpense(
   );
   if (debtEntry) {
     await assertDebtPaymentMethodExists(db, effectivePaymentMethodId);
-    const available = await getDebtBalance(db, debtEntry.debt_id) + debtEntry.amount;
+    const available = await getDebtBalance(db, debtEntry.debt_id, debtEntry.id);
     if (data.amount > available) throw new Error(t('database.debtPaymentTooHigh'));
   }
 
