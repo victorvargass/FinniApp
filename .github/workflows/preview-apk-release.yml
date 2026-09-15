@@ -31,7 +31,7 @@ jobs:
           cache: gradle
       - name: Build release APK
         working-directory: android
-        run: ./gradlew :app:assembleRelease
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a
       - name: Prepare download
         run: cp android/app/build/outputs/apk/release/app-release.apk FinniApp-preview-OTA.apk
       - name: Publish APK
