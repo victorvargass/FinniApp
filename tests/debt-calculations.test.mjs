@@ -10,3 +10,11 @@ test('a historical payment covered by the balance snapshot does not skip the nex
 test('a payment after the balance snapshot advances the next due date', () => {
   assert.equal(getNextDebtDueDate('2026-09-25', 'monthly', 1), '2026-10-25');
 });
+
+test('a later reported balance does not reset the payment schedule', () => {
+  const paymentsSinceRegistration = 1;
+  assert.equal(
+    getNextDebtDueDate('2026-09-15', 'monthly', paymentsSinceRegistration),
+    '2026-10-15'
+  );
+});

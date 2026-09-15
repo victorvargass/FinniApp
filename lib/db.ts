@@ -3905,11 +3905,9 @@ export async function getDebts(): Promise<Debt[]> {
             OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id)))
         THEN entry.amount ELSE 0 END), 0) AS paid_amount,
       COALESCE(SUM(CASE WHEN entry.kind = 'payment'
-        AND (snapshot.id IS NOT NULL AND (entry.date > snapshot.date
-          OR (entry.date = snapshot.date AND entry.id > snapshot.payment_anchor_id))
-          OR snapshot.id IS NULL AND (d.balance_updated_at IS NULL
-            OR entry.date > d.balance_updated_at
-            OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id)))
+        AND (d.balance_updated_at IS NULL
+          OR entry.date > d.balance_updated_at
+          OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id))
         THEN 1 ELSE 0 END), 0) AS payment_count,
       COALESCE(snapshot.reported_balance, d.initial_amount)
         + CASE WHEN snapshot.id IS NULL THEN COALESCE(SUM(CASE WHEN entry.kind = 'adjustment'
