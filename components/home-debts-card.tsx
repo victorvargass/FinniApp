@@ -84,7 +84,7 @@ export function HomeDebtsCard({
       title={t('navigation.debts')}
       summary={t('debts.homeSummary', { amount: formatCLP(totalBalance) })}
       backgroundColor={backgroundColor}
-      manageAccessibilityLabel={t('accessibility.manageDebts')}
+      manageAccessibilityLabel={t('accessibility.debtDetails')}
       onManage={onManage}>
       <View style={styles.list}>
         {creditCards.length > 0 && (

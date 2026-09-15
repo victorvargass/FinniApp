@@ -402,6 +402,10 @@ export default function HomeScreen() {
             backgroundColor={colors.surface}
             asOfDate={selectedPeriod.endDate}
             onManage={() => router.push('/modal/savings-goals')}
+            onOpenGoal={(id) => router.push({
+              pathname: '/modal/savings-goal-form',
+              params: { id: String(id) },
+            })}
           />
         )}
 

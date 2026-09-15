@@ -53,7 +53,7 @@ export function ExpandableFinanceCard({
           accessibilityLabel={manageAccessibilityLabel}
           onPress={onManage}
           style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}>
-          <ThemedText style={styles.manageButtonText}>{t('common.manage')}</ThemedText>
+          <ThemedText style={styles.manageButtonText}>{t('common.details')}</ThemedText>
         </Pressable>
       </View>
       {expanded && children}

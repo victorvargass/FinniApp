@@ -1,7 +1,10 @@
-import { StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ExpandableFinanceCard } from '@/components/expandable-finance-card';
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import type { SavingsGoalPeriodActivity } from '@/lib/types';
@@ -11,6 +14,7 @@ type SavingsGoalsPeriodCardProps = {
   backgroundColor: string;
   asOfDate: string;
   onManage: () => void;
+  onOpenGoal: (id: number) => void;
 };
 
 function formatDeadline(value: string): string {
@@ -41,7 +45,9 @@ export function SavingsGoalsPeriodCard({
   backgroundColor,
   asOfDate,
   onManage,
+  onOpenGoal,
 }: SavingsGoalsPeriodCardProps) {
+  const colors = Colors[useColorScheme() ?? 'light'];
   if (items.length === 0) return null;
   const savedTotal = items.reduce((sum, item) => sum + item.closingAmount, 0);
   const summaryKey = items.length === 1 ? 'savings.homeSummaryOne' : 'savings.homeSummaryOther';
@@ -51,7 +57,7 @@ export function SavingsGoalsPeriodCard({
       title={t('savings.title')}
       summary={t(summaryKey, { count: items.length, amount: formatCLP(savedTotal) })}
       backgroundColor={backgroundColor}
-      manageAccessibilityLabel={t('savings.manageAccessibility')}
+      manageAccessibilityLabel={t('savings.detailsAccessibility')}
       onManage={onManage}>
       <View style={styles.goalList}>
         {items.map((item) => {
@@ -61,7 +67,12 @@ export function SavingsGoalsPeriodCard({
             : 0;
 
           return (
-            <View key={item.goalId} style={styles.goal}>
+            <Pressable
+              key={item.goalId}
+              accessibilityRole="button"
+              accessibilityLabel={t('savings.openGoalAccessibility', { name: item.goalName })}
+              onPress={() => onOpenGoal(item.goalId)}
+              style={({ pressed }) => [styles.goal, pressed && styles.pressed]}>
               <View style={styles.goalHeader}>
                 <View style={styles.goalTitleRow}>
                   <View style={[styles.goalDot, { backgroundColor: item.goalColor }]} />
@@ -73,6 +84,7 @@ export function SavingsGoalsPeriodCard({
                       <ThemedText style={styles.statusText}>{state.label}</ThemedText>
                     </View>
                   )}
+                  <Ionicons name="chevron-forward" size={18} color={colors.icon} />
                 </View>
                 <ThemedText type="defaultSemiBold">
                   {formatCLP(item.closingAmount)} / {formatCLP(item.targetAmount)}
@@ -91,7 +103,7 @@ export function SavingsGoalsPeriodCard({
               <ThemedText style={styles.goalDetail}>
                 {t('savings.deadlineShort', { date: formatDeadline(item.deadline) })}
               </ThemedText>
-            </View>
+            </Pressable>
           );
         })}
       </View>
@@ -153,5 +165,8 @@ const styles = StyleSheet.create({
   goalDetail: {
     fontSize: 11,
     opacity: 0.65,
+  },
+  pressed: {
+    opacity: 0.68,
   },
 });
