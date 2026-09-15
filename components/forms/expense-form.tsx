@@ -14,6 +14,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
 import type {
@@ -801,7 +802,12 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
             disabled={isCreditPaymentTargetLocked}
             options={paymentMethods
               .filter((method) => method.type === 'credit' && (method.active || method.id === creditPaymentTargetId))
-              .map((method) => ({ value: method.id, label: method.name, color: method.color }))}
+              .map((method) => ({
+                value: method.id,
+                label: method.name,
+                color: method.color,
+                ...getPaymentMethodOptionGroup(method.type),
+              }))}
           />
           <ThemedText style={styles.label}>{t('paymentMethods.paymentOrigin')}</ThemedText>
           <View style={styles.shareOptions}>
@@ -939,6 +945,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
               value: method.id,
               label: `${method.name} · ${t(`paymentMethods.${method.type}`)}${method.active ? '' : t('paymentMethods.inactiveSuffix')}`,
               color: method.color,
+              ...getPaymentMethodOptionGroup(method.type),
             })),
           ]}
         />

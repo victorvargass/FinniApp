@@ -12,6 +12,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLPInput, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
 import type { NewRecurringSchedule } from '@/lib/types';
 import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
@@ -92,6 +93,7 @@ export default function RecurringIncomeFormScreen() {
           value: method.id,
           label: `${method.name} · ${t(`paymentMethods.${method.type}`)}`,
           color: method.color,
+          ...getPaymentMethodOptionGroup(method.type),
         }))}
     />
     <RecurringScheduleFields value={schedule} onChange={setSchedule} showActiveToggle fixedStartDate={recurring?.startDate} storedNextDate={recurring?.nextDate} movementKind="ingreso" />

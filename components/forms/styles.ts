@@ -152,6 +152,7 @@ export const styles = StyleSheet.create({
   selectSearch: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
   selectSearchInput: { flex: 1, fontSize: 16, paddingVertical: 10 },
   selectEmpty: { textAlign: 'center', opacity: 0.7, paddingHorizontal: 16, paddingVertical: 28 },
+  selectGroup: { fontSize: 12, fontWeight: '700', opacity: 0.65, marginTop: 7, marginBottom: 7, paddingHorizontal: 2, textTransform: 'uppercase' },
   selectOptions: { maxHeight: 390 },
   selectOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 13, marginBottom: 8, gap: 12 },
   selectOptionSelectedText: { fontWeight: '700' },

@@ -15,6 +15,7 @@ import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, parseAmount, toDateString } from '@/lib/format';
 import { parseIsoDate } from '@/lib/recurrence';
 import { t } from '@/lib/i18n';
+import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
 import type { NewRecurringSchedule } from '@/lib/types';
 import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
@@ -248,6 +249,7 @@ export default function RecurringExpenseFormScreen() {
                     value: method.id,
                     label: `${method.name} · ${t(`paymentMethods.${method.type}`)}`,
                     color: method.color,
+                    ...getPaymentMethodOptionGroup(method.type),
                   })),
               ]}
             />

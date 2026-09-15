@@ -8,6 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
+import { orderGroupedOptions } from '@/lib/payment-method-options';
 import { matchesSearchQuery } from '@/lib/search';
 
 import { styles } from './styles';
@@ -16,6 +17,8 @@ export type ColorSelectOption = {
   value: number | null;
   label: string;
   color: string;
+  group?: string;
+  groupOrder?: number;
 };
 
 type NameSuggestionsProps = {
@@ -67,7 +70,7 @@ export function ColorSelect({
   const [searchQuery, setSearchQuery] = useState('');
   const selected = options.find((option) => option.value === value) ?? options[0];
   const filteredOptions = useMemo(() => {
-    return options.filter((option) => matchesSearchQuery(option.label, searchQuery));
+    return orderGroupedOptions(options.filter((option) => matchesSearchQuery(option.label, searchQuery)));
   }, [options, searchQuery]);
 
   const closeSelect = () => {
@@ -139,28 +142,31 @@ export function ColorSelect({
                 </View>
               )}
               <ScrollView style={styles.selectOptions} showsVerticalScrollIndicator={false}>
-                {filteredOptions.map((option) => {
+                {filteredOptions.map((option, index) => {
                   const isSelected = option.value === value;
+                  const showGroup = option.group != null && option.group !== filteredOptions[index - 1]?.group;
                   return (
-                    <Pressable
-                      key={option.value ?? 'none'}
-                      onPress={() => {
-                        onChange(option.value);
-                        closeSelect();
-                      }}
-                      style={[
-                        styles.selectOption,
-                        { borderColor: isSelected ? option.color : colors.border },
-                        isSelected && { backgroundColor: option.color + '18' },
-                      ]}>
-                      <View style={styles.selectValue}>
-                        {showColor && <View style={[styles.selectDot, { backgroundColor: option.color }]} />}
-                        <ThemedText style={isSelected ? styles.selectOptionSelectedText : undefined}>
-                          {option.label}
-                        </ThemedText>
-                      </View>
-                      {isSelected && <Ionicons name="checkmark-circle" size={21} color={option.color} />}
-                    </Pressable>
+                    <View key={option.value ?? 'none'}>
+                      {showGroup && <ThemedText style={styles.selectGroup}>{option.group}</ThemedText>}
+                      <Pressable
+                        onPress={() => {
+                          onChange(option.value);
+                          closeSelect();
+                        }}
+                        style={[
+                          styles.selectOption,
+                          { borderColor: isSelected ? option.color : colors.border },
+                          isSelected && { backgroundColor: option.color + '18' },
+                        ]}>
+                        <View style={styles.selectValue}>
+                          {showColor && <View style={[styles.selectDot, { backgroundColor: option.color }]} />}
+                          <ThemedText style={isSelected ? styles.selectOptionSelectedText : undefined}>
+                            {option.label}
+                          </ThemedText>
+                        </View>
+                        {isSelected && <Ionicons name="checkmark-circle" size={21} color={option.color} />}
+                      </Pressable>
+                    </View>
                   );
                 })}
                 {filteredOptions.length === 0 && (

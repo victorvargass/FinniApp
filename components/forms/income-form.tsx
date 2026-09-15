@@ -13,6 +13,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
 import type { Income, NewRecurringSchedule } from '@/lib/types';
 
@@ -288,6 +289,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
           value: method.id,
           label: `${method.name} · ${t(`paymentMethods.${method.type}`)}`,
           color: method.color,
+          ...getPaymentMethodOptionGroup(method.type),
         }))}
       />
       <ThemedText style={styles.shareDescription}>

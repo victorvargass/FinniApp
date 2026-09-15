@@ -14,6 +14,7 @@ import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import type { Debt } from '@/lib/types';
 
 function parseIsoDate(value: string) {
@@ -101,6 +102,7 @@ export default function DebtPaymentScreen() {
         value: item.id,
         label: `${item.name} · ${t(`paymentMethods.${item.type}`)}`,
         color: item.color,
+        ...getPaymentMethodOptionGroup(item.type),
       })),
   ];
 
