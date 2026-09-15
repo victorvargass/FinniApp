@@ -1,6 +1,13 @@
 import { addIsoDays, addIsoMonths } from './recurrence-core.ts';
 import type { DebtFrequency } from './types.ts';
 
+export function getDebtBalanceAdjustmentAmount(
+  reportedBalance: number,
+  balanceAtDate: number
+) {
+  return reportedBalance - balanceAtDate;
+}
+
 export function getNextDebtDueDate(
   firstDueDate: string | null,
   frequency: DebtFrequency | null,

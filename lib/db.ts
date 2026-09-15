@@ -8,7 +8,11 @@ import {
 } from './database-schema';
 import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financial-calculations';
 import { calculateAvailableBalance } from './payment-method-calculations';
-import { getNextDebtDueDate } from './debt-calculations';
+import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate } from './debt-calculations';
+import {
+  MANUAL_DEBT_BALANCE_AT_DATE_SQL,
+  manualDebtBalanceAtDateParams,
+} from './manual-debt-balance';
 import { recordAppliedSchema } from './schema-migrations';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
 import {
@@ -1305,7 +1309,7 @@ async function initializeDatabase(): Promise<void> {
     }
   }
   if (cashMethod.reported_balance == null) {
-    const [expenseAnchor, incomeAnchor] = await Promise.all([
+    const [expenseAnchor, incomeAnchor, transferAnchor] = await Promise.all([
       db.getFirstAsync<{ id: number }>(
         "SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE payment_method_id = ? AND date <= DATE('now', 'localtime')",
         cashMethod.id
@@ -1314,15 +1318,24 @@ async function initializeDatabase(): Promise<void> {
         "SELECT COALESCE(MAX(id), 0) AS id FROM incomes WHERE payment_method_id = ? AND date <= DATE('now', 'localtime')",
         cashMethod.id
       ),
+      db.getFirstAsync<{ id: number }>(
+        `SELECT COALESCE(MAX(id), 0) AS id FROM account_transfers
+         WHERE (source_payment_method_id = ? OR destination_payment_method_id = ?)
+           AND date <= DATE('now', 'localtime')`,
+        cashMethod.id,
+        cashMethod.id
+      ),
     ]);
     await db.runAsync(
       `UPDATE payment_methods
        SET active = 1, reported_balance = 0,
            balance_updated_at = DATE('now', 'localtime'), balance_synced_at = CURRENT_TIMESTAMP,
-           balance_expense_anchor_id = ?, balance_income_anchor_id = ?
+           balance_expense_anchor_id = ?, balance_income_anchor_id = ?,
+           balance_transfer_anchor_id = ?
        WHERE id = ?`,
       Number(expenseAnchor?.id ?? 0),
       Number(incomeAnchor?.id ?? 0),
+      Number(transferAnchor?.id ?? 0),
       cashMethod.id
     );
   } else {
@@ -3914,6 +3927,7 @@ export async function getDebts(): Promise<Debt[]> {
       SELECT adjustment.id FROM manual_debt_entries adjustment
       WHERE adjustment.debt_id = d.id AND adjustment.kind = 'adjustment'
         AND adjustment.reported_balance IS NOT NULL
+        AND (d.balance_updated_at IS NULL OR adjustment.date >= d.balance_updated_at)
       ORDER BY adjustment.date DESC, adjustment.id DESC LIMIT 1
     )
     LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
@@ -4021,6 +4035,7 @@ async function getDebtBalance(
        SELECT adjustment.id FROM manual_debt_entries adjustment
        WHERE adjustment.debt_id = d.id AND adjustment.kind = 'adjustment'
          AND adjustment.reported_balance IS NOT NULL
+         AND (d.balance_updated_at IS NULL OR adjustment.date >= d.balance_updated_at)
        ORDER BY adjustment.date DESC, adjustment.id DESC LIMIT 1
      )
      LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
@@ -4042,31 +4057,8 @@ async function getDebtBalanceAtDate(
   throughDate: string
 ): Promise<number> {
   const row = await db.getFirstAsync<{ balance: number }>(
-    `WITH snapshot AS (
-       SELECT * FROM manual_debt_entries
-       WHERE debt_id = ? AND kind = 'adjustment' AND reported_balance IS NOT NULL AND date <= ?
-       ORDER BY id DESC LIMIT 1
-     )
-     SELECT COALESCE((SELECT reported_balance FROM snapshot), d.initial_amount)
-       + CASE WHEN NOT EXISTS (SELECT 1 FROM snapshot) THEN COALESCE(SUM(CASE
-           WHEN entry.kind = 'adjustment' AND entry.date <= ?
-             AND (d.balance_updated_at IS NULL OR entry.date > d.balance_updated_at
-               OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id))
-           THEN entry.amount ELSE 0 END), 0) ELSE 0 END
-       - COALESCE(SUM(CASE WHEN entry.kind = 'payment' AND entry.date <= ?
-           AND (EXISTS (SELECT 1 FROM snapshot) AND (entry.date > (SELECT date FROM snapshot)
-             OR (entry.date = (SELECT date FROM snapshot) AND entry.id > (SELECT payment_anchor_id FROM snapshot)))
-             OR NOT EXISTS (SELECT 1 FROM snapshot) AND (d.balance_updated_at IS NULL
-               OR entry.date > d.balance_updated_at
-               OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id)))
-           THEN entry.amount ELSE 0 END), 0) AS balance
-     FROM manual_debts d LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
-     WHERE d.id = ? GROUP BY d.id`,
-    id,
-    throughDate,
-    throughDate,
-    throughDate,
-    id
+    MANUAL_DEBT_BALANCE_AT_DATE_SQL,
+    ...manualDebtBalanceAtDateParams(id, throughDate)
   );
   if (!row) throw new Error(t('database.debtMissing'));
   return Math.max(0, Number(row.balance));
@@ -4179,8 +4171,7 @@ export async function addDebtBalanceAdjustment(debtId: number, data: NewDebtBala
     if (!debt) throw new Error(t('database.debtMissing'));
     if (debt.type !== 'variable') throw new Error(t('database.debtAdjustmentFixed'));
     const current = await getDebtBalanceAtDate(transaction, debtId, data.date);
-    const difference = data.balance - current;
-    if (difference === 0) throw new Error(t('database.debtBalanceUnchanged'));
+    const difference = getDebtBalanceAdjustmentAmount(data.balance, current);
     const anchor = await transaction.getFirstAsync<{ id: number }>(
       `SELECT COALESCE(MAX(id), 0) AS id FROM manual_debt_entries
        WHERE debt_id = ? AND kind = 'payment' AND date <= ?`,
@@ -6818,8 +6809,10 @@ export async function getPeriodFinancialDetails(periodId: number): Promise<Perio
   );
   if (!period) throw new Error(t('database.periodMissing'));
 
-  const [debts, installments, creditCycles, recurringMovements] = await Promise.all([
-    db.getAllAsync<PeriodFinancialDetails['debts'][number]>(
+  const [debtRows, installments, creditCycles, recurringMovements] = await Promise.all([
+    db.getAllAsync<(Omit<PeriodFinancialDetails['debts'][number], 'openingBalance' | 'closingBalance'> & {
+      activityCount: number;
+    })>(
       `SELECT
         debt.id AS debtId,
         debt.name,
@@ -6827,35 +6820,22 @@ export async function getPeriodFinancialDetails(periodId: number): Promise<Perio
         debt.creditor,
         debt.status,
         payment.name AS paymentMethodName,
-        debt.initial_amount
-          + COALESCE(SUM(CASE WHEN entry.date < ? AND entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0)
-          - COALESCE(SUM(CASE WHEN entry.date < ? AND entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0)
-          AS openingBalance,
         COALESCE(SUM(CASE WHEN entry.date BETWEEN ? AND ? AND entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0)
           AS payments,
         COALESCE(SUM(CASE WHEN entry.date BETWEEN ? AND ? AND entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0)
           AS adjustments,
-        debt.initial_amount
-          + COALESCE(SUM(CASE WHEN entry.date <= ? AND entry.kind = 'adjustment' THEN entry.amount ELSE 0 END), 0)
-          - COALESCE(SUM(CASE WHEN entry.date <= ? AND entry.kind = 'payment' THEN entry.amount ELSE 0 END), 0)
-          AS closingBalance
+        COALESCE(SUM(CASE WHEN entry.date BETWEEN ? AND ? THEN 1 ELSE 0 END), 0)
+          AS activityCount
        FROM manual_debts debt
        LEFT JOIN manual_debt_entries entry ON entry.debt_id = debt.id
        LEFT JOIN payment_methods payment ON payment.id = debt.payment_method_id
        GROUP BY debt.id
-       HAVING SUM(CASE WHEN entry.date BETWEEN ? AND ? THEN 1 ELSE 0 END) > 0
-          OR (date(debt.created_at) <= ? AND closingBalance > 0)
-       ORDER BY closingBalance DESC, debt.name COLLATE NOCASE`,
-      period.start_date,
-      period.start_date,
+       ORDER BY debt.name COLLATE NOCASE`,
       period.start_date,
       period.end_date,
       period.start_date,
       period.end_date,
-      period.end_date,
-      period.end_date,
       period.start_date,
-      period.end_date,
       period.end_date
     ),
     db.getAllAsync<PeriodFinancialDetails['installments'][number]>(
@@ -6929,6 +6909,20 @@ export async function getPeriodFinancialDetails(periodId: number): Promise<Perio
       period.end_date
     ),
   ]);
+
+  const previousPeriodDay = addDaysToIso(period.start_date, -1);
+  const debtsWithBalances = await Promise.all(debtRows.map(async (debt) => {
+    const [openingBalance, closingBalance] = await Promise.all([
+      getDebtBalanceAtDate(db, debt.debtId, previousPeriodDay),
+      getDebtBalanceAtDate(db, debt.debtId, period.end_date),
+    ]);
+    return { ...debt, openingBalance, closingBalance };
+  }));
+  const debts = debtsWithBalances
+    .filter((debt) => debt.activityCount > 0 || debt.closingBalance > 0)
+    .sort((first, second) => second.closingBalance - first.closingBalance
+      || first.name.localeCompare(second.name))
+    .map(({ activityCount: _activityCount, ...debt }) => debt);
 
   return { debts, installments, creditCycles, recurringMovements };
 }

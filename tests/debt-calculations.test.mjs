@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getNextDebtDueDate } from '../lib/debt-calculations.ts';
+import {
+  getDebtBalanceAdjustmentAmount,
+  getNextDebtDueDate,
+} from '../lib/debt-calculations.ts';
 
 test('a historical payment covered by the balance snapshot does not skip the next due date', () => {
   assert.equal(getNextDebtDueDate('2026-09-25', 'monthly', 0), '2026-09-25');
@@ -17,4 +20,8 @@ test('a later reported balance does not reset the payment schedule', () => {
     getNextDebtDueDate('2026-09-15', 'monthly', paymentsSinceRegistration),
     '2026-10-15'
   );
+});
+
+test('reporting the same debt balance still creates a dated synchronization', () => {
+  assert.equal(getDebtBalanceAdjustmentAmount(391121, 391121), 0);
 });
