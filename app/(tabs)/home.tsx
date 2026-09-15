@@ -264,31 +264,6 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top']}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
         <PeriodSelector />
-        <HomeOverview
-          balance={periodBalance}
-          incomeTotal={periodIncomesTotal}
-          expenseTotal={periodExpensesTotal}
-          attentionItems={attentionItems}
-          showAttention={Boolean(isCurrentPeriod)}
-        />
-        {isCurrentPeriod && (
-          <ProgressiveSetup
-            hasConfiguredPeriod={hasConfiguredPeriod}
-            hasAdditionalPaymentMethod={paymentMethods.some((method) => method.systemKey !== 'cash')}
-            hasAdditionalCategory={categories.length > DEFAULT_CATEGORY_COUNT}
-            hasSavingsGoal={savingsGoals.length > 0}
-            hasMovements={hasPeriodMovements}
-            onOpenPeriod={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
-            onOpenPaymentMethods={() => router.push('/modal/payment-methods')}
-            onOpenCategories={() => router.push('/modal/categories')}
-            onOpenSavings={() => router.push('/modal/savings-goals')}
-            onAddMovement={() => router.push('/modal/expense-form')}
-            onOpenBackup={() => router.push('/modal/google-drive')}
-          />
-        )}
-        {isCurrentPeriod && (
-          <WeeklyInsightCard insight={weeklyInsight} savingsMilestone={savingsMilestone} />
-        )}
         <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
           <ThemedText type="subtitle">{t('home.periodDetails')}</ThemedText>
           <View style={styles.dateRangeContainer}>
@@ -370,6 +345,32 @@ export default function HomeScreen() {
             </View>
           </View>
         </ThemedView>
+
+        <HomeOverview
+          balance={periodBalance}
+          incomeTotal={periodIncomesTotal}
+          expenseTotal={periodExpensesTotal}
+          attentionItems={attentionItems}
+          showAttention={Boolean(isCurrentPeriod)}
+        />
+        {isCurrentPeriod && (
+          <ProgressiveSetup
+            hasConfiguredPeriod={hasConfiguredPeriod}
+            hasAdditionalPaymentMethod={paymentMethods.some((method) => method.systemKey !== 'cash')}
+            hasAdditionalCategory={categories.length > DEFAULT_CATEGORY_COUNT}
+            hasSavingsGoal={savingsGoals.length > 0}
+            hasMovements={hasPeriodMovements}
+            onOpenPeriod={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+            onOpenPaymentMethods={() => router.push('/modal/payment-methods')}
+            onOpenCategories={() => router.push('/modal/categories')}
+            onOpenSavings={() => router.push('/modal/savings-goals')}
+            onAddMovement={() => router.push('/modal/expense-form')}
+            onOpenBackup={() => router.push('/modal/google-drive')}
+          />
+        )}
+        {isCurrentPeriod && (
+          <WeeklyInsightCard insight={weeklyInsight} savingsMilestone={savingsMilestone} />
+        )}
 
         {periodSavingsAvailable > 0 && (
           <ThemedText style={styles.savingsBalanceNote}>
