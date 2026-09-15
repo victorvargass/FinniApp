@@ -31,3 +31,30 @@ test('next period begins the day after the current one', () => {
     endDate: '2026-03-01',
   });
 });
+
+test('a single installment keeps the original purchase amount', () => {
+  assert.deepEqual(calculateInstallmentAmounts(743_827, 1), [743_827]);
+});
+
+test('installment remainder is assigned without changing the total', () => {
+  const installments = calculateInstallmentAmounts(100_001, 6);
+  assert.deepEqual(installments, [16666, 16667, 16667, 16667, 16667, 16667]);
+  assert.equal(installments.reduce((sum, amount) => sum + amount, 0), 100_001);
+});
+
+test('invalid installment inputs are rejected', () => {
+  assert.throws(() => calculateInstallmentAmounts(0, 3), RangeError);
+  assert.throws(() => calculateInstallmentAmounts(10_000, 0), RangeError);
+  assert.throws(() => calculateInstallmentAmounts(Number.MAX_SAFE_INTEGER + 1, 3), RangeError);
+});
+
+test('next period handles leap days and year changes', () => {
+  assert.deepEqual(calculateNextPeriodDates('2028-02-29'), {
+    startDate: '2028-03-01',
+    endDate: '2028-04-01',
+  });
+  assert.deepEqual(calculateNextPeriodDates('2026-12-31'), {
+    startDate: '2027-01-01',
+    endDate: '2027-02-01',
+  });
+});

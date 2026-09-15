@@ -11,7 +11,11 @@ on:
         options: [preview, production]
 
 jobs:
+  e2e:
+    uses: ./.github/workflows/e2e-android.yml
+
   build:
+    needs: e2e
     runs-on: ubuntu-latest
     environment: ${{ inputs.profile }}
     steps:
@@ -26,4 +30,10 @@ jobs:
         with:
           eas-version: 16.27.0
           token: ${{ secrets.EXPO_TOKEN }}
-      - run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive --no-wait
+      - name: Run gated EAS workflow
+        run: |
+          if [ "${{ inputs.profile }}" = "production" ]; then
+            eas workflow:run .eas/workflows/create-production-android-build.yml --non-interactive
+          else
+            eas workflow:run .eas/workflows/create-preview-android-build.yml --non-interactive
+          fi

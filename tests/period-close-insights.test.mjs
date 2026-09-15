@@ -28,3 +28,17 @@ test('period close insight handles a first period with income only', () => {
   assert.equal(insight.comparisonStatus, 'first');
   assert.equal(insight.topCategoryName, null);
 });
+
+test('period close insight reports overspending and a negative balance', () => {
+  const insight = buildPeriodCloseInsights(-50_000, 1_200_000, [], 1_000_000);
+  assert.equal(insight.balanceStatus, 'negative');
+  assert.equal(insight.comparisonStatus, 'more');
+  assert.equal(insight.comparisonPercent, 20);
+});
+
+test('period close insight reports an exact tie', () => {
+  const insight = buildPeriodCloseInsights(0, 900_000, [], 900_000);
+  assert.equal(insight.balanceStatus, 'even');
+  assert.equal(insight.comparisonStatus, 'same');
+  assert.equal(insight.comparisonPercent, 0);
+});

@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "journeys": [
+    {
+      "id": "onboarding",
+      "priority": "critical",
+      "routes": ["app/onboarding.tsx"],
+      "automatedArtifacts": [".maestro/onboarding-full.yml"]
+    },
+    {
+      "id": "home-and-periods",
+      "priority": "critical",
+      "routes": ["app/(tabs)/home.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/period-close-insights.test.mjs"]
+    },
+    {
+      "id": "expense-lifecycle",
+      "priority": "critical",
+      "routes": ["app/(tabs)/expenses.tsx", "app/modal/expense-form.tsx", "app/modal/quick-add.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/calculations.test.mjs"]
+    },
+    {
+      "id": "income-lifecycle",
+      "priority": "critical",
+      "routes": ["app/(tabs)/incomes.tsx", "app/modal/income-form.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/calculations.test.mjs"]
+    },
+    {
+      "id": "movement-list-and-filters",
+      "priority": "critical",
+      "routes": ["app/(tabs)/movements.tsx", "app/(tabs)/add.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml"]
+    },
+    {
+      "id": "accounts-transfers-and-card-cycles",
+      "priority": "critical",
+      "routes": ["app/modal/payment-methods.tsx", "app/modal/payment-method-form.tsx", "app/modal/payment-method-detail.tsx", "app/modal/payment-method-balance.tsx", "app/modal/account-transfer-form.tsx", "app/modal/card-cycles.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/payment-method-calculations.test.mjs"]
+    },
+    {
+      "id": "savings-lifecycle",
+      "priority": "critical",
+      "routes": ["app/modal/savings-goals.tsx", "app/modal/savings-goal-form.tsx", "app/modal/savings-goal-balance.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/weekly-insights.test.mjs"]
+    },
+    {
+      "id": "debts-and-installments",
+      "priority": "critical",
+      "routes": ["app/modal/debts.tsx", "app/modal/debt-detail.tsx", "app/modal/manual-debt-form.tsx", "app/modal/manual-debt-detail.tsx", "app/modal/manual-debt-payment.tsx", "app/modal/manual-debt-balance.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/calculations.test.mjs"]
+    },
+    {
+      "id": "recurring-movements",
+      "priority": "critical",
+      "routes": ["app/modal/recurring-expenses.tsx", "app/modal/recurring-expense-form.tsx", "app/modal/recurring-income-form.tsx", "app/modal/recurring-confirmations.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/recurrence.test.mjs"]
+    },
+    {
+      "id": "categories",
+      "priority": "high",
+      "routes": ["app/modal/categories.tsx", "app/modal/category-form.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/home-insights.test.mjs"]
+    },
+    {
+      "id": "history-and-report",
+      "priority": "high",
+      "routes": ["app/(tabs)/summary.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/period-close-insights.test.mjs"]
+    },
+    {
+      "id": "settings-localization-and-privacy",
+      "priority": "critical",
+      "routes": ["app/(tabs)/user.tsx", "app/modal/privacy.tsx", "app/modal/movement-reminder.tsx"],
+      "automatedArtifacts": [".maestro/settings-and-localization.yml", "tests/locales.test.mjs"]
+    },
+    {
+      "id": "database-backup-boundary",
+      "priority": "critical",
+      "routes": ["app/modal/google-drive.tsx"],
+      "automatedArtifacts": [".maestro/google-drive-boundary.yml", "tests/backup-validation.test.mjs", "tests/database.test.mjs"]
+    },
+    {
+      "id": "google-authenticated-backup",
+      "priority": "external",
+      "routes": [],
+      "automatedArtifacts": [".maestro/google-drive-authenticated.yml"],
+      "manualReason": "Requires an isolated Google QA account already authenticated on the emulator."
+    },
+    {
+      "id": "router-entry",
+      "priority": "high",
+      "routes": ["app/(tabs)/index.tsx"],
+      "automatedArtifacts": [".maestro/onboarding-full.yml"]
+    }
+  ]
+}
+

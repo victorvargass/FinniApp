@@ -6,14 +6,16 @@ Las instrucciones reproducibles de instalación, compilación, conexión del tel
 
 ## Cobertura automatizada
 
-- primera apertura y omisión del onboarding;
-- carga del escenario integral de prueba;
-- creación, edición y eliminación de un gasto;
-- creación y eliminación de un ingreso;
-- disponibilidad del cierre con movimientos en el período;
-- navegación hasta la pantalla independiente de Google Drive.
+- recorrido completo del onboarding, incluida la confirmación del primer período;
+- creación, edición y eliminación de gastos e ingresos;
+- cierre del período con movimientos reales;
+- navegación por cuentas, tarjetas, transferencias, ahorros, deudas y recurrencias;
+- cambio ES/EN sin abandonar Configuración y acceso a Privacidad;
+- límite de autenticación y respaldo de Google Drive.
 
-El flujo de Google termina intencionalmente en `Conectar con Google`. La selección de cuenta, respaldo, restauración y cierre de sesión se deben ejecutar con una cuenta Google exclusiva de QA ya agregada al emulador. Nunca se guardan correo, contraseña, tokens ni códigos de recuperación en Maestro o Git.
+La fuente de verdad es `tests/regression-matrix.json`. Cada pantalla debe pertenecer a un recorrido y cada recorrido crítico debe apuntar a una prueba Maestro. `tests/regression-matrix.test.mjs` falla automáticamente si se agrega una pantalla sin clasificar, se elimina una prueba, un flujo queda fuera del workflow E2E o un build distribuible pierde su puerta Maestro.
+
+El flujo de Google sin credenciales termina intencionalmente en `Conectar con Google`. La selección de cuenta, respaldo, restauración y cierre de sesión se deben ejecutar con una cuenta Google exclusiva de QA ya agregada al emulador. Nunca se guardan correo, contraseña, tokens ni códigos de recuperación en Maestro o Git.
 
 Cuando esa cuenta ya esté conectada en FinniApp, el ciclo autenticado completo se ejecuta por separado:
 
@@ -31,7 +33,9 @@ npm run e2e:eas:android
 
 El job Maestro de EAS requiere un plan Expo pagado. En el plan gratuito se puede compilar/instalar el APK y ejecutar `npm run e2e:android` localmente sobre un emulador o dispositivo Android conectado.
 
-El workflow `.eas/workflows/e2e-test-android.yml` crea un APK sin credenciales de tienda usando el perfil `e2e-test` y luego ejecuta ambos flujos en un emulador administrado por EAS.
+El workflow `.eas/workflows/e2e-test-android.yml` crea un APK sin credenciales de tienda y ejecuta los cuatro flujos sin credenciales cuando se solicita manualmente. Este camino requiere un plan Expo pagado.
+
+En el plan actual, `.github/workflows/e2e-android.yml` ofrece la puerta automática: compila el APK, inicia Android 15, ejecuta Maestro y conserva la evidencia. Se dispara en cada pull request y push a `master`. El workflow manual `.github/workflows/build.yml` espera su resultado antes de solicitar un preview o producción a EAS.
 
 ## Ejecución local
 

@@ -1,0 +1,53 @@
+name: Android E2E
+
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: android-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - run: npm ci
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew :app:assembleRelease
+      - name: Install Maestro
+        env:
+          MAESTRO_VERSION: 1.40.3
+        run: curl -Ls https://get.maestro.mobile.dev | bash
+      - name: Run critical journeys on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            $HOME/.maestro/bin/maestro test .maestro/onboarding-full.yml .maestro/smoke-financial.yml .maestro/settings-and-localization.yml .maestro/google-drive-boundary.yml
+      - name: Upload Maestro evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: maestro-android-${{ github.run_id }}
+          path: ~/.maestro/tests
+          if-no-files-found: ignore
+          retention-days: 14

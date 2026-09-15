@@ -14,4 +14,7 @@ jobs:
     type: maestro
     params:
       build_id: ${{ needs.build_android_for_e2e.outputs.build_id }}
-      flow_path: ['.maestro/smoke-financial.yml', '.maestro/google-drive-boundary.yml']
+      flow_path: ['.maestro/onboarding-full.yml', '.maestro/smoke-financial.yml', '.maestro/settings-and-localization.yml', '.maestro/google-drive-boundary.yml']
+      retries: 1
+      retry_failed_only: true
+      record_screen: true

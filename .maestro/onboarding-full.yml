@@ -1,0 +1,26 @@
+appId: com.vitoco18.FinniApp
+name: FinniApp complete onboarding
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: 'Bienvenido a FinniApp'
+    timeout: 20000
+- tapOn:
+    id: 'onboarding-next'
+- assertVisible: 'Define tu primer período'
+- tapOn: 'Guardar período'
+- assertVisible: 'Período guardado'
+- tapOn:
+    id: 'onboarding-next'
+- assertVisible: 'Parte con una base clara'
+- tapOn:
+    id: 'onboarding-next'
+- assertVisible: 'Entiende tu panorama completo'
+- tapOn:
+    id: 'onboarding-next'
+- extendedWaitUntil:
+    visible: 'Período actual'
+    timeout: 20000
+- assertNotVisible: 'Bienvenido a FinniApp'
+

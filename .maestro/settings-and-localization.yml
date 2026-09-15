@@ -1,0 +1,43 @@
+appId: com.vitoco18.FinniApp
+name: FinniApp settings and localization
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: 'Bienvenido a FinniApp'
+    timeout: 20000
+- tapOn:
+    id: 'onboarding-skip'
+- extendedWaitUntil:
+    visible: 'Período actual'
+    timeout: 20000
+- tapOn:
+    id: 'tab-user'
+- scrollUntilVisible:
+    element:
+      text: 'Idioma'
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'EN'
+- extendedWaitUntil:
+    visible: 'Settings'
+    timeout: 15000
+- assertNotVisible: 'Welcome to FinniApp'
+- tapOn: 'ES'
+- extendedWaitUntil:
+    visible: 'Configuración'
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: 'Privacidad y datos'
+    direction: DOWN
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Privacidad y datos'
+- assertVisible: 'Datos en tu dispositivo'
+- back
+- extendedWaitUntil:
+    visible: 'Configuración'
+    timeout: 15000
+

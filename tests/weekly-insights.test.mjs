@@ -34,3 +34,23 @@ test('savings milestone reports the highest useful threshold', () => {
     milestone: 50,
   });
 });
+
+test('weekly insight handles a week without previous expenses', () => {
+  const insight = buildWeeklyInsight(
+    [expense('2026-09-15', 25_000, null)],
+    [],
+    '2026-09-15'
+  );
+  assert.equal(insight.expenseTotal, 25_000);
+  assert.equal(insight.previousExpenseTotal, 0);
+  assert.equal(insight.expenseChangePercent, null);
+  assert.equal(insight.topCategoryName, null);
+});
+
+test('savings milestones clamp progress above the target', () => {
+  const milestone = findSavingsMilestone([
+    { goalName: 'Emergency', targetAmount: 100_000, closingAmount: 150_000 },
+  ]);
+  assert.equal(milestone?.milestone, 100);
+  assert.equal(milestone?.progress, 100);
+});

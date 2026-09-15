@@ -11,7 +11,7 @@ El `runtimeVersion` sigue la versión de la app. Cualquier cambio nativo exige i
 ## Requisitos antes de integrar
 
 1. Árbol Git limpio y rama actualizada.
-2. `npm ci` y `npm run check` exitosos.
+2. `npm ci` y `npm run check` exitosos; esto incluye el contrato de cobertura de todos los recorridos.
 3. Export Android exitoso.
 4. Migraciones y restauración verificadas con datos ficticios.
 5. `CHANGELOG.md`, versión y política de privacidad actualizados.
@@ -21,11 +21,13 @@ GitHub Actions ejecuta estos controles en cada pull request y push a `master`. E
 
 ## QA y publicación
 
-1. Generar un build `preview` y completar los recorridos críticos en al menos un Android real.
+1. Generar un build `preview` mediante el workflow con puerta Maestro y completar en un Android real los límites que requieren hardware o cuentas externas.
 2. Subir la versión candidata al canal de pruebas internas de Play Console.
 3. Validar inicio limpio, actualización desde la versión anterior, notificaciones, biometría, respaldo/restauración y PDF.
 4. Generar `production` desde el commit aprobado y etiquetarlo como `vX.Y.Z`.
 5. Iniciar el despliegue gradual en Play Console: 5%, 20%, 50% y 100%, dejando una ventana de observación entre etapas.
+
+No generar preview o producción con `eas build` directamente. La ruta de distribución aceptada es `.github/workflows/build.yml`, porque bloquea el build hasta que el mismo commit supera la regresión E2E en Android 15.
 
 ## Updates y rollback
 
