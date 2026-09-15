@@ -1,7 +1,7 @@
 import { DatabaseService } from './DatabaseService';
 import { GoogleDriveService } from './GoogleDriveService';
 import { t } from '@/lib/i18n';
-import { logAppError } from '@/lib/logger';
+import { getDiagnosticMetadata, logAppError } from '@/lib/logger';
 
 function isExpectedRestoreError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -26,7 +26,8 @@ export class RestoreService {
       try {
         await DatabaseService.restoreFromFile(file);
       } catch (error) {
-        logAppError('database.restore', error);
+        const backupMetadata = await DatabaseService.getBackupDiagnosticMetadata(file).catch(() => ({}));
+        logAppError('database.restore', error, { ...getDiagnosticMetadata(error), ...backupMetadata });
         if (isExpectedRestoreError(error)) throw error;
         throw new Error(t('errors.restoreFailed'));
       }

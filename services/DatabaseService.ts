@@ -17,8 +17,36 @@ import {
   REQUIRED_BACKUP_TABLES,
 } from '@/lib/database-schema';
 import { t } from '@/lib/i18n';
+import { attachDiagnosticMetadata } from '@/lib/logger';
 
 export class DatabaseService {
+  static async getBackupDiagnosticMetadata(file: File): Promise<{
+    backupSizeBytes: number;
+    backupSchemaVersion: number | null;
+    expectedSchemaVersion: number;
+  }> {
+    const bytes = await file.bytes();
+    let backupSchemaVersion: number | null = null;
+    if (hasValidSQLiteHeader(bytes)) {
+      try {
+        const candidate = await SQLite.deserializeDatabaseAsync(bytes);
+        try {
+          const version = await candidate.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+          backupSchemaVersion = version?.user_version ?? 0;
+        } finally {
+          await candidate.closeAsync();
+        }
+      } catch {
+        // A corrupt backup may not open; its size is still useful and safe.
+      }
+    }
+    return {
+      backupSizeBytes: bytes.length,
+      backupSchemaVersion,
+      expectedSchemaVersion: DATABASE_SCHEMA_VERSION,
+    };
+  }
+
   private static async replaceDatabaseFrom(
     source: SQLite.SQLiteDatabase
   ): Promise<void> {
@@ -148,6 +176,8 @@ export class DatabaseService {
       if (application?.application_id !== 0 && application?.application_id !== DATABASE_APPLICATION_ID) {
         throw new Error(t('errors.invalidBackupVersion'));
       }
+    } catch (error) {
+      throw attachDiagnosticMetadata(error, { stage: 'validation' });
     } finally {
       await candidate.closeAsync();
     }
@@ -193,7 +223,10 @@ export class DatabaseService {
           await this.replaceDatabaseFrom(source);
         } catch (restoreError) {
           await this.replaceDatabaseFrom(rollback);
-          throw restoreError;
+          throw attachDiagnosticMetadata(restoreError, {
+            stage: 'replacement',
+            code: 'DATABASE_REPLACE_FAILED',
+          });
         }
       });
 
@@ -206,7 +239,10 @@ export class DatabaseService {
           await this.replaceDatabaseFrom(rollback);
         });
         await initDatabase();
-        throw migrationError;
+        throw attachDiagnosticMetadata(migrationError, {
+          stage: 'migration',
+          code: 'DATABASE_MIGRATION_FAILED',
+        });
       }
     } finally {
       await source.closeAsync();

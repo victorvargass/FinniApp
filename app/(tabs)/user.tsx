@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as MailComposer from 'expo-mail-composer';
 import React from 'react';
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,12 +27,86 @@ import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
-import { clearAppDiagnostics, getAppDiagnostics } from '@/lib/logger';
+import { DATABASE_SCHEMA_VERSION } from '@/lib/database-schema';
+import { clearAppDiagnostics, getAppDiagnostics, type AppDiagnostic, type DiagnosticStage } from '@/lib/logger';
 import { resetSetupProgress } from '@/lib/setup-progress';
 import { showToast } from '@/lib/toast';
 import { NotificationPermissionError } from '@/services/MovementReminderService';
 
 const SUPPORT_EMAIL = 'victorvargassandoval93@gmail.com';
+
+type DiagnosticGroup = AppDiagnostic & { attempts: number };
+
+function groupDiagnostics(diagnostics: AppDiagnostic[]): DiagnosticGroup[] {
+  const groups = new Map<string, DiagnosticGroup>();
+  for (const item of diagnostics) {
+    const key = [item.context, item.stage, item.code, item.nativeOperation].join('|');
+    const existing = groups.get(key);
+    if (existing) {
+      existing.attempts += 1;
+      if (item.timestamp > existing.timestamp) Object.assign(existing, item, { attempts: existing.attempts });
+    } else {
+      groups.set(key, { ...item, attempts: 1 });
+    }
+  }
+  return [...groups.values()].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+function diagnosticProblem(context: AppDiagnostic['context']): string {
+  if (context === 'database.restore') return t('settings.diagnosticRestoreProblem');
+  if (context === 'database.initialize') return t('settings.diagnosticInitializeProblem');
+  if (context === 'database.refresh') return t('settings.diagnosticRefreshProblem');
+  return t('settings.diagnosticExportProblem');
+}
+
+function diagnosticStage(stage: DiagnosticStage): string {
+  const labels: Record<DiagnosticStage, string> = {
+    download: t('settings.diagnosticStageDownload'),
+    validation: t('settings.diagnosticStageValidation'),
+    compatibility: t('settings.diagnosticStageCompatibility'),
+    opening: t('settings.diagnosticStageOpening'),
+    replacement: t('settings.diagnosticStageReplacement'),
+    migration: t('settings.diagnosticStageMigration'),
+    refresh: t('settings.diagnosticStageRefresh'),
+    export: t('settings.diagnosticStageExport'),
+    unknown: t('settings.unknown'),
+  };
+  return labels[stage];
+}
+
+function diagnosticDetail(code: string): string {
+  if (code === 'UNKNOWN_ERROR') return t('settings.diagnosticDetailLegacy');
+  if (code === 'BACKUP_EMPTY') return t('settings.diagnosticDetailEmpty');
+  if (code === 'BACKUP_INTEGRITY_FAILED') return t('settings.diagnosticDetailIntegrity');
+  if (code === 'BACKUP_RELATIONS_INVALID') return t('settings.diagnosticDetailRelations');
+  if (code === 'BACKUP_VERSION_INCOMPATIBLE') return t('settings.diagnosticDetailVersion');
+  if (code === 'DRIVE_BACKUP_NOT_FOUND') return t('settings.diagnosticDetailNotFound');
+  if (code.startsWith('SQLITE_') || code === 'NATIVE_SQLITE_ERROR') return t('settings.diagnosticDetailSQLite');
+  return t('settings.diagnosticDetailGeneric');
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDiagnostic(group: DiagnosticGroup, index: number): string {
+  const lines = [
+    t('settings.diagnosticIssue', { number: index + 1 }),
+    t('settings.diagnosticProblem', { value: diagnosticProblem(group.context) }),
+    t('settings.diagnosticStage', { value: diagnosticStage(group.stage) }),
+    t('settings.diagnosticDetail', { value: diagnosticDetail(group.code) }),
+    t('settings.diagnosticCode', { value: group.code }),
+    t('settings.diagnosticAttempts', { count: group.attempts }),
+    t('settings.diagnosticLastAttempt', {
+      value: new Date(group.timestamp).toLocaleString(APP_LOCALE, { dateStyle: 'medium', timeStyle: 'short' }),
+    }),
+  ];
+  if (group.nativeOperation) lines.push(t('settings.diagnosticOperation', { value: group.nativeOperation }));
+  if (group.backupSizeBytes != null) lines.push(t('settings.diagnosticBackupSize', { value: formatFileSize(group.backupSizeBytes) }));
+  if (group.backupSchemaVersion != null) lines.push(t('settings.diagnosticBackupSchema', { value: group.backupSchemaVersion }));
+  return lines.join('\n');
+}
 
 // Utils
 // Components
@@ -155,10 +231,19 @@ export default function UserScreen() {
     try {
       const diagnostics = await getAppDiagnostics();
       const diagnosticText = diagnostics.length > 0
-        ? diagnostics.map((item) => `${item.timestamp} | ${item.context} | ${item.category}`).join('\n')
+        ? groupDiagnostics(diagnostics).map(formatDiagnostic).join('\n\n')
         : t('settings.noDiagnostics');
+      const platformConstants = Platform.constants as { Model?: string };
+      const technicalContext = [
+        t('settings.diagnosticAppVersion', { value: Constants.expoConfig?.version ?? t('settings.unknown') }),
+        t('settings.diagnosticOperatingSystem', {
+          value: `${Platform.OS === 'android' ? 'Android' : 'iOS'} ${String(Platform.Version)}`,
+        }),
+        t('settings.diagnosticDevice', { value: platformConstants.Model ?? t('settings.unknown') }),
+        t('settings.diagnosticCurrentSchema', { value: DATABASE_SCHEMA_VERSION }),
+      ].join('\n');
       const subject = t('settings.supportEmailSubject');
-      const body = t('settings.supportEmailBody', { diagnostics: diagnosticText });
+      const body = t('settings.supportEmailBody', { diagnostics: diagnosticText, context: technicalContext });
       if (await MailComposer.isAvailableAsync()) {
         await MailComposer.composeAsync({
           recipients: [SUPPORT_EMAIL],
