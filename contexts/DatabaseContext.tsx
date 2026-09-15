@@ -55,6 +55,7 @@ import {
   syncRecurringNotifications,
 } from '@/services/RecurringNotificationService';
 import { syncMovementReminder } from '@/services/MovementReminderService';
+import { syncFinancialReminders } from '@/services/FinancialReminderService';
 
 type DatabaseContextValue = {
   categories: Category[];
@@ -261,7 +262,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           selectedPeriodIdRef.current = targetPeriodId;
           setSelectedPeriodId(targetPeriodId);
         }
-        const [cats, methods, methodTotals, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history] = await Promise.all([
+        const [cats, methods, methodTotals, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
           db.getCategories(),
           db.getPaymentMethods(true),
           db.getPaymentMethodTotals(targetPeriodId),
@@ -278,7 +279,15 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           db.getPeriodCategoryExpensesTotals(targetPeriodId),
           db.getPeriodIncomesTotal(targetPeriodId),
           db.getPeriodHistory(),
+          db.getDebts(),
+          db.getDebtPlans(),
         ]);
+        await syncFinancialReminders({
+          paymentMethods: methods,
+          debts,
+          debtPlans,
+          currentPeriod: nextSettings.currentPeriod ?? null,
+        }).catch(() => undefined);
         setCategories(cats);
         setPaymentMethods(methods);
         setPaymentMethodTotals(methodTotals);

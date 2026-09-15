@@ -3497,6 +3497,15 @@ export async function getDebtPlans(paymentMethodId?: number): Promise<DebtPlan[]
       (SELECT e.id FROM expenses e
        WHERE e.debt_plan_id = p.id AND e.debt_installment_id IS NULL
        ORDER BY e.id DESC LIMIT 1) AS settlement_expense_id,
+      (SELECT i2.installment_number FROM debt_installments i2
+       WHERE i2.debt_plan_id = p.id AND i2.status = 'projected' AND i2.manually_removed = 0
+       ORDER BY i2.due_date, i2.installment_number LIMIT 1) AS next_installment_number,
+      (SELECT i2.due_date FROM debt_installments i2
+       WHERE i2.debt_plan_id = p.id AND i2.status = 'projected' AND i2.manually_removed = 0
+       ORDER BY i2.due_date, i2.installment_number LIMIT 1) AS next_installment_due_date,
+      (SELECT i2.projected_amount FROM debt_installments i2
+       WHERE i2.debt_plan_id = p.id AND i2.status = 'projected' AND i2.manually_removed = 0
+       ORDER BY i2.due_date, i2.installment_number LIMIT 1) AS next_installment_amount,
       COALESCE(SUM(CASE WHEN i.status = 'projected' THEN i.projected_amount ELSE 0 END), 0) AS remaining_amount
      FROM debt_plans p
      INNER JOIN payment_methods pm ON pm.id = p.payment_method_id
@@ -3520,6 +3529,9 @@ export async function getDebtPlans(paymentMethodId?: number): Promise<DebtPlan[]
     linkedExpenseCount: Number(row.linked_expense_count),
     settlementExpenseId: row.settlement_expense_id == null ? null : Number(row.settlement_expense_id),
     remainingAmount: Number(row.remaining_amount),
+    nextInstallmentNumber: row.next_installment_number == null ? null : Number(row.next_installment_number),
+    nextInstallmentDueDate: row.next_installment_due_date == null ? null : String(row.next_installment_due_date),
+    nextInstallmentAmount: row.next_installment_amount == null ? null : Number(row.next_installment_amount),
   }));
 }
 

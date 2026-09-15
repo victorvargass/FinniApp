@@ -299,6 +299,9 @@ export type DebtPlan = NewInstallmentPurchase & {
   linkedExpenseCount: number;
   settlementExpenseId: number | null;
   remainingAmount: number;
+  nextInstallmentNumber: number | null;
+  nextInstallmentDueDate: string | null;
+  nextInstallmentAmount: number | null;
   installments?: DebtInstallment[];
 };
 

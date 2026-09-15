@@ -12,6 +12,7 @@ import {
   getRecurringNotificationData,
 } from '@/services/RecurringNotificationService';
 import { getMovementReminderUrl } from '@/services/MovementReminderService';
+import { getFinancialReminderUrl } from '@/services/FinancialReminderService';
 
 function showResult(message: string) {
   showToast(message);
@@ -30,6 +31,16 @@ export function RecurringNotificationController() {
   useEffect(() => {
     const handleResponse = async (response: Notifications.NotificationResponse) => {
       const responseKey = `${response.notification.request.identifier}:${response.actionIdentifier}`;
+      const financialReminderUrl = getFinancialReminderUrl(response);
+      if (financialReminderUrl) {
+        if (handledResponse.current === responseKey) return;
+        handledResponse.current = responseKey;
+        router.push(financialReminderUrl as never);
+        await Notifications.dismissNotificationAsync(response.notification.request.identifier)
+          .catch(() => undefined);
+        await Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
+        return;
+      }
       const movementReminderUrl = getMovementReminderUrl(response);
       if (movementReminderUrl) {
         if (handledResponse.current === responseKey) return;

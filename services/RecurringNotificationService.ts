@@ -112,7 +112,7 @@ export async function syncRecurringNotifications(
 
   const limited = [...schedules]
     .sort((first, second) => first.scheduledDate.localeCompare(second.scheduledDate))
-    .slice(0, 50);
+    .slice(0, 40);
   for (const schedule of limited) {
     const noun = schedule.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
     await Notifications.scheduleNotificationAsync({
