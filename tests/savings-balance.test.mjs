@@ -7,17 +7,20 @@ import {
   resolveSavingsBalanceStartDate,
 } from '../lib/savings-balance.ts';
 
-test('a zero savings balance is still reported on the registration date', () => {
+test('the savings starting point follows the goal creation date', () => {
   assert.equal(
-    resolveSavingsBalanceStartDate('2026-09-15'),
-    '2026-09-15'
+    resolveSavingsBalanceStartDate('2026-08-25'),
+    '2026-08-25'
   );
 });
 
-test('a reported savings balance uses the date it was entered in the app', () => {
+test('a contribution after a backdated creation date is not covered by the starting balance', () => {
   assert.equal(
-    resolveSavingsBalanceStartDate('2026-09-15'),
-    '2026-09-15'
+    isSavingsMovementCoveredByBalance('2026-08-26', 1, {
+      date: '2026-08-25',
+      movementAnchorId: 0,
+    }),
+    false
   );
 });
 

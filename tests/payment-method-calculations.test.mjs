@@ -12,6 +12,10 @@ test('available balance applies charges and card payments after the snapshot', (
   assert.equal(calculateAvailableBalance(50_000, 80_000, 0), -30_000);
 });
 
+test('a card payment after the reported balance date changes available credit', () => {
+  assert.equal(calculateAvailableBalance(400_000, 0, 50_000), 450_000);
+});
+
 test('a reported zero balance still acts as a real payment-method snapshot', () => {
   assert.equal(calculateAvailableBalance(0, 0, 0), 0);
   assert.equal(calculateAvailableBalance(0, 0, 0, 0, 30_000), 30_000);

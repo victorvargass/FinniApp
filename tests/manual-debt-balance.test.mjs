@@ -76,3 +76,16 @@ test('the latest dated debt synchronization wins over a later inserted backdated
     database.close();
   }
 });
+
+test('a payment after a backdated debt creation date reduces the remaining balance', () => {
+  const database = debtDatabase();
+  try {
+    database.exec(`
+      INSERT INTO manual_debts VALUES (1, 1000000, '2026-08-25', 0);
+      INSERT INTO manual_debt_entries VALUES (1, 1, 'payment', 150000, '2026-08-26', NULL, 0);
+    `);
+    assert.equal(balanceAt(database, 1, '2026-09-15'), 850000);
+  } finally {
+    database.close();
+  }
+});

@@ -7,6 +7,10 @@ import {
   DATABASE_NAME,
 } from './database-schema';
 import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financial-calculations';
+import {
+  paymentMethodAfterSnapshotSql,
+  resolveBalanceTrackingStartDate,
+} from './balance-snapshot';
 import { calculateAvailableBalance } from './payment-method-calculations';
 import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate } from './debt-calculations';
 import {
@@ -18,7 +22,6 @@ import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } f
 import {
   getSavingsBalanceAdjustmentAmount,
   isSavingsMovementCoveredByBalance,
-  resolveSavingsBalanceStartDate,
 } from './savings-balance';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
 import type {
@@ -1014,6 +1017,35 @@ async function initializeDatabase(): Promise<void> {
           FROM savings_goal_adjustments adjustment
           WHERE adjustment.goal_id = savings_goals.id
             AND adjustment.reported_balance IS NOT NULL
+        )
+    `);
+  }
+  if (previousSchemaVersion < 16) {
+    await db.runAsync(`
+      UPDATE savings_goals
+      SET balance_updated_at = date(created_at),
+          balance_movement_anchor_id = 0
+      WHERE (balance_updated_at IS NULL
+          OR balance_updated_at > date(created_at))
+        AND NOT EXISTS (
+          SELECT 1
+          FROM savings_goal_adjustments adjustment
+          WHERE adjustment.goal_id = savings_goals.id
+            AND adjustment.reported_balance IS NOT NULL
+        )
+    `);
+    await db.runAsync(`
+      UPDATE manual_debts
+      SET balance_updated_at = date(created_at),
+          balance_payment_anchor_id = 0
+      WHERE (balance_updated_at IS NULL
+          OR balance_updated_at > date(created_at))
+        AND NOT EXISTS (
+          SELECT 1
+          FROM manual_debt_entries snapshot
+          WHERE snapshot.debt_id = manual_debts.id
+            AND snapshot.kind = 'adjustment'
+            AND snapshot.reported_balance IS NOT NULL
         )
     `);
   }
@@ -2476,7 +2508,7 @@ export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
     data.targetAmount,
     data.initialAmount,
     data.allowWithdrawals ? 1 : 0,
-    resolveSavingsBalanceStartDate(toLocalIsoDate(new Date())),
+    resolveBalanceTrackingStartDate(data.creationDate),
     `${data.creationDate} 12:00:00`,
     data.deadline,
     data.color.toLowerCase()
@@ -2495,20 +2527,45 @@ export async function updateSavingsGoal(id: number, data: NewSavingsGoal): Promi
     if (data.initialAmount + movementBalance < 0) {
       throw new Error(t('database.initialSavingsNegative'));
     }
-    await transaction.runAsync(
-      `UPDATE savings_goals SET
-         name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?, created_at = ?, deadline = ?, color = ?,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      data.name.trim(),
-      data.targetAmount,
-      data.initialAmount,
-      data.allowWithdrawals ? 1 : 0,
-      `${data.creationDate} 12:00:00`,
-      data.deadline,
-      data.color.toLowerCase(),
+    const reportedSnapshot = await transaction.getFirstAsync<{ id: number }>(
+      `SELECT id FROM savings_goal_adjustments
+       WHERE goal_id = ? AND reported_balance IS NOT NULL
+       LIMIT 1`,
       id
     );
+    if (reportedSnapshot) {
+      await transaction.runAsync(
+        `UPDATE savings_goals SET
+           name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?, created_at = ?, deadline = ?, color = ?,
+           updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        data.name.trim(),
+        data.targetAmount,
+        data.initialAmount,
+        data.allowWithdrawals ? 1 : 0,
+        `${data.creationDate} 12:00:00`,
+        data.deadline,
+        data.color.toLowerCase(),
+        id
+      );
+    } else {
+      await transaction.runAsync(
+        `UPDATE savings_goals SET
+           name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?, created_at = ?, deadline = ?, color = ?,
+           balance_updated_at = ?, balance_movement_anchor_id = 0,
+           updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        data.name.trim(),
+        data.targetAmount,
+        data.initialAmount,
+        data.allowWithdrawals ? 1 : 0,
+        `${data.creationDate} 12:00:00`,
+        data.deadline,
+        data.color.toLowerCase(),
+        resolveBalanceTrackingStartDate(data.creationDate),
+        id
+      );
+    }
     await assertSavingsGoalBalanceIsNotNegative(transaction, id);
   });
 }
@@ -2733,52 +2790,44 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
          WHERE charge.payment_method_id = method.id
            AND charge.debt_plan_id IS NULL
            AND charge.date <= DATE('now', 'localtime')
-           AND (charge.date > method.balance_updated_at
-             OR (charge.date = method.balance_updated_at AND charge.id > method.balance_expense_anchor_id))
+           AND ${paymentMethodAfterSnapshotSql('charge.date', 'charge.id', 'balance_expense_anchor_id')}
        ), 0) AS registered_charges,
        COALESCE((
          SELECT SUM(payment.amount) FROM expenses payment
          WHERE payment.credit_payment_target_id = method.id
            AND payment.date <= DATE('now', 'localtime')
-           AND (payment.date > method.balance_updated_at
-             OR (payment.date = method.balance_updated_at AND payment.id > method.balance_payment_anchor_id))
+           AND ${paymentMethodAfterSnapshotSql('payment.date', 'payment.id', 'balance_payment_anchor_id')}
        ), 0) AS registered_payments,
        COALESCE((
          SELECT SUM(adjustment.amount) FROM credit_card_adjustments adjustment
          WHERE adjustment.payment_method_id = method.id
            AND adjustment.date <= DATE('now', 'localtime')
-           AND (adjustment.date > method.balance_updated_at
-             OR (adjustment.date = method.balance_updated_at
-               AND adjustment.id > method.balance_adjustment_anchor_id))
+           AND ${paymentMethodAfterSnapshotSql('adjustment.date', 'adjustment.id', 'balance_adjustment_anchor_id')}
        ), 0) AS registered_adjustments,
        COALESCE((
          SELECT SUM(income.amount) FROM incomes income
          WHERE income.payment_method_id = method.id
            AND income.date <= DATE('now', 'localtime')
-           AND (income.date > method.balance_updated_at
-             OR (income.date = method.balance_updated_at AND income.id > method.balance_income_anchor_id))
+           AND ${paymentMethodAfterSnapshotSql('income.date', 'income.id', 'balance_income_anchor_id')}
        ), 0) AS registered_incomes,
        COALESCE((
          SELECT SUM(transfer.amount) FROM account_transfers transfer
          WHERE transfer.destination_payment_method_id = method.id
            AND transfer.date <= DATE('now', 'localtime')
-           AND (transfer.date > method.balance_updated_at
-             OR (transfer.date = method.balance_updated_at AND transfer.id > method.balance_transfer_anchor_id))
+           AND ${paymentMethodAfterSnapshotSql('transfer.date', 'transfer.id', 'balance_transfer_anchor_id')}
        ), 0) AS registered_transfers_in,
        COALESCE((
          SELECT SUM(transfer.amount) FROM account_transfers transfer
          WHERE transfer.source_payment_method_id = method.id
            AND transfer.date <= DATE('now', 'localtime')
-           AND (transfer.date > method.balance_updated_at
-             OR (transfer.date = method.balance_updated_at AND transfer.id > method.balance_transfer_anchor_id))
+           AND ${paymentMethodAfterSnapshotSql('transfer.date', 'transfer.id', 'balance_transfer_anchor_id')}
        ), 0) AS registered_transfers_out,
        COALESCE((
          SELECT SUM(plan.total_amount) FROM debt_plans plan
          WHERE plan.payment_method_id = method.id
            AND plan.status != 'cancelled'
            AND plan.purchase_date <= DATE('now', 'localtime')
-           AND (plan.purchase_date > method.balance_updated_at
-             OR (plan.purchase_date = method.balance_updated_at AND plan.id > method.balance_debt_plan_anchor_id))
+           AND ${paymentMethodAfterSnapshotSql('plan.purchase_date', 'plan.id', 'balance_debt_plan_anchor_id')}
        ), 0) AS installment_commitments,
        (SELECT cycle.end_date FROM credit_card_cycles cycle
         WHERE cycle.payment_method_id = method.id
@@ -3975,7 +4024,7 @@ export async function createDebt(data: NewDebt): Promise<number> {
        installment_amount, frequency, first_due_date, category_id, payment_method_id, notes, created_at)
      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
     data.type, data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
-    toLocalIsoDate(new Date()),
+    resolveBalanceTrackingStartDate(data.creationDate),
     data.installmentAmount,
     data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
     data.installmentAmount != null ? data.firstDueDate : null,
@@ -3998,16 +4047,39 @@ export async function updateDebt(id: number, data: NewDebt): Promise<void> {
   if (existing.entry_count > 0 && existing.initial_amount !== data.initialAmount) {
     throw new Error(t('database.debtInitialLocked'));
   }
+  const reportedSnapshot = await db.getFirstAsync<{ id: number }>(
+    `SELECT id FROM manual_debt_entries
+     WHERE debt_id = ? AND kind = 'adjustment' AND reported_balance IS NOT NULL
+     LIMIT 1`,
+    id
+  );
+  if (reportedSnapshot) {
+    await db.runAsync(
+      `UPDATE manual_debts SET name = ?, creditor = ?, initial_amount = ?, installment_amount = ?,
+        frequency = ?, first_due_date = ?, category_id = ?, payment_method_id = ?, notes = ?, created_at = ?,
+        updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
+      data.installmentAmount,
+      data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
+      data.installmentAmount != null ? data.firstDueDate : null,
+      data.categoryId, data.paymentMethodId, data.notes?.trim() || null,
+      `${data.creationDate} 12:00:00`, id
+    );
+    return;
+  }
   await db.runAsync(
     `UPDATE manual_debts SET name = ?, creditor = ?, initial_amount = ?, installment_amount = ?,
       frequency = ?, first_due_date = ?, category_id = ?, payment_method_id = ?, notes = ?, created_at = ?,
+      balance_updated_at = ?, balance_payment_anchor_id = 0,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
     data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
     data.installmentAmount,
     data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
     data.installmentAmount != null ? data.firstDueDate : null,
     data.categoryId, data.paymentMethodId, data.notes?.trim() || null,
-    `${data.creationDate} 12:00:00`, id
+    `${data.creationDate} 12:00:00`,
+    resolveBalanceTrackingStartDate(data.creationDate),
+    id
   );
 }
 

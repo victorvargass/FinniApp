@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { DatabaseSync } from 'node:sqlite';
 
-import { isMovementCoveredByBalanceSnapshot } from '../lib/balance-snapshot.ts';
+import {
+  isMovementCoveredByBalanceSnapshot,
+  paymentMethodAfterSnapshotSql,
+  resolveBalanceTrackingStartDate,
+} from '../lib/balance-snapshot.ts';
 
 test('a movement before a reported balance is already covered', () => {
   assert.equal(isMovementCoveredByBalanceSnapshot('2026-09-14', 30, {
@@ -21,4 +26,72 @@ test('a movement after a reported balance changes the current amount', () => {
     date: '2026-09-15',
     movementAnchorId: 25,
   }), false);
+});
+
+test('tracking starts on the creation date even if the item is registered later', () => {
+  assert.equal(resolveBalanceTrackingStartDate('2026-08-25'), '2026-08-25');
+});
+
+test('a card payment after a backdated snapshot changes the running total', () => {
+  const database = new DatabaseSync(':memory:');
+  try {
+    database.exec(`
+      CREATE TABLE payment_methods (
+        id INTEGER PRIMARY KEY,
+        balance_updated_at TEXT,
+        balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE expenses (
+        id INTEGER PRIMARY KEY,
+        credit_payment_target_id INTEGER,
+        amount INTEGER,
+        date TEXT
+      );
+      INSERT INTO payment_methods VALUES (1, '2026-08-25', 0);
+      INSERT INTO expenses VALUES (1, 1, 50000, '2026-08-26');
+    `);
+    const row = database.prepare(`
+      SELECT COALESCE((
+        SELECT SUM(payment.amount) FROM expenses payment
+        WHERE payment.credit_payment_target_id = method.id
+          AND ${paymentMethodAfterSnapshotSql('payment.date', 'payment.id', 'balance_payment_anchor_id')}
+      ), 0) AS registered_payments
+      FROM payment_methods method WHERE id = 1
+    `).get();
+    assert.equal(row.registered_payments, 50_000);
+  } finally {
+    database.close();
+  }
+});
+
+test('without a payment-method snapshot card payments still count', () => {
+  const database = new DatabaseSync(':memory:');
+  try {
+    database.exec(`
+      CREATE TABLE payment_methods (
+        id INTEGER PRIMARY KEY,
+        balance_updated_at TEXT,
+        balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE expenses (
+        id INTEGER PRIMARY KEY,
+        credit_payment_target_id INTEGER,
+        amount INTEGER,
+        date TEXT
+      );
+      INSERT INTO payment_methods VALUES (1, NULL, 0);
+      INSERT INTO expenses VALUES (1, 1, 80000, '2026-08-26');
+    `);
+    const row = database.prepare(`
+      SELECT COALESCE((
+        SELECT SUM(payment.amount) FROM expenses payment
+        WHERE payment.credit_payment_target_id = method.id
+          AND ${paymentMethodAfterSnapshotSql('payment.date', 'payment.id', 'balance_payment_anchor_id')}
+      ), 0) AS registered_payments
+      FROM payment_methods method WHERE id = 1
+    `).get();
+    assert.equal(row.registered_payments, 80_000);
+  } finally {
+    database.close();
+  }
 });

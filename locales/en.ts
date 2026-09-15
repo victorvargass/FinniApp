@@ -875,7 +875,7 @@ const en = {
     targetAmount: 'Target amount (CLP)',
     targetPlaceholder: 'Ex: 1000000',
     initialAmountClp: 'Initial amount (CLP)',
-    initialHint: 'It is the savings that you already had before you started registering contributions in the app.',
+    initialHint: 'It is the savings you already had on the creation date, before the contributions you record.',
     currentStartingBalanceClp: 'Current saved amount (CLP)',
     currentStartingBalanceHint: 'This is the actual balance as of today. Transactions dated earlier will remain in the history without changing it again.',
     allowWithdrawals: 'Allow withdrawals',

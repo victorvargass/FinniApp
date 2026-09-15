@@ -1,7 +1,13 @@
+import {
+  isMovementCoveredByBalanceSnapshot,
+  resolveBalanceTrackingStartDate,
+  type BalanceSnapshotBoundary,
+} from './balance-snapshot.ts';
+
 export function resolveSavingsBalanceStartDate(
-  registrationDate: string
+  creationDate: string
 ) {
-  return registrationDate;
+  return resolveBalanceTrackingStartDate(creationDate);
 }
 
 export type SavingsBalanceBoundary = BalanceSnapshotBoundary;
@@ -20,7 +26,3 @@ export function getSavingsBalanceAdjustmentAmount(
 ) {
   return reportedBalance - balanceAtDate;
 }
-import {
-  isMovementCoveredByBalanceSnapshot,
-  type BalanceSnapshotBoundary,
-} from './balance-snapshot.ts';

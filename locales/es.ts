@@ -875,7 +875,7 @@ const es = {
     targetAmount: 'Monto objetivo (CLP)',
     targetPlaceholder: 'Ej: 1000000',
     initialAmountClp: 'Monto inicial (CLP)',
-    initialHint: 'Es el ahorro que ya tenías antes de comenzar a registrar aportes en la app.',
+    initialHint: 'Es el ahorro que ya tenías en la fecha de creación, antes de los aportes que registres.',
     currentStartingBalanceClp: 'Monto ahorrado actual (CLP)',
     currentStartingBalanceHint: 'Es el saldo real al día de hoy. Los movimientos con una fecha anterior quedarán en el historial sin volver a modificarlo.',
     allowWithdrawals: 'Permitir retiros',

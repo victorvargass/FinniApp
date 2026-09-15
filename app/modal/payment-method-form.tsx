@@ -1,7 +1,8 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ColorPicker } from '@/components/ColorPicker';
@@ -11,9 +12,8 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLPInput, parseAmount } from '@/lib/format';
+import { formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
-import { toIsoDate } from '@/lib/recurrence';
 import { showToast } from '@/lib/toast';
 import type { PaymentMethodType } from '@/lib/types';
 
@@ -47,6 +47,8 @@ export default function PaymentMethodFormScreen() {
   const [paymentDueDay, setPaymentDueDay] = useState(method?.paymentDueDay ? String(method.paymentDueDay) : '5');
   const [creditLimitText, setCreditLimitText] = useState(method?.creditLimit != null ? formatCLPInput(method.creditLimit) : '');
   const [reportedBalanceText, setReportedBalanceText] = useState('');
+  const [balanceDate, setBalanceDate] = useState(toDateString(new Date()));
+  const [showBalanceDate, setShowBalanceDate] = useState(false);
   const [color, setColor] = useState(method?.color ?? '#0B315B');
   const [saving, setSaving] = useState(false);
   const types: { value: PaymentMethodType; label: string }[] = [
@@ -82,7 +84,7 @@ export default function PaymentMethodFormScreen() {
         color,
         creditLimit,
         reportedBalance,
-        balanceDate: reportedBalance == null ? null : toIsoDate(new Date()),
+        balanceDate: reportedBalance == null ? null : balanceDate,
         paymentDueDay: type === 'credit' ? dueDay : null,
       };
       if (method) await editPaymentMethod(method.id, data);
@@ -260,9 +262,23 @@ export default function PaymentMethodFormScreen() {
             placeholderTextColor={colors.icon}
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
           />
-          <ThemedText style={styles.hint}>
-            {t('paymentMethods.balanceUpdatedAt', { date: new Intl.DateTimeFormat().format(new Date()) })}
-          </ThemedText>
+          <ThemedText style={styles.label}>{t('paymentMethods.balanceDate')}</ThemedText>
+          <Pressable
+            onPress={() => setShowBalanceDate(true)}
+            style={[styles.input, styles.date, { borderColor: colors.border }]}>
+            <ThemedText>{formatDate(new Date(`${balanceDate}T12:00:00`))}</ThemedText>
+          </Pressable>
+          {showBalanceDate && (
+            <DateTimePicker
+              maximumDate={new Date()}
+              value={new Date(`${balanceDate}T12:00:00`)}
+              mode="date"
+              onChange={(_, value) => {
+                if (Platform.OS === 'android') setShowBalanceDate(false);
+                if (value) setBalanceDate(toDateString(value));
+              }}
+            />
+          )}
           <ThemedText style={styles.hint}>{t('paymentMethods.balanceSnapshotHint')}</ThemedText>
         </ThemedView>
       )}
@@ -378,6 +394,7 @@ const styles = StyleSheet.create({
   hint: { opacity: 0.65, fontSize: 13, lineHeight: 18 },
   startingCard: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 10, marginTop: 8 },
   startingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  date: { justifyContent: 'center' },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 20, paddingTop: 10, gap: 10 },
   save: { borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0B315B' },
   saveText: { color: '#fff', fontWeight: '700' },
