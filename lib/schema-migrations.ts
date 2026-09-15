@@ -15,6 +15,7 @@ export const SCHEMA_MIGRATIONS = [
   { version: 8, name: 'account-transfers' },
   { version: 9, name: 'payment-method-name-per-type' },
   { version: 10, name: 'credit-card-refunds-and-adjustments' },
+  { version: 11, name: 'savings-and-debt-balance-snapshots' },
 ] as const;
 
 export async function recordAppliedSchema(database: MigrationDatabase): Promise<void> {

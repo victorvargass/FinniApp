@@ -1485,6 +1485,7 @@ const en = {
     reactivateSavingsGoal: 'Reactivate the savings goal before activating this recurring contribution',
     savingsBalanceInvalid: 'Enter a valid saved amount',
     savingsAdjustmentDateInvalid: 'Enter a valid date for the adjustment',
+    debtAdjustmentDateInvalid: 'Enter a valid date to update the debt balance',
     savingsBalanceUnchanged: 'The new amount is equal to the current saved amount',
     usedSavingsContribution: 'You cannot modify this contribution because that savings has already been used',
     savingsExpenseMissing: 'Savings spending no longer exists',

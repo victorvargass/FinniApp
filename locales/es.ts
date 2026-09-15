@@ -1485,6 +1485,7 @@ const es = {
     reactivateSavingsGoal: 'Reactiva la meta de ahorro antes de activar este aporte recurrente',
     savingsBalanceInvalid: 'Ingresa un monto ahorrado válido',
     savingsAdjustmentDateInvalid: 'Ingresa una fecha válida para el ajuste',
+    debtAdjustmentDateInvalid: 'Ingresa una fecha válida para actualizar el saldo de la deuda',
     savingsBalanceUnchanged: 'El nuevo monto es igual al monto ahorrado actual',
     usedSavingsContribution: 'No puedes modificar este aporte porque ese ahorro ya fue utilizado',
     savingsExpenseMissing: 'El gasto de ahorro ya no existe',
