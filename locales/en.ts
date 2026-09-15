@@ -1,5 +1,7 @@
 const en = {
   common: {
+    creationDate: 'Creation date',
+    creationDateValue: 'Creation date: %{date}',
     accept: 'Accept',
     active: 'Active',
     amount: 'Amount',
@@ -667,6 +669,7 @@ const en = {
     registered: 'Installment recorded successfully',
   },
   debts: {
+    creationDateHint: 'Enter when this debt actually began, even if you are recording it today.',
     creditCards: 'Credit cards',
     creditCardsHint: 'Credit limits, used amounts and payments for your cards.',
     totalFinancialDebt: 'Estimated total debt',
@@ -772,6 +775,7 @@ const en = {
     cannotDeleteHint: 'This debt has payments or adjustments. You can archive it to preserve its history.',
   },
   savings: {
+    creationDateHint: 'Enter when you actually started saving, even if you are recording it today.',
     title: 'Savings goals',
     goal: 'Savings goal',
     newGoal: 'New goal',
@@ -1339,6 +1343,7 @@ const en = {
     languageProvider: 'useLanguage must be used within LanguageProvider',
   },
   database: {
+    creationDateInvalid: 'The creation date is not valid.',
     reservedIncomeColor: 'You are not allowed to use that color because it is reserved for income',
     categoryNameExists: 'There is already a category with that name',
     categoryColorExists: 'That color is already in use by another category',

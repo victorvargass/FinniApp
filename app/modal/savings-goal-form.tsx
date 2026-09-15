@@ -89,11 +89,15 @@ export default function SavingsGoalFormScreen() {
     goal ? formatCLPInput(goal.initialAmount) : formatCLPInput(0)
   );
   const [allowWithdrawals, setAllowWithdrawals] = useState(goal?.allowWithdrawals ?? true);
+  const [creationDate, setCreationDate] = useState(
+    goal ? parseDate(goal.creationDate) : new Date()
+  );
   const [deadline, setDeadline] = useState(
     goal ? parseDate(goal.deadline) : getDefaultDeadline()
   );
   const [color, setColor] = useState(goal?.color ?? '#20B9DB');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showCreationDatePicker, setShowCreationDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [movements, setMovements] = useState<SavingsGoalMovement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(Boolean(goal));
@@ -168,6 +172,7 @@ export default function SavingsGoalFormScreen() {
       targetAmount,
       initialAmount,
       allowWithdrawals,
+      creationDate: toDateString(creationDate),
       deadline: toDateString(deadline),
       color: color.toLowerCase(),
     };
@@ -416,6 +421,41 @@ export default function SavingsGoalFormScreen() {
             value={allowWithdrawals}
           />
         </View>
+
+        <ThemedText style={styles.label}>{t('common.creationDate')}</ThemedText>
+        <Pressable
+          accessibilityLabel={t('common.creationDateValue', { date: formatDate(creationDate) })}
+          accessibilityRole="button"
+          onPress={() => setShowCreationDatePicker(true)}
+          style={({ pressed }) => [
+            styles.dateButton,
+            { borderColor: colors.border },
+            pressed && styles.pressed,
+          ]}>
+          <ThemedText>{formatDate(creationDate)}</ThemedText>
+        </Pressable>
+        <ThemedText style={styles.hint}>{t('savings.creationDateHint')}</ThemedText>
+
+        {showCreationDatePicker && (
+          <DateTimePicker
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            maximumDate={new Date()}
+            mode="date"
+            onChange={(_, selectedDate) => {
+              if (Platform.OS === 'android') setShowCreationDatePicker(false);
+              if (selectedDate) {
+                selectedDate.setHours(12, 0, 0, 0);
+                setCreationDate(selectedDate);
+              }
+            }}
+            value={creationDate}
+          />
+        )}
+        {Platform.OS === 'ios' && showCreationDatePicker && (
+          <Pressable onPress={() => setShowCreationDatePicker(false)} style={styles.doneDate}>
+            <ThemedText type="link">{t('common.done')}</ThemedText>
+          </Pressable>
+        )}
 
         <ThemedText style={styles.label}>{t('savings.deadline')}</ThemedText>
         <Pressable

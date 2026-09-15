@@ -30,6 +30,7 @@ export default function DebtFormScreen() {
   const [name, setName] = useState('');
   const [creditor, setCreditor] = useState('');
   const [initialAmount, setInitialAmount] = useState('');
+  const [creationDate, setCreationDate] = useState(toDateString(new Date()));
   const [installmentAmount, setInstallmentAmount] = useState('');
   const [frequency, setFrequency] = useState<DebtFrequency>('monthly');
   const [firstDueDate, setFirstDueDate] = useState(toDateString(new Date()));
@@ -38,6 +39,7 @@ export default function DebtFormScreen() {
   const [notes, setNotes] = useState('');
   const [entryCount, setEntryCount] = useState(0);
   const [showDate, setShowDate] = useState(false);
+  const [showCreationDate, setShowCreationDate] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export default function DebtFormScreen() {
       if (!debt) return;
       setType(debt.type); setName(debt.name); setCreditor(debt.creditor ?? '');
       setInitialAmount(formatCLPInput(debt.initialAmount)); setInstallmentAmount(debt.installmentAmount ? formatCLPInput(debt.installmentAmount) : '');
+      setCreationDate(debt.creationDate);
       setFrequency(debt.frequency ?? 'monthly'); setFirstDueDate(debt.firstDueDate ?? toDateString(new Date()));
       setCategoryId(debt.categoryId); setPaymentMethodId(debt.paymentMethodId); setNotes(debt.notes ?? ''); setEntryCount(debt.entryCount);
     }).catch(() => undefined);
@@ -62,6 +65,7 @@ export default function DebtFormScreen() {
     try {
       const data = {
         type, name: name.trim(), creditor: creditor.trim() || null, initialAmount: parsedInitial,
+        creationDate,
         installmentAmount: parsedInstallment, frequency: type === 'fixed' ? frequency : parsedInstallment != null ? 'monthly' as const : null,
         firstDueDate: parsedInstallment != null ? firstDueDate : null, categoryId, paymentMethodId, notes: notes.trim() || null,
       };
@@ -108,6 +112,14 @@ export default function DebtFormScreen() {
           <Field label={t('debts.creditor')} value={creditor} onChangeText={setCreditor} colors={colors} placeholder={t('debts.creditorPlaceholder')} />
           <Field label={t('debts.estimatedTotalDebt')} value={initialAmount} onChangeText={setInitialAmount} colors={colors} keyboardType="number-pad" editable={entryCount === 0} />
           {entryCount > 0 && <ThemedText style={styles.hint}>{t('debts.initialLockedHint')}</ThemedText>}
+          <View style={styles.group}>
+            <ThemedText style={styles.label}>{t('common.creationDate')}</ThemedText>
+            <Pressable onPress={() => setShowCreationDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
+              <ThemedText>{formatDate(parseIsoDate(creationDate))}</ThemedText>
+            </Pressable>
+            <ThemedText style={styles.hint}>{t('debts.creationDateHint')}</ThemedText>
+            {showCreationDate && <DateTimePicker maximumDate={new Date()} value={parseIsoDate(creationDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowCreationDate(false); if (date) setCreationDate(toDateString(date)); }} />}
+          </View>
           {type === 'fixed' && (
             <>
               <Field label={t('debts.installmentAmount')} value={installmentAmount} onChangeText={setInstallmentAmount} colors={colors} keyboardType="number-pad" />

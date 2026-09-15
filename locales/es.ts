@@ -1,5 +1,7 @@
 const es = {
   common: {
+    creationDate: 'Fecha de creación',
+    creationDateValue: 'Fecha de creación: %{date}',
     accept: 'Aceptar',
     active: 'Activo',
     amount: 'Monto',
@@ -667,6 +669,7 @@ const es = {
     registered: 'Cuota registrada correctamente',
   },
   debts: {
+    creationDateHint: 'Indica cuándo comenzó realmente esta deuda, aunque la estés registrando hoy.',
     creditCards: 'Tarjetas de crédito',
     creditCardsHint: 'Cupos, montos utilizados y pagos de tus tarjetas.',
     totalFinancialDebt: 'Deuda total estimada',
@@ -772,6 +775,7 @@ const es = {
     cannotDeleteHint: 'Esta deuda tiene pagos o ajustes. Puedes archivarla para conservar su historial.',
   },
   savings: {
+    creationDateHint: 'Indica cuándo comenzaste realmente este ahorro, aunque lo estés registrando hoy.',
     title: 'Metas de ahorro',
     goal: 'Meta de ahorro',
     newGoal: 'Nueva meta',
@@ -1339,6 +1343,7 @@ const es = {
     languageProvider: 'useLanguage debe usarse dentro de LanguageProvider',
   },
   database: {
+    creationDateInvalid: 'La fecha de creación no es válida.',
     reservedIncomeColor: 'No se permite usar ese color porque está reservado para los ingresos',
     categoryNameExists: 'Ya existe una categoría con ese nombre',
     categoryColorExists: 'Ese color ya está en uso por otra categoría',

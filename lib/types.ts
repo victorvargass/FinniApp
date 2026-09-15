@@ -32,6 +32,7 @@ export type NewSavingsGoal = {
   targetAmount: number;
   initialAmount: number;
   allowWithdrawals: boolean;
+  creationDate: string;
   deadline: string;
   color: string;
 };
@@ -310,6 +311,7 @@ export type NewDebt = {
   name: string;
   creditor: string | null;
   initialAmount: number;
+  creationDate: string;
   installmentAmount: number | null;
   frequency: DebtFrequency | null;
   firstDueDate: string | null;

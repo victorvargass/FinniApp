@@ -1606,6 +1606,7 @@ function validateSavingsGoal(data: NewSavingsGoal): void {
   if (typeof data.allowWithdrawals !== 'boolean') {
     throw new Error(t('database.savingsWithdrawalPolicyInvalid'));
   }
+  if (!isValidIsoDate(data.creationDate)) throw new Error(t('database.creationDateInvalid'));
   if (!isValidIsoDate(data.deadline)) throw new Error(t('database.savingsDeadlineInvalid'));
   if (!/^#[0-9a-f]{6}$/i.test(data.color)) throw new Error(t('database.savingsColorInvalid'));
 }
@@ -1963,6 +1964,7 @@ function mapSavingsGoal(row: Record<string, unknown>): SavingsGoal {
     targetAmount: Number(row.target_amount),
     initialAmount: Number(row.initial_amount),
     allowWithdrawals: Number(row.allow_withdrawals) === 1,
+    creationDate: String(row.created_at).slice(0, 10),
     deadline: String(row.deadline),
     color: String(row.color),
     status: row.status as SavingsGoal['status'],
@@ -2122,12 +2124,13 @@ export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
   await assertUniqueSavingsGoalName(db, data.name);
   const result = await db.runAsync(
     `INSERT INTO savings_goals
-      (name, target_amount, initial_amount, allow_withdrawals, deadline, color, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'active')`,
+      (name, target_amount, initial_amount, allow_withdrawals, created_at, deadline, color, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
     data.name.trim(),
     data.targetAmount,
     data.initialAmount,
     data.allowWithdrawals ? 1 : 0,
+    `${data.creationDate} 12:00:00`,
     data.deadline,
     data.color.toLowerCase()
   );
@@ -2147,13 +2150,14 @@ export async function updateSavingsGoal(id: number, data: NewSavingsGoal): Promi
     }
     await transaction.runAsync(
       `UPDATE savings_goals SET
-         name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?, deadline = ?, color = ?,
+         name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?, created_at = ?, deadline = ?, color = ?,
          updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       data.name.trim(),
       data.targetAmount,
       data.initialAmount,
       data.allowWithdrawals ? 1 : 0,
+      `${data.creationDate} 12:00:00`,
       data.deadline,
       data.color.toLowerCase(),
       id
@@ -3480,6 +3484,7 @@ export async function getDebtPlan(id: number): Promise<DebtPlan | null> {
 
 function validateDebt(data: NewDebt): void {
   if (!data.name.trim()) throw new Error(t('database.debtNameRequired'));
+  if (!isValidIsoDate(data.creationDate)) throw new Error(t('database.creationDateInvalid'));
   if (!Number.isInteger(data.initialAmount) || data.initialAmount <= 0) {
     throw new Error(t('database.debtInitialAmountRequired'));
   }
@@ -3522,6 +3527,7 @@ function mapDebt(row: Record<string, unknown>): Debt {
     name: String(row.name),
     creditor: row.creditor == null ? null : String(row.creditor),
     initialAmount,
+    creationDate: String(row.created_at).slice(0, 10),
     installmentAmount,
     frequency: row.frequency == null ? null : row.frequency as Debt['frequency'],
     firstDueDate: row.first_due_date == null ? null : String(row.first_due_date),
@@ -3600,13 +3606,14 @@ export async function createDebt(data: NewDebt): Promise<number> {
   const result = await db.runAsync(
     `INSERT INTO manual_debts
       (type, name, creditor, initial_amount, installment_amount, frequency,
-       first_due_date, category_id, payment_method_id, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       first_due_date, category_id, payment_method_id, notes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     data.type, data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
     data.installmentAmount,
     data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
     data.installmentAmount != null ? data.firstDueDate : null,
-    data.categoryId, data.paymentMethodId, data.notes?.trim() || null
+    data.categoryId, data.paymentMethodId, data.notes?.trim() || null,
+    `${data.creationDate} 12:00:00`
   );
   return result.lastInsertRowId;
 }
@@ -3626,13 +3633,14 @@ export async function updateDebt(id: number, data: NewDebt): Promise<void> {
   }
   await db.runAsync(
     `UPDATE manual_debts SET name = ?, creditor = ?, initial_amount = ?, installment_amount = ?,
-      frequency = ?, first_due_date = ?, category_id = ?, payment_method_id = ?, notes = ?,
+      frequency = ?, first_due_date = ?, category_id = ?, payment_method_id = ?, notes = ?, created_at = ?,
       updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
     data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
     data.installmentAmount,
     data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
     data.installmentAmount != null ? data.firstDueDate : null,
-    data.categoryId, data.paymentMethodId, data.notes?.trim() || null, id
+    data.categoryId, data.paymentMethodId, data.notes?.trim() || null,
+    `${data.creationDate} 12:00:00`, id
   );
 }
 
