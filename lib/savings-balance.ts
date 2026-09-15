@@ -1,7 +1,12 @@
 export function resolveSavingsBalanceStartDate(
-  initialAmount: number,
-  creationDate: string,
   registrationDate: string
 ) {
-  return initialAmount === 0 ? creationDate : registrationDate;
+  return registrationDate;
+}
+
+export function getSavingsBalanceAdjustmentAmount(
+  reportedBalance: number,
+  balanceAtDate: number
+) {
+  return reportedBalance - balanceAtDate;
 }

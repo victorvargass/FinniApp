@@ -11,7 +11,10 @@ import { calculateAvailableBalance } from './payment-method-calculations';
 import { getNextDebtDueDate } from './debt-calculations';
 import { recordAppliedSchema } from './schema-migrations';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
-import { resolveSavingsBalanceStartDate } from './savings-balance';
+import {
+  getSavingsBalanceAdjustmentAmount,
+  resolveSavingsBalanceStartDate,
+} from './savings-balance';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
 import type {
   AccountTransfer,
@@ -737,7 +740,7 @@ async function initializeDatabase(): Promise<void> {
     CREATE TABLE IF NOT EXISTS savings_goal_adjustments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       goal_id INTEGER NOT NULL,
-      amount INTEGER NOT NULL CHECK (amount != 0),
+      amount INTEGER NOT NULL,
       date TEXT NOT NULL,
       note TEXT,
       reported_balance INTEGER CHECK (reported_balance IS NULL OR reported_balance >= 0),
@@ -950,6 +953,33 @@ async function initializeDatabase(): Promise<void> {
   if (!savingsAdjustmentColumns.some((column) => column.name === 'movement_anchor_id')) {
     await db.execAsync('ALTER TABLE savings_goal_adjustments ADD COLUMN movement_anchor_id INTEGER NOT NULL DEFAULT 0;');
   }
+  if (previousSchemaVersion < 15) {
+    const adjustmentTable = await db.getFirstAsync<{ sql: string | null }>(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'savings_goal_adjustments'"
+    );
+    if (/amount\s+INTEGER\s+NOT\s+NULL\s+CHECK\s*\(amount\s*!=\s*0\)/i.test(adjustmentTable?.sql ?? '')) {
+      await db.execAsync(`
+        CREATE TABLE savings_goal_adjustments_v15 (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          goal_id INTEGER NOT NULL,
+          amount INTEGER NOT NULL,
+          date TEXT NOT NULL,
+          note TEXT,
+          reported_balance INTEGER CHECK (reported_balance IS NULL OR reported_balance >= 0),
+          movement_anchor_id INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(goal_id) REFERENCES savings_goals(id) ON DELETE RESTRICT
+        );
+        INSERT INTO savings_goal_adjustments_v15
+          (id, goal_id, amount, date, note, reported_balance, movement_anchor_id, created_at, updated_at)
+        SELECT id, goal_id, amount, date, note, reported_balance, movement_anchor_id, created_at, updated_at
+        FROM savings_goal_adjustments;
+        DROP TABLE savings_goal_adjustments;
+        ALTER TABLE savings_goal_adjustments_v15 RENAME TO savings_goal_adjustments;
+      `);
+    }
+  }
   if (previousSchemaVersion < 13) {
     await db.runAsync(`
       UPDATE savings_goals
@@ -959,6 +989,21 @@ async function initializeDatabase(): Promise<void> {
         AND balance_movement_anchor_id = 0
         AND balance_updated_at IS NOT NULL
         AND balance_updated_at > date(created_at, 'localtime')
+        AND NOT EXISTS (
+          SELECT 1
+          FROM savings_goal_adjustments adjustment
+          WHERE adjustment.goal_id = savings_goals.id
+            AND adjustment.reported_balance IS NOT NULL
+        )
+    `);
+  }
+  if (previousSchemaVersion < 15) {
+    await db.runAsync(`
+      UPDATE savings_goals
+      SET balance_updated_at = date(updated_at, 'localtime'),
+          balance_movement_anchor_id = 0
+      WHERE (balance_updated_at IS NULL
+          OR (initial_amount = 0 AND balance_updated_at = date(created_at, 'localtime')))
         AND NOT EXISTS (
           SELECT 1
           FROM savings_goal_adjustments adjustment
@@ -2020,9 +2065,7 @@ async function reconcileSavingsGoalSnapshots(
     }, 0);
     runningBalance += movementDelta;
     const difference = Number(snapshot.reported_balance) - runningBalance;
-    if (difference === 0) {
-      await db.runAsync('DELETE FROM savings_goal_adjustments WHERE id = ?', snapshot.id);
-    } else if (difference !== Number(snapshot.amount)) {
+    if (difference !== Number(snapshot.amount)) {
       await db.runAsync(
         'UPDATE savings_goal_adjustments SET amount = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
         difference,
@@ -2357,8 +2400,7 @@ export async function addSavingsGoalBalanceAdjustment(
     if (goal.status === 'archived') throw new Error(t('database.savingsGoalArchived'));
     const balanceAtDate = await getSavingsGoalBalanceAtDate(transaction, goalId, data.date);
     if (balanceAtDate == null) throw new Error(t('database.savingsGoalMissing'));
-    const difference = data.balance - balanceAtDate;
-    if (difference === 0) throw new Error(t('database.savingsBalanceUnchanged'));
+    const difference = getSavingsBalanceAdjustmentAmount(data.balance, balanceAtDate);
     const anchor = await transaction.getFirstAsync<{ id: number }>(
       `SELECT COALESCE(MAX(movement.id), 0) AS id
        FROM savings_goal_movements movement
@@ -2387,6 +2429,33 @@ export async function addSavingsGoalBalanceAdjustment(
   });
 }
 
+export async function deleteSavingsGoalBalanceAdjustment(
+  goalId: number,
+  adjustmentId: number
+): Promise<void> {
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    const adjustment = await transaction.getFirstAsync<{ id: number }>(
+      `SELECT id FROM savings_goal_adjustments
+       WHERE id = ? AND goal_id = ? AND reported_balance IS NOT NULL`,
+      adjustmentId,
+      goalId
+    );
+    if (!adjustment) throw new Error(t('database.savingsAdjustmentMissing'));
+    await transaction.runAsync(
+      'DELETE FROM savings_goal_adjustments WHERE id = ? AND goal_id = ?',
+      adjustmentId,
+      goalId
+    );
+    await reconcileSavingsGoalSnapshots(transaction, goalId);
+    await assertSavingsGoalBalanceIsNotNegative(transaction, goalId);
+    await transaction.runAsync(
+      'UPDATE savings_goals SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      goalId
+    );
+  });
+}
+
 export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
   validateSavingsGoal(data);
   const db = await getDb();
@@ -2400,7 +2469,7 @@ export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
     data.targetAmount,
     data.initialAmount,
     data.allowWithdrawals ? 1 : 0,
-    resolveSavingsBalanceStartDate(data.initialAmount, data.creationDate, toLocalIsoDate(new Date())),
+    resolveSavingsBalanceStartDate(toLocalIsoDate(new Date())),
     `${data.creationDate} 12:00:00`,
     data.deadline,
     data.color.toLowerCase()

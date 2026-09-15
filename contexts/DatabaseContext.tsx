@@ -129,6 +129,7 @@ type DatabaseContextValue = {
   addSavingsGoal: (data: NewSavingsGoal) => Promise<void>;
   editSavingsGoal: (id: number, data: NewSavingsGoal) => Promise<void>;
   addSavingsGoalBalanceAdjustment: (id: number, data: NewSavingsGoalBalance) => Promise<void>;
+  removeSavingsGoalBalanceAdjustment: (goalId: number, adjustmentId: number) => Promise<void>;
   setSavingsGoalStatus: (id: number, status: SavingsGoalStatus) => Promise<void>;
   removeSavingsGoal: (id: number) => Promise<void>;
   getSavingsGoalMovements: (id: number) => Promise<SavingsGoalMovement[]>;
@@ -598,6 +599,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const removeSavingsGoalBalanceAdjustment = useCallback(async (goalId: number, adjustmentId: number) => {
+    await db.deleteSavingsGoalBalanceAdjustment(goalId, adjustmentId);
+    await refresh();
+  }, [refresh]);
+
   const setSavingsGoalStatus = useCallback(async (id: number, status: SavingsGoalStatus) => {
     await db.setSavingsGoalArchived(id, status === 'archived');
     await refresh();
@@ -907,6 +913,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addSavingsGoal,
       editSavingsGoal,
       addSavingsGoalBalanceAdjustment,
+      removeSavingsGoalBalanceAdjustment,
       setSavingsGoalStatus,
       removeSavingsGoal,
       getSavingsGoalMovements,
@@ -1008,6 +1015,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addSavingsGoal,
       editSavingsGoal,
       addSavingsGoalBalanceAdjustment,
+      removeSavingsGoalBalanceAdjustment,
       setSavingsGoalStatus,
       removeSavingsGoal,
       getSavingsGoalMovements,

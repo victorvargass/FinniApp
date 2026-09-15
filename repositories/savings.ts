@@ -2,6 +2,7 @@ export {
   addSavingsGoalBalanceAdjustment,
   createSavingsGoal,
   deleteSavingsGoal,
+  deleteSavingsGoalBalanceAdjustment,
   getPeriodSavingsFundingTotal,
   getPeriodSavingsGoalActivity,
   getSavingsGoalMovements,

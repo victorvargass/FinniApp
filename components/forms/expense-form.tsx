@@ -51,6 +51,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     addCreditCardAdjustment,
     addInstallmentPurchase,
     editExpense,
+    removeExpense,
     editCreditCardAdjustment,
     removeCreditCardAdjustment,
     savingsGoals,
@@ -590,6 +591,36 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                 Alert.alert(
                   t('common.error'),
                   error instanceof Error ? error.message : t('errors.couldNotDelete')
+                );
+              })
+              .finally(() => setSaving(false));
+          },
+        },
+      ]
+    );
+  };
+
+  const confirmDeleteExpense = () => {
+    if (!expense || saving) return;
+    Alert.alert(
+      t('expenses.delete'),
+      t('expenses.deleteQuestion', { name: expense.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: () => {
+            setSaving(true);
+            void removeExpense(expense.id)
+              .then(() => {
+                showToast(t('expenses.deleted'));
+                onSuccess();
+              })
+              .catch((error) => {
+                Alert.alert(
+                  t('common.error'),
+                  error instanceof Error ? error.message : t('expenses.deleteError')
                 );
               })
               .finally(() => setSaving(false));
@@ -1211,6 +1242,18 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           style={styles.deleteButton}>
           <ThemedText style={styles.deleteButtonText}>
             {t('paymentMethods.deleteAdjustment')}
+          </ThemedText>
+        </Pressable>
+      )}
+
+      {expense && (
+        <Pressable
+          accessibilityRole="button"
+          disabled={saving}
+          onPress={confirmDeleteExpense}
+          style={styles.deleteButton}>
+          <ThemedText style={styles.deleteButtonText}>
+            {t('expenses.delete')}
           </ThemedText>
         </Pressable>
       )}

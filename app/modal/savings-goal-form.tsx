@@ -1,4 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -74,6 +75,7 @@ export default function SavingsGoalFormScreen() {
     editSavingsGoal,
     setSavingsGoalStatus,
     removeSavingsGoal,
+    removeSavingsGoalBalanceAdjustment,
     getSavingsGoalMovements,
   } = useDatabase();
 
@@ -261,6 +263,36 @@ export default function SavingsGoalFormScreen() {
     );
   };
 
+  const confirmDeleteBalanceUpdate = (movement: SavingsGoalMovement) => {
+    if (!goal || movement.kind !== 'adjustment' || saving) return;
+    Alert.alert(
+      t('savings.deleteBalanceUpdate'),
+      t('savings.deleteBalanceUpdateQuestion', { date: formatMovementDate(movement.date) }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            setSaving(true);
+            try {
+              await removeSavingsGoalBalanceAdjustment(goal.id, Math.abs(movement.id));
+              setMovements((current) => current.filter((item) => item.id !== movement.id));
+              showToast(t('savings.balanceUpdateDeleted'));
+            } catch (error) {
+              Alert.alert(
+                t('errors.couldNotDelete'),
+                error instanceof Error ? error.message : t('common.tryAgain')
+              );
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <ThemedView style={styles.shell}>
       <ScrollView
@@ -358,12 +390,18 @@ export default function SavingsGoalFormScreen() {
                       ? t('savings.fundedExpense')
                       : t('savings.balanceAdjustment');
                 const canOpen = movement.expenseId != null || movement.incomeId != null;
+                const canDelete = movement.kind === 'adjustment';
                 return (
                   <Pressable
+                    accessibilityLabel={canDelete
+                      ? t('savings.deleteBalanceUpdateAccessibility', { date: formatMovementDate(movement.date) })
+                      : undefined}
                     key={movement.id}
-                    disabled={!canOpen}
+                    disabled={!canOpen && !canDelete}
                     onPress={() => {
-                      if (movement.expenseId != null) {
+                      if (canDelete) {
+                        confirmDeleteBalanceUpdate(movement);
+                      } else if (movement.expenseId != null) {
                         router.push({ pathname: '/modal/expense-form', params: { id: String(movement.expenseId) } });
                       } else if (movement.incomeId != null) {
                         router.push({ pathname: '/modal/income-form', params: { id: String(movement.incomeId) } });
@@ -380,13 +418,16 @@ export default function SavingsGoalFormScreen() {
                         {label} · {formatMovementDate(movement.date)}
                       </ThemedText>
                     </View>
-                    <ThemedText style={movement.kind === 'adjustment'
-                      ? undefined
-                      : positive ? styles.positiveMovement : styles.negativeMovement}>
-                      {movement.kind === 'adjustment'
-                        ? formatCLP(movement.reportedBalance ?? Math.abs(movement.amount))
-                        : `${positive ? '+' : '−'}${formatCLP(Math.abs(movement.amount))}`}
-                    </ThemedText>
+                    <View style={styles.movementValue}>
+                      <ThemedText style={movement.kind === 'adjustment'
+                        ? undefined
+                        : positive ? styles.positiveMovement : styles.negativeMovement}>
+                        {movement.kind === 'adjustment'
+                          ? formatCLP(movement.reportedBalance ?? Math.abs(movement.amount))
+                          : `${positive ? '+' : '−'}${formatCLP(Math.abs(movement.amount))}`}
+                      </ThemedText>
+                      {canDelete && <Ionicons name="trash-outline" size={18} color="#C93F4B" />}
+                    </View>
                   </Pressable>
                 );
               })
@@ -607,6 +648,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   movementCopy: { flex: 1, gap: 3 },
+  movementValue: { alignItems: 'flex-end', gap: 5 },
   movementMeta: { fontSize: 12, opacity: 0.64 },
   positiveMovement: { color: '#1FAF78', fontWeight: '800' },
   negativeMovement: { color: '#C93F4B', fontWeight: '800' },
