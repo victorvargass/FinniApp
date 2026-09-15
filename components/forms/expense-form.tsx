@@ -157,6 +157,9 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const selectedCategory = categories.find((category) => category.id === categoryId);
   const isSavingsCategory = selectedCategory?.purpose === 'savings';
   const isCardPayment = selectedCategory?.systemKey === 'credit_payment';
+  const isDedicatedCardPaymentFlow = initialCardPayment
+    || initialCreditPaymentTargetId != null
+    || expense?.creditPaymentTargetId != null;
   const isCardAdjustment = isCardPayment && cardPaymentOrigin === 'adjustment';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
   const targetCreditCard = paymentMethods.find((method) => method.id === creditPaymentTargetId);
@@ -752,9 +755,10 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       </View>}
 
       {!creditAdjustment && <ColorSelect
-        label={t('expenses.categoryOptional')}
+        label={isDedicatedCardPaymentFlow ? t('expenses.category') : t('expenses.categoryOptional')}
         value={categoryId}
         onChange={setCategoryId}
+        disabled={isDedicatedCardPaymentFlow}
         options={[
           { value: null, label: t('expenses.noCategory'), color: '#60758E' },
           ...categories

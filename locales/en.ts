@@ -308,6 +308,7 @@ const en = {
   expenses: {
     add: 'Add expense',
     amountTotal: 'Total amount (CLP)',
+    category: 'Category',
     categoryOptional: 'Category (optional)',
     created: 'Expense created successfully',
     delete: 'Delete expense',
