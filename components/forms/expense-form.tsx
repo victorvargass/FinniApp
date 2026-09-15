@@ -37,10 +37,11 @@ type ExpenseFormProps = {
   templateExpense?: Expense;
   initialCardPayment?: boolean;
   initialCreditPaymentTargetId?: number;
+  initialSavingsGoalId?: number;
   onSuccess: () => void;
 };
 
-export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, onSuccess }: ExpenseFormProps) {
+export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, onSuccess }: ExpenseFormProps) {
   const {
     categories,
     paymentMethods,
@@ -86,9 +87,12 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     expenseWasSplit && ![50, 25].includes(initialExpense!.splitPercentage!)
   );
   const creditPaymentCategory = categories.find((category) => category.systemKey === 'credit_payment');
+  const savingsCategory = categories.find((category) => category.systemKey === 'savings');
   const [categoryId, setCategoryId] = useState<number | null>(
     initialExpense?.categoryId
-      ?? (initialCreditPaymentTargetId || initialCardPayment || creditAdjustment ? creditPaymentCategory?.id ?? null : null)
+      ?? (initialCreditPaymentTargetId || initialCardPayment || creditAdjustment
+        ? creditPaymentCategory?.id ?? null
+        : initialSavingsGoalId != null ? savingsCategory?.id ?? null : null)
   );
   const [creditPaymentTargetId, setCreditPaymentTargetId] = useState<number | null>(
     expense?.creditPaymentTargetId ?? creditAdjustment?.paymentMethodId ?? initialCreditPaymentTargetId ?? null
@@ -99,8 +103,12 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const [creditAdjustmentKind, setCreditAdjustmentKind] = useState<CreditCardAdjustmentKind>(
     creditAdjustment?.kind ?? 'refund'
   );
-  const [savingsGoalId, setSavingsGoalId] = useState<number | null>(expense?.savingsGoalId ?? null);
-  const [savingsKind, setSavingsKind] = useState<SavingsExpenseKind | null>(expense?.savingsKind ?? null);
+  const [savingsGoalId, setSavingsGoalId] = useState<number | null>(
+    expense?.savingsGoalId ?? initialSavingsGoalId ?? null
+  );
+  const [savingsKind, setSavingsKind] = useState<SavingsExpenseKind | null>(
+    expense?.savingsKind ?? (initialSavingsGoalId != null ? 'contribution' : null)
+  );
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
     initialExpense?.paymentMethodId ?? settings.defaultPaymentMethodId
   );
@@ -160,6 +168,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const isDedicatedCardPaymentFlow = initialCardPayment
     || initialCreditPaymentTargetId != null
     || expense?.creditPaymentTargetId != null;
+  const isDedicatedSavingsContributionFlow = initialSavingsGoalId != null && expense == null;
   const isCardAdjustment = isCardPayment && cardPaymentOrigin === 'adjustment';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
   const targetCreditCard = paymentMethods.find((method) => method.id === creditPaymentTargetId);
@@ -316,6 +325,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   }, [creditPaymentCategory, expense, initialCardPayment, initialCreditPaymentTargetId]);
 
   useEffect(() => {
+    if (initialSavingsGoalId == null || expense || !savingsCategory) return;
+    setCategoryId(savingsCategory.id);
+    setSavingsGoalId(initialSavingsGoalId);
+    setSavingsKind('contribution');
+  }, [expense, initialSavingsGoalId, savingsCategory]);
+
+  useEffect(() => {
     if (!isCardPayment) {
       setCreditPaymentTargetId(null);
       return;
@@ -352,11 +368,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     if (isSavingsCategory && savingsKind === 'funded_expense') {
       setSavingsGoalId(null);
       setSavingsKind(null);
-    } else if (!isSavingsCategory && savingsKind === 'contribution') {
+    } else if (!isSavingsCategory
+      && savingsKind === 'contribution'
+      && !isDedicatedSavingsContributionFlow) {
       setSavingsGoalId(null);
       setSavingsKind(null);
     }
-  }, [isInstallmentPurchase, isSavingsCategory, savingsKind]);
+  }, [isDedicatedSavingsContributionFlow, isInstallmentPurchase, isSavingsCategory, savingsKind]);
 
   useEffect(() => {
     const method = paymentMethods.find((item) => item.id === paymentMethodId);
@@ -755,10 +773,12 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       </View>}
 
       {!creditAdjustment && <ColorSelect
-        label={isDedicatedCardPaymentFlow ? t('expenses.category') : t('expenses.categoryOptional')}
+        label={isDedicatedCardPaymentFlow || isDedicatedSavingsContributionFlow
+          ? t('expenses.category')
+          : t('expenses.categoryOptional')}
         value={categoryId}
         onChange={setCategoryId}
-        disabled={isDedicatedCardPaymentFlow}
+        disabled={isDedicatedCardPaymentFlow || isDedicatedSavingsContributionFlow}
         options={[
           { value: null, label: t('expenses.noCategory'), color: '#60758E' },
           ...categories
@@ -848,12 +868,15 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       {isSavingsCategory && !isInstallmentPurchase && (
         <>
           <ColorSelect
-            label={t('savings.assignContributionOptional')}
+            label={isDedicatedSavingsContributionFlow
+              ? t('savings.contributionGoal')
+              : t('savings.assignContributionOptional')}
             value={savingsKind === 'contribution' ? savingsGoalId : null}
             onChange={(value) => {
               setSavingsGoalId(value);
               setSavingsKind(value == null ? null : 'contribution');
             }}
+            disabled={isDedicatedSavingsContributionFlow}
             options={[
               { value: null, label: t('savings.noSpecificGoal'), color: '#60758E' },
               ...selectableSavingsGoals.map((goal) => ({

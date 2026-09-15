@@ -844,6 +844,8 @@ const en = {
     loadingMovements: 'Loading transactions...',
     noMovements: 'There are no contributions or withdrawals yet.',
     contribution: 'Contribution',
+    enterContribution: 'Add savings',
+    contributionGoal: 'Savings goal',
     withdrawalToPeriod: 'Withdrawal to period',
     fundedExpense: 'Expense funded from savings',
     balanceAdjustment: 'Reported balance',

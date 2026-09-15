@@ -844,6 +844,8 @@ const es = {
     loadingMovements: 'Cargando movimientos...',
     noMovements: 'Aún no hay aportes ni retiros.',
     contribution: 'Aporte',
+    enterContribution: 'Ingresar ahorro',
+    contributionGoal: 'Meta de ahorro',
     withdrawalToPeriod: 'Retiro al período',
     fundedExpense: 'Gasto financiado',
     balanceAdjustment: 'Saldo informado',

@@ -278,6 +278,23 @@ export default function SavingsGoalFormScreen() {
               <Pressable
                 accessibilityRole="button"
                 onPress={() => router.push({
+                  pathname: '/modal/expense-form',
+                  params: { savingsGoalId: String(goal.id) },
+                })}
+                style={({ pressed }) => [
+                  styles.contributionButton,
+                  { backgroundColor: colors.action },
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText style={[styles.contributionButtonText, { color: colors.onPrimary }]}>
+                  {t('savings.enterContribution')}
+                </ThemedText>
+              </Pressable>
+            )}
+            {goal.status === 'active' && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push({
                   pathname: '/modal/savings-goal-balance',
                   params: { savingsGoalId: String(goal.id) },
                 })}
@@ -619,6 +636,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     opacity: 0.62,
+  },
+  contributionButton: {
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+  },
+  contributionButtonText: {
+    fontWeight: '700',
   },
   preferenceCard: {
     minHeight: 74,
