@@ -13,6 +13,7 @@ import { recordAppliedSchema } from './schema-migrations';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
 import {
   getSavingsBalanceAdjustmentAmount,
+  isSavingsMovementCoveredByBalance,
   resolveSavingsBalanceStartDate,
 } from './savings-balance';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
@@ -1844,7 +1845,11 @@ async function getSavingsGoalBalanceAtDate(
        ORDER BY date DESC, id DESC LIMIT 1
      )
      SELECT
-       COALESCE((SELECT reported_balance FROM snapshot), goal.initial_amount)
+       CASE
+         WHEN EXISTS (SELECT 1 FROM snapshot) THEN (SELECT reported_balance FROM snapshot)
+         WHEN goal.balance_updated_at IS NULL OR goal.balance_updated_at <= ? THEN goal.initial_amount
+         ELSE 0
+       END
        + COALESCE(SUM(CASE
          WHEN movement.id = ? THEN 0
          WHEN EXISTS (SELECT 1 FROM snapshot)
@@ -1878,6 +1883,7 @@ async function getSavingsGoalBalanceAtDate(
     goalId,
     throughDate,
     goalId,
+    throughDate,
     excludeMovementId ?? -1,
     throughDate,
     throughDate,
@@ -1987,18 +1993,6 @@ async function getSavingsGoalBalanceBoundary(
     : null;
 }
 
-function isMovementCoveredByBalance(
-  movementDate: string,
-  movementId: number | undefined,
-  boundary: { date: string; movementAnchorId: number } | null
-): boolean {
-  if (!boundary) return false;
-  if (movementDate < boundary.date) return true;
-  return movementDate === boundary.date
-    && movementId != null
-    && movementId <= boundary.movementAnchorId;
-}
-
 async function reconcileSavingsGoalSnapshots(
   db: SQLite.SQLiteDatabase,
   goalId: number
@@ -2104,7 +2098,7 @@ async function setExpenseSavingsMovement(
   if (selection.kind === 'funded_expense') {
     await assertSavingsGoalAllowsWithdrawal(db, selection.goalId, existing);
     const boundary = await getSavingsGoalBalanceBoundary(db, selection.goalId);
-    if (!isMovementCoveredByBalance(expense.date, existing?.id, boundary)) {
+    if (!isSavingsMovementCoveredByBalance(expense.date, existing?.id, boundary)) {
       const balance = await getSavingsGoalBalanceAtDate(
         db,
         selection.goalId,
@@ -2162,7 +2156,7 @@ async function setIncomeSavingsMovement(
   await assertSavingsGoalCanReceiveMovement(db, goalId, existing);
   await assertSavingsGoalAllowsWithdrawal(db, goalId, existing);
   const boundary = await getSavingsGoalBalanceBoundary(db, goalId);
-  if (!isMovementCoveredByBalance(income.date, existing?.id, boundary)) {
+  if (!isSavingsMovementCoveredByBalance(income.date, existing?.id, boundary)) {
     const balance = await getSavingsGoalBalanceAtDate(db, goalId, income.date, existing?.id);
     if (balance == null || amount > balance) {
       throw new Error(t('database.insufficientSavingsWithdrawal'));
@@ -2558,6 +2552,11 @@ export async function getPeriodSavingsGoalActivity(
   periodId: number
 ): Promise<SavingsGoalPeriodActivity[]> {
   const db = await getDb();
+  const period = await db.getFirstAsync<{ start_date: string; end_date: string }>(
+    'SELECT start_date, end_date FROM periods WHERE id = ?',
+    periodId
+  );
+  if (!period) return [];
   const rows = await db.getAllAsync<Record<string, unknown>>(
     `SELECT
        goal.id AS goal_id,
@@ -2573,30 +2572,6 @@ export async function getPeriodSavingsGoalActivity(
          THEN 'archived'
          ELSE 'active'
        END AS status,
-       CASE WHEN date(goal.created_at, 'localtime') < period.start_date THEN goal.initial_amount ELSE 0 END
-         + COALESCE(SUM(CASE
-           WHEN expense.date < period.start_date AND movement.kind = 'contribution' THEN expense.amount
-           WHEN income.date < period.start_date AND movement.kind = 'withdrawal' THEN -income.amount
-           WHEN expense.date < period.start_date AND movement.kind = 'funded_expense' THEN -expense.amount
-           ELSE 0
-         END), 0)
-         + COALESCE((
-           SELECT SUM(adjustment.amount)
-           FROM savings_goal_adjustments adjustment
-           WHERE adjustment.goal_id = goal.id AND adjustment.date < period.start_date
-         ), 0) AS opening_amount,
-       CASE WHEN date(goal.created_at, 'localtime') <= period.end_date THEN goal.initial_amount ELSE 0 END
-         + COALESCE(SUM(CASE
-           WHEN expense.date <= period.end_date AND movement.kind = 'contribution' THEN expense.amount
-           WHEN income.date <= period.end_date AND movement.kind = 'withdrawal' THEN -income.amount
-           WHEN expense.date <= period.end_date AND movement.kind = 'funded_expense' THEN -expense.amount
-           ELSE 0
-         END), 0)
-         + COALESCE((
-           SELECT SUM(adjustment.amount)
-           FROM savings_goal_adjustments adjustment
-           WHERE adjustment.goal_id = goal.id AND adjustment.date <= period.end_date
-         ), 0) AS balance_at_period_end,
        COALESCE(SUM(CASE
          WHEN movement.kind = 'contribution' AND expense.period_id = period.id THEN expense.amount
          ELSE 0 END), 0) AS contributed_amount,
@@ -2631,7 +2606,19 @@ export async function getPeriodSavingsGoalActivity(
      ORDER BY goal.status ASC, goal.deadline ASC, goal.name COLLATE NOCASE ASC`,
     periodId
   );
-  return rows.map((row) => {
+  const previousPeriodDay = addDaysToIso(period.start_date, -1);
+  const balances = await Promise.all(rows.map(async (row) => {
+    const goalId = Number(row.goal_id);
+    const [openingAmount, closingAmount] = await Promise.all([
+      getSavingsGoalBalanceAtDate(db, goalId, previousPeriodDay),
+      getSavingsGoalBalanceAtDate(db, goalId, period.end_date),
+    ]);
+    return {
+      openingAmount: openingAmount ?? 0,
+      closingAmount: closingAmount ?? 0,
+    };
+  }));
+  return rows.map((row, index) => {
     const contributedAmount = Number(row.contributed_amount);
     const withdrawnAmount = Number(row.withdrawn_amount);
     const fundedExpenseAmount = Number(row.funded_expense_amount);
@@ -2645,13 +2632,13 @@ export async function getPeriodSavingsGoalActivity(
       allowWithdrawals: Number(row.allow_withdrawals) === 1,
       deadline: String(row.deadline),
       status: row.status as SavingsGoal['status'],
-      openingAmount: Number(row.opening_amount),
+      openingAmount: balances[index].openingAmount,
       contributions: contributedAmount,
       withdrawals: withdrawnAmount,
       fundedExpenses: fundedExpenseAmount,
       adjustments: adjustmentAmount,
-      closingAmount: Number(row.balance_at_period_end),
-      balanceAtPeriodEnd: Number(row.balance_at_period_end),
+      closingAmount: balances[index].closingAmount,
+      balanceAtPeriodEnd: balances[index].closingAmount,
       contributedAmount,
       withdrawnAmount,
       fundedExpenseAmount,
