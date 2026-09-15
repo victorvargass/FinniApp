@@ -53,6 +53,26 @@ export default function RecurringExpensesScreen() {
     },
   ];
 
+  const openNewRecurringMovement = () => router.push(
+    section === 'incomes'
+      ? '/modal/recurring-income-form'
+      : '/modal/recurring-expense-form'
+  );
+
+  const floatingAddButton = (
+    <Pressable
+      accessibilityLabel={t(section === 'incomes' ? 'recurrence.newIncome' : 'recurrence.newExpense')}
+      accessibilityRole="button"
+      onPress={openNewRecurringMovement}
+      style={({ pressed }) => [
+        styles.floatingAdd,
+        { backgroundColor: colors.action },
+        pressed && styles.pressed,
+      ]}>
+      <Ionicons name="add" size={30} color={colors.onPrimary} />
+    </Pressable>
+  );
+
   const tabs = (
     <View style={styles.headerBlock}>
       <View style={styles.guideRow}>
@@ -66,19 +86,6 @@ export default function RecurringExpensesScreen() {
           </Pressable>
         ))}
       </View>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.push(
-          section === 'incomes'
-            ? '/modal/recurring-income-form'
-            : '/modal/recurring-expense-form'
-        )}
-        style={({ pressed }) => [styles.addRecurring, pressed && styles.pressed]}>
-        <Ionicons name="add-circle-outline" size={21} color="#FFFFFF" />
-        <ThemedText style={styles.addRecurringText}>
-          {t(section === 'incomes' ? 'recurrence.newIncome' : 'recurrence.newExpense')}
-        </ThemedText>
-      </Pressable>
     </View>
   );
 
@@ -182,6 +189,7 @@ export default function RecurringExpensesScreen() {
             </ThemedView>
           )}
         />
+        {floatingAddButton}
         <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
       </SafeAreaView>
     );
@@ -304,6 +312,7 @@ export default function RecurringExpensesScreen() {
           </ThemedView>
         )}
       />
+      {floatingAddButton}
       <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
     </SafeAreaView>
   );
@@ -311,7 +320,7 @@ export default function RecurringExpensesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  list: { padding: 20, paddingBottom: 28, gap: 10 },
+  list: { padding: 20, paddingBottom: 104, gap: 10 },
   headerBlock: { gap: 12 },
   guideRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   guideIntro: { flex: 1, opacity: 0.68, lineHeight: 19 },
@@ -336,7 +345,20 @@ const styles = StyleSheet.create({
   action: { flex: 1, borderWidth: 1, borderRadius: 9, padding: 10, alignItems: 'center' },
   approve: { borderColor: '#0B315B', backgroundColor: '#0B315B' },
   approveText: { color: '#fff', fontWeight: '700' },
-  addRecurring: { minHeight: 46, borderRadius: 10, backgroundColor: '#0B315B', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14 },
-  addRecurringText: { color: '#FFFFFF', fontWeight: '700' },
+  floatingAdd: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 5,
+  },
   pressed: { opacity: 0.72 },
 });
