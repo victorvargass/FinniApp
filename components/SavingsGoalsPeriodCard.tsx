@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { ExpandableFinanceCard } from '@/components/expandable-finance-card';
 import { ThemedText } from '@/components/themed-text';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
@@ -42,23 +43,16 @@ export function SavingsGoalsPeriodCard({
   onManage,
 }: SavingsGoalsPeriodCardProps) {
   if (items.length === 0) return null;
+  const savedTotal = items.reduce((sum, item) => sum + item.closingAmount, 0);
+  const summaryKey = items.length === 1 ? 'savings.homeSummaryOne' : 'savings.homeSummaryOther';
 
   return (
-    <View style={[styles.card, { backgroundColor }]}>
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <ThemedText type="subtitle">{t('savings.title')}</ThemedText>
-          <ThemedText style={styles.description}>{t('savings.periodProgress')}</ThemedText>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('savings.manageAccessibility')}
-          onPress={onManage}
-          style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}>
-          <ThemedText style={styles.manageButtonText}>{t('savings.manage')}</ThemedText>
-        </Pressable>
-      </View>
-
+    <ExpandableFinanceCard
+      title={t('savings.title')}
+      summary={t(summaryKey, { count: items.length, amount: formatCLP(savedTotal) })}
+      backgroundColor={backgroundColor}
+      manageAccessibilityLabel={t('savings.manageAccessibility')}
+      onManage={onManage}>
       <View style={styles.goalList}>
         {items.map((item) => {
           const state = getGoalState(item, asOfDate);
@@ -101,44 +95,11 @@ export function SavingsGoalsPeriodCard({
           );
         })}
       </View>
-    </View>
+    </ExpandableFinanceCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: 12,
-    padding: 16,
-    gap: 16,
-    elevation: 2,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  description: {
-    fontSize: 12,
-    opacity: 0.65,
-  },
-  manageButton: {
-    borderRadius: 999,
-    backgroundColor: '#0B315B',
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-  },
-  manageButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
   goalList: {
     gap: 15,
   },

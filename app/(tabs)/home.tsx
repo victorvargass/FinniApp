@@ -1,10 +1,11 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategoryChart } from '@/components/CategoryChart';
 import { BreakdownSection, type BreakdownMode } from '@/components/breakdown-section';
+import { HomeDebtsCard } from '@/components/home-debts-card';
 import { HomeOverview, type HomeAttentionItem } from '@/components/home-overview';
 import { LimitProgressBar } from '@/components/LimitProgressBar';
 import { PaymentMethodChart } from '@/components/PaymentMethodChart';
@@ -24,6 +25,7 @@ import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
 import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
+import type { Debt, DebtPlan } from '@/lib/types';
 import {
   DEFAULT_CATEGORY_COUNT,
   confirmFirstPeriodDate,
@@ -32,7 +34,7 @@ import {
 import { showToast } from '@/lib/toast';
 import { buildWeeklyInsight, findSavingsMilestone } from '@/lib/weekly-insights';
 import { exportPeriodReport } from '@/services/PeriodReportService';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Parse a date string like "2026-07-23" as a local date
 function parseDateString(value: string): Date {
@@ -63,6 +65,8 @@ export default function HomeScreen() {
     closeCurrentPeriod,
     selectedPeriod,
     settings,
+    getDebts,
+    getDebtPlans,
   } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -79,6 +83,20 @@ export default function HomeScreen() {
   const [breakdownMode, setBreakdownMode] = useState<BreakdownMode>('category');
   const [isExporting, setIsExporting] = useState(false);
   const [hasConfiguredPeriod, setHasConfiguredPeriod] = useState(false);
+  const [homeDebts, setHomeDebts] = useState<Debt[]>([]);
+  const [homeDebtPlans, setHomeDebtPlans] = useState<DebtPlan[]>([]);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    Promise.all([getDebts(), getDebtPlans()])
+      .then(([nextDebts, nextPlans]) => {
+        if (!active) return;
+        setHomeDebts(nextDebts);
+        setHomeDebtPlans(nextPlans);
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [getDebtPlans, getDebts]));
 
   const withLimits = periodCategoryExpensesTotals.filter((item) => item.periodLimit != null && item.periodLimit > 0);
   const periodSavingsWithdrawals = periodSavingsGoalActivity.reduce((sum, item) => sum + item.withdrawals, 0);
@@ -386,6 +404,17 @@ export default function HomeScreen() {
             onManage={() => router.push('/modal/savings-goals')}
           />
         )}
+
+        <HomeDebtsCard
+          debts={homeDebts}
+          plans={homeDebtPlans}
+          paymentMethods={paymentMethods}
+          backgroundColor={colors.surface}
+          onManage={() => router.push('/modal/debts')}
+          onOpenDebt={(id) => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(id) } })}
+          onOpenPlan={(id) => router.push({ pathname: '/modal/debt-detail', params: { id: String(id) } })}
+          onOpenPaymentMethod={(id) => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(id) } })}
+        />
 
         <BreakdownSection
           mode={breakdownMode}
