@@ -225,6 +225,7 @@ export default function RecurringExpenseFormScreen() {
               style={[styles.input, { color: colors.text, borderColor: colors.border }]}
             />
             <ColorSelect
+              searchable
               label={t('expenses.categoryOptional')}
               value={categoryId}
               onChange={setCategoryId}

@@ -123,7 +123,7 @@ export default function DebtPaymentScreen() {
             <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatDate(parseIsoDate(date))}</ThemedText></Pressable>
             {showDate && <DateTimePicker value={parseIsoDate(date)} mode="date" onChange={(_, value) => { if (Platform.OS === 'android') setShowDate(false); if (value) setDate(toDateString(value)); }} />}
           </View>
-          <SimpleSelect label={t('debts.category')} value={categoryId} onChange={setCategoryId} options={categoryOptions} />
+          <SimpleSelect searchable label={t('debts.category')} value={categoryId} onChange={setCategoryId} options={categoryOptions} />
           <SimpleSelect label={t('debts.paymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
           <View style={styles.group}><ThemedText style={styles.label}>{t('debts.paymentNote')}</ThemedText><TextInput multiline value={note} onChangeText={setNote} placeholder={t('debts.paymentNotePlaceholder')} placeholderTextColor={colors.icon} style={[styles.input, styles.multiline, { borderColor: colors.border, color: colors.text }]} /></View>
         </ThemedView>

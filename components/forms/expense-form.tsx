@@ -773,6 +773,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       </View>}
 
       {!creditAdjustment && <ColorSelect
+        searchable
         label={isDedicatedCardPaymentFlow || isDedicatedSavingsContributionFlow
           ? t('expenses.category')
           : t('expenses.categoryOptional')}
