@@ -91,10 +91,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="user"
         options={{
-          title: t('navigation.more'),
+          title: t('navigation.settings'),
           tabBarButtonTestID: 'tab-user',
-          tabBarLabel: t('navigation.more'),
-          tabBarIcon: ({ color }) => <Ionicons name="menu" size={24} color={color} />,
+          tabBarLabel: t('navigation.settings'),
+          tabBarIcon: ({ color }) => <Ionicons name="settings-outline" size={24} color={color} />,
         }}
       />
     </Tabs>

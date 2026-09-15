@@ -211,6 +211,7 @@ const es = {
     add: 'Agregar',
     addMovement: 'Agregar movimiento',
     more: 'Más',
+    settings: 'Configuración',
     period: 'Período',
     incomes: 'Ingresos',
     expenses: 'Gastos',

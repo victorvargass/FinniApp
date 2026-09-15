@@ -211,6 +211,7 @@ const en = {
     add: 'Add',
     addMovement: 'Add transaction',
     more: 'More',
+    settings: 'Settings',
     period: 'Period',
     incomes: 'Income',
     expenses: 'Expenses',
