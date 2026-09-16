@@ -5,9 +5,9 @@ import {
 } from './balance-snapshot.ts';
 
 export function resolveSavingsBalanceStartDate(
-  creationDate: string
+  balanceDate: string
 ) {
-  return resolveBalanceTrackingStartDate(creationDate);
+  return resolveBalanceTrackingStartDate(balanceDate);
 }
 
 export type SavingsBalanceBoundary = BalanceSnapshotBoundary;

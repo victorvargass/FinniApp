@@ -33,6 +33,7 @@ export type NewSavingsGoal = {
   initialAmount: number;
   allowWithdrawals: boolean;
   creationDate: string;
+  balanceDate: string;
   deadline: string;
   color: string;
 };
@@ -188,6 +189,21 @@ export type CreditCardAdjustment = NewCreditCardAdjustment & {
   id: number;
 };
 
+export type CardPaymentMovement = {
+  id: number;
+  kind: 'payment' | 'adjustment';
+  name: string | null;
+  amount: number;
+  date: string;
+  sourcePaymentMethodId: number | null;
+  sourcePaymentMethodName: string | null;
+  sourcePaymentMethodColor: string | null;
+  targetPaymentMethodId: number;
+  targetPaymentMethodName: string;
+  targetPaymentMethodColor: string;
+  adjustmentKind: CreditCardAdjustmentKind | null;
+};
+
 export type NewPaymentMethod = {
   name: string;
   type: PaymentMethodType;
@@ -317,6 +333,7 @@ export type NewDebt = {
   creditor: string | null;
   initialAmount: number;
   creationDate: string;
+  balanceDate: string;
   installmentAmount: number | null;
   frequency: DebtFrequency | null;
   firstDueDate: string | null;
@@ -338,12 +355,14 @@ export type DebtEntry = {
   paymentMethodId: number | null;
   paymentMethodName: string | null;
   note: string | null;
+  reportedBalance: number | null;
 };
 
 export type Debt = NewDebt & {
   id: number;
   status: DebtStatus;
   currentBalance: number;
+  balanceUpdatedAt: string | null;
   paidAmount: number;
   paymentCount: number;
   entryCount: number;

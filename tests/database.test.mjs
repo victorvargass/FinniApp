@@ -7,7 +7,11 @@ import {
   DATABASE_APPLICATION_ID,
   DATABASE_SCHEMA_VERSION,
 } from '../lib/database-schema.ts';
-import { recordAppliedSchema } from '../lib/schema-migrations.ts';
+import {
+  LEGACY_DEBT_BALANCE_DATE_SQL,
+  LEGACY_SAVINGS_BALANCE_DATE_SQL,
+  recordAppliedSchema,
+} from '../lib/schema-migrations.ts';
 
 function temporaryDatabase() {
   return new DatabaseSync(':memory:');
@@ -38,10 +42,63 @@ test('schema migration records a deterministic version and application id', asyn
     const migration = database.prepare('SELECT version, name FROM schema_migrations ORDER BY version DESC').get();
     assert.deepEqual({ ...migration }, {
       version: DATABASE_SCHEMA_VERSION,
-      name: 'balance-tracking-starts-at-creation',
+      name: 'separate-creation-and-reported-balance-dates',
     });
     assert.equal(database.prepare('PRAGMA user_version').get().user_version, DATABASE_SCHEMA_VERSION);
     assert.equal(database.prepare('PRAGMA application_id').get().application_id, DATABASE_APPLICATION_ID);
+  } finally {
+    database.close();
+  }
+});
+
+test('legacy balances stop using historical creation when no later snapshot exists', () => {
+  const database = temporaryDatabase();
+  try {
+    database.exec(`
+      CREATE TABLE savings_goals (
+        id INTEGER PRIMARY KEY, created_at TEXT, updated_at TEXT,
+        balance_updated_at TEXT, balance_movement_anchor_id INTEGER
+      );
+      CREATE TABLE savings_goal_adjustments (
+        goal_id INTEGER, reported_balance INTEGER
+      );
+      CREATE TABLE savings_goal_movements (
+        id INTEGER PRIMARY KEY, goal_id INTEGER, expense_id INTEGER, income_id INTEGER
+      );
+      CREATE TABLE expenses (id INTEGER PRIMARY KEY, date TEXT);
+      CREATE TABLE incomes (id INTEGER PRIMARY KEY, date TEXT);
+      CREATE TABLE manual_debts (
+        id INTEGER PRIMARY KEY, created_at TEXT, updated_at TEXT,
+        balance_updated_at TEXT, balance_payment_anchor_id INTEGER
+      );
+      CREATE TABLE manual_debt_entries (
+        id INTEGER PRIMARY KEY, debt_id INTEGER, kind TEXT,
+        reported_balance INTEGER, date TEXT
+      );
+      INSERT INTO savings_goals VALUES
+        (1, '2024-12-30 12:00:00', '2026-09-15 12:00:00', '2024-12-30', 0),
+        (2, '2024-12-30 12:00:00', '2026-09-15 12:00:00', '2024-12-30', 0);
+      INSERT INTO savings_goal_adjustments VALUES (2, 30000);
+      INSERT INTO expenses VALUES (1, '2026-09-15'), (2, '2026-09-16');
+      INSERT INTO savings_goal_movements VALUES (1, 1, 1, NULL), (2, 1, 2, NULL);
+      INSERT INTO manual_debts VALUES
+        (1, '2024-12-30 12:00:00', '2026-09-15 12:00:00', '2024-12-30', 0),
+        (2, '2024-12-30 12:00:00', '2026-09-15 12:00:00', '2024-12-30', 0);
+      INSERT INTO manual_debt_entries VALUES
+        (1, 1, 'payment', NULL, '2026-09-15'),
+        (2, 1, 'payment', NULL, '2026-09-16'),
+        (3, 2, 'adjustment', 100000, '2026-09-15');
+    `);
+    database.exec(LEGACY_SAVINGS_BALANCE_DATE_SQL);
+    database.exec(LEGACY_DEBT_BALANCE_DATE_SQL);
+    const savings = database.prepare('SELECT balance_updated_at FROM savings_goals ORDER BY id').all();
+    const debts = database.prepare('SELECT balance_updated_at FROM manual_debts ORDER BY id').all();
+    const savingsAnchor = database.prepare('SELECT balance_movement_anchor_id AS id FROM savings_goals WHERE id = 1').get();
+    const debtAnchor = database.prepare('SELECT balance_payment_anchor_id AS id FROM manual_debts WHERE id = 1').get();
+    assert.deepEqual(savings.map((item) => item.balance_updated_at), ['2026-09-15', '2024-12-30']);
+    assert.deepEqual(debts.map((item) => item.balance_updated_at), ['2026-09-15', '2024-12-30']);
+    assert.equal(savingsAnchor.id, 1);
+    assert.equal(debtAnchor.id, 1);
   } finally {
     database.close();
   }

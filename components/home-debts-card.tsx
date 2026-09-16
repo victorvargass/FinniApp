@@ -7,7 +7,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
-import { getEstimatedPaymentDueDate } from '@/lib/payment-method-calculations';
+import { getCardDueDate } from '@/lib/payment-method-calculations';
 import type { Debt, DebtPlan, PaymentMethod } from '@/lib/types';
 
 type HomeDebtsCardProps = {
@@ -91,16 +91,16 @@ export function HomeDebtsCard({
           <ThemedText style={styles.sectionLabel}>{t('debts.creditCards')}</ThemedText>
         )}
         {creditCards.map((card) => {
-          const dueDate = card.statementDate && card.paymentDueDay
-            ? getEstimatedPaymentDueDate(card.statementDate, card.paymentDueDay)
-            : null;
+          const dueDate = getCardDueDate(card);
           return (
             <DebtRow
               key={`card-${card.id}`}
               color={card.color}
               name={card.name}
               detail={dueDate
-                ? t('debts.homeCardDue', { date: formatDate(dueDate) })
+                ? t(dueDate.estimated ? 'debts.homeCardEstimatedDue' : 'debts.homeCardDue', {
+                    date: formatDate(dueDate.date),
+                  })
                 : t('paymentMethods.credit')}
               amount={card.usedAmount ?? 0}
               total={card.creditLimit}

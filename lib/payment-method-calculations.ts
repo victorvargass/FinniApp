@@ -27,6 +27,47 @@ export function getEstimatedPaymentDueDate(statementDate: string, dueDay: number
   return new Date(year, targetMonth, Math.min(dueDay, lastDay), 12);
 }
 
+function getNextBillingDate(billingDay: number, referenceDate: Date) {
+  const year = referenceDate.getFullYear();
+  const month = referenceDate.getMonth();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const candidate = new Date(year, month, Math.min(billingDay, lastDay), 12);
+  const referenceDay = new Date(year, month, referenceDate.getDate(), 12);
+  if (candidate >= referenceDay) return candidate;
+
+  const nextMonth = month + 1;
+  const nextMonthLastDay = new Date(year, nextMonth + 1, 0).getDate();
+  return new Date(year, nextMonth, Math.min(billingDay, nextMonthLastDay), 12);
+}
+
+function toLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getCardDueDate(
+  method: Pick<PaymentMethod, 'billingDay' | 'billedAmount' | 'paymentDueDay' | 'statementDate'>,
+  referenceDate = new Date()
+): { date: Date; estimated: boolean } | null {
+  if (method.paymentDueDay == null) return null;
+
+  if (method.billedAmount > 0 && method.statementDate) {
+    return {
+      date: getEstimatedPaymentDueDate(method.statementDate, method.paymentDueDay),
+      estimated: false,
+    };
+  }
+
+  if (method.billingDay == null) return null;
+  const nextBillingDate = getNextBillingDate(method.billingDay, referenceDate);
+  return {
+    date: getEstimatedPaymentDueDate(toLocalDateKey(nextBillingDate), method.paymentDueDay),
+    estimated: true,
+  };
+}
+
 export function findUrgentCardPayment(
   methods: PaymentMethod[],
   referenceDate = new Date(),

@@ -7,6 +7,8 @@ export {
   deleteCreditCardAdjustment,
   deleteAccountTransfer,
   getAccountTransfer,
+  getAccountTransfersForPeriod,
+  getCardPaymentMovementsForPeriod,
   getCreditCardAdjustment,
   getCreditCardCycles,
   getPaymentMethodDeletionInfo,

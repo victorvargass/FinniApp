@@ -11,7 +11,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
-import { getEstimatedPaymentDueDate } from '@/lib/payment-method-calculations';
+import { getCardDueDate } from '@/lib/payment-method-calculations';
 import type { PaymentMethodMovement } from '@/lib/types';
 import { getPaymentMethodMovements } from '@/repositories/payment-methods';
 
@@ -57,9 +57,7 @@ export default function PaymentMethodDetailScreen() {
   const progress = isCredit && method.creditLimit
     ? Math.min(1, Math.max(0, (method.usedAmount ?? 0) / method.creditLimit))
     : 0;
-  const dueDate = isCredit && method.statementDate && method.paymentDueDay
-    ? getEstimatedPaymentDueDate(method.statementDate, method.paymentDueDay)
-    : null;
+  const dueDate = isCredit ? getCardDueDate(method) : null;
   const typeLabel = {
     cash: t('paymentMethods.cash'),
     debit: t('paymentMethods.debit'),
@@ -233,7 +231,9 @@ export default function PaymentMethodDetailScreen() {
             <ThemedText type="title">{formatCLP(method.billedAmount)}</ThemedText>
             <ThemedText style={styles.hint}>
               {dueDate
-                ? t('paymentMethods.dueDate', { date: formatDate(dueDate) })
+                ? t(dueDate.estimated
+                  ? 'paymentMethods.nextEstimatedDueDate'
+                  : 'paymentMethods.dueDate', { date: formatDate(dueDate.date) })
                 : t('paymentMethods.noStatement')}
             </ThemedText>
           </ThemedView>

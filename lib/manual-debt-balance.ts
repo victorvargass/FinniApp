@@ -17,7 +17,7 @@ SELECT CASE
           OR entry.date > d.balance_updated_at
           OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id))
       THEN entry.amount ELSE 0 END), 0) ELSE 0 END
-  - COALESCE(SUM(CASE WHEN entry.kind = 'payment' AND entry.date <= ?
+  - COALESCE(SUM(CASE WHEN entry.kind = 'payment' AND entry.id != ? AND entry.date <= ?
       AND (EXISTS (SELECT 1 FROM snapshot) AND (entry.date > (SELECT date FROM snapshot)
         OR (entry.date = (SELECT date FROM snapshot) AND entry.id > (SELECT payment_anchor_id FROM snapshot)))
         OR NOT EXISTS (SELECT 1 FROM snapshot) AND (d.balance_updated_at IS NULL OR ? < d.balance_updated_at
@@ -27,7 +27,7 @@ SELECT CASE
 FROM manual_debts d LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
 WHERE d.id = ? GROUP BY d.id`;
 
-export function manualDebtBalanceAtDateParams(id: number, throughDate: string) {
+export function manualDebtBalanceAtDateParams(id: number, throughDate: string, excludePaymentId = -1) {
   return [
     id,
     throughDate,
@@ -35,6 +35,7 @@ export function manualDebtBalanceAtDateParams(id: number, throughDate: string) {
     throughDate,
     throughDate,
     throughDate,
+    excludePaymentId,
     throughDate,
     throughDate,
     id,

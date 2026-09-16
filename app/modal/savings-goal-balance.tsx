@@ -82,6 +82,8 @@ export default function SavingsGoalBalanceScreen() {
               <DateTimePicker
                 value={new Date(`${date}T12:00:00`)}
                 mode="date"
+                minimumDate={new Date(`${goal.balanceDate}T12:00:00`)}
+                maximumDate={new Date()}
                 onChange={(_, value) => {
                   if (Platform.OS === 'android') setShowDate(false);
                   if (value) setDate(toDateString(value));

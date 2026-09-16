@@ -12,12 +12,17 @@ import {
   resolveBalanceTrackingStartDate,
 } from './balance-snapshot';
 import { calculateAvailableBalance } from './payment-method-calculations';
+import { spendingExpenseSql } from './movement-classification';
 import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate, isSinglePaymentDebt } from './debt-calculations';
 import {
   MANUAL_DEBT_BALANCE_AT_DATE_SQL,
   manualDebtBalanceAtDateParams,
 } from './manual-debt-balance';
-import { recordAppliedSchema } from './schema-migrations';
+import {
+  LEGACY_DEBT_BALANCE_DATE_SQL,
+  LEGACY_SAVINGS_BALANCE_DATE_SQL,
+  recordAppliedSchema,
+} from './schema-migrations';
 import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from './recurrence';
 import {
   getSavingsBalanceAdjustmentAmount,
@@ -26,6 +31,7 @@ import {
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
 import type {
   AccountTransfer,
+  CardPaymentMovement,
   Category,
   CreditCardAdjustment,
   CreditCardCycle,
@@ -1091,6 +1097,12 @@ async function initializeDatabase(): Promise<void> {
         )
     `);
   }
+  if (previousSchemaVersion < 17) {
+    // Older builds used the historical creation date for the balance declared
+    // at registration. Only the last local update date remains recoverable.
+    await db.runAsync(LEGACY_SAVINGS_BALANCE_DATE_SQL);
+    await db.runAsync(LEGACY_DEBT_BALANCE_DATE_SQL);
+  }
   if (!paymentMethodColumns.some((column) => column.name === 'color')) {
     await db.execAsync("ALTER TABLE payment_methods ADD COLUMN color TEXT NOT NULL DEFAULT '#0a7ea4';");
   }
@@ -1791,6 +1803,10 @@ function validateSavingsGoal(data: NewSavingsGoal): void {
     throw new Error(t('database.savingsWithdrawalPolicyInvalid'));
   }
   if (!isValidIsoDate(data.creationDate)) throw new Error(t('database.creationDateInvalid'));
+  if (!isValidIsoDate(data.balanceDate) || data.balanceDate < data.creationDate
+    || data.balanceDate > toLocalIsoDate(new Date())) {
+    throw new Error(t('database.balanceDateInvalid'));
+  }
   if (!isValidIsoDate(data.deadline)) throw new Error(t('database.savingsDeadlineInvalid'));
   if (!/^#[0-9a-f]{6}$/i.test(data.color)) throw new Error(t('database.savingsColorInvalid'));
 }
@@ -2283,6 +2299,7 @@ function mapSavingsGoal(row: Record<string, unknown>): SavingsGoal {
     initialAmount: Number(row.initial_amount),
     allowWithdrawals: Number(row.allow_withdrawals) === 1,
     creationDate: String(row.created_at).slice(0, 10),
+    balanceDate: row.balance_updated_at == null ? String(row.created_at).slice(0, 10) : String(row.balance_updated_at),
     deadline: String(row.deadline),
     color: String(row.color),
     status: row.status as SavingsGoal['status'],
@@ -2431,12 +2448,20 @@ export async function addSavingsGoalBalanceAdjustment(
   if (!Number.isInteger(data.balance) || data.balance < 0) {
     throw new Error(t('database.savingsBalanceInvalid'));
   }
-  if (!isValidIsoDate(data.date)) throw new Error(t('database.savingsAdjustmentDateInvalid'));
+  if (!isValidIsoDate(data.date) || data.date > toLocalIsoDate(new Date())) {
+    throw new Error(t('database.savingsAdjustmentDateInvalid'));
+  }
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
     const goal = await getSavingsGoalBalance(transaction, goalId);
     if (!goal) throw new Error(t('database.savingsGoalMissing'));
     if (goal.status === 'archived') throw new Error(t('database.savingsGoalArchived'));
+    const baseline = await transaction.getFirstAsync<{ balance_updated_at: string | null }>(
+      'SELECT balance_updated_at FROM savings_goals WHERE id = ?', goalId
+    );
+    if (baseline?.balance_updated_at && data.date < baseline.balance_updated_at) {
+      throw new Error(t('database.balanceDateBeforeInitial'));
+    }
     const balanceAtDate = await getSavingsGoalBalanceAtDate(transaction, goalId, data.date);
     if (balanceAtDate == null) throw new Error(t('database.savingsGoalMissing'));
     const difference = getSavingsBalanceAdjustmentAmount(data.balance, balanceAtDate);
@@ -2460,6 +2485,7 @@ export async function addSavingsGoalBalanceAdjustment(
       data.balance,
       Number(anchor?.id ?? 0)
     );
+    await reconcileSavingsGoalSnapshots(transaction, goalId);
     await assertSavingsGoalBalanceIsNotNegative(transaction, goalId);
     await transaction.runAsync(
       'UPDATE savings_goals SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -2508,7 +2534,7 @@ export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
     data.targetAmount,
     data.initialAmount,
     data.allowWithdrawals ? 1 : 0,
-    resolveBalanceTrackingStartDate(data.creationDate),
+    resolveBalanceTrackingStartDate(data.balanceDate),
     `${data.creationDate} 12:00:00`,
     data.deadline,
     data.color.toLowerCase()
@@ -2521,51 +2547,45 @@ export async function updateSavingsGoal(id: number, data: NewSavingsGoal): Promi
   const db = await getDb();
   await assertUniqueSavingsGoalName(db, data.name, id);
   await withExclusiveTransaction(db, async (transaction) => {
-    const current = await getSavingsGoalBalance(transaction, id);
-    if (!current) throw new Error(t('database.savingsGoalMissing'));
-    const movementBalance = current.balance - current.initialAmount;
-    if (data.initialAmount + movementBalance < 0) {
-      throw new Error(t('database.initialSavingsNegative'));
-    }
-    const reportedSnapshot = await transaction.getFirstAsync<{ id: number }>(
-      `SELECT id FROM savings_goal_adjustments
+    const existing = await transaction.getFirstAsync<{
+      balance_updated_at: string | null;
+      balance_movement_anchor_id: number;
+    }>('SELECT balance_updated_at, balance_movement_anchor_id FROM savings_goals WHERE id = ?', id);
+    if (!existing) throw new Error(t('database.savingsGoalMissing'));
+    const firstSnapshot = await transaction.getFirstAsync<{ date: string }>(
+      `SELECT date FROM savings_goal_adjustments
        WHERE goal_id = ? AND reported_balance IS NOT NULL
-       LIMIT 1`,
+       ORDER BY date ASC, id ASC LIMIT 1`,
       id
     );
-    if (reportedSnapshot) {
-      await transaction.runAsync(
-        `UPDATE savings_goals SET
-           name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?, created_at = ?, deadline = ?, color = ?,
-           updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        data.name.trim(),
-        data.targetAmount,
-        data.initialAmount,
-        data.allowWithdrawals ? 1 : 0,
-        `${data.creationDate} 12:00:00`,
-        data.deadline,
-        data.color.toLowerCase(),
-        id
-      );
-    } else {
-      await transaction.runAsync(
-        `UPDATE savings_goals SET
-           name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?, created_at = ?, deadline = ?, color = ?,
-           balance_updated_at = ?, balance_movement_anchor_id = 0,
-           updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        data.name.trim(),
-        data.targetAmount,
-        data.initialAmount,
-        data.allowWithdrawals ? 1 : 0,
-        `${data.creationDate} 12:00:00`,
-        data.deadline,
-        data.color.toLowerCase(),
-        resolveBalanceTrackingStartDate(data.creationDate),
-        id
-      );
+    if (firstSnapshot && data.balanceDate > firstSnapshot.date) {
+      throw new Error(t('database.balanceDateAfterSnapshot'));
     }
+    const latestMovement = existing.balance_updated_at === data.balanceDate
+      ? null
+      : await transaction.getFirstAsync<{ id: number }>(
+        `SELECT COALESCE(MAX(movement.id), 0) AS id
+         FROM savings_goal_movements movement
+         LEFT JOIN expenses expense ON expense.id = movement.expense_id
+         LEFT JOIN incomes income ON income.id = movement.income_id
+         WHERE movement.goal_id = ? AND COALESCE(expense.date, income.date) <= ?`,
+        id,
+        data.balanceDate
+      );
+    const anchor = existing.balance_updated_at === data.balanceDate
+      ? existing.balance_movement_anchor_id
+      : Number(latestMovement?.id ?? 0);
+    await transaction.runAsync(
+      `UPDATE savings_goals SET
+         name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?,
+         created_at = ?, deadline = ?, color = ?, balance_updated_at = ?,
+         balance_movement_anchor_id = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      data.name.trim(), data.targetAmount, data.initialAmount,
+      data.allowWithdrawals ? 1 : 0, `${data.creationDate} 12:00:00`,
+      data.deadline, data.color.toLowerCase(), data.balanceDate, anchor, id
+    );
+    await reconcileSavingsGoalSnapshots(transaction, id);
     await assertSavingsGoalBalanceIsNotNegative(transaction, id);
   });
 }
@@ -3154,6 +3174,78 @@ export async function getAccountTransfersForPeriod(periodId: number): Promise<Ac
   return rows.map(mapAccountTransfer);
 }
 
+export async function getCardPaymentMovementsForPeriod(
+  periodId: number
+): Promise<CardPaymentMovement[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<Record<string, unknown>>(
+    `SELECT * FROM (
+       SELECT
+         expense.id,
+         'payment' AS kind,
+         expense.name,
+         expense.amount,
+         expense.date,
+         source.id AS source_payment_method_id,
+         source.name AS source_payment_method_name,
+         source.color AS source_payment_method_color,
+         target.id AS target_payment_method_id,
+         target.name AS target_payment_method_name,
+         target.color AS target_payment_method_color,
+         NULL AS adjustment_kind
+       FROM expenses expense
+       LEFT JOIN payment_methods source ON source.id = expense.payment_method_id
+       INNER JOIN payment_methods target ON target.id = expense.credit_payment_target_id
+       WHERE expense.period_id = ? AND expense.credit_payment_target_id IS NOT NULL
+
+       UNION ALL
+
+       SELECT
+         adjustment.id,
+         'adjustment' AS kind,
+         adjustment.note AS name,
+         adjustment.amount,
+         adjustment.date,
+         NULL AS source_payment_method_id,
+         NULL AS source_payment_method_name,
+         NULL AS source_payment_method_color,
+         target.id AS target_payment_method_id,
+         target.name AS target_payment_method_name,
+         target.color AS target_payment_method_color,
+         adjustment.kind AS adjustment_kind
+       FROM credit_card_adjustments adjustment
+       INNER JOIN payment_methods target ON target.id = adjustment.payment_method_id
+       INNER JOIN periods period ON period.id = ?
+       WHERE adjustment.date BETWEEN period.start_date AND period.end_date
+     )
+     ORDER BY date DESC, id DESC`,
+    periodId,
+    periodId
+  );
+  return rows.map((row) => ({
+    id: Number(row.id),
+    kind: row.kind as CardPaymentMovement['kind'],
+    name: row.name == null ? null : String(row.name),
+    amount: Number(row.amount),
+    date: String(row.date),
+    sourcePaymentMethodId: row.source_payment_method_id == null
+      ? null
+      : Number(row.source_payment_method_id),
+    sourcePaymentMethodName: row.source_payment_method_name == null
+      ? null
+      : String(row.source_payment_method_name),
+    sourcePaymentMethodColor: row.source_payment_method_color == null
+      ? null
+      : String(row.source_payment_method_color),
+    targetPaymentMethodId: Number(row.target_payment_method_id),
+    targetPaymentMethodName: String(row.target_payment_method_name),
+    targetPaymentMethodColor: String(row.target_payment_method_color),
+    adjustmentKind: row.adjustment_kind == null
+      ? null
+      : row.adjustment_kind as CardPaymentMovement['adjustmentKind'],
+  }));
+}
+
 async function validateAccountTransfer(
   db: SQLite.SQLiteDatabase,
   data: NewAccountTransfer,
@@ -3247,7 +3339,9 @@ function validatePaymentMethod(data: NewPaymentMethod) {
   if (data.reportedBalance != null && (!Number.isInteger(data.reportedBalance) || data.reportedBalance < 0)) {
     throw new Error(t('database.paymentBalanceInvalid'));
   }
-  if (data.type !== 'cash' && data.reportedBalance != null && !data.balanceDate) {
+  if (data.type !== 'cash' && data.reportedBalance != null
+    && (!data.balanceDate || !isValidIsoDate(data.balanceDate)
+      || data.balanceDate > toLocalIsoDate(new Date()))) {
     throw new Error(t('database.paymentBalanceDateRequired'));
   }
 }
@@ -3319,13 +3413,21 @@ export async function updatePaymentMethodBalance(
   if (!Number.isInteger(data.balance) || data.balance < 0) {
     throw new Error(t('database.paymentBalanceInvalid'));
   }
+  if (!isValidIsoDate(data.date) || data.date > toLocalIsoDate(new Date())) {
+    throw new Error(t('database.paymentBalanceDateRequired'));
+  }
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
-    const method = await transaction.getFirstAsync<{ type: PaymentMethod['type'] }>(
-      'SELECT type FROM payment_methods WHERE id = ?',
+    const method = await transaction.getFirstAsync<{
+      type: PaymentMethod['type']; balance_updated_at: string | null;
+    }>(
+      'SELECT type, balance_updated_at FROM payment_methods WHERE id = ?',
       id
     );
     if (!method) throw new Error(t('database.paymentMissing'));
+    if (method.balance_updated_at && data.date < method.balance_updated_at) {
+      throw new Error(t('database.paymentBalanceDateOlder'));
+    }
     const chargeAnchor = await transaction.getFirstAsync<{ id: number }>(
       'SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE payment_method_id = ? AND date <= ?',
       id,
@@ -3520,7 +3622,7 @@ export async function getPaymentMethodTotals(periodId: number): Promise<PaymentM
        FROM expenses e
        LEFT JOIN payment_methods pm ON pm.id = e.payment_method_id
        LEFT JOIN savings_goal_movements savingsMovement ON savingsMovement.expense_id = e.id
-       WHERE e.period_id = ?
+       WHERE e.period_id = ? AND ${spendingExpenseSql('e')}
      )
      GROUP BY paymentMethodId, paymentMethodName, paymentMethodType, paymentMethodColor
      ORDER BY total DESC`,
@@ -3885,6 +3987,10 @@ export async function getDebtPlan(id: number): Promise<DebtPlan | null> {
 function validateDebt(data: NewDebt): void {
   if (!data.name.trim()) throw new Error(t('database.debtNameRequired'));
   if (!isValidIsoDate(data.creationDate)) throw new Error(t('database.creationDateInvalid'));
+  if (!isValidIsoDate(data.balanceDate) || data.balanceDate < data.creationDate
+    || data.balanceDate > toLocalIsoDate(new Date())) {
+    throw new Error(t('database.balanceDateInvalid'));
+  }
   if (!Number.isInteger(data.initialAmount) || data.initialAmount <= 0) {
     throw new Error(t('database.debtInitialAmountRequired'));
   }
@@ -3919,6 +4025,7 @@ function mapDebt(row: Record<string, unknown>): Debt {
     creditor: row.creditor == null ? null : String(row.creditor),
     initialAmount,
     creationDate: String(row.created_at).slice(0, 10),
+    balanceDate: row.balance_updated_at == null ? String(row.created_at).slice(0, 10) : String(row.balance_updated_at),
     installmentAmount,
     frequency: row.frequency == null ? null : row.frequency as Debt['frequency'],
     firstDueDate: row.first_due_date == null ? null : String(row.first_due_date),
@@ -3927,6 +4034,7 @@ function mapDebt(row: Record<string, unknown>): Debt {
     notes: row.notes == null ? null : String(row.notes),
     status,
     currentBalance,
+    balanceUpdatedAt: row.balance_updated_at == null ? null : String(row.balance_updated_at),
     paidAmount: Number(row.paid_amount),
     paymentCount,
     entryCount: Number(row.entry_count),
@@ -4014,6 +4122,7 @@ export async function getDebt(id: number): Promise<Debt | null> {
     paymentMethodId: row.payment_method_id == null ? null : Number(row.payment_method_id),
     paymentMethodName: row.payment_method_name == null ? null : String(row.payment_method_name),
     note: row.note == null ? null : String(row.note),
+    reportedBalance: row.reported_balance == null ? null : Number(row.reported_balance),
   }));
   return { ...debt, entries };
 }
@@ -4027,7 +4136,7 @@ export async function createDebt(data: NewDebt): Promise<number> {
        installment_amount, frequency, first_due_date, category_id, payment_method_id, notes, created_at)
      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
     data.type, data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
-    resolveBalanceTrackingStartDate(data.creationDate),
+    resolveBalanceTrackingStartDate(data.balanceDate),
     data.installmentAmount,
     data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
     data.installmentAmount != null ? data.firstDueDate : null,
@@ -4040,84 +4149,57 @@ export async function createDebt(data: NewDebt): Promise<number> {
 export async function updateDebt(id: number, data: NewDebt): Promise<void> {
   validateDebt(data);
   const db = await getDb();
-  const existing = await db.getFirstAsync<{ type: string; initial_amount: number; entry_count: number }>(
-    `SELECT d.type, d.initial_amount, COUNT(entry.id) AS entry_count
-     FROM manual_debts d LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
-     WHERE d.id = ? GROUP BY d.id`, id
-  );
-  if (!existing) throw new Error(t('database.debtMissing'));
-  if (existing.type !== data.type) throw new Error(t('database.debtTypeLocked'));
-  if (existing.entry_count > 0 && existing.initial_amount !== data.initialAmount) {
-    throw new Error(t('database.debtInitialLocked'));
-  }
-  const reportedSnapshot = await db.getFirstAsync<{ id: number }>(
-    `SELECT id FROM manual_debt_entries
-     WHERE debt_id = ? AND kind = 'adjustment' AND reported_balance IS NOT NULL
-     LIMIT 1`,
-    id
-  );
-  if (reportedSnapshot) {
-    await db.runAsync(
+  await withExclusiveTransaction(db, async (transaction) => {
+    const existing = await transaction.getFirstAsync<{
+      type: string; initial_amount: number; entry_count: number;
+      balance_updated_at: string | null; balance_payment_anchor_id: number;
+    }>(
+      `SELECT d.type, d.initial_amount, d.balance_updated_at, d.balance_payment_anchor_id,
+         COUNT(entry.id) AS entry_count
+       FROM manual_debts d LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
+       WHERE d.id = ? GROUP BY d.id`, id
+    );
+    if (!existing) throw new Error(t('database.debtMissing'));
+    if (existing.type !== data.type) throw new Error(t('database.debtTypeLocked'));
+    if (existing.entry_count > 0 && existing.initial_amount !== data.initialAmount) {
+      throw new Error(t('database.debtInitialLocked'));
+    }
+    const firstSnapshot = await transaction.getFirstAsync<{ date: string }>(
+      `SELECT date FROM manual_debt_entries
+       WHERE debt_id = ? AND kind = 'adjustment' AND reported_balance IS NOT NULL
+       ORDER BY date ASC, id ASC LIMIT 1`,
+      id
+    );
+    if (firstSnapshot && data.balanceDate > firstSnapshot.date) {
+      throw new Error(t('database.balanceDateAfterSnapshot'));
+    }
+    const latestPayment = existing.balance_updated_at === data.balanceDate
+      ? null
+      : await transaction.getFirstAsync<{ id: number }>(
+        `SELECT COALESCE(MAX(id), 0) AS id FROM manual_debt_entries
+         WHERE debt_id = ? AND kind = 'payment' AND date <= ?`,
+        id,
+        data.balanceDate
+      );
+    const anchor = existing.balance_updated_at === data.balanceDate
+      ? existing.balance_payment_anchor_id : Number(latestPayment?.id ?? 0);
+    await transaction.runAsync(
       `UPDATE manual_debts SET name = ?, creditor = ?, initial_amount = ?, installment_amount = ?,
         frequency = ?, first_due_date = ?, category_id = ?, payment_method_id = ?, notes = ?, created_at = ?,
+        balance_updated_at = ?, balance_payment_anchor_id = ?,
         updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
       data.installmentAmount,
       data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
       data.installmentAmount != null ? data.firstDueDate : null,
       data.categoryId, data.paymentMethodId, data.notes?.trim() || null,
-      `${data.creationDate} 12:00:00`, id
+      `${data.creationDate} 12:00:00`,
+      resolveBalanceTrackingStartDate(data.balanceDate),
+      anchor,
+      id
     );
-    return;
-  }
-  await db.runAsync(
-    `UPDATE manual_debts SET name = ?, creditor = ?, initial_amount = ?, installment_amount = ?,
-      frequency = ?, first_due_date = ?, category_id = ?, payment_method_id = ?, notes = ?, created_at = ?,
-      balance_updated_at = ?, balance_payment_anchor_id = 0,
-      updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-    data.name.trim(), data.creditor?.trim() || null, data.initialAmount,
-    data.installmentAmount,
-    data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
-    data.installmentAmount != null ? data.firstDueDate : null,
-    data.categoryId, data.paymentMethodId, data.notes?.trim() || null,
-    `${data.creationDate} 12:00:00`,
-    resolveBalanceTrackingStartDate(data.creationDate),
-    id
-  );
-}
-
-async function getDebtBalance(
-  db: SQLite.SQLiteDatabase,
-  id: number,
-  excludePaymentId = -1
-): Promise<number> {
-  const row = await db.getFirstAsync<{ balance: number }>(
-    `SELECT COALESCE(snapshot.reported_balance, d.initial_amount)
-      + CASE WHEN snapshot.id IS NULL THEN COALESCE(SUM(CASE WHEN entry.kind = 'adjustment'
-        AND (d.balance_updated_at IS NULL OR entry.date > d.balance_updated_at
-          OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id))
-        THEN entry.amount ELSE 0 END), 0) ELSE 0 END
-      - COALESCE(SUM(CASE WHEN entry.kind = 'payment'
-        AND entry.id != ?
-        AND (snapshot.id IS NOT NULL AND (entry.date > snapshot.date
-          OR (entry.date = snapshot.date AND entry.id > snapshot.payment_anchor_id))
-          OR snapshot.id IS NULL AND (d.balance_updated_at IS NULL
-            OR entry.date > d.balance_updated_at
-            OR (entry.date = d.balance_updated_at AND entry.id > d.balance_payment_anchor_id)))
-        THEN entry.amount ELSE 0 END), 0) AS balance
-     FROM manual_debts d
-     LEFT JOIN manual_debt_entries snapshot ON snapshot.id = (
-       SELECT adjustment.id FROM manual_debt_entries adjustment
-       WHERE adjustment.debt_id = d.id AND adjustment.kind = 'adjustment'
-         AND adjustment.reported_balance IS NOT NULL
-         AND (d.balance_updated_at IS NULL OR adjustment.date >= d.balance_updated_at)
-       ORDER BY adjustment.date DESC, adjustment.id DESC LIMIT 1
-     )
-     LEFT JOIN manual_debt_entries entry ON entry.debt_id = d.id
-     WHERE d.id = ? GROUP BY d.id`, excludePaymentId, id
-  );
-  if (!row) throw new Error(t('database.debtMissing'));
-  return Math.max(0, Number(row.balance));
+    await reconcileDebtSnapshots(transaction, id);
+  });
 }
 
 async function assertDebtPaymentMethodExists(db: SQLite.SQLiteDatabase, id: number | null): Promise<void> {
@@ -4129,14 +4211,89 @@ async function assertDebtPaymentMethodExists(db: SQLite.SQLiteDatabase, id: numb
 async function getDebtBalanceAtDate(
   db: SQLite.SQLiteDatabase,
   id: number,
-  throughDate: string
+  throughDate: string,
+  excludePaymentId = -1
 ): Promise<number> {
   const row = await db.getFirstAsync<{ balance: number }>(
     MANUAL_DEBT_BALANCE_AT_DATE_SQL,
-    ...manualDebtBalanceAtDateParams(id, throughDate)
+    ...manualDebtBalanceAtDateParams(id, throughDate, excludePaymentId)
   );
   if (!row) throw new Error(t('database.debtMissing'));
   return Math.max(0, Number(row.balance));
+}
+
+async function getDebtPaymentCapacityAtDate(
+  db: SQLite.SQLiteDatabase,
+  debtId: number,
+  paymentDate: string,
+  excludePaymentId = -1
+): Promise<number | null> {
+  const debt = await db.getFirstAsync<{
+    creation_date: string;
+    balance_updated_at: string | null;
+  }>(
+    'SELECT date(created_at) AS creation_date, balance_updated_at FROM manual_debts WHERE id = ?',
+    debtId
+  );
+  if (!debt) throw new Error(t('database.debtMissing'));
+  if (paymentDate < debt.creation_date) {
+    throw new Error(t('database.debtPaymentBeforeCreation'));
+  }
+  // There is no known opening balance before the first reported balance.
+  // These older payments remain in history but cannot reduce that reference.
+  if (debt.balance_updated_at && paymentDate < debt.balance_updated_at) return null;
+  return getDebtBalanceAtDate(db, debtId, paymentDate, excludePaymentId);
+}
+
+async function reconcileDebtSnapshots(db: SQLite.SQLiteDatabase, debtId: number): Promise<void> {
+  const debt = await db.getFirstAsync<{
+    initial_amount: number;
+    balance_updated_at: string | null;
+    balance_payment_anchor_id: number;
+  }>(
+    'SELECT initial_amount, balance_updated_at, balance_payment_anchor_id FROM manual_debts WHERE id = ?',
+    debtId
+  );
+  if (!debt) return;
+  const snapshots = await db.getAllAsync<{
+    id: number; date: string; amount: number; reported_balance: number; payment_anchor_id: number;
+  }>(
+    `SELECT id, date, amount, reported_balance, payment_anchor_id
+     FROM manual_debt_entries
+     WHERE debt_id = ? AND kind = 'adjustment' AND reported_balance IS NOT NULL
+     ORDER BY date ASC, id ASC`,
+    debtId
+  );
+  if (snapshots.length === 0) return;
+  const movements = await db.getAllAsync<{
+    id: number; kind: string; amount: number; date: string;
+  }>(
+    `SELECT id, kind, amount, date FROM manual_debt_entries
+     WHERE debt_id = ? AND (kind = 'payment' OR reported_balance IS NULL)`,
+    debtId
+  );
+  let runningBalance = Number(debt.initial_amount);
+  let boundaryDate = debt.balance_updated_at;
+  let boundaryAnchor = Number(debt.balance_payment_anchor_id);
+  for (const snapshot of snapshots) {
+    if (boundaryDate && snapshot.date < boundaryDate) continue;
+    const delta = movements.reduce((sum, movement) => {
+      const afterBoundary = boundaryDate == null || movement.date > boundaryDate
+        || (movement.date === boundaryDate && movement.id > boundaryAnchor);
+      const beforeSnapshot = movement.date < snapshot.date
+        || (movement.date === snapshot.date && movement.id <= snapshot.payment_anchor_id);
+      if (!afterBoundary || !beforeSnapshot) return sum;
+      return sum + (movement.kind === 'payment' ? -Number(movement.amount) : Number(movement.amount));
+    }, 0);
+    runningBalance += delta;
+    const difference = Number(snapshot.reported_balance) - runningBalance;
+    if (difference !== Number(snapshot.amount)) {
+      await db.runAsync('UPDATE manual_debt_entries SET amount = ? WHERE id = ?', difference, snapshot.id);
+    }
+    runningBalance = Number(snapshot.reported_balance);
+    boundaryDate = snapshot.date;
+    boundaryAnchor = Number(snapshot.payment_anchor_id);
+  }
 }
 
 export async function createDebtPayment(debtId: number, data: NewDebtPayment): Promise<void> {
@@ -4149,8 +4306,10 @@ export async function createDebtPayment(debtId: number, data: NewDebtPayment): P
   await withExclusiveTransaction(db, async (transaction) => {
     const debt = await transaction.getFirstAsync<{ name: string }>('SELECT name FROM manual_debts WHERE id = ?', debtId);
     if (!debt) throw new Error(t('database.debtMissing'));
-    const balance = await getDebtBalance(transaction, debtId);
-    if (data.amount > balance) throw new Error(t('database.debtPaymentTooHigh'));
+    const balanceAtPayment = await getDebtPaymentCapacityAtDate(transaction, debtId, data.date);
+    if (balanceAtPayment != null && data.amount > balanceAtPayment) {
+      throw new Error(t('database.debtPaymentTooHigh'));
+    }
     const expense = await transaction.runAsync(
       `INSERT INTO expenses
         (name, amount, category_id, period_id, date, original_amount, split_percentage, payment_method_id)
@@ -4163,6 +4322,7 @@ export async function createDebtPayment(debtId: number, data: NewDebtPayment): P
        VALUES (?, 'payment', ?, ?, ?, ?, ?)`,
       debtId, data.amount, data.date, data.periodId, expense.lastInsertRowId, data.note?.trim() || null
     );
+    await reconcileDebtSnapshots(transaction, debtId);
     await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', debtId);
   });
 }
@@ -4191,8 +4351,12 @@ export async function updateDebtPayment(entryId: number, data: NewDebtPayment): 
     if (!entry) throw new Error(t('database.debtPaymentMissing'));
     await assertCreditCardCycleIsEditable(transaction, entry.payment_method_id, entry.expense_date);
     await assertCreditCardCycleIsEditable(transaction, data.paymentMethodId, data.date);
-    const available = await getDebtBalance(transaction, entry.debt_id, entryId);
-    if (data.amount > available) throw new Error(t('database.debtPaymentTooHigh'));
+    const balanceAtPayment = await getDebtPaymentCapacityAtDate(
+      transaction, entry.debt_id, data.date, entryId
+    );
+    if (balanceAtPayment != null && data.amount > balanceAtPayment) {
+      throw new Error(t('database.debtPaymentTooHigh'));
+    }
     await transaction.runAsync(
       `UPDATE expenses SET name = ?, amount = ?, category_id = ?, period_id = ?, date = ?,
        payment_method_id = ? WHERE id = ?`,
@@ -4203,6 +4367,7 @@ export async function updateDebtPayment(entryId: number, data: NewDebtPayment): 
       `UPDATE manual_debt_entries SET amount = ?, date = ?, period_id = ?, note = ? WHERE id = ?`,
       data.amount, data.date, data.periodId, data.note?.trim() || null, entryId
     );
+    await reconcileDebtSnapshots(transaction, entry.debt_id);
     await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', entry.debt_id);
   });
 }
@@ -4233,18 +4398,26 @@ export async function deleteDebtPayment(entryId: number): Promise<void> {
     }
     await transaction.runAsync('DELETE FROM manual_debt_entries WHERE id = ?', entryId);
     if (entry.expense_id != null) await transaction.runAsync('DELETE FROM expenses WHERE id = ?', entry.expense_id);
+    await reconcileDebtSnapshots(transaction, entry.debt_id);
     await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', entry.debt_id);
   });
 }
 
 export async function addDebtBalanceAdjustment(debtId: number, data: NewDebtBalance): Promise<void> {
   if (!Number.isInteger(data.balance) || data.balance < 0) throw new Error(t('database.debtBalanceInvalid'));
-  if (!isValidIsoDate(data.date)) throw new Error(t('database.debtAdjustmentDateInvalid'));
+  if (!isValidIsoDate(data.date) || data.date > toLocalIsoDate(new Date())) {
+    throw new Error(t('database.debtAdjustmentDateInvalid'));
+  }
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
-    const debt = await transaction.getFirstAsync<{ type: string }>('SELECT type FROM manual_debts WHERE id = ?', debtId);
+    const debt = await transaction.getFirstAsync<{ type: string; balance_updated_at: string | null }>(
+      'SELECT type, balance_updated_at FROM manual_debts WHERE id = ?', debtId
+    );
     if (!debt) throw new Error(t('database.debtMissing'));
     if (debt.type !== 'variable') throw new Error(t('database.debtAdjustmentFixed'));
+    if (debt.balance_updated_at && data.date < debt.balance_updated_at) {
+      throw new Error(t('database.balanceDateBeforeInitial'));
+    }
     const current = await getDebtBalanceAtDate(transaction, debtId, data.date);
     const difference = getDebtBalanceAdjustmentAmount(data.balance, current);
     const anchor = await transaction.getFirstAsync<{ id: number }>(
@@ -4260,6 +4433,22 @@ export async function addDebtBalanceAdjustment(debtId: number, data: NewDebtBala
       debtId, difference, data.date, data.note?.trim() || null,
       data.balance, Number(anchor?.id ?? 0)
     );
+    await reconcileDebtSnapshots(transaction, debtId);
+    await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', debtId);
+  });
+}
+
+export async function deleteDebtBalanceAdjustment(debtId: number, entryId: number): Promise<void> {
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    const entry = await transaction.getFirstAsync<{ id: number }>(
+      `SELECT id FROM manual_debt_entries
+       WHERE id = ? AND debt_id = ? AND kind = 'adjustment' AND reported_balance IS NOT NULL`,
+      entryId, debtId
+    );
+    if (!entry) throw new Error(t('database.debtAdjustmentMissing'));
+    await transaction.runAsync('DELETE FROM manual_debt_entries WHERE id = ?', entryId);
+    await reconcileDebtSnapshots(transaction, debtId);
     await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', debtId);
   });
 }
@@ -4532,7 +4721,7 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
       LEFT JOIN savings_goal_movements savingsMovement ON savingsMovement.expense_id = e.id
       LEFT JOIN savings_goals savingsGoal ON savingsGoal.id = savingsMovement.goal_id
 
-      WHERE e.period_id = ?
+      WHERE e.period_id = ? AND ${spendingExpenseSql('e')}
 
       ORDER BY
         e.date DESC,
@@ -4611,6 +4800,7 @@ export async function getExpenseNames(): Promise<string[]> {
     `
     SELECT name
     FROM expenses
+    WHERE ${spendingExpenseSql()}
     ORDER BY date DESC, id DESC
     `
   );
@@ -4728,8 +4918,12 @@ export async function updateExpense(
   );
   if (debtEntry) {
     await assertDebtPaymentMethodExists(db, effectivePaymentMethodId);
-    const available = await getDebtBalance(db, debtEntry.debt_id, debtEntry.id);
-    if (data.amount > available) throw new Error(t('database.debtPaymentTooHigh'));
+    const balanceAtPayment = await getDebtPaymentCapacityAtDate(
+      db, debtEntry.debt_id, data.date, debtEntry.id
+    );
+    if (balanceAtPayment != null && data.amount > balanceAtPayment) {
+      throw new Error(t('database.debtPaymentTooHigh'));
+    }
   }
 
   await withExclusiveTransaction(db, async (transaction) => {
@@ -4764,6 +4958,7 @@ export async function updateExpense(
         'UPDATE manual_debt_entries SET amount = ?, date = ? WHERE id = ?',
         data.amount, data.date, debtEntry.id
       );
+      await reconcileDebtSnapshots(transaction, debtEntry.debt_id);
       await transaction.runAsync(
         'UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
         debtEntry.debt_id
@@ -4895,6 +5090,7 @@ export async function deleteExpense(
       await reconcileSavingsGoalSnapshots(transaction, savingsMovement.goal_id);
     }
     if (debtEntry) {
+      await reconcileDebtSnapshots(transaction, debtEntry.debt_id);
       await transaction.runAsync(
         'UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
         debtEntry.debt_id
@@ -6333,7 +6529,7 @@ export async function getPeriodCategoryExpensesTotals(
     WITH filtered_expenses AS (
       SELECT category_id, amount
       FROM expenses
-      WHERE period_id = ?
+      WHERE period_id = ? AND ${spendingExpenseSql()}
     )
     SELECT
       c.id as categoryId,
@@ -6666,6 +6862,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
   }[] = await db.getAllAsync(`
     SELECT id, period_id, category_id, payment_method_id, amount
     FROM expenses
+    WHERE ${spendingExpenseSql()}
   `);
 
   // Get all incomes
@@ -6846,7 +7043,7 @@ export async function getPeriodStatement(
       LEFT JOIN debt_plans plan ON plan.id = e.debt_plan_id
       LEFT JOIN savings_goal_movements savingsMovement ON savingsMovement.expense_id = e.id
       LEFT JOIN savings_goals savingsGoal ON savingsGoal.id = savingsMovement.goal_id
-      WHERE e.period_id = ?
+      WHERE e.period_id = ? AND ${spendingExpenseSql('e')}
       ORDER BY e.date ASC, e.id ASC
       `,
       periodId

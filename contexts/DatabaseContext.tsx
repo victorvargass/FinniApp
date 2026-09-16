@@ -7,6 +7,7 @@ import { logAppError } from '@/lib/logger';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import type {
   AccountTransfer,
+  CardPaymentMovement,
   Category,
   CreditCardAdjustment,
   CreditCardCycle,
@@ -61,6 +62,8 @@ type DatabaseContextValue = {
   categories: Category[];
   paymentMethods: PaymentMethod[];
   paymentMethodTotals: PaymentMethodTotal[];
+  cardPaymentMovements: CardPaymentMovement[];
+  accountTransfers: AccountTransfer[];
   recurringExpenses: RecurringExpense[];
   recurringDecisions: RecurringDecisionItem[];
   recurringIncomes: RecurringIncome[];
@@ -124,6 +127,7 @@ type DatabaseContextValue = {
   editDebtPayment: (entryId: number, data: NewDebtPayment) => Promise<void>;
   removeDebtPayment: (entryId: number) => Promise<void>;
   addDebtBalanceAdjustment: (debtId: number, data: NewDebtBalance) => Promise<void>;
+  removeDebtBalanceAdjustment: (debtId: number, entryId: number) => Promise<void>;
   setDebtArchived: (id: number, archived: boolean) => Promise<void>;
   removeDebt: (id: number) => Promise<void>;
   addSavingsGoal: (data: NewSavingsGoal) => Promise<void>;
@@ -182,6 +186,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [paymentMethodTotals, setPaymentMethodTotals] = useState<PaymentMethodTotal[]>([]);
+  const [cardPaymentMovements, setCardPaymentMovements] = useState<CardPaymentMovement[]>([]);
+  const [accountTransfers, setAccountTransfers] = useState<AccountTransfer[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [recurringDecisions, setRecurringDecisions] = useState<RecurringDecisionItem[]>([]);
   const [recurringIncomes, setRecurringIncomes] = useState<RecurringIncome[]>([]);
@@ -263,10 +269,12 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           selectedPeriodIdRef.current = targetPeriodId;
           setSelectedPeriodId(targetPeriodId);
         }
-        const [cats, methods, methodTotals, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
+        const [cats, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
           db.getCategories(),
           db.getPaymentMethods(true),
           db.getPaymentMethodTotals(targetPeriodId),
+          db.getCardPaymentMovementsForPeriod(targetPeriodId),
+          db.getAccountTransfersForPeriod(targetPeriodId),
           db.getRecurringExpenses(),
           db.getRecurringDecisionItems(),
           db.getRecurringIncomes(),
@@ -292,6 +300,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         setCategories(cats);
         setPaymentMethods(methods);
         setPaymentMethodTotals(methodTotals);
+        setCardPaymentMovements(cardPayments);
+        setAccountTransfers(transfers);
         setRecurringExpenses(recurring);
         setRecurringDecisions(decisions);
         setRecurringIncomes(recurringIncomeRows);
@@ -526,6 +536,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
   const addDebtBalanceAdjustment = useCallback(async (debtId: number, data: NewDebtBalance) => {
     await db.addDebtBalanceAdjustment(debtId, data);
+    await refresh();
+  }, [refresh]);
+  const removeDebtBalanceAdjustment = useCallback(async (debtId: number, entryId: number) => {
+    await db.deleteDebtBalanceAdjustment(debtId, entryId);
     await refresh();
   }, [refresh]);
   const setDebtArchived = useCallback(async (id: number, archived: boolean) => {
@@ -845,6 +859,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       categories,
       paymentMethods,
       paymentMethodTotals,
+      cardPaymentMovements,
+      accountTransfers,
       recurringExpenses,
       recurringDecisions,
       recurringIncomes,
@@ -908,6 +924,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editDebtPayment,
       removeDebtPayment,
       addDebtBalanceAdjustment,
+      removeDebtBalanceAdjustment,
       setDebtArchived,
       removeDebt,
       addSavingsGoal,
@@ -947,6 +964,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       categories,
       paymentMethods,
       paymentMethodTotals,
+      cardPaymentMovements,
+      accountTransfers,
       recurringExpenses,
       recurringDecisions,
       recurringIncomes,
@@ -1010,6 +1029,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editDebtPayment,
       removeDebtPayment,
       addDebtBalanceAdjustment,
+      removeDebtBalanceAdjustment,
       setDebtArchived,
       removeDebt,
       addSavingsGoal,

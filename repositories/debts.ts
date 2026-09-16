@@ -5,6 +5,7 @@ export {
   createDebtPayment,
   createInstallmentPurchase,
   deleteDebt,
+  deleteDebtBalanceAdjustment,
   deleteDebtPayment,
   deleteInstallmentPlan,
   getDebt,

@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   calculateAvailableBalance,
   findUrgentCardPayment,
+  getCardDueDate,
   getEstimatedPaymentDueDate,
 } from '../lib/payment-method-calculations.ts';
 
@@ -60,6 +61,41 @@ test('due date uses the next valid occurrence of the configured day', () => {
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 5).toISOString().slice(0, 10), '2026-10-05');
   assert.equal(getEstimatedPaymentDueDate('2026-09-18', 25).toISOString().slice(0, 10), '2026-09-25');
   assert.equal(getEstimatedPaymentDueDate('2026-01-31', 31).toISOString().slice(0, 10), '2026-02-28');
+});
+
+test('a card without a pending statement estimates the due date after the next billing date', () => {
+  const result = getCardDueDate({
+    billingDay: 19,
+    billedAmount: 0,
+    paymentDueDay: 2,
+    statementDate: '2026-08-19',
+  }, new Date(2026, 8, 15, 23));
+
+  assert.equal(result?.date.toISOString().slice(0, 10), '2026-10-02');
+  assert.equal(result?.estimated, true);
+});
+
+test('a pending statement keeps its real due date even when it is overdue', () => {
+  const result = getCardDueDate({
+    billingDay: 19,
+    billedAmount: 120_000,
+    paymentDueDay: 2,
+    statementDate: '2026-08-19',
+  }, new Date(2026, 8, 15));
+
+  assert.equal(result?.date.toISOString().slice(0, 10), '2026-09-02');
+  assert.equal(result?.estimated, false);
+});
+
+test('a billing date on the reference day still belongs to the current cycle', () => {
+  const result = getCardDueDate({
+    billingDay: 19,
+    billedAmount: 0,
+    paymentDueDay: 2,
+    statementDate: null,
+  }, new Date(2026, 8, 19, 23));
+
+  assert.equal(result?.date.toISOString().slice(0, 10), '2026-10-02');
 });
 
 test('urgent card payment selects the closest billed credit card', () => {

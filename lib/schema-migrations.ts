@@ -21,7 +21,47 @@ export const SCHEMA_MIGRATIONS = [
   { version: 14, name: 'manual-debt-balance-starting-points' },
   { version: 15, name: 'savings-reported-balance-history' },
   { version: 16, name: 'balance-tracking-starts-at-creation' },
+  { version: 17, name: 'separate-creation-and-reported-balance-dates' },
 ] as const;
+
+// Legacy version 16 tied the declared balance to the historical creation date.
+// The exact registration instant was not stored separately, so the last local
+// update date is the best recoverable starting point for those records.
+export const LEGACY_SAVINGS_BALANCE_DATE_SQL = `
+  UPDATE savings_goals
+  SET balance_updated_at = date(updated_at, 'localtime'),
+      balance_movement_anchor_id = COALESCE((
+        SELECT MAX(movement.id)
+        FROM savings_goal_movements movement
+        LEFT JOIN expenses expense ON expense.id = movement.expense_id
+        LEFT JOIN incomes income ON income.id = movement.income_id
+        WHERE movement.goal_id = savings_goals.id
+          AND COALESCE(expense.date, income.date) <= date(savings_goals.updated_at, 'localtime')
+      ), 0)
+  WHERE balance_updated_at = date(created_at)
+    AND date(updated_at, 'localtime') > balance_updated_at
+    AND NOT EXISTS (
+      SELECT 1 FROM savings_goal_adjustments adjustment
+      WHERE adjustment.goal_id = savings_goals.id
+        AND adjustment.reported_balance IS NOT NULL
+    )`;
+
+export const LEGACY_DEBT_BALANCE_DATE_SQL = `
+  UPDATE manual_debts
+  SET balance_updated_at = date(updated_at, 'localtime'),
+      balance_payment_anchor_id = COALESCE((
+        SELECT MAX(payment.id) FROM manual_debt_entries payment
+        WHERE payment.debt_id = manual_debts.id AND payment.kind = 'payment'
+          AND payment.date <= date(manual_debts.updated_at, 'localtime')
+      ), 0)
+  WHERE balance_updated_at = date(created_at)
+    AND date(updated_at, 'localtime') > balance_updated_at
+    AND NOT EXISTS (
+      SELECT 1 FROM manual_debt_entries snapshot
+      WHERE snapshot.debt_id = manual_debts.id
+        AND snapshot.kind = 'adjustment'
+        AND snapshot.reported_balance IS NOT NULL
+    )`;
 
 export async function recordAppliedSchema(database: MigrationDatabase): Promise<void> {
   const current = SCHEMA_MIGRATIONS.at(-1);

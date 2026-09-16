@@ -44,14 +44,6 @@ function parseDate(value: string): Date {
   return parseIsoDate(value) ?? getDefaultDeadline();
 }
 
-function formatCreatedAt(value: string): string {
-  const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`;
-  const date = new Date(normalized);
-  if (!Number.isNaN(date.getTime())) return formatDate(date);
-  const fallback = parseIsoDate(value.slice(0, 10));
-  return fallback ? formatDate(fallback) : t('common.dateUnavailable');
-}
-
 function formatMovementDate(value: string): string {
   const date = parseIsoDate(value);
   return date ? formatDate(date) : t('common.dateUnavailable');
@@ -94,12 +86,16 @@ export default function SavingsGoalFormScreen() {
   const [creationDate, setCreationDate] = useState(
     goal ? parseDate(goal.creationDate) : new Date()
   );
+  const [balanceDate, setBalanceDate] = useState(
+    goal ? parseDate(goal.balanceDate) : new Date()
+  );
   const [deadline, setDeadline] = useState(
     goal ? parseDate(goal.deadline) : getDefaultDeadline()
   );
   const [color, setColor] = useState(goal?.color ?? '#20B9DB');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCreationDatePicker, setShowCreationDatePicker] = useState(false);
+  const [showBalanceDatePicker, setShowBalanceDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [movements, setMovements] = useState<SavingsGoalMovement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(Boolean(goal));
@@ -175,6 +171,7 @@ export default function SavingsGoalFormScreen() {
       initialAmount,
       allowWithdrawals,
       creationDate: toDateString(creationDate),
+      balanceDate: toDateString(balanceDate),
       deadline: toDateString(deadline),
       color: color.toLowerCase(),
     };
@@ -364,21 +361,17 @@ export default function SavingsGoalFormScreen() {
         {goal && (
           <View style={[styles.movementsSection, { borderColor: colors.border }]}>
             <ThemedText type="subtitle">{t('savings.movements')}</ThemedText>
-            {goal.initialAmount > 0 && (
-              <View style={[styles.movementRow, { borderBottomColor: colors.border }]}>
-                <View style={styles.movementCopy}>
-                  <ThemedText type="defaultSemiBold">{t('savings.reportedStartingBalance')}</ThemedText>
-                  <ThemedText style={styles.movementMeta}>
-                    {formatCreatedAt(goal.balanceUpdatedAt ?? goal.createdAt)}
-                  </ThemedText>
-                </View>
-                <ThemedText type="defaultSemiBold">{formatCLP(goal.initialAmount)}</ThemedText>
+            <View style={[styles.movementRow, { borderBottomColor: colors.border }]}>
+              <View style={styles.movementCopy}>
+                <ThemedText type="defaultSemiBold">{t('savings.reportedStartingBalance')}</ThemedText>
+                <ThemedText style={styles.movementMeta}>
+                  {formatMovementDate(goal.balanceDate)}
+                </ThemedText>
               </View>
-            )}
+              <ThemedText type="defaultSemiBold">{formatCLP(goal.initialAmount)}</ThemedText>
+            </View>
             {loadingMovements ? (
               <ThemedText style={styles.emptyMovements}>{t('savings.loadingMovements')}</ThemedText>
-            ) : movements.length === 0 && goal.initialAmount === 0 ? (
-              <ThemedText style={styles.emptyMovements}>{t('savings.noMovements')}</ThemedText>
             ) : (
               movements.map((movement) => {
                 const positive = movement.kind === 'contribution';
@@ -470,6 +463,31 @@ export default function SavingsGoalFormScreen() {
         <ThemedText style={styles.hint}>
           {t(goal ? 'savings.initialHint' : 'savings.currentStartingBalanceHint')}
         </ThemedText>
+
+        <ThemedText style={styles.label}>{t('common.reportedBalanceDate')}</ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setShowBalanceDatePicker(true)}
+          style={[styles.dateButton, { borderColor: colors.border }]}>
+          <ThemedText>{formatDate(balanceDate)}</ThemedText>
+        </Pressable>
+        <ThemedText style={styles.hint}>{t('common.reportedBalanceDateHint')}</ThemedText>
+        {showBalanceDatePicker && (
+          <DateTimePicker
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            maximumDate={new Date()}
+            minimumDate={creationDate}
+            mode="date"
+            onChange={(_, selectedDate) => {
+              if (Platform.OS === 'android') setShowBalanceDatePicker(false);
+              if (selectedDate) {
+                selectedDate.setHours(12, 0, 0, 0);
+                setBalanceDate(selectedDate);
+              }
+            }}
+            value={balanceDate}
+          />
+        )}
 
         <View style={[styles.preferenceCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
           <View style={styles.preferenceCopy}>

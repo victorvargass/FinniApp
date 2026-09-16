@@ -3,8 +3,8 @@ export type BalanceSnapshotBoundary = {
   movementAnchorId: number;
 } | null;
 
-export function resolveBalanceTrackingStartDate(creationDate: string) {
-  return creationDate;
+export function resolveBalanceTrackingStartDate(balanceDate: string) {
+  return balanceDate;
 }
 
 export function isMovementCoveredByBalanceSnapshot(
