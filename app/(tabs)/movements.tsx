@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ExpensesScreen from './expenses';
@@ -47,33 +47,32 @@ export default function MovementsScreen() {
       <ThemedView style={styles.header}>
         <ThemedText type="title">{t('navigation.movements')}</ThemedText>
       </ThemedView>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.segmentedScroll}>
-        <ThemedView style={[styles.segmentedControl, { borderColor: colors.border }]}>
-          {movementTypes.map((type) => {
-            const selected = movementType === type.key;
-            return (
-              <Pressable
-                key={type.key}
-                style={[styles.segment, selected && { backgroundColor: colors.primary }]}
-                onPress={() => setMovementType(type.key)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}>
-                <Ionicons
-                  name={type.icon}
-                  size={18}
-                  color={selected ? colors.onPrimary : colors.icon}
-                />
-                <ThemedText style={[styles.segmentLabel, selected && { color: colors.onPrimary }]}>
-                  {t(type.label)}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
-        </ThemedView>
-      </ScrollView>
+      <View style={styles.movementTabs}>
+        {movementTypes.map((type) => {
+          const selected = movementType === type.key;
+          return (
+            <Pressable
+              key={type.key}
+              style={[
+                styles.segment,
+                { borderColor: selected ? colors.primary : colors.border,
+                  backgroundColor: selected ? colors.primary : colors.background },
+              ]}
+              onPress={() => setMovementType(type.key)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}>
+              <Ionicons
+                name={type.icon}
+                size={18}
+                color={selected ? colors.onPrimary : colors.icon}
+              />
+              <ThemedText style={[styles.segmentLabel, selected && { color: colors.onPrimary }]}>
+                {t(type.label)}
+              </ThemedText>
+            </Pressable>
+          );
+        })}
+      </View>
       <View style={styles.content}>
         {movementType === 'expenses' && <ExpensesScreen embedded />}
         {movementType === 'incomes' && <IncomesScreen embedded />}
@@ -93,27 +92,32 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
-  segmentedControl: {
+  movementTabs: {
     flexDirection: 'row',
-    padding: 4,
-    borderWidth: 1,
-    borderRadius: 16,
-  },
-  segmentedScroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 4,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 12,
   },
   segment: {
-    minWidth: 108,
-    minHeight: 42,
+    flexBasis: '45%',
+    flexGrow: 1,
+    minWidth: 0,
+    minHeight: 48,
+    borderWidth: 1,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   segmentLabel: {
     fontWeight: '700',
+    fontSize: 14,
+    textAlign: 'center',
+    flexShrink: 1,
   },
   content: {
     flex: 1,
