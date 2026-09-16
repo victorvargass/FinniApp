@@ -12,7 +12,7 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { getProjectedSourceBalance, getTransferableSourceBalance } from '@/lib/account-transfer-calculations';
+import { changeTransferSource, getProjectedSourceBalance, getTransferableSourceBalance } from '@/lib/account-transfer-calculations';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
@@ -209,7 +209,12 @@ export default function AccountTransferFormScreen() {
             label={t('transfers.from')}
             value={sourceId}
             options={accountOptions}
-            onChange={setSourceId}
+            onChange={(nextSourceId) => {
+              const nextDraft = changeTransferSource({ sourceId, amount, transferAll }, nextSourceId);
+              setSourceId(nextDraft.sourceId);
+              setTransferAll(nextDraft.transferAll);
+              setAmount(nextDraft.amount);
+            }}
             disabled={isSourceLocked}
           />
           {source && (

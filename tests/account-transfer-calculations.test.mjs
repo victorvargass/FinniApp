@@ -2,9 +2,22 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  changeTransferSource,
   getProjectedSourceBalance,
   getTransferableSourceBalance,
 } from '../lib/account-transfer-calculations.ts';
+
+test('changing the source clears the previous transfer-all amount', () => {
+  assert.deepEqual(
+    changeTransferSource({ sourceId: 1, amount: '$23.658', transferAll: true }, 2),
+    { sourceId: 2, amount: '', transferAll: false }
+  );
+});
+
+test('reselecting the same source leaves the amount intact', () => {
+  const draft = { sourceId: 1, amount: '$23.658', transferAll: true };
+  assert.equal(changeTransferSource(draft, 1), draft);
+});
 
 test('transfer all uses the complete available source balance', () => {
   assert.equal(getTransferableSourceBalance(650_000, 1, null), 650_000);

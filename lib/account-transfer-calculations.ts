@@ -5,6 +5,20 @@ type ExistingTransfer = Pick<
   'amount' | 'sourcePaymentMethodId' | 'destinationPaymentMethodId'
 >;
 
+type TransferSourceDraft = {
+  sourceId: number | null;
+  amount: string;
+  transferAll: boolean;
+};
+
+export function changeTransferSource(
+  draft: TransferSourceDraft,
+  nextSourceId: number | null
+): TransferSourceDraft {
+  if (nextSourceId === draft.sourceId) return draft;
+  return { sourceId: nextSourceId, amount: '', transferAll: false };
+}
+
 export function getTransferableSourceBalance(
   availableBalance: number | null,
   sourceId: number | null,
