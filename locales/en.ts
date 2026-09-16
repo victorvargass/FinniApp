@@ -79,6 +79,8 @@ const en = {
     transferDescription: 'Move money between Cash, Debit, and Prepaid accounts.',
     cardPaymentTitle: 'New card payment',
     cardPaymentDescription: 'Pay a card or record refunds and adjustments.',
+    savingsTitle: 'Add savings',
+    savingsDescription: 'Contribute money to a savings goal.',
   },
   transfers: {
     title: 'Transfer',

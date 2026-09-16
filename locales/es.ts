@@ -79,6 +79,8 @@ const es = {
     transferDescription: 'Mueve dinero entre Efectivo, Débito y Prepago.',
     cardPaymentTitle: 'Nuevo abono',
     cardPaymentDescription: 'Paga una tarjeta o registra devoluciones y ajustes.',
+    savingsTitle: 'Ingresar ahorro',
+    savingsDescription: 'Aporta dinero a una meta de ahorro.',
   },
   transfers: {
     title: 'Transferencia',

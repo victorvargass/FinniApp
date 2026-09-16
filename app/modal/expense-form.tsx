@@ -11,13 +11,14 @@ import * as db from '@/lib/db';
 import type { CreditCardAdjustment, ExpenseWithCategory } from '@/lib/types';
 
 export default function ExpenseFormModal() {
-  const { id, repeatId, creditPaymentTargetId, cardPayment, adjustmentId, savingsGoalId } = useLocalSearchParams<{
+  const { id, repeatId, creditPaymentTargetId, cardPayment, adjustmentId, savingsGoalId, savingsContribution } = useLocalSearchParams<{
     id?: string;
     repeatId?: string;
     creditPaymentTargetId?: string;
     cardPayment?: string;
     adjustmentId?: string;
     savingsGoalId?: string;
+    savingsContribution?: string;
   }>();
   const { expenses } = useDatabase();
   const navigation = useNavigation();
@@ -69,7 +70,7 @@ export default function ExpenseFormModal() {
     navigation.setOptions({
       title: adjustmentId
         ? t('paymentMethods.editAdjustment')
-        : savingsGoalId
+        : savingsGoalId || savingsContribution === 'true'
           ? t('savings.enterContribution')
         : cardPayment === 'true' || creditPaymentTargetId
           ? t('quickAdd.cardPaymentTitle')
@@ -79,7 +80,7 @@ export default function ExpenseFormModal() {
               ? t('expenses.edit')
               : t('expenses.new'),
     });
-  }, [adjustmentId, cardPayment, creditPaymentTargetId, expense, isRepeating, navigation, savingsGoalId]);
+  }, [adjustmentId, cardPayment, creditPaymentTargetId, expense, isRepeating, navigation, savingsContribution, savingsGoalId]);
 
   useEffect(() => {
     if (expense?.debtEntryId == null || expense.debtId == null) return;
@@ -135,6 +136,7 @@ export default function ExpenseFormModal() {
         initialCardPayment={cardPayment === 'true'}
         initialCreditPaymentTargetId={creditPaymentTargetId ? Number(creditPaymentTargetId) : undefined}
         initialSavingsGoalId={savingsGoalId ? Number(savingsGoalId) : undefined}
+        initialSavingsContribution={savingsContribution === 'true'}
         onSuccess={() => router.back()}
       />
     </ThemedView>

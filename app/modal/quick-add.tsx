@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -54,11 +54,22 @@ export default function QuickAddScreen() {
           }),
         }]
       : []),
+    {
+      key: 'savings',
+      icon: 'wallet-outline' as const,
+      title: t('quickAdd.savingsTitle'),
+      description: t('quickAdd.savingsDescription'),
+      accent: colors.savings,
+      onPress: () => router.replace({
+        pathname: '/modal/expense-form',
+        params: { savingsContribution: 'true' },
+      }),
+    },
   ];
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heading}>
           <ThemedText type="title">{t('quickAdd.title')}</ThemedText>
           <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
@@ -88,14 +99,14 @@ export default function QuickAddScreen() {
             </Pressable>
           ))}
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { flex: 1, padding: 20, gap: 26 },
+  content: { padding: 20, paddingBottom: 36, gap: 26 },
   heading: { gap: 8 },
   description: { fontSize: 15, lineHeight: 22 },
   options: { gap: 14 },

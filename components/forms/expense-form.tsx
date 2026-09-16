@@ -39,10 +39,11 @@ type ExpenseFormProps = {
   initialCardPayment?: boolean;
   initialCreditPaymentTargetId?: number;
   initialSavingsGoalId?: number;
+  initialSavingsContribution?: boolean;
   onSuccess: () => void;
 };
 
-export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, onSuccess }: ExpenseFormProps) {
+export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, initialSavingsContribution = false, onSuccess }: ExpenseFormProps) {
   const {
     categories,
     paymentMethods,
@@ -94,7 +95,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     initialExpense?.categoryId
       ?? (initialCreditPaymentTargetId || initialCardPayment || creditAdjustment
         ? creditPaymentCategory?.id ?? null
-        : initialSavingsGoalId != null ? savingsCategory?.id ?? null : null)
+        : initialSavingsContribution || initialSavingsGoalId != null ? savingsCategory?.id ?? null : null)
   );
   const [creditPaymentTargetId, setCreditPaymentTargetId] = useState<number | null>(
     expense?.creditPaymentTargetId ?? creditAdjustment?.paymentMethodId ?? initialCreditPaymentTargetId ?? null
@@ -170,7 +171,8 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const isDedicatedCardPaymentFlow = initialCardPayment
     || initialCreditPaymentTargetId != null
     || expense?.creditPaymentTargetId != null;
-  const isDedicatedSavingsContributionFlow = initialSavingsGoalId != null && expense == null;
+  const isDedicatedSavingsContributionFlow = (initialSavingsContribution || initialSavingsGoalId != null) && expense == null;
+  const isSavingsGoalLocked = initialSavingsGoalId != null && expense == null;
   const isCardAdjustment = isCardPayment && cardPaymentOrigin === 'adjustment';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
   const targetCreditCard = paymentMethods.find((method) => method.id === creditPaymentTargetId);
@@ -327,11 +329,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   }, [creditPaymentCategory, expense, initialCardPayment, initialCreditPaymentTargetId]);
 
   useEffect(() => {
-    if (initialSavingsGoalId == null || expense || !savingsCategory) return;
+    if ((!initialSavingsContribution && initialSavingsGoalId == null) || expense || !savingsCategory) return;
     setCategoryId(savingsCategory.id);
-    setSavingsGoalId(initialSavingsGoalId);
-    setSavingsKind('contribution');
-  }, [expense, initialSavingsGoalId, savingsCategory]);
+    if (initialSavingsGoalId != null) {
+      setSavingsGoalId(initialSavingsGoalId);
+      setSavingsKind('contribution');
+    }
+  }, [expense, initialSavingsContribution, initialSavingsGoalId, savingsCategory]);
 
   useEffect(() => {
     if (!isCardPayment) {
@@ -446,6 +450,10 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     }
     if (isCardPayment && !isCardAdjustment && paymentMethodId == null) {
       Alert.alert(t('common.error'), t('database.creditPaymentSourceRequired'));
+      return;
+    }
+    if (isDedicatedSavingsContributionFlow && savingsGoalId == null) {
+      Alert.alert(t('common.error'), t('database.selectSavingsGoal'));
       return;
     }
     if (exceedsAvailableBalance && !skipAvailableBalanceWarning && selectedPaymentMethod) {
@@ -914,9 +922,9 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
               setSavingsGoalId(value);
               setSavingsKind(value == null ? null : 'contribution');
             }}
-            disabled={isDedicatedSavingsContributionFlow}
+            disabled={isSavingsGoalLocked}
             options={[
-              { value: null, label: t('savings.noSpecificGoal'), color: '#60758E' },
+              { value: null, label: t(isDedicatedSavingsContributionFlow ? 'database.selectSavingsGoal' : 'savings.noSpecificGoal'), color: '#60758E' },
               ...selectableSavingsGoals.map((goal) => ({
                 value: goal.id,
                 label: goal.name,
