@@ -87,7 +87,7 @@ name: FinniApp financial smoke test
 - tapOn: 'Eliminar'
 - assertNotVisible: 'Compra E2E editada'
 
-# El mismo botón global + permite crear y eliminar un ingreso.
+# El mismo botón global + permite crear un ingreso y eliminarlo desde su formulario.
 - tapOn:
     id: 'tab-add-movement'
 - assertVisible: '¿Qué deseas registrar?'
@@ -106,7 +106,16 @@ name: FinniApp financial smoke test
     timeout: 15000
 - tapOn: 'Acciones para Ingreso E2E'
 - assertVisible: 'Selecciona qué deseas hacer'
-- tapOn: 'Eliminar'
+- tapOn: 'Editar'
+- assertVisible: 'Editar ingreso'
+- scrollUntilVisible:
+    element:
+      id: 'income-delete'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn:
+    id: 'income-delete'
 - assertVisible: '¿Eliminar "Ingreso E2E"?'
 - tapOn: 'Eliminar'
 - assertNotVisible: 'Ingreso E2E'

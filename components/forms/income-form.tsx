@@ -33,6 +33,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     incomeNames,
     addIncome,
     editIncome,
+    removeIncome,
     addRecurringIncomeFromSource,
     savingsGoals,
     paymentMethods,
@@ -240,6 +241,39 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     } finally {
       setSaving(false);
     }
+  };
+
+  const confirmDeleteIncome = () => {
+    if (!income || saving) return;
+    const isWithdrawal = income.savingsGoalId != null;
+    Alert.alert(
+      isWithdrawal ? t('savings.deleteWithdrawal') : t('incomes.delete'),
+      isWithdrawal
+        ? t('savings.deleteWithdrawalQuestion', { name: income.name })
+        : t('incomes.deleteQuestion', { name: income.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: () => {
+            setSaving(true);
+            void removeIncome(income.id)
+              .then(() => {
+                showToast(isWithdrawal ? t('savings.withdrawalDeleted') : t('incomes.deleted'));
+                onSuccess();
+              })
+              .catch((error) => {
+                Alert.alert(
+                  t('common.error'),
+                  error instanceof Error ? error.message : t('incomes.deleteError')
+                );
+              })
+              .finally(() => setSaving(false));
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -450,6 +484,19 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
           style={[styles.secondaryAction, { borderColor: colors.border }]}>
           <Ionicons name="repeat-outline" size={19} color={colors.primary} />
           <ThemedText type="defaultSemiBold">{t('recurrence.edit')}</ThemedText>
+        </Pressable>
+      )}
+
+      {income && (
+        <Pressable
+          accessibilityRole="button"
+          disabled={saving}
+          onPress={confirmDeleteIncome}
+          style={styles.deleteButton}
+          testID="income-delete">
+          <ThemedText style={styles.deleteButtonText}>
+            {income.savingsGoalId != null ? t('savings.deleteWithdrawal') : t('incomes.delete')}
+          </ThemedText>
         </Pressable>
       )}
 
