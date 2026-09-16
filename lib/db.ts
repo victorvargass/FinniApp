@@ -12,7 +12,7 @@ import {
   resolveBalanceTrackingStartDate,
 } from './balance-snapshot';
 import { calculateAvailableBalance } from './payment-method-calculations';
-import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate } from './debt-calculations';
+import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate, isSinglePaymentDebt } from './debt-calculations';
 import {
   MANUAL_DEBT_BALANCE_AT_DATE_SQL,
   manualDebtBalanceAtDateParams,
@@ -3895,7 +3895,8 @@ function validateDebt(data: NewDebt): void {
     if (data.installmentAmount == null || !Number.isInteger(data.installmentAmount) || data.installmentAmount <= 0) {
       throw new Error(t('database.debtInstallmentRequired'));
     }
-    if (!data.frequency || !data.firstDueDate) {
+    const singlePayment = isSinglePaymentDebt(data.initialAmount, data.installmentAmount);
+    if (!data.firstDueDate || (!singlePayment && !data.frequency)) {
       throw new Error(t('database.debtScheduleRequired'));
     }
   } else if (data.installmentAmount != null && (!Number.isInteger(data.installmentAmount) || data.installmentAmount <= 0 || !data.firstDueDate)) {
@@ -3908,6 +3909,7 @@ function mapDebt(row: Record<string, unknown>): Debt {
   const currentBalance = Math.max(0, Number(row.current_balance));
   const installmentAmount = row.installment_amount == null ? null : Number(row.installment_amount);
   const paymentCount = Number(row.payment_count);
+  const singlePayment = row.type === 'fixed' && isSinglePaymentDebt(initialAmount, installmentAmount);
   const storedStatus = String(row.status) as Debt['status'];
   const status = storedStatus === 'archived' ? 'archived' : currentBalance === 0 ? 'paid' : 'active';
   return {
@@ -3933,7 +3935,8 @@ function mapDebt(row: Record<string, unknown>): Debt {
       ? getNextDebtDueDate(
           row.first_due_date == null ? null : String(row.first_due_date),
           row.frequency == null ? null : row.frequency as Debt['frequency'],
-          paymentCount
+          paymentCount,
+          singlePayment
         )
       : null,
     createdAt: String(row.created_at),

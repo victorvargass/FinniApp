@@ -11,6 +11,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
+import { isSinglePaymentDebt } from '@/lib/debt-calculations';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { addIsoDays, addIsoMonths } from '@/lib/recurrence';
@@ -66,7 +67,9 @@ export default function DebtDetailScreen() {
   const progress = debt.initialAmount > 0 ? Math.min(100, debt.paidAmount / debt.initialAmount * 100) : 0;
   const isArchived = debt.status === 'archived';
   const isPaid = debt.status === 'paid';
-  const projectedPayments = debt.type === 'fixed' && debt.installmentAmount && debt.nextDueDate
+  const isSinglePayment = debt.type === 'fixed'
+    && isSinglePaymentDebt(debt.initialAmount, debt.installmentAmount);
+  const projectedPayments = debt.type === 'fixed' && !isSinglePayment && debt.installmentAmount && debt.nextDueDate
     ? Array.from({ length: Math.min(6, Math.ceil(debt.currentBalance / debt.installmentAmount)) }, (_, index) => {
         const date = debt.frequency === 'weekly'
           ? addIsoDays(debt.nextDueDate!, index * 7)
@@ -94,12 +97,24 @@ export default function DebtDetailScreen() {
           <ThemedText style={[styles.status, { color: isPaid ? '#1FAF78' : isArchived ? '#60758E' : colors.primary }]}>{isPaid ? t('debts.statusPaid') : isArchived ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
         </ThemedView>
 
-        {debt.type === 'fixed' && (
+        {debt.type === 'fixed' && !isSinglePayment && (
           <ThemedView style={styles.card}>
             <ThemedText type="subtitle">{t('debts.paymentPlan')}</ThemedText>
             <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('debts.estimatedInstallment')}</ThemedText><ThemedText>{formatCLP(debt.installmentAmount ?? 0)}</ThemedText></View>
             <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('debts.estimatedPayments')}</ThemedText><ThemedText>{debt.paymentCount} / {debt.totalInstallments}</ThemedText></View>
             {debt.nextDueDate && <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('debts.nextDue')}</ThemedText><ThemedText>{formatDate(parseIsoDate(debt.nextDueDate))}</ThemedText></View>}
+          </ThemedView>
+        )}
+        {isSinglePayment && (
+          <ThemedView style={styles.card}>
+            <ThemedText type="subtitle">{t('debts.singlePayment')}</ThemedText>
+            {debt.firstDueDate && (
+              <View style={[styles.row, usesLargeText && styles.rowLargeText]}>
+                <ThemedText>{t('debts.scheduledPaymentDate')}</ThemedText>
+                <ThemedText>{formatDate(parseIsoDate(debt.firstDueDate))}</ThemedText>
+              </View>
+            )}
+            <ThemedText style={styles.secondary}>{t('debts.singlePaymentDetail')}</ThemedText>
           </ThemedView>
         )}
         {debt.type === 'variable' && debt.installmentAmount != null && (

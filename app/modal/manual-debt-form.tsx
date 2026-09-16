@@ -15,7 +15,9 @@ import { errorMessage, showFeedback } from '@/lib/feedback';
 import { formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
-import type { DebtFrequency, DebtType } from '@/lib/types';
+import type { DebtFrequency, DebtType, NewDebt } from '@/lib/types';
+
+type DebtFormType = DebtType | 'single';
 
 function parseIsoDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
@@ -27,7 +29,7 @@ export default function DebtFormScreen() {
   const debtId = id ? Number(id) : null;
   const { categories, paymentMethods, getDebt, addDebt, editDebt } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const [type, setType] = useState<DebtType>(requestedType === 'variable' ? 'variable' : 'fixed');
+  const [type, setType] = useState<DebtFormType>(requestedType === 'variable' ? 'variable' : 'fixed');
   const [name, setName] = useState('');
   const [creditor, setCreditor] = useState('');
   const [initialAmount, setInitialAmount] = useState('');
@@ -47,7 +49,8 @@ export default function DebtFormScreen() {
     if (debtId == null) return;
     getDebt(debtId).then((debt) => {
       if (!debt) return;
-      setType(debt.type); setName(debt.name); setCreditor(debt.creditor ?? '');
+      setType(debt.type === 'fixed' && debt.totalInstallments === 1 ? 'single' : debt.type);
+      setName(debt.name); setCreditor(debt.creditor ?? '');
       setInitialAmount(formatCLPInput(debt.initialAmount)); setInstallmentAmount(debt.installmentAmount ? formatCLPInput(debt.installmentAmount) : '');
       setCreationDate(debt.creationDate);
       setFrequency(debt.frequency ?? 'monthly'); setFirstDueDate(debt.firstDueDate ?? toDateString(new Date()));
@@ -57,17 +60,33 @@ export default function DebtFormScreen() {
 
   const save = async () => {
     const parsedInitial = parseAmount(initialAmount);
-    const parsedInstallment = parseAmount(installmentAmount);
+    const enteredInstallment = parseAmount(installmentAmount);
     if (!name.trim()) return Alert.alert(t('debts.missingName'), t('debts.missingNameHint'));
-    if (parsedInitial == null) return Alert.alert(t('debts.invalidAmount'), t('debts.invalidInitialHint'));
-    if (type === 'fixed' && parsedInstallment == null) return Alert.alert(t('debts.invalidAmount'), t('debts.invalidInstallmentHint'));
-    if (parsedInstallment != null && parsedInstallment > parsedInitial) return Alert.alert(t('debts.invalidAmount'), t('debts.installmentTooHighHint'));
+    if (parsedInitial == null || parsedInitial <= 0) return Alert.alert(t('debts.invalidAmount'), t('debts.invalidInitialHint'));
+    const parsedInstallment = type === 'single'
+      ? parsedInitial
+      : enteredInstallment;
+    if (type === 'fixed' && (parsedInstallment == null || parsedInstallment <= 0)) {
+      return Alert.alert(t('debts.invalidAmount'), t('debts.invalidInstallmentHint'));
+    }
+    if (type === 'fixed' && parsedInstallment != null && parsedInstallment >= parsedInitial) {
+      return Alert.alert(t('debts.invalidAmount'), t('debts.installmentMustSplitHint'));
+    }
+    if (type === 'variable' && parsedInstallment != null && parsedInstallment > parsedInitial) {
+      return Alert.alert(t('debts.invalidAmount'), t('debts.installmentTooHighHint'));
+    }
     setSaving(true);
     try {
-      const data = {
-        type, name: name.trim(), creditor: creditor.trim() || null, initialAmount: parsedInitial,
+      const data: NewDebt = {
+        type: type === 'single' ? 'fixed' : type,
+        name: name.trim(), creditor: creditor.trim() || null, initialAmount: parsedInitial,
         creationDate,
-        installmentAmount: parsedInstallment, frequency: type === 'fixed' ? frequency : parsedInstallment != null ? 'monthly' as const : null,
+        installmentAmount: parsedInstallment,
+        frequency: type === 'single'
+          ? null
+          : type === 'fixed'
+          ? frequency
+          : parsedInstallment != null ? 'monthly' : null,
         firstDueDate: parsedInstallment != null ? firstDueDate : null, categoryId, paymentMethodId, notes: notes.trim() || null,
       };
       if (debtId != null) {
@@ -107,7 +126,9 @@ export default function DebtFormScreen() {
         <ThemedText style={styles.description}>{t('debts.formHint')}</ThemedText>
         <ThemedView style={styles.card}>
           <SimpleSelect disabled={debtId != null} label={t('debts.type')} value={type} onChange={setType} options={[
-            { value: 'fixed', label: t('debts.fixed') }, { value: 'variable', label: t('debts.variable') },
+            { value: 'fixed', label: t('debts.fixed') },
+            { value: 'variable', label: t('debts.variable') },
+            { value: 'single', label: t('debts.singlePayment') },
           ]} />
           {debtId != null && <ThemedText style={styles.hint}>{t('debts.typeLockedHint')}</ThemedText>}
           <Field label={t('debts.name')} value={name} onChangeText={setName} colors={colors} placeholder={t('debts.namePlaceholder')} />
@@ -130,6 +151,18 @@ export default function DebtFormScreen() {
               ]} />
               <View style={styles.group}>
                 <ThemedText style={styles.label}>{t('debts.firstDueDate')}</ThemedText>
+                <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
+                  <ThemedText>{formatDate(parseIsoDate(firstDueDate))}</ThemedText>
+                </Pressable>
+                {showDate && <DateTimePicker value={parseIsoDate(firstDueDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setFirstDueDate(toDateString(date)); }} />}
+              </View>
+            </>
+          )}
+          {type === 'single' && (
+            <>
+              <ThemedText style={styles.hint}>{t('debts.singlePaymentHint')}</ThemedText>
+              <View style={styles.group}>
+                <ThemedText style={styles.label}>{t('debts.paymentDate')}</ThemedText>
                 <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
                   <ThemedText>{formatDate(parseIsoDate(firstDueDate))}</ThemedText>
                 </Pressable>
