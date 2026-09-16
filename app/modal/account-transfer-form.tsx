@@ -2,7 +2,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ColorSelect } from '@/components/forms/shared';
@@ -12,11 +12,12 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { getProjectedSourceBalance, getTransferableSourceBalance } from '@/lib/account-transfer-calculations';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
-import type { AccountTransfer, NewAccountTransfer, PaymentMethod } from '@/lib/types';
+import type { AccountTransfer, NewAccountTransfer } from '@/lib/types';
 
 export default function AccountTransferFormScreen() {
   const { id, sourcePaymentMethodId } = useLocalSearchParams<{ id?: string; sourcePaymentMethodId?: string }>();
@@ -41,6 +42,7 @@ export default function AccountTransferFormScreen() {
   const [date, setDate] = useState(toDateString(new Date()));
   const [note, setNote] = useState('');
   const [showDate, setShowDate] = useState(false);
+  const [transferAll, setTransferAll] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const transferAccounts = useMemo(() => paymentMethods.filter((method) => (
@@ -89,7 +91,18 @@ export default function AccountTransferFormScreen() {
     && Number.isInteger(requestedSourceId)
     && source?.id === requestedSourceId;
   const parsedAmount = parseAmount(amount);
-  const projectedSourceBalance = getProjectedSourceBalance(source, existing, sourceId, destinationId, parsedAmount);
+  const transferableBalance = getTransferableSourceBalance(
+    source?.availableBalance ?? null,
+    sourceId,
+    existing
+  );
+  const canTransferAll = transferableBalance != null && transferableBalance > 0;
+  const projectedSourceBalance = getProjectedSourceBalance(
+    transferableBalance,
+    sourceId,
+    destinationId,
+    parsedAmount
+  );
   const exceedsBalance = projectedSourceBalance != null && projectedSourceBalance < 0;
   const accountOptions = transferAccounts.map((method) => ({
     value: method.id,
@@ -98,6 +111,15 @@ export default function AccountTransferFormScreen() {
     ...getPaymentMethodOptionGroup(method.type),
   }));
   const destinationOptions = accountOptions.filter((option) => option.value !== sourceId);
+
+  useEffect(() => {
+    if (!transferAll) return;
+    if (transferableBalance == null || transferableBalance <= 0) {
+      setTransferAll(false);
+      return;
+    }
+    setAmount(formatCLPInput(transferableBalance));
+  }, [transferAll, transferableBalance]);
 
   const persist = async () => {
     if (sourceId == null || destinationId == null) {
@@ -209,14 +231,47 @@ export default function AccountTransferFormScreen() {
             </ThemedView>
           )}
 
+          <ThemedView style={[styles.transferAllRow, { borderColor: colors.border }]}>
+            <View style={styles.transferAllCopy}>
+              <ThemedText type="defaultSemiBold">{t('transfers.transferAll')}</ThemedText>
+              <ThemedText style={[styles.transferAllHint, { color: colors.textSecondary }]}>
+                {transferableBalance == null
+                  ? t('transfers.transferAllUnknown')
+                  : transferableBalance <= 0
+                    ? t('transfers.transferAllEmpty')
+                    : t('transfers.transferAllHint', { amount: formatCLP(transferableBalance) })}
+              </ThemedText>
+            </View>
+            <Switch
+              accessibilityLabel={t('transfers.transferAll')}
+              disabled={!canTransferAll || saving}
+              onValueChange={(enabled) => {
+                setTransferAll(enabled);
+                if (enabled && transferableBalance != null) {
+                  setAmount(formatCLPInput(transferableBalance));
+                }
+              }}
+              testID="transfer-all-toggle"
+              trackColor={{ false: colors.border, true: colors.tint }}
+              value={transferAll}
+            />
+          </ThemedView>
+
           <ThemedText style={styles.label}>{t('transfers.amount')}</ThemedText>
           <TextInput
+            accessibilityState={{ disabled: transferAll }}
+            editable={!transferAll}
             keyboardType="number-pad"
             value={amount}
             onChangeText={(value) => setAmount(formatCLPInput(value))}
             placeholder="$0"
             placeholderTextColor={colors.textSecondary}
-            style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+            style={[
+              styles.input,
+              { color: colors.text, borderColor: colors.border },
+              transferAll && [styles.lockedInput, { backgroundColor: colors.surface }],
+            ]}
+            testID="transfer-amount-input"
           />
           {exceedsBalance && source && projectedSourceBalance != null && (
             <ThemedText style={[styles.warning, { color: colors.danger }]}>
@@ -265,21 +320,6 @@ export default function AccountTransferFormScreen() {
   );
 }
 
-function getProjectedSourceBalance(
-  source: PaymentMethod | undefined,
-  existing: AccountTransfer | null,
-  sourceId: number | null,
-  destinationId: number | null,
-  amount: number | null
-) {
-  if (source?.availableBalance == null || amount == null) return null;
-  let available = source.availableBalance;
-  if (existing?.sourcePaymentMethodId === sourceId) available += existing.amount;
-  if (existing?.destinationPaymentMethodId === sourceId) available -= existing.amount;
-  if (sourceId !== destinationId) available -= amount;
-  return available;
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   shell: { flex: 1 },
@@ -289,6 +329,10 @@ const styles = StyleSheet.create({
   explanationText: { flex: 1, lineHeight: 20 },
   label: { marginTop: 8, marginBottom: 4, fontWeight: '600' },
   input: { minHeight: 50, borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, paddingVertical: 11, fontFamily: Fonts.regular, fontSize: 16 },
+  lockedInput: { opacity: 0.72 },
+  transferAllRow: { minHeight: 76, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
+  transferAllCopy: { flex: 1, gap: 3 },
+  transferAllHint: { fontSize: 13, lineHeight: 18 },
   dateButton: { justifyContent: 'center' },
   balanceHint: { fontSize: 13, lineHeight: 18, paddingHorizontal: 4 },
   warning: { fontSize: 13, lineHeight: 19, fontFamily: Fonts.semiBold },
