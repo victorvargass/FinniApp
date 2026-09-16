@@ -7,6 +7,8 @@ import {
   DATABASE_NAME,
 } from './database-schema';
 import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financial-calculations';
+import { paymentOutflowSql } from './expense-amounts';
+import { reconcileLegacySplitCardCycles } from './split-expense-migration';
 import {
   paymentMethodAfterSnapshotSql,
   resolveBalanceTrackingStartDate,
@@ -1519,6 +1521,11 @@ async function initializeDatabase(): Promise<void> {
       );
     }
   }
+  if (previousSchemaVersion < 19) {
+    await withExclusiveTransaction(db, async (transaction) => {
+      await reconcileLegacySplitCardCycles(transaction, t('database.billingDifference'));
+    });
+  }
   await recordAppliedSchema(db);
 }
 
@@ -2900,7 +2907,7 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
   const rows = await db.getAllAsync<Record<string, unknown>>(
     `SELECT method.*,
        COALESCE((
-         SELECT SUM(charge.amount) FROM expenses charge
+         SELECT SUM(${paymentOutflowSql('charge')}) FROM expenses charge
          WHERE charge.payment_method_id = method.id
            AND charge.debt_plan_id IS NULL
            AND charge.date <= DATE('now', 'localtime')
@@ -2987,7 +2994,7 @@ export async function getPaymentMethodMovements(
        SELECT
          expense.id,
          expense.name,
-         expense.amount,
+         ${paymentOutflowSql('expense')} AS amount,
          expense.date,
          CASE
            WHEN expense.credit_payment_target_id = ? THEN 'credit_payment'
@@ -3753,7 +3760,7 @@ export async function getCreditCardCycles(paymentMethodId: number): Promise<Cred
        cc.status,
        COALESCE(bank_charge.amount, 0) AS bankChargeAmount,
        COALESCE(adjustment.amount, 0) AS adjustmentAmount,
-       (SELECT COALESCE(SUM(expense.amount), 0)
+       (SELECT COALESCE(SUM(${paymentOutflowSql('expense')}), 0)
         FROM expenses expense
         WHERE expense.payment_method_id = cc.payment_method_id
           AND expense.date BETWEEN cc.start_date AND cc.end_date)
@@ -3871,7 +3878,7 @@ export async function reconcileCreditCardCycle(
         cycle.payment_method_id,
         cycle.end_date,
         cycle.status,
-        (SELECT COALESCE(SUM(expense.amount), 0)
+        (SELECT COALESCE(SUM(${paymentOutflowSql('expense')}), 0)
          FROM expenses expense
          WHERE expense.payment_method_id = cycle.payment_method_id
            AND expense.date BETWEEN cycle.start_date AND cycle.end_date)
@@ -7261,7 +7268,7 @@ export async function getPeriodFinancialDetails(periodId: number): Promise<Perio
         cycle.end_date AS endDate,
         cycle.statement_amount AS statementAmount,
         COALESCE((
-          SELECT SUM(expense.amount)
+          SELECT SUM(${paymentOutflowSql('expense')})
           FROM expenses expense
           WHERE expense.payment_method_id = cycle.payment_method_id
             AND expense.date BETWEEN cycle.start_date AND cycle.end_date

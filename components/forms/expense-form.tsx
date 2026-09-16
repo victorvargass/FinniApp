@@ -805,9 +805,9 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           </>
         )}
 
-        {isSplitAmount && amountToSave != null && (
+        {isSplitAmount && amountToSave != null && totalAmount != null && (
           <ThemedText style={styles.shareResult}>
-            {t('expenses.splitResult', { amount: formatCLP(amountToSave) })}
+            {t('expenses.splitResult', { amount: formatCLP(amountToSave), total: formatCLP(totalAmount) })}
           </ThemedText>
         )}
       </View>}
