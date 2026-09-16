@@ -161,6 +161,8 @@ const es = {
       trackingBody: 'Los gastos nuevos restan saldo o cupo, los ingresos y abonos lo aumentan, y las transferencias mueven dinero entre Efectivo, Débito y Prepago sin contarlo dos veces. Una compra en cuotas descuenta su valor total una sola vez.',
       syncTitle: 'Sincroniza cuando lo necesites',
       syncBody: 'Si el banco y FinniApp no coinciden, usa “Sincronizar con mi banco”. Verás la diferencia antes de establecer un nuevo punto de partida.',
+      historyTitle: 'Tu historial se conserva',
+      historyBody: 'Los gastos antiguos quedan como “No especificado”. Puedes desactivar un medio de pago sin perder su historial.',
     },
     savings: {
       goalTitle: 'Cada meta guarda su propio saldo',
@@ -924,7 +926,6 @@ const es = {
     prepaid: 'Prepago',
     add: 'Agregar medio de pago',
     defaultConfirmation: '%{name} establecido como medio de pago predeterminado correctamente.',
-    intro: 'Los gastos antiguos quedan como “No especificado”. Puedes desactivar un medio sin perder su historial.',
     approximateBilling: ' · factura aprox. el %{day}',
     removeDefault: 'Quitar %{name} como predeterminado',
     useAsDefault: 'Usar %{name} como predeterminado',

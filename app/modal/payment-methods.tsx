@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
@@ -12,6 +12,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { t } from '@/lib/i18n';
+import { groupPaymentMethodsByType } from '@/lib/payment-method-groups';
 import { showToast } from '@/lib/toast';
 
 function showDefaultConfirmation(name: string) {
@@ -43,6 +44,11 @@ export default function PaymentMethodsScreen() {
       title: t('featureGuides.paymentMethods.syncTitle'),
       body: t('featureGuides.paymentMethods.syncBody'),
     },
+    {
+      icon: 'time-outline' as const,
+      title: t('featureGuides.paymentMethods.historyTitle'),
+      body: t('featureGuides.paymentMethods.historyBody'),
+    },
   ];
   const typeLabels = {
     cash: t('paymentMethods.cash'),
@@ -50,21 +56,27 @@ export default function PaymentMethodsScreen() {
     prepaid: t('paymentMethods.prepaid'),
     credit: t('paymentMethods.credit'),
   };
+  const sections = groupPaymentMethodsByType(paymentMethods).map((section) => ({
+    ...section,
+    title: typeLabels[section.type],
+  }));
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <FlatList
-        data={paymentMethods}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={styles.guideHeader}>
-            <ThemedText style={styles.intro}>
-              {t('paymentMethods.intro')}
-            </ThemedText>
             <FeatureGuideButton onPress={guide.open} />
           </View>
         }
+        renderSectionHeader={({ section }) => (
+          <ThemedText accessibilityRole="header" style={styles.sectionTitle} type="defaultSemiBold">
+            {section.title}
+          </ThemedText>
+        )}
         renderItem={({ item }) => (
           <ThemedView style={[styles.card, !item.active && styles.inactive]}>
             <View style={[styles.colorDot, { backgroundColor: item.color }]} />
@@ -143,6 +155,7 @@ export default function PaymentMethodsScreen() {
             </Pressable>
           </ThemedView>
         )}
+        stickySectionHeadersEnabled={false}
       />
       <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
       <FloatingActionButton href="/modal/payment-method-form" accessibilityLabel={t('paymentMethods.add')} avoidBottomInset />
@@ -152,10 +165,10 @@ export default function PaymentMethodsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  list: { padding: 20, paddingBottom: 100, gap: 10 },
-  guideHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 8 },
-  intro: { flex: 1, opacity: 0.7, lineHeight: 20 },
-  card: { borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  list: { padding: 20, paddingBottom: 100 },
+  guideHeader: { alignItems: 'flex-end', marginBottom: 2 },
+  sectionTitle: { fontSize: 18, marginTop: 14, marginBottom: 6, paddingHorizontal: 12 },
+  card: { borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   inactive: { opacity: 0.55 },
   main: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   colorDot: { width: 18, height: 18, borderRadius: 6 },

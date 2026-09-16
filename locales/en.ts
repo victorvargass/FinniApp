@@ -161,6 +161,8 @@ const en = {
       trackingBody: 'New expenses reduce the balance or available credit, income and payments increase it, and transfers move money between Cash, Debit, and Prepaid without counting it twice. An installment purchase uses its full total only once.',
       syncTitle: 'Sync whenever you need to',
       syncBody: 'If your bank and FinniApp do not match, use “Sync with my bank”. You will see the difference before setting a new starting point.',
+      historyTitle: 'Your history is preserved',
+      historyBody: 'Past expenses remain as “Not specified”. You can deactivate a payment method without losing its history.',
     },
     savings: {
       goalTitle: 'Each goal keeps its own balance',
@@ -924,7 +926,6 @@ const en = {
     prepaid: 'Prepaid',
     add: 'Add payment method',
     defaultConfirmation: '%{name} has been set as the default payment method.',
-    intro: 'Past expenses remain as “Not specified”. You can deactivate a payment method without losing its history.',
     approximateBilling: '· estimated billing on day %{day}',
     removeDefault: 'Remove %{name} as default',
     useAsDefault: 'Use %{name} as default',
