@@ -240,7 +240,7 @@ const es = {
     expense: 'Gasto',
     category: 'Categoría',
     categories: 'Categorías',
-    groupings: 'Agrupaciones',
+    groupings: 'Grupos y categorías',
     savingsGroups: 'Grupos de ahorro',
     paymentMethods: 'Medios de pago',
     transfer: 'Transferencia',
