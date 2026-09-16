@@ -504,6 +504,8 @@ const en = {
   home: {
     availableThisPeriod: 'Available this period',
     availableAmount: 'Available balance: %{amount}',
+    cardPaymentBalanceImpact: 'Payments from accounts: -%{amount}',
+    cardAdjustmentBalanceImpact: 'Refunds and adjustments: +%{amount}',
     attention: 'Needs your attention',
     upToDate: 'Everything is up to date',
     upToDateHint: 'There are no important pending items right now.',

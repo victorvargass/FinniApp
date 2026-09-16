@@ -6,6 +6,7 @@ import * as Print from 'expo-print';
 import { Platform } from 'react-native';
 
 import { getAccountTransfersForPeriod, getPeriodFinancialDetails, getPeriodSavingsGoalActivity, getPeriodStatement } from '@/lib/db';
+import { calculatePeriodAvailable } from '@/lib/period-card-cashflow';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import type {
@@ -429,7 +430,18 @@ export function buildPeriodReportHtml(
   const incomesTotal = total(incomes.filter((income) => income.savingsGoalId == null));
   const savingsFunding = period.savingsFundingTotal ?? 0;
   const savingsAvailable = savingsWithdrawals + savingsFunding;
-  const balance = incomesTotal + savingsAvailable - expensesTotal;
+  const balance = calculatePeriodAvailable(incomesTotal, expensesTotal, savingsAvailable, {
+    paymentsFromAccounts: period.cardPaymentsFromAccountsTotal,
+    internalAdjustments: period.cardInternalAdjustmentsTotal,
+  });
+  const cardCashflowNotes = [
+    period.cardPaymentsFromAccountsTotal > 0
+      ? t('home.cardPaymentBalanceImpact', { amount: formatCLP(period.cardPaymentsFromAccountsTotal) })
+      : null,
+    period.cardInternalAdjustmentsTotal > 0
+      ? t('home.cardAdjustmentBalanceImpact', { amount: formatCLP(period.cardInternalAdjustmentsTotal) })
+      : null,
+  ].filter((note): note is string => note != null);
   const savingsRows = savingsGoalRows(savingsGoals);
   const debtBalance = financialDetails.debts.reduce((sum, debt) => sum + debt.closingBalance, 0);
   const savingsBalance = savingsGoals.reduce((sum, goal) => sum + goal.closingAmount, 0);
@@ -560,7 +572,7 @@ export function buildPeriodReportHtml(
         </div>
         <div class="summary-card balance">
           <div class="summary-icon"><svg viewBox="0 0 24 24"><path d="M4 7h14a2 2 0 0 1 2 2v9H6a2 2 0 0 1-2-2V7z"/><path d="M4 7l2-3h10l2 3"/><path d="M15 12h5v4h-5a2 2 0 1 1 0-4z"/></svg></div>
-          <div class="summary-copy"><div class="label">${t('report.periodBalance')}</div><div class="value">${formatCLP(balance)}</div>${savingsAvailable > 0 ? `<div class="balance-note">${t('report.includesReleasedSavings', { amount: formatCLP(savingsAvailable) })}</div>` : ''}</div>
+          <div class="summary-copy"><div class="label">${t('report.periodBalance')}</div><div class="value">${formatCLP(balance)}</div>${savingsAvailable > 0 ? `<div class="balance-note">${t('report.includesReleasedSavings', { amount: formatCLP(savingsAvailable) })}</div>` : ''}${cardCashflowNotes.map((note) => `<div class="balance-note">${escapeHtml(note)}</div>`).join('')}</div>
         </div>
       </section>
 

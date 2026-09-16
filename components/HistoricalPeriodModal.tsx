@@ -16,6 +16,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
+import { calculatePeriodAvailable } from '@/lib/period-card-cashflow';
 import { t } from '@/lib/i18n';
 import type { PeriodHistory } from '@/lib/types';
 
@@ -57,7 +58,10 @@ export function HistoricalPeriodModal({
   const savingsWithdrawals = period.savingsWithdrawalTotal ?? 0;
   const savingsFunding = period.savingsFundingTotal ?? 0;
   const savingsAvailable = savingsWithdrawals + savingsFunding;
-  const balance = incomes + savingsAvailable - expenses;
+  const balance = calculatePeriodAvailable(incomes, expenses, savingsAvailable, {
+    paymentsFromAccounts: period.cardPaymentsFromAccountsTotal,
+    internalAdjustments: period.cardInternalAdjustmentsTotal,
+  });
   const categories = period.categories ?? [];
   const paymentMethods = period.paymentMethods ?? [];
   const limits = categories.filter(
@@ -127,6 +131,16 @@ export function HistoricalPeriodModal({
               {savingsAvailable > 0 && (
                 <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
                   {t('savings.releasedInBalance', { amount: formatCLP(savingsAvailable) })}
+                </ThemedText>
+              )}
+              {period.cardPaymentsFromAccountsTotal > 0 && (
+                <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
+                  {t('home.cardPaymentBalanceImpact', { amount: formatCLP(period.cardPaymentsFromAccountsTotal) })}
+                </ThemedText>
+              )}
+              {period.cardInternalAdjustmentsTotal > 0 && (
+                <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
+                  {t('home.cardAdjustmentBalanceImpact', { amount: formatCLP(period.cardInternalAdjustmentsTotal) })}
                 </ThemedText>
               )}
             </ThemedView>

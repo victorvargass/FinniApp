@@ -12,6 +12,7 @@ import {
   resolveBalanceTrackingStartDate,
 } from './balance-snapshot';
 import { calculateAvailableBalance } from './payment-method-calculations';
+import { PERIOD_CARD_ADJUSTMENTS_SQL, PERIOD_CARD_PAYMENTS_SQL } from './period-card-cashflow';
 import { spendingExpenseSql } from './movement-classification';
 import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate, isSinglePaymentDebt } from './debt-calculations';
 import {
@@ -6883,6 +6884,17 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
     FROM incomes income
   `);
 
+  const [cardPayments, cardAdjustments] = await Promise.all([
+    db.getAllAsync<{ periodId: number; total: number }>(PERIOD_CARD_PAYMENTS_SQL),
+    db.getAllAsync<{ periodId: number; total: number }>(PERIOD_CARD_ADJUSTMENTS_SQL),
+  ]);
+  const cardPaymentsByPeriod = new Map(
+    cardPayments.map((row) => [row.periodId, Number(row.total)])
+  );
+  const cardAdjustmentsByPeriod = new Map(
+    cardAdjustments.map((row) => [row.periodId, Number(row.total)])
+  );
+
   const savingsFundingRows = await db.getAllAsync<{ period_id: number; total: number }>(`
     SELECT expense.period_id, COALESCE(SUM(expense.amount), 0) AS total
     FROM savings_goal_movements movement
@@ -6999,6 +7011,8 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
       incomesTotal,
       savingsWithdrawalTotal: savingsWithdrawalsByPeriod.get(period.id) ?? 0,
       savingsFundingTotal: savingsFundingByPeriod.get(period.id) ?? 0,
+      cardPaymentsFromAccountsTotal: cardPaymentsByPeriod.get(period.id) ?? 0,
+      cardInternalAdjustmentsTotal: cardAdjustmentsByPeriod.get(period.id) ?? 0,
     };
   });
 

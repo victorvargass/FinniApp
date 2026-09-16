@@ -504,6 +504,8 @@ const es = {
   home: {
     availableThisPeriod: 'Disponible en este período',
     availableAmount: 'Saldo disponible: %{amount}',
+    cardPaymentBalanceImpact: 'Abonos desde cuentas: -%{amount}',
+    cardAdjustmentBalanceImpact: 'Devoluciones y ajustes: +%{amount}',
     attention: 'Requiere tu atención',
     upToDate: 'Todo está al día',
     upToDateHint: 'No hay pendientes importantes en este momento.',

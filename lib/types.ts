@@ -423,6 +423,8 @@ export type PeriodHistory = {
   incomesTotal: number;
   savingsWithdrawalTotal: number;
   savingsFundingTotal: number;
+  cardPaymentsFromAccountsTotal: number;
+  cardInternalAdjustmentsTotal: number;
   categories: PeriodHistoryCategory[];
   paymentMethods: PeriodHistoryPaymentMethod[];
 };

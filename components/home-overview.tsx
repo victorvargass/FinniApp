@@ -22,6 +22,8 @@ type HomeOverviewProps = {
   balance: number;
   incomeTotal: number;
   expenseTotal: number;
+  cardPaymentsTotal: number;
+  cardAdjustmentsTotal: number;
   attentionItems: HomeAttentionItem[];
   showAttention: boolean;
 };
@@ -30,6 +32,8 @@ export function HomeOverview({
   balance,
   incomeTotal,
   expenseTotal,
+  cardPaymentsTotal,
+  cardAdjustmentsTotal,
   attentionItems,
   showAttention,
 }: HomeOverviewProps) {
@@ -57,6 +61,20 @@ export function HomeOverview({
             <ThemedText style={[styles.totalValue, { color: colors.expense }]}>-{formatCLP(expenseTotal)}</ThemedText>
           </View>
         </View>
+        {(cardPaymentsTotal > 0 || cardAdjustmentsTotal > 0) && (
+          <View style={styles.cardCashflow}>
+            {cardPaymentsTotal > 0 && (
+              <ThemedText style={[styles.cardCashflowText, { color: colors.onPrimary }]}>
+                {t('home.cardPaymentBalanceImpact', { amount: formatCLP(cardPaymentsTotal) })}
+              </ThemedText>
+            )}
+            {cardAdjustmentsTotal > 0 && (
+              <ThemedText style={[styles.cardCashflowText, { color: colors.onPrimary }]}>
+                {t('home.cardAdjustmentBalanceImpact', { amount: formatCLP(cardAdjustmentsTotal) })}
+              </ThemedText>
+            )}
+          </View>
+        )}
       </ThemedView>
 
       {showAttention && <View style={styles.section}>
@@ -111,6 +129,8 @@ const styles = StyleSheet.create({
   totalDivider: { width: StyleSheet.hairlineWidth, height: 42, marginHorizontal: 16 },
   totalLabel: { fontSize: 12, lineHeight: 17, opacity: 0.72 },
   totalValue: { fontFamily: Fonts.bold, fontSize: 15, lineHeight: 21 },
+  cardCashflow: { marginTop: 4, gap: 2 },
+  cardCashflowText: { fontSize: 11, opacity: 0.78 },
   section: { gap: 10 },
   upToDate: { borderWidth: 1, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   attention: { borderWidth: 1, borderRadius: 14, padding: 13, flexDirection: 'row', alignItems: 'center', gap: 12 },

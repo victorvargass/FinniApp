@@ -24,6 +24,7 @@ import { findMostUrgentCategoryLimit } from '@/lib/home-insights';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
+import { calculatePeriodAvailable } from '@/lib/period-card-cashflow';
 import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
 import type { Debt, DebtPlan } from '@/lib/types';
 import {
@@ -101,8 +102,16 @@ export default function HomeScreen() {
   const withLimits = periodCategoryExpensesTotals.filter((item) => item.periodLimit != null && item.periodLimit > 0);
   const periodSavingsWithdrawals = periodSavingsGoalActivity.reduce((sum, item) => sum + item.withdrawals, 0);
   const periodSavingsAvailable = periodSavingsWithdrawals + periodSavingsFundingTotal;
-  const periodBalance = periodIncomesTotal + periodSavingsAvailable - periodExpensesTotal;
   const selectedPeriodReport = periodHistory.find((period) => period.periodId === selectedPeriod?.id);
+  const periodBalance = calculatePeriodAvailable(
+    periodIncomesTotal,
+    periodExpensesTotal,
+    periodSavingsAvailable,
+    {
+      paymentsFromAccounts: selectedPeriodReport?.cardPaymentsFromAccountsTotal ?? 0,
+      internalAdjustments: selectedPeriodReport?.cardInternalAdjustmentsTotal ?? 0,
+    }
+  );
   const previousPeriodReport = selectedPeriod
     ? [...periodHistory]
       .filter((period) => period.endDate < selectedPeriod.startDate)
@@ -368,6 +377,8 @@ export default function HomeScreen() {
           balance={periodBalance}
           incomeTotal={periodIncomesTotal}
           expenseTotal={periodExpensesTotal}
+          cardPaymentsTotal={selectedPeriodReport?.cardPaymentsFromAccountsTotal ?? 0}
+          cardAdjustmentsTotal={selectedPeriodReport?.cardInternalAdjustmentsTotal ?? 0}
           attentionItems={attentionItems}
           showAttention={Boolean(isCurrentPeriod)}
         />
