@@ -132,12 +132,8 @@ export function BiometricProvider({ children }: PropsWithChildren) {
 
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === 'background') {
-        if (Platform.OS === 'android' && authenticatingRef.current) {
-          LocalAuthentication.cancelAuthenticate().catch(() => {
-            // El sistema también puede haber cerrado el prompt por su cuenta.
-          });
-        }
-
+        // En Android, el propio diálogo biométrico puede abrir otra Activity.
+        // Cancelarlo aquí cerraría el primer intento y provocaría otro al volver.
         backgroundStartedAtRef.current = Date.now();
         if (enabledRef.current && !isLockedRef.current) {
           lockTimer = setTimeout(lockApp, BACKGROUND_GRACE_PERIOD_MS);

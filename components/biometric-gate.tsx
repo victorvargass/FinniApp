@@ -25,7 +25,7 @@ export function BiometricGate({ children }: React.PropsWithChildren) {
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active') autoPromptedRef.current = false;
+      // La transición del diálogo del sistema no inicia otro intento automático.
       setAppState(nextState);
     });
 
