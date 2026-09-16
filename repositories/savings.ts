@@ -7,6 +7,9 @@ export {
   getPeriodSavingsGoalActivity,
   getSavingsGoalMovements,
   getSavingsGoals,
+  getSavingsGroups,
+  saveSavingsGroup,
+  deleteSavingsGroup,
   setSavingsGoalArchived,
   updateSavingsGoal,
 } from '@/lib/db';

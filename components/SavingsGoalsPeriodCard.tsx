@@ -7,10 +7,13 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
-import type { SavingsGoalPeriodActivity } from '@/lib/types';
+import { groupSavingsItems } from '@/lib/savings-grouping';
+import type { SavingsGoal, SavingsGoalPeriodActivity, SavingsGroup } from '@/lib/types';
 
 type SavingsGoalsPeriodCardProps = {
   items: SavingsGoalPeriodActivity[];
+  goals: SavingsGoal[];
+  groups: SavingsGroup[];
   backgroundColor: string;
   asOfDate: string;
   onManage: () => void;
@@ -42,6 +45,8 @@ function getGoalState(item: SavingsGoalPeriodActivity, asOfDate: string) {
 
 export function SavingsGoalsPeriodCard({
   items,
+  goals,
+  groups,
   backgroundColor,
   asOfDate,
   onManage,
@@ -51,6 +56,9 @@ export function SavingsGoalsPeriodCard({
   if (items.length === 0) return null;
   const savedTotal = items.reduce((sum, item) => sum + item.closingAmount, 0);
   const summaryKey = items.length === 1 ? 'savings.homeSummaryOne' : 'savings.homeSummaryOther';
+  const groupByGoalId = new Map(goals.map((goal) => [goal.id, goal.groupId]));
+  const sections = groupSavingsItems(items, groups,
+    (item) => groupByGoalId.get(item.goalId) ?? null, t('common.notSpecified'));
 
   return (
     <ExpandableFinanceCard
@@ -60,7 +68,10 @@ export function SavingsGoalsPeriodCard({
       manageAccessibilityLabel={t('savings.detailsAccessibility')}
       onManage={onManage}>
       <View style={styles.goalList}>
-        {items.map((item) => {
+        {sections.map((section) => (
+          <View key={section.key} style={styles.section}>
+            <ThemedText style={styles.sectionLabel}>{section.name}</ThemedText>
+            {section.items.map((item) => {
           const state = getGoalState(item, asOfDate);
           const progress = item.targetAmount > 0
             ? Math.min(Math.max(item.closingAmount / item.targetAmount, 0), 1)
@@ -105,7 +116,9 @@ export function SavingsGoalsPeriodCard({
               </ThemedText>
             </Pressable>
           );
-        })}
+            })}
+          </View>
+        ))}
       </View>
     </ExpandableFinanceCard>
   );
@@ -115,6 +128,8 @@ const styles = StyleSheet.create({
   goalList: {
     gap: 15,
   },
+  section: { gap: 12 },
+  sectionLabel: { fontSize: 13, fontWeight: '700', opacity: 0.72 },
   goal: {
     gap: 8,
   },

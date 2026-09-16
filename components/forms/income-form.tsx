@@ -31,6 +31,7 @@ type IncomeFormProps = {
 export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null, onSuccess }: IncomeFormProps) {
   const {
     incomeNames,
+    incomeCategories,
     addIncome,
     editIncome,
     removeIncome,
@@ -77,6 +78,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
     initialIncome?.paymentMethodId ?? defaultPaymentMethodId
   );
+  const [categoryId, setCategoryId] = useState<number | null>(initialIncome?.categoryId ?? null);
   const [date, setDate] = useState(
     income?.date
       ? parseDateString(income.date)
@@ -210,6 +212,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
         date: toDateString(date),
         savingsGoalId: effectiveSavingsGoalId,
         paymentMethodId,
+        categoryId: effectiveSavingsGoalId == null ? categoryId : null,
       };
       if (income) {
         await editIncome(income.id, data);
@@ -329,6 +332,29 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
       <ThemedText style={styles.shareDescription}>
         {savingsGoalId != null ? t('incomes.withdrawalDestinationHint') : t('incomes.destinationHint')}
       </ThemedText>
+
+      {!isSavingsWithdrawal && (
+        <ColorSelect
+          searchable
+          label={t('groupings.incomeCategory')}
+          value={categoryId}
+          onChange={setCategoryId}
+          options={[
+            { value: null, label: t('common.notSpecified'), color: '#60758E' },
+            ...incomeCategories.map((category) => ({
+              value: category.id, label: category.name, color: category.color,
+            })),
+          ]}
+        />
+      )}
+      {!isSavingsWithdrawal && incomeCategories.length === 0 && (
+        <Pressable
+          onPress={() => router.push({ pathname: '/modal/categories', params: { tab: 'incomes' } })}
+          style={[styles.secondaryAction, { borderColor: colors.border }]}>
+          <Ionicons name="add-circle-outline" size={19} color={colors.primary} />
+          <ThemedText type="defaultSemiBold">{t('groupings.createIncomeCategory')}</ThemedText>
+        </Pressable>
+      )}
 
       {isContextualSavingsWithdrawal && (
         <>

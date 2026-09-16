@@ -29,6 +29,7 @@ export default function RecurringIncomeFormScreen() {
     editRecurringIncome,
     removeRecurringIncome,
     paymentMethods,
+    incomeCategories,
     settings,
   } = useDatabase();
   const recurring = id ? recurringIncomes.find((item) => item.id === Number(id)) : undefined;
@@ -42,6 +43,7 @@ export default function RecurringIncomeFormScreen() {
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
     recurring?.paymentMethodId ?? defaultPaymentMethodId
   );
+  const [categoryId, setCategoryId] = useState<number | null>(recurring?.categoryId ?? null);
   const [schedule, setSchedule] = useState<NewRecurringSchedule>(() => recurring ? {
     frequency: recurring.frequency, intervalMonths: recurring.intervalMonths,
     executionDay: recurring.executionDay, startDate: recurring.startDate,
@@ -68,6 +70,7 @@ export default function RecurringIncomeFormScreen() {
       const data = {
         name: name.trim(), amount, sourceIncomeId: recurring?.sourceIncomeId ?? null,
         paymentMethodId,
+        categoryId,
         frequency: schedule.frequency, intervalMonths: schedule.intervalMonths,
         executionDay: schedule.executionDay, startDate: schedule.startDate,
         endDate: schedule.endDate, active: schedule.active, registrationMode: schedule.registrationMode,
@@ -95,6 +98,16 @@ export default function RecurringIncomeFormScreen() {
           color: method.color,
           ...getPaymentMethodOptionGroup(method.type),
         }))}
+    />
+    <ColorSelect
+      searchable
+      label={t('groupings.incomeCategory')}
+      value={categoryId}
+      onChange={setCategoryId}
+      options={[
+        { value: null, label: t('common.notSpecified'), color: '#60758E' },
+        ...incomeCategories.map((category) => ({ value: category.id, label: category.name, color: category.color })),
+      ]}
     />
     <RecurringScheduleFields value={schedule} onChange={setSchedule} showActiveToggle fixedStartDate={recurring?.startDate} storedNextDate={recurring?.nextDate} movementKind="ingreso" />
     <Pressable disabled={saving} onPress={save} style={styles.save}><ThemedText style={styles.saveText}>{saving ? t('common.saving') : t(recurring ? 'common.saveChanges' : 'recurrence.create')}</ThemedText></Pressable>

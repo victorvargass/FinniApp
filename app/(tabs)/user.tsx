@@ -307,15 +307,15 @@ export default function UserScreen() {
         </ThemedText>
         <ThemedView style={[styles.card, styles.groupCard]}>
           <Pressable
-            accessibilityLabel={t('accessibility.configureCategories')}
+            accessibilityLabel={t('navigation.groupings')}
             accessibilityRole="button"
-            onPress={() => router.push('/modal/categories')}
+            onPress={() => router.push('/modal/groupings')}
             style={({ pressed }) => [
               styles.settingsLink,
               pressed && styles.buttonPressed,
             ]}>
             <View style={styles.settingCopy}>
-              <ThemedText type="subtitle">{t('navigation.categories')}</ThemedText>
+              <ThemedText type="subtitle">{t('navigation.groupings')}</ThemedText>
               <ThemedText style={styles.description}>
                 {t('settings.categoriesHint')}
               </ThemedText>

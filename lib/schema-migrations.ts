@@ -22,6 +22,7 @@ export const SCHEMA_MIGRATIONS = [
   { version: 15, name: 'savings-reported-balance-history' },
   { version: 16, name: 'balance-tracking-starts-at-creation' },
   { version: 17, name: 'separate-creation-and-reported-balance-dates' },
+  { version: 18, name: 'income-categories-and-savings-groups' },
 ] as const;
 
 // Legacy version 16 tied the declared balance to the historical creation date.

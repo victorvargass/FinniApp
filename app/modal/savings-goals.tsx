@@ -14,6 +14,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { groupSavingsItems } from '@/lib/savings-grouping';
 import type { SavingsGoal } from '@/lib/types';
 
 function parseDate(value: string): Date {
@@ -113,7 +114,7 @@ function GoalCard({ goal }: { goal: SavingsGoal }) {
 }
 
 export default function SavingsGoalsScreen() {
-  const { savingsGoals } = useDatabase();
+  const { savingsGoals, savingsGroups } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [showArchived, setShowArchived] = useState(false);
   const guide = useFeatureGuide('savings');
@@ -144,6 +145,10 @@ export default function SavingsGoalsScreen() {
     [savingsGoals]
   );
   const visibleGoals = showArchived ? savingsGoals : currentGoals;
+  const sections = useMemo(
+    () => groupSavingsItems(visibleGoals, savingsGroups, (goal) => goal.groupId, t('common.notSpecified')),
+    [visibleGoals, savingsGroups]
+  );
   const totalSaved = savingsGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
   const totalTarget = currentGoals.reduce((sum, goal) => sum + goal.targetAmount, 0);
 
@@ -197,7 +202,17 @@ export default function SavingsGoalsScreen() {
           </ThemedView>
         ) : (
           <View style={styles.goals}>
-            {visibleGoals.map((goal) => <GoalCard key={goal.id} goal={goal} />)}
+            {sections.map((section) => (
+              <View key={section.key} style={styles.groupSection}>
+                <View style={[styles.groupHeader, { borderLeftColor: section.color, backgroundColor: `${section.color}18` }]}>
+                  <ThemedText type="defaultSemiBold" style={styles.groupName}>{section.name}</ThemedText>
+                  <ThemedText type="defaultSemiBold">
+                    {formatCLP(section.items.reduce((sum, goal) => sum + goal.currentAmount, 0))}
+                  </ThemedText>
+                </View>
+                {section.items.map((goal) => <GoalCard key={goal.id} goal={goal} />)}
+              </View>
+            ))}
           </View>
         )}
       </ScrollView>
@@ -272,6 +287,9 @@ const styles = StyleSheet.create({
   goals: {
     gap: 11,
   },
+  groupSection: { gap: 11 },
+  groupHeader: { minHeight: 48, borderLeftWidth: 5, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  groupName: { flex: 1 },
   card: {
     borderRadius: 12,
     padding: 15,

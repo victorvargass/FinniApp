@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
+import { readFileSync } from 'node:fs';
 
 import { withDatabaseLock } from '../lib/database-lock.ts';
 import {
@@ -16,6 +17,64 @@ import {
 function temporaryDatabase() {
   return new DatabaseSync(':memory:');
 }
+
+test('deleting optional classifications preserves income and savings balances', () => {
+  const database = temporaryDatabase();
+  try {
+    const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+    database.exec('PRAGMA foreign_keys = ON;');
+    for (const table of ['periods', 'income_categories', 'savings_groups', 'payment_methods', 'incomes', 'recurring_incomes', 'savings_goals']) {
+      const statement = source.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\([\\s\\S]*?\\n    \\);`))?.[0];
+      assert.ok(statement, `schema for ${table}`);
+      database.exec(statement);
+    }
+    database.exec(`
+      INSERT INTO periods VALUES (1, '2026-09-01', '2026-09-30');
+      INSERT INTO income_categories (id, name, color) VALUES (1, 'Trabajo', '#123456');
+      INSERT INTO savings_groups (id, name, color) VALUES (1, 'Inversiones', '#654321');
+      INSERT INTO incomes (name, amount, period_id, date, category_id)
+        VALUES ('Sueldo', 100000, 1, '2026-09-15', 1);
+      INSERT INTO recurring_incomes (name, amount, frequency, start_date, category_id)
+        VALUES ('Sueldo', 100000, 'monthly', '2026-09-15', 1);
+      INSERT INTO savings_goals (name, target_amount, initial_amount, deadline, group_id)
+        VALUES ('Fintual', 1000000, 30000, '2027-09-15', 1);
+      DELETE FROM income_categories WHERE id = 1;
+      DELETE FROM savings_groups WHERE id = 1;
+    `);
+    assert.deepEqual({ ...database.prepare('SELECT amount, category_id FROM incomes').get() }, { amount: 100000, category_id: null });
+    assert.equal(database.prepare('SELECT category_id FROM recurring_incomes').get().category_id, null);
+    assert.deepEqual({ ...database.prepare('SELECT initial_amount, group_id FROM savings_goals').get() }, { initial_amount: 30000, group_id: null });
+  } finally {
+    database.close();
+  }
+});
+
+test('older records migrate to unspecified categories and groups without changing amounts', () => {
+  const database = temporaryDatabase();
+  try {
+    const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+    database.exec(`
+      CREATE TABLE income_categories (id INTEGER PRIMARY KEY, name TEXT);
+      CREATE TABLE savings_groups (id INTEGER PRIMARY KEY, name TEXT);
+      CREATE TABLE incomes (id INTEGER PRIMARY KEY, amount INTEGER NOT NULL);
+      CREATE TABLE recurring_incomes (id INTEGER PRIMARY KEY, amount INTEGER NOT NULL);
+      CREATE TABLE savings_goals (id INTEGER PRIMARY KEY, initial_amount INTEGER NOT NULL);
+      INSERT INTO incomes VALUES (1, 100000);
+      INSERT INTO recurring_incomes VALUES (1, 100000);
+      INSERT INTO savings_goals VALUES (1, 30000);
+    `);
+    for (const [table, column] of [['incomes', 'category_id'], ['recurring_incomes', 'category_id'], ['savings_goals', 'group_id']]) {
+      const statement = source.match(new RegExp(`ALTER TABLE ${table} ADD COLUMN ${column} [^;]+;`))?.[0];
+      assert.ok(statement, `migration for ${table}.${column}`);
+      database.exec(statement);
+    }
+    assert.deepEqual({ ...database.prepare('SELECT amount, category_id FROM incomes').get() }, { amount: 100000, category_id: null });
+    assert.deepEqual({ ...database.prepare('SELECT amount, category_id FROM recurring_incomes').get() }, { amount: 100000, category_id: null });
+    assert.deepEqual({ ...database.prepare('SELECT initial_amount, group_id FROM savings_goals').get() }, { initial_amount: 30000, group_id: null });
+  } finally {
+    database.close();
+  }
+});
 
 test('database lock serializes concurrent writes and survives errors', async () => {
   const order = [];
@@ -42,7 +101,7 @@ test('schema migration records a deterministic version and application id', asyn
     const migration = database.prepare('SELECT version, name FROM schema_migrations ORDER BY version DESC').get();
     assert.deepEqual({ ...migration }, {
       version: DATABASE_SCHEMA_VERSION,
-      name: 'separate-creation-and-reported-balance-dates',
+      name: 'income-categories-and-savings-groups',
     });
     assert.equal(database.prepare('PRAGMA user_version').get().user_version, DATABASE_SCHEMA_VERSION);
     assert.equal(database.prepare('PRAGMA application_id').get().application_id, DATABASE_APPLICATION_ID);

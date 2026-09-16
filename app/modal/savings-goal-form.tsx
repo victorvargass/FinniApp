@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ColorPicker } from '@/components/ColorPicker';
+import { ColorSelect } from '@/components/forms/shared';
 import { SavingsGoalProgress } from '@/components/SavingsGoalProgress';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -63,6 +64,7 @@ export default function SavingsGoalFormScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
   const {
     savingsGoals,
+    savingsGroups,
     addSavingsGoal,
     editSavingsGoal,
     setSavingsGoalStatus,
@@ -76,6 +78,7 @@ export default function SavingsGoalFormScreen() {
     ? savingsGoals.find((item) => item.id === goalId)
     : undefined;
   const [name, setName] = useState(goal?.name ?? '');
+  const [groupId, setGroupId] = useState<number | null>(goal?.groupId ?? null);
   const [targetText, setTargetText] = useState(
     goal ? formatCLPInput(goal.targetAmount) : ''
   );
@@ -167,6 +170,7 @@ export default function SavingsGoalFormScreen() {
 
     const data: NewSavingsGoal = {
       name: name.trim(),
+      groupId,
       targetAmount,
       initialAmount,
       allowWithdrawals,
@@ -437,6 +441,16 @@ export default function SavingsGoalFormScreen() {
           placeholderTextColor={colors.icon}
           style={[styles.input, { borderColor: colors.border, color: colors.text }]}
           value={name}
+        />
+
+        <ColorSelect
+          label={t('groupings.savingsGroup')}
+          value={groupId}
+          onChange={setGroupId}
+          options={[
+            { value: null, label: t('common.notSpecified'), color: '#60758E' },
+            ...savingsGroups.map((group) => ({ value: group.id, label: group.name, color: group.color })),
+          ]}
         />
 
         <ThemedText style={styles.label}>{t('savings.targetAmount')}</ThemedText>

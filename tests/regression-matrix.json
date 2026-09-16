@@ -58,8 +58,8 @@
     {
       "id": "categories",
       "priority": "high",
-      "routes": ["app/modal/categories.tsx", "app/modal/category-form.tsx"],
-      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/home-insights.test.mjs"]
+      "routes": ["app/modal/groupings.tsx", "app/modal/categories.tsx", "app/modal/category-form.tsx", "app/modal/savings-groups.tsx", "app/modal/organizer-form.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/savings-grouping.test.mjs"]
     },
     {
       "id": "history-and-report",
@@ -94,4 +94,3 @@
     }
   ]
 }
-

@@ -60,6 +60,7 @@ export default function HomeScreen() {
     paymentMethods,
     recurringDecisions,
     savingsGoals,
+    savingsGroups,
     isPeriodChanging,
     setPeriodStartDate,
     setPeriodEndDate,
@@ -410,6 +411,8 @@ export default function HomeScreen() {
         {selectedPeriod && (
           <SavingsGoalsPeriodCard
             items={periodSavingsGoalActivity}
+            goals={savingsGoals}
+            groups={savingsGroups}
             backgroundColor={colors.surface}
             asOfDate={selectedPeriod.endDate}
             onManage={() => router.push('/modal/savings-goals')}

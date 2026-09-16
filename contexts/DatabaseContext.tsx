@@ -14,12 +14,14 @@ import type {
   DebtPlan,
   ExpenseWithCategory,
   Income,
+  IncomeCategory,
   Debt,
   NewCategory,
   NewCreditCardAdjustment,
   NewAccountTransfer,
   NewExpense,
   NewIncome,
+  NewIncomeCategory,
   NewInstallmentPurchase,
   NewDebt,
   NewDebtBalance,
@@ -43,8 +45,10 @@ import type {
   RecurringIncome,
   RecurringMovementKind,
   NewSavingsGoal,
+  NewSavingsGroup,
   NewSavingsGoalBalance,
   SavingsGoal,
+  SavingsGroup,
   SavingsGoalMovement,
   SavingsGoalPeriodActivity,
   SavingsGoalStatus,
@@ -60,6 +64,8 @@ import { syncFinancialReminders } from '@/services/FinancialReminderService';
 
 type DatabaseContextValue = {
   categories: Category[];
+  incomeCategories: IncomeCategory[];
+  savingsGroups: SavingsGroup[];
   paymentMethods: PaymentMethod[];
   paymentMethodTotals: PaymentMethodTotal[];
   cardPaymentMovements: CardPaymentMovement[];
@@ -92,6 +98,10 @@ type DatabaseContextValue = {
   editCategory: (id: number, data: NewCategory) => Promise<void>;
   getCategoryExpenseCount: (id: number) => Promise<number>;
   removeCategory: (id: number, detachExpenses?: boolean) => Promise<void>;
+  saveIncomeCategory: (data: NewIncomeCategory, id?: number) => Promise<void>;
+  removeIncomeCategory: (id: number) => Promise<void>;
+  saveSavingsGroup: (data: NewSavingsGroup, id?: number) => Promise<void>;
+  removeSavingsGroup: (id: number) => Promise<void>;
   addPaymentMethod: (data: NewPaymentMethod) => Promise<void>;
   editPaymentMethod: (id: number, data: NewPaymentMethod) => Promise<void>;
   updatePaymentMethodBalance: (id: number, data: NewPaymentMethodBalance) => Promise<void>;
@@ -184,6 +194,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [hasRefreshed, setHasRefreshed] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([]);
+  const [savingsGroups, setSavingsGroups] = useState<SavingsGroup[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [paymentMethodTotals, setPaymentMethodTotals] = useState<PaymentMethodTotal[]>([]);
   const [cardPaymentMovements, setCardPaymentMovements] = useState<CardPaymentMovement[]>([]);
@@ -269,8 +281,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           selectedPeriodIdRef.current = targetPeriodId;
           setSelectedPeriodId(targetPeriodId);
         }
-        const [cats, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
+        const [cats, incomeCats, groups, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
           db.getCategories(),
+          db.getIncomeCategories(),
+          db.getSavingsGroups(),
           db.getPaymentMethods(true),
           db.getPaymentMethodTotals(targetPeriodId),
           db.getCardPaymentMovementsForPeriod(targetPeriodId),
@@ -298,6 +312,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           currentPeriod: nextSettings.currentPeriod ?? null,
         }).catch(() => undefined);
         setCategories(cats);
+        setIncomeCategories(incomeCats);
+        setSavingsGroups(groups);
         setPaymentMethods(methods);
         setPaymentMethodTotals(methodTotals);
         setCardPaymentMovements(cardPayments);
@@ -419,6 +435,26 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     (id: number) => db.getExpenseCountByCategory(id),
     []
   );
+
+  const saveIncomeCategory = useCallback(async (data: NewIncomeCategory, id?: number) => {
+    await db.saveIncomeCategory(data, id);
+    await refresh();
+  }, [refresh]);
+
+  const removeIncomeCategory = useCallback(async (id: number) => {
+    await db.deleteIncomeCategory(id);
+    await refresh();
+  }, [refresh]);
+
+  const saveSavingsGroup = useCallback(async (data: NewSavingsGroup, id?: number) => {
+    await db.saveSavingsGroup(data, id);
+    await refresh();
+  }, [refresh]);
+
+  const removeSavingsGroup = useCallback(async (id: number) => {
+    await db.deleteSavingsGroup(id);
+    await refresh();
+  }, [refresh]);
 
   const addPaymentMethod = useCallback(async (data: NewPaymentMethod) => {
     await db.createPaymentMethod(data);
@@ -857,6 +893,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       categories,
+      incomeCategories,
+      savingsGroups,
       paymentMethods,
       paymentMethodTotals,
       cardPaymentMovements,
@@ -889,6 +927,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editCategory,
       getCategoryExpenseCount,
       removeCategory,
+      saveIncomeCategory,
+      removeIncomeCategory,
+      saveSavingsGroup,
+      removeSavingsGroup,
       addPaymentMethod,
       editPaymentMethod,
       updatePaymentMethodBalance,
@@ -962,6 +1004,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       categories,
+      incomeCategories,
+      savingsGroups,
       paymentMethods,
       paymentMethodTotals,
       cardPaymentMovements,
@@ -994,6 +1038,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editCategory,
       getCategoryExpenseCount,
       removeCategory,
+      saveIncomeCategory,
+      removeIncomeCategory,
+      saveSavingsGroup,
+      removeSavingsGroup,
       addPaymentMethod,
       editPaymentMethod,
       updatePaymentMethodBalance,

@@ -40,6 +40,7 @@ import type {
   ExpenseWithCategory,
   GeneratedRecurringExpenseNotification,
   Income,
+  IncomeCategory,
   Debt,
   DebtEntry,
   NewCategory,
@@ -48,6 +49,7 @@ import type {
   NewCreditCardCycle,
   NewExpense,
   NewIncome,
+  NewIncomeCategory,
   NewInstallmentPurchase,
   NewDebt,
   NewDebtBalance,
@@ -59,6 +61,7 @@ import type {
   NewRecurringIncome,
   NewRecurringSchedule,
   NewSavingsGoal,
+  NewSavingsGroup,
   NewSavingsGoalBalance,
   PaymentMethod,
   PaymentMethodMovement,
@@ -76,6 +79,7 @@ import type {
   RecurringOccurrenceStatus,
   SavingsExpenseKind,
   SavingsGoal,
+  SavingsGroup,
   SavingsGoalMovement,
   SavingsGoalPeriodActivity,
   Settings,
@@ -514,6 +518,12 @@ async function initializeDatabase(): Promise<void> {
       system_key TEXT UNIQUE CHECK (system_key IS NULL OR system_key IN ('savings', 'credit_payment'))
     );
 
+    CREATE TABLE IF NOT EXISTS income_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      color TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS expenses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -544,6 +554,7 @@ async function initializeDatabase(): Promise<void> {
       period_id INTEGER NOT NULL,
       date TEXT NOT NULL,
       payment_method_id INTEGER,
+      category_id INTEGER REFERENCES income_categories(id) ON DELETE SET NULL,
       FOREIGN KEY(period_id) REFERENCES periods(id),
       FOREIGN KEY(payment_method_id) REFERENCES payment_methods(id) ON DELETE SET NULL
     );
@@ -699,6 +710,7 @@ async function initializeDatabase(): Promise<void> {
       active INTEGER NOT NULL DEFAULT 1,
       source_income_id INTEGER,
       payment_method_id INTEGER,
+      category_id INTEGER REFERENCES income_categories(id) ON DELETE SET NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(source_income_id) REFERENCES incomes(id) ON DELETE SET NULL,
@@ -719,6 +731,12 @@ async function initializeDatabase(): Promise<void> {
       FOREIGN KEY(income_id) REFERENCES incomes(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS savings_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      color TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS savings_goals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL COLLATE NOCASE UNIQUE,
@@ -729,6 +747,7 @@ async function initializeDatabase(): Promise<void> {
       balance_movement_anchor_id INTEGER NOT NULL DEFAULT 0,
       deadline TEXT NOT NULL,
       color TEXT NOT NULL DEFAULT '#0a7ea4',
+      group_id INTEGER REFERENCES savings_groups(id) ON DELETE SET NULL,
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
       archived_at TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -841,6 +860,9 @@ async function initializeDatabase(): Promise<void> {
   if (!incomeColumns.some((column) => column.name === 'recurring_income_id')) {
     await db.execAsync('ALTER TABLE incomes ADD COLUMN recurring_income_id INTEGER;');
   }
+  if (!incomeColumns.some((column) => column.name === 'category_id')) {
+    await db.execAsync('ALTER TABLE incomes ADD COLUMN category_id INTEGER REFERENCES income_categories(id) ON DELETE SET NULL;');
+  }
 
   const categoryColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(categories)'
@@ -873,6 +895,9 @@ async function initializeDatabase(): Promise<void> {
   const savingsGoalColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(savings_goals)'
   );
+  if (!savingsGoalColumns.some((column) => column.name === 'group_id')) {
+    await db.execAsync('ALTER TABLE savings_goals ADD COLUMN group_id INTEGER REFERENCES savings_groups(id) ON DELETE SET NULL;');
+  }
   if (!savingsGoalColumns.some((column) => column.name === 'archived_at')) {
     await db.execAsync('ALTER TABLE savings_goals ADD COLUMN archived_at TEXT;');
   }
@@ -1112,6 +1137,9 @@ async function initializeDatabase(): Promise<void> {
       'ALTER TABLE recurring_incomes ADD COLUMN payment_method_id INTEGER REFERENCES payment_methods(id) ON DELETE SET NULL;'
     );
   }
+  if (!recurringIncomeColumns.some((column) => column.name === 'category_id')) {
+    await db.execAsync('ALTER TABLE recurring_incomes ADD COLUMN category_id INTEGER REFERENCES income_categories(id) ON DELETE SET NULL;');
+  }
   if (!paymentMethodColumns.some((column) => column.name === 'credit_limit')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN credit_limit INTEGER;');
   }
@@ -1289,6 +1317,7 @@ async function initializeDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_incomes_date ON incomes(date);
     CREATE INDEX IF NOT EXISTS idx_incomes_period ON incomes(period_id);
     CREATE INDEX IF NOT EXISTS idx_incomes_payment_method ON incomes(payment_method_id);
+    CREATE INDEX IF NOT EXISTS idx_incomes_category ON incomes(category_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_period_category ON expenses(period_id, category_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_period_date ON expenses(period_id, date);
     CREATE INDEX IF NOT EXISTS idx_expenses_payment_method ON expenses(payment_method_id);
@@ -1303,6 +1332,7 @@ async function initializeDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_recurring_income_occurrence_date ON recurring_income_occurrences(recurring_income_id, scheduled_date);
     CREATE INDEX IF NOT EXISTS idx_recurring_incomes_next ON recurring_incomes(active, next_date);
     CREATE INDEX IF NOT EXISTS idx_savings_goals_status ON savings_goals(status, deadline);
+    CREATE INDEX IF NOT EXISTS idx_savings_goals_group ON savings_goals(group_id);
     CREATE INDEX IF NOT EXISTS idx_savings_movements_goal ON savings_goal_movements(goal_id);
     CREATE INDEX IF NOT EXISTS idx_savings_adjustments_goal ON savings_goal_adjustments(goal_id, date);
     CREATE INDEX IF NOT EXISTS idx_recurring_savings_goal ON recurring_expenses(savings_goal_id);
@@ -1527,8 +1557,10 @@ export async function resetLocalData(): Promise<void> {
       DELETE FROM debt_plans;
       DELETE FROM manual_debts;
       DELETE FROM savings_goals;
+      DELETE FROM savings_groups;
       DELETE FROM settings;
       DELETE FROM categories;
+      DELETE FROM income_categories;
       DELETE FROM payment_methods;
       DELETE FROM periods;
       DELETE FROM sqlite_sequence;
@@ -1629,6 +1661,36 @@ export async function getCategories(): Promise<Category[]> {
   const db = await getDb();
   const rows = await db.getAllAsync('SELECT * FROM categories ORDER BY name ASC');
   return rows.map((row) => mapCategory(row as Record<string, unknown>));
+}
+
+export async function getIncomeCategories(): Promise<IncomeCategory[]> {
+  const db = await getDb();
+  return db.getAllAsync<IncomeCategory>('SELECT id, name, color FROM income_categories ORDER BY name COLLATE NOCASE');
+}
+
+export async function saveIncomeCategory(data: NewIncomeCategory, id?: number): Promise<void> {
+  const db = await getDb();
+  const name = data.name.trim();
+  const color = data.color.toLowerCase();
+  if (!name) throw new Error(t('categories.missingName'));
+  const duplicate = await db.getFirstAsync<{ id: number }>(
+    'SELECT id FROM income_categories WHERE name = ? COLLATE NOCASE AND id != ? LIMIT 1', name, id ?? -1
+  );
+  if (duplicate) throw new Error(t('database.categoryNameExists'));
+  if (id == null) {
+    await db.runAsync('INSERT INTO income_categories (name, color) VALUES (?, ?)', name, color);
+  } else {
+    await db.runAsync('UPDATE income_categories SET name = ?, color = ? WHERE id = ?', name, color, id);
+  }
+}
+
+export async function deleteIncomeCategory(id: number): Promise<void> {
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    await transaction.runAsync('UPDATE incomes SET category_id = NULL WHERE category_id = ?', id);
+    await transaction.runAsync('UPDATE recurring_incomes SET category_id = NULL WHERE category_id = ?', id);
+    await transaction.runAsync('DELETE FROM income_categories WHERE id = ?', id);
+  });
 }
 
 export async function createCategory(data: NewCategory): Promise<Category> {
@@ -2296,6 +2358,7 @@ function mapSavingsGoal(row: Record<string, unknown>): SavingsGoal {
   return {
     id: Number(row.id),
     name: String(row.name),
+    groupId: row.group_id == null ? null : Number(row.group_id),
     targetAmount: Number(row.target_amount),
     initialAmount: Number(row.initial_amount),
     allowWithdrawals: Number(row.allow_withdrawals) === 1,
@@ -2351,6 +2414,35 @@ export async function getSavingsGoals(includeArchived = false): Promise<SavingsG
      ORDER BY goal.status ASC, goal.deadline ASC, goal.name COLLATE NOCASE ASC`
   );
   return rows.map(mapSavingsGoal);
+}
+
+export async function getSavingsGroups(): Promise<SavingsGroup[]> {
+  const db = await getDb();
+  return db.getAllAsync<SavingsGroup>('SELECT id, name, color FROM savings_groups ORDER BY name COLLATE NOCASE');
+}
+
+export async function saveSavingsGroup(data: NewSavingsGroup, id?: number): Promise<void> {
+  const db = await getDb();
+  const name = data.name.trim();
+  const color = data.color.toLowerCase();
+  if (!name) throw new Error(t('categories.missingName'));
+  const duplicate = await db.getFirstAsync<{ id: number }>(
+    'SELECT id FROM savings_groups WHERE name = ? COLLATE NOCASE AND id != ? LIMIT 1', name, id ?? -1
+  );
+  if (duplicate) throw new Error(t('groupings.savingsGroupNameExists'));
+  if (id == null) {
+    await db.runAsync('INSERT INTO savings_groups (name, color) VALUES (?, ?)', name, color);
+  } else {
+    await db.runAsync('UPDATE savings_groups SET name = ?, color = ? WHERE id = ?', name, color, id);
+  }
+}
+
+export async function deleteSavingsGroup(id: number): Promise<void> {
+  const db = await getDb();
+  await withExclusiveTransaction(db, async (transaction) => {
+    await transaction.runAsync('UPDATE savings_goals SET group_id = NULL WHERE group_id = ?', id);
+    await transaction.runAsync('DELETE FROM savings_groups WHERE id = ?', id);
+  });
 }
 
 export async function getSavingsGoalMovements(goalId: number): Promise<SavingsGoalMovement[]> {
@@ -2529,8 +2621,8 @@ export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
   const result = await db.runAsync(
     `INSERT INTO savings_goals
       (name, target_amount, initial_amount, allow_withdrawals, balance_updated_at,
-       balance_movement_anchor_id, created_at, deadline, color, status)
-     VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 'active')`,
+       balance_movement_anchor_id, created_at, deadline, color, group_id, status)
+     VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 'active')`,
     data.name.trim(),
     data.targetAmount,
     data.initialAmount,
@@ -2538,7 +2630,8 @@ export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
     resolveBalanceTrackingStartDate(data.balanceDate),
     `${data.creationDate} 12:00:00`,
     data.deadline,
-    data.color.toLowerCase()
+    data.color.toLowerCase(),
+    data.groupId ?? null
   );
   return result.lastInsertRowId;
 }
@@ -2579,12 +2672,12 @@ export async function updateSavingsGoal(id: number, data: NewSavingsGoal): Promi
     await transaction.runAsync(
       `UPDATE savings_goals SET
          name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?,
-         created_at = ?, deadline = ?, color = ?, balance_updated_at = ?,
+         created_at = ?, deadline = ?, color = ?, group_id = ?, balance_updated_at = ?,
          balance_movement_anchor_id = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       data.name.trim(), data.targetAmount, data.initialAmount,
       data.allowWithdrawals ? 1 : 0, `${data.creationDate} 12:00:00`,
-      data.deadline, data.color.toLowerCase(), data.balanceDate, anchor, id
+      data.deadline, data.color.toLowerCase(), data.groupId ?? null, data.balanceDate, anchor, id
     );
     await reconcileSavingsGoalSnapshots(transaction, id);
     await assertSavingsGoalBalanceIsNotNegative(transaction, id);
@@ -5921,6 +6014,9 @@ export async function getIncomes(periodId?: number): Promise<Income[]> {
       income.id,
       income.name,
       income.amount,
+      income.category_id AS categoryId,
+      incomeCategory.name AS categoryName,
+      incomeCategory.color AS categoryColor,
       income.period_id AS periodId,
       income.date,
       income.recurring_income_id AS recurringIncomeId,
@@ -5932,6 +6028,7 @@ export async function getIncomes(periodId?: number): Promise<Income[]> {
       savingsGoal.name AS savingsGoalName,
       savingsGoal.color AS savingsGoalColor
     FROM incomes income
+    LEFT JOIN income_categories incomeCategory ON incomeCategory.id = income.category_id
     LEFT JOIN payment_methods paymentMethod ON paymentMethod.id = income.payment_method_id
     LEFT JOIN savings_goal_movements savingsMovement ON savingsMovement.income_id = income.id
     LEFT JOIN savings_goals savingsGoal ON savingsGoal.id = savingsMovement.goal_id
@@ -5951,6 +6048,9 @@ export async function getIncomeById(id: number): Promise<Income | null> {
        income.id,
        income.name,
        income.amount,
+       income.category_id AS categoryId,
+       incomeCategory.name AS categoryName,
+       incomeCategory.color AS categoryColor,
        income.period_id AS periodId,
        income.date,
        income.recurring_income_id AS recurringIncomeId,
@@ -5962,6 +6062,7 @@ export async function getIncomeById(id: number): Promise<Income | null> {
        savingsGoal.name AS savingsGoalName,
        savingsGoal.color AS savingsGoalColor
      FROM incomes income
+     LEFT JOIN income_categories incomeCategory ON incomeCategory.id = income.category_id
      LEFT JOIN payment_methods paymentMethod ON paymentMethod.id = income.payment_method_id
      LEFT JOIN savings_goal_movements savingsMovement ON savingsMovement.income_id = income.id
      LEFT JOIN savings_goals savingsGoal ON savingsGoal.id = savingsMovement.goal_id
@@ -6015,13 +6116,14 @@ export async function createIncome(
 
   await withExclusiveTransaction(db, async (transaction) => {
     const result = await transaction.runAsync(
-      `INSERT INTO incomes (name, amount, period_id, date, payment_method_id)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO incomes (name, amount, period_id, date, payment_method_id, category_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       data.name.trim(),
       data.amount,
       targetPeriodId,
       data.date,
-      data.paymentMethodId
+      data.paymentMethodId,
+      data.savingsGoalId != null ? null : data.categoryId ?? null
     );
     await setIncomeSavingsMovement(
       transaction,
@@ -6045,19 +6147,19 @@ export async function createIncomeWithRecurrence(
   await assertIncomePaymentMethod(db, data.paymentMethodId, true);
   await withExclusiveTransaction(db, async (transaction) => {
     const incomeResult = await transaction.runAsync(
-      'INSERT INTO incomes (name, amount, period_id, date, payment_method_id) VALUES (?, ?, ?, ?, ?)',
-      data.name.trim(), data.amount, periodId, data.date, data.paymentMethodId
+      'INSERT INTO incomes (name, amount, period_id, date, payment_method_id, category_id) VALUES (?, ?, ?, ?, ?, ?)',
+      data.name.trim(), data.amount, periodId, data.date, data.paymentMethodId, data.categoryId ?? null
     );
     const rule = { ...schedule, name: data.name.trim(), amount: data.amount };
     const nextDate = getNextOccurrenceDate(rule, data.date);
     const recurringResult = await transaction.runAsync(
       `INSERT INTO recurring_incomes
         (name, amount, frequency, interval_months, execution_day, registration_mode, start_date,
-         end_date, next_date, active, source_income_id, payment_method_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+         end_date, next_date, active, source_income_id, payment_method_id, category_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
       rule.name, rule.amount, rule.frequency, rule.frequency === 'custom' ? rule.intervalMonths : 1,
       rule.executionDay, rule.registrationMode, data.date, rule.endDate, nextDate,
-      incomeResult.lastInsertRowId, data.paymentMethodId
+      incomeResult.lastInsertRowId, data.paymentMethodId, data.categoryId ?? null
     );
     await transaction.runAsync(
       'UPDATE incomes SET recurring_income_id = ? WHERE id = ?',
@@ -6085,8 +6187,9 @@ export async function createRecurringIncomeFromSource(
       date: string;
       recurring_income_id: number | null;
       payment_method_id: number | null;
+      category_id: number | null;
     }>(
-      'SELECT id, name, amount, date, recurring_income_id, payment_method_id FROM incomes WHERE id = ?', sourceIncomeId
+      'SELECT id, name, amount, date, recurring_income_id, payment_method_id, category_id FROM incomes WHERE id = ?', sourceIncomeId
     );
     if (!source) throw new Error(t('database.sourceIncomeMissing'));
     if (source.recurring_income_id != null) throw new Error(t('database.incomeAlreadyRecurring'));
@@ -6098,11 +6201,11 @@ export async function createRecurringIncomeFromSource(
     const result = await transaction.runAsync(
       `INSERT INTO recurring_incomes
         (name, amount, frequency, interval_months, execution_day, registration_mode, start_date,
-         end_date, next_date, active, source_income_id, payment_method_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+         end_date, next_date, active, source_income_id, payment_method_id, category_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
       source.name, source.amount, rule.frequency, rule.frequency === 'custom' ? rule.intervalMonths : 1,
       rule.executionDay, rule.registrationMode, source.date, rule.endDate, nextDate, source.id,
-      source.payment_method_id
+      source.payment_method_id, source.category_id
     );
     await transaction.runAsync('UPDATE incomes SET recurring_income_id = ? WHERE id = ?', result.lastInsertRowId, source.id);
     await transaction.runAsync(
@@ -6148,6 +6251,7 @@ export async function getRecurringIncomes(): Promise<RecurringIncome[]> {
     active: Number(row.active) === 1,
     sourceIncomeId: row.source_income_id == null ? null : Number(row.source_income_id),
     paymentMethodId: row.payment_method_id == null ? null : Number(row.payment_method_id),
+    categoryId: row.category_id == null ? null : Number(row.category_id),
     pendingCount: Number(row.pending_count),
   }));
 }
@@ -6176,8 +6280,8 @@ export async function createRecurringIncome(data: NewRecurringIncome): Promise<n
     const result = await transaction.runAsync(
       `INSERT INTO recurring_incomes
         (name, amount, frequency, interval_months, execution_day, registration_mode, start_date,
-         end_date, next_date, active, source_income_id, payment_method_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+         end_date, next_date, active, source_income_id, payment_method_id, category_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
       data.name.trim(),
       data.amount,
       data.frequency,
@@ -6188,7 +6292,8 @@ export async function createRecurringIncome(data: NewRecurringIncome): Promise<n
       data.endDate,
       data.startDate,
       data.active ? 1 : 0,
-      data.paymentMethodId
+      data.paymentMethodId,
+      data.categoryId ?? null
     );
     createdId = result.lastInsertRowId;
   });
@@ -6205,11 +6310,11 @@ export async function updateRecurringIncome(id: number, data: NewRecurringIncome
   const result = await db.runAsync(
     `UPDATE recurring_incomes SET name = ?, amount = ?, frequency = ?, interval_months = ?,
       execution_day = ?, registration_mode = ?, start_date = ?, end_date = ?, next_date = ?, active = ?,
-      payment_method_id = ?, updated_at = CURRENT_TIMESTAMP
+      payment_method_id = ?, category_id = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
     data.name.trim(), data.amount, data.frequency, data.frequency === 'custom' ? data.intervalMonths : 1,
     data.executionDay, data.registrationMode, data.startDate, data.endDate, nextDate, data.active ? 1 : 0,
-    data.paymentMethodId, id
+    data.paymentMethodId, data.categoryId ?? null, id
   );
   if (result.changes === 0) throw new Error(t('database.recurringIncomeMissing'));
   await db.runAsync(
@@ -6274,6 +6379,7 @@ export async function processDueRecurringIncomes(
       execution_day: number | null; registration_mode: RecurringIncome['registrationMode'];
       start_date: string; end_date: string | null; next_date: string;
       payment_method_id: number | null;
+      category_id: number | null;
     }>("SELECT * FROM recurring_incomes WHERE active = 1 AND next_date IS NOT NULL");
     for (const rule of rules) {
       let nextDate: string | null = rule.next_date;
@@ -6300,8 +6406,8 @@ export async function processDueRecurringIncomes(
             );
           } else {
             const income = await transaction.runAsync(
-              'INSERT INTO incomes (name, amount, period_id, date, recurring_income_id, payment_method_id) VALUES (?, ?, ?, ?, ?, ?)',
-              rule.name, rule.amount, period.id, nextDate, rule.id, rule.payment_method_id
+              'INSERT INTO incomes (name, amount, period_id, date, recurring_income_id, payment_method_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              rule.name, rule.amount, period.id, nextDate, rule.id, rule.payment_method_id, rule.category_id
             );
             await transaction.runAsync(
               `INSERT INTO recurring_income_occurrences
@@ -6334,8 +6440,8 @@ export async function approveRecurringIncomeOccurrence(
   const db = await getDb();
   let generatedIncomeId = 0;
   await withExclusiveTransaction(db, async (transaction) => {
-    const rule = await transaction.getFirstAsync<{ name: string; amount: number; payment_method_id: number | null }>(
-      'SELECT name, amount, payment_method_id FROM recurring_incomes WHERE id = ?', recurringIncomeId
+    const rule = await transaction.getFirstAsync<{ name: string; amount: number; payment_method_id: number | null; category_id: number | null }>(
+      'SELECT name, amount, payment_method_id, category_id FROM recurring_incomes WHERE id = ?', recurringIncomeId
     );
     if (!rule) throw new Error(t('database.recurringIncomeMissing'));
     const period = await transaction.getFirstAsync<{ id: number }>(
@@ -6357,8 +6463,8 @@ export async function approveRecurringIncomeOccurrence(
     }
     if (current?.status === 'skipped') throw new Error(t('database.occurrenceSkipped'));
     const income = await transaction.runAsync(
-      'INSERT INTO incomes (name, amount, period_id, date, recurring_income_id, payment_method_id) VALUES (?, ?, ?, ?, ?, ?)',
-      rule.name, rule.amount, period.id, scheduledDate, recurringIncomeId, rule.payment_method_id
+      'INSERT INTO incomes (name, amount, period_id, date, recurring_income_id, payment_method_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      rule.name, rule.amount, period.id, scheduledDate, recurringIncomeId, rule.payment_method_id, rule.category_id
     );
     generatedIncomeId = income.lastInsertRowId;
     await transaction.runAsync(
@@ -6459,11 +6565,12 @@ export async function updateIncome(
       ? existingMovement?.goal_id ?? null
       : data.savingsGoalId;
     await transaction.runAsync(
-      `UPDATE incomes SET name = ?, amount = ?, date = ?, payment_method_id = ? WHERE id = ?`,
+      `UPDATE incomes SET name = ?, amount = ?, date = ?, payment_method_id = ?, category_id = ? WHERE id = ?`,
       data.name.trim(),
       data.amount,
       data.date,
       data.paymentMethodId,
+      goalId == null ? data.categoryId ?? null : null,
       id
     );
     await setIncomeSavingsMovement(transaction, id, data.amount, goalId);

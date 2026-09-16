@@ -20,6 +20,11 @@ export type Category = {
 
 export type SavingsGoalStatus = 'active' | 'archived';
 
+export type IncomeCategory = { id: number; name: string; color: string };
+export type NewIncomeCategory = Omit<IncomeCategory, 'id'>;
+export type SavingsGroup = { id: number; name: string; color: string };
+export type NewSavingsGroup = Omit<SavingsGroup, 'id'>;
+
 export type SavingsGoalMovementKind = 'contribution' | 'withdrawal' | 'funded_expense' | 'adjustment';
 
 export type SavingsExpenseKind = Extract<
@@ -29,6 +34,7 @@ export type SavingsExpenseKind = Extract<
 
 export type NewSavingsGoal = {
   name: string;
+  groupId?: number | null;
   targetAmount: number;
   initialAmount: number;
   allowWithdrawals: boolean;
@@ -46,6 +52,7 @@ export type NewSavingsGoalBalance = {
 
 export type SavingsGoal = NewSavingsGoal & {
   id: number;
+  groupId: number | null;
   status: SavingsGoalStatus;
   currentAmount: number;
   balanceUpdatedAt: string | null;
@@ -114,6 +121,9 @@ export type Income = {
   id: number;
   name: string;
   amount: number;
+  categoryId: number | null;
+  categoryName: string | null;
+  categoryColor: string | null;
   periodId: number;
   date: string;
   recurringIncomeId: number | null;
@@ -584,6 +594,7 @@ export type RecurringDecisionItem = RecurringConfirmationSchedule & {
 export type NewRecurringIncome = NewRecurringSchedule & {
   name: string;
   amount: number;
+  categoryId?: number | null;
   paymentMethodId: number | null;
   sourceIncomeId?: number | null;
 };
@@ -598,6 +609,7 @@ export type RecurringIncome = NewRecurringIncome & {
 export type NewIncome = {
   name: string;
   amount: number;
+  categoryId?: number | null;
   date: string;
   paymentMethodId: number | null;
   savingsGoalId?: number | null;

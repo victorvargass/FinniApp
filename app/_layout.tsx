@@ -86,6 +86,18 @@ function AppContent() {
                   options={{ presentation: 'fullScreenModal', title: t('navigation.categories') }}
                 />
                 <Stack.Screen
+                  name="modal/groupings"
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.groupings') }}
+                />
+                <Stack.Screen
+                  name="modal/savings-groups"
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.savingsGroups') }}
+                />
+                <Stack.Screen
+                  name="modal/organizer-form"
+                  options={{ presentation: 'modal', title: t('navigation.groupings') }}
+                />
+                <Stack.Screen
                   name="modal/payment-methods"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.paymentMethods') }}
                 />

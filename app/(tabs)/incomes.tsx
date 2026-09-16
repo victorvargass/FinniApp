@@ -21,6 +21,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
+import { getIncomeGroupIdentity } from '@/lib/income-grouping';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import type { Income } from '@/lib/types';
@@ -33,7 +34,7 @@ type SortOption =
   | 'date-asc'
   | 'date-desc';
 
-type GroupBy = 'none' | 'payment-method';
+type GroupBy = 'none' | 'payment-method' | 'category';
 
 type IncomeGroup = {
   name: string;
@@ -232,10 +233,12 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
 
     const groups = new Map<string, IncomeGroup>();
     filteredIncomes.forEach((income) => {
-      const key = income.paymentMethodId == null ? 'none' : String(income.paymentMethodId);
+      const identity = getIncomeGroupIdentity(income, groupBy,
+        getPaymentMethodLabel(income), t('common.notSpecified'));
+      const key = identity.key;
       const group = groups.get(key) ?? {
-        name: getPaymentMethodLabel(income),
-        color: income.paymentMethodColor ?? '#60758E',
+        name: identity.name,
+        color: identity.color,
         incomes: [],
       };
       group.incomes.push(income);
@@ -363,7 +366,11 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
             <View style={styles.toolbarButtonText}>
               <ThemedText type="defaultSemiBold">{t('filters.group')}</ThemedText>
               <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
-                {groupBy === 'payment-method' ? t('navigation.paymentMethod') : t('filters.noGrouping')}
+                {groupBy === 'payment-method'
+                  ? t('navigation.paymentMethod')
+                  : groupBy === 'category'
+                    ? t('navigation.category')
+                    : t('filters.noGrouping')}
               </ThemedText>
             </View>
           </Pressable>
@@ -393,6 +400,15 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
         visible={groupModalVisible}
         title={t('filters.groupIncomes')}
         onClose={() => setGroupModalVisible(false)}>
+        <ModalOption
+          label={t('filters.groupByCategory')}
+          selected={groupBy === 'category'}
+          onPress={() => {
+            setGroupBy('category');
+            setCollapsedGroupKeys([]);
+            setGroupModalVisible(false);
+          }}
+        />
         <ModalOption
           label={t('filters.groupByPaymentMethod')}
           selected={groupBy === 'payment-method'}
@@ -518,6 +534,7 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
                   </View>
                   <ThemedText style={[styles.meta, { fontSize: 12 }]}>
                     {formatDate(new Date(`${income.date}T12:00:00`))}
+                    {groupBy !== 'category' && income.categoryName ? ` · ${income.categoryName}` : ''}
                     {income.savingsGoalName ? t('savings.incomeWithdrawalFrom', { name: income.savingsGoalName }) : ''}
                     {groupBy === 'none' && income.paymentMethodName
                       ? t('incomes.receivedInMeta', { name: getPaymentMethodLabel(income) })
