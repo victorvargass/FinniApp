@@ -272,6 +272,7 @@ const en = {
     nextPeriod: 'See next period',
     previousPeriod: 'See previous period',
     recurringExpense: 'recurring expense',
+    splitExpense: 'split expense',
     recurringIncome: 'Recurring income',
     selectCustomColor: 'Select custom color',
     toggleBiometric: 'Activate biometric lock',

@@ -819,7 +819,17 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
             
                   <View style={[styles.itemInfo]}>
                     <View style={styles.expenseNameRow}>
-                      <ThemedText type="defaultSemiBold" style={{ fontSize: 15 }}>{expense.name}</ThemedText>
+                      <ThemedText type="defaultSemiBold" style={styles.expenseName} numberOfLines={1}>
+                        {expense.name}
+                      </ThemedText>
+                      {expense.originalAmount != null && expense.splitPercentage != null && (
+                        <Ionicons
+                          name="pie-chart-outline"
+                          size={17}
+                          color={colors.primary}
+                          accessibilityLabel={t('accessibility.splitExpense')}
+                        />
+                      )}
                       {expense.recurringExpenseId != null &&
                         activeRecurringExpenseIds.has(expense.recurringExpenseId) && (
                         <Ionicons
@@ -1086,6 +1096,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+  },
+  expenseName: {
+    fontSize: 15,
+    flexShrink: 1,
   },
   meta: {
     fontSize: 13,

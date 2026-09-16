@@ -272,6 +272,7 @@ const es = {
     nextPeriod: 'Ver período siguiente',
     previousPeriod: 'Ver período anterior',
     recurringExpense: 'Gasto recurrente',
+    splitExpense: 'Gasto dividido',
     recurringIncome: 'Ingreso recurrente',
     selectCustomColor: 'Seleccionar color personalizado',
     toggleBiometric: 'Activar bloqueo biométrico',
