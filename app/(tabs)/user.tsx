@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as MailComposer from 'expo-mail-composer';
 import React from 'react';
@@ -26,6 +25,7 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { checkPublishedUpdate, formatPublishedUpdate, formatUpdateIdentity, getActiveUpdate, getInstalledVersion, type PublishedUpdateStatus } from '@/lib/app-update-info';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { DATABASE_SCHEMA_VERSION } from '@/lib/database-schema';
 import { clearAppDiagnostics, getAppDiagnostics, type AppDiagnostic, type DiagnosticStage } from '@/lib/logger';
@@ -161,6 +161,8 @@ export default function UserScreen() {
   const [resetModalVisible, setResetModalVisible] = React.useState(false);
   const [resetConfirmation, setResetConfirmation] = React.useState('');
   const [isResetting, setIsResetting] = React.useState(false);
+  const [publishedUpdate, setPublishedUpdate] = React.useState<PublishedUpdateStatus>({ kind: 'checking' });
+  const activeUpdate = getActiveUpdate();
   const pendingConfirmations = recurringDecisions.filter((item) => item.status === 'pending').length;
   const activeSavingsGoals = savingsGoals.filter((goal) => goal.status === 'active');
   const totalSavings = savingsGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
@@ -180,6 +182,15 @@ export default function UserScreen() {
     7: t('settings.weekdays.saturday'),
   };
   const canReset = resetConfirmation.trim().toLocaleUpperCase() === t('settings.resetConfirmationWord');
+
+  useFocusEffect(React.useCallback(() => {
+    let active = true;
+    setPublishedUpdate({ kind: 'checking' });
+    void checkPublishedUpdate().then((status) => {
+      if (active) setPublishedUpdate(status);
+    });
+    return () => { active = false; };
+  }, []));
 
   const closeResetModal = () => {
     if (isResetting) return;
@@ -229,13 +240,16 @@ export default function UserScreen() {
 
   const contactSupport = async () => {
     try {
+      const latestPublishedUpdate = await checkPublishedUpdate();
       const diagnostics = await getAppDiagnostics();
       const diagnosticText = diagnostics.length > 0
         ? groupDiagnostics(diagnostics).map(formatDiagnostic).join('\n\n')
         : t('settings.noDiagnostics');
       const platformConstants = Platform.constants as { Model?: string };
       const technicalContext = [
-        t('settings.diagnosticAppVersion', { value: Constants.expoConfig?.version ?? t('settings.unknown') }),
+        t('settings.versionInstalledLine', { value: getInstalledVersion() }),
+        t('settings.activeUpdateLine', { value: formatUpdateIdentity(activeUpdate, true) }),
+        t('settings.publishedUpdateLine', { value: formatPublishedUpdate(latestPublishedUpdate, activeUpdate, true) }),
         t('settings.diagnosticOperatingSystem', {
           value: `${Platform.OS === 'android' ? 'Android' : 'iOS'} ${String(Platform.Version)}`,
         }),
@@ -596,6 +610,18 @@ export default function UserScreen() {
             textStyle={styles.dangerButtonText}
           />
         </ThemedView>
+
+        <ThemedView style={[styles.versionCard, { borderColor: colors.border }]}>
+          <ThemedText style={[styles.versionText, { color: colors.textSecondary }]}>
+            {t('settings.versionInstalledLine', { value: getInstalledVersion() })}
+          </ThemedText>
+          <ThemedText style={[styles.versionText, { color: colors.textSecondary }]}>
+            {t('settings.activeUpdateLine', { value: formatUpdateIdentity(activeUpdate) })}
+          </ThemedText>
+          <ThemedText style={[styles.versionText, { color: colors.textSecondary }]}>
+            {t('settings.publishedUpdateLine', { value: formatPublishedUpdate(publishedUpdate, activeUpdate) })}
+          </ThemedText>
+        </ThemedView>
       </ScrollView>
 
       <Modal
@@ -805,6 +831,15 @@ const styles = StyleSheet.create({
   },
   dangerButtonText: {
     color: '#fff',
+  },
+  versionCard: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 12,
+    gap: 4,
+  },
+  versionText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
