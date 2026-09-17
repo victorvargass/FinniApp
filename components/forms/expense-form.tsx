@@ -12,6 +12,7 @@ import { Colors, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { resolveExpenseSplitMode } from '@/lib/expense-split-mode';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
@@ -71,6 +72,10 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const [isNameFocused, setIsNameFocused] = useState(false);
   const expenseWasSplit =
     initialExpense?.originalAmount != null && initialExpense.splitPercentage != null;
+  const initialSplitMode = resolveExpenseSplitMode(
+    initialExpense?.splitMode ?? null,
+    initialExpense?.splitPercentage ?? null
+  );
   const [amountText, setAmountText] = useState<string>(
     creditAdjustment
       ? formatCLPInput(creditAdjustment.amount)
@@ -79,9 +84,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         : ''
   );
   const [isSplitAmount, setIsSplitAmount] = useState(expenseWasSplit);
-  const [splitMode, setSplitMode] = useState<'percentage' | 'amount'>('percentage');
+  const [splitMode, setSplitMode] = useState<'percentage' | 'amount'>(initialSplitMode);
   const [percentageText, setPercentageText] = useState(
-    expenseWasSplit ? String(initialExpense?.splitPercentage) : '50'
+    expenseWasSplit
+      ? initialSplitMode === 'amount'
+        ? String(Number(initialExpense!.splitPercentage!.toFixed(3)))
+        : String(initialExpense?.splitPercentage)
+      : '50'
   );
   const [shareAmountText, setShareAmountText] = useState(
     expenseWasSplit && initialExpense ? formatCLPInput(initialExpense.amount) : ''
@@ -529,6 +538,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         amount: amountToSave,
         originalAmount: isSplitAmount ? totalAmount : null,
         splitPercentage: splitPercentageToSave,
+        splitMode: isSplitAmount ? splitMode : null,
         categoryId,
         paymentMethodId,
         savingsGoalId,

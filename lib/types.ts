@@ -96,6 +96,8 @@ export type SavingsGoalPeriodActivity = {
   netActivity: number;
 };
 
+export type ExpenseSplitMode = 'percentage' | 'amount';
+
 export type Expense = {
   id: number;
   name: string;
@@ -105,6 +107,7 @@ export type Expense = {
   date: string;
   originalAmount: number | null;
   splitPercentage: number | null;
+  splitMode: ExpenseSplitMode | null;
   paymentMethodId: number | null;
   recurringExpenseId: number | null;
   debtPlanId: number | null;
@@ -513,6 +516,7 @@ export type NewExpense = {
   amount: number;
   originalAmount: number | null;
   splitPercentage: number | null;
+  splitMode: ExpenseSplitMode | null;
   categoryId: number | null;
   date: string;
   paymentMethodId: number | null;
@@ -544,6 +548,7 @@ export type NewRecurringExpense = NewRecurringSchedule & {
   amount: number;
   originalAmount: number | null;
   splitPercentage: number | null;
+  splitMode: ExpenseSplitMode | null;
   categoryId: number | null;
   paymentMethodId: number | null;
   sourceExpenseId?: number | null;

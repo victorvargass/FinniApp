@@ -398,6 +398,7 @@ async function syncRecurringSourceExpenses(db: SQLite.SQLiteDatabase): Promise<v
     amount: number;
     original_amount: number | null;
     split_percentage: number | null;
+    split_mode: RecurringExpense['splitMode'];
     category_id: number | null;
     payment_method_id: number | null;
     savings_goal_id: number | null;
@@ -413,6 +414,7 @@ async function syncRecurringSourceExpenses(db: SQLite.SQLiteDatabase): Promise<v
       expense.amount,
       expense.original_amount,
       expense.split_percentage,
+      expense.split_mode,
       expense.category_id,
       expense.payment_method_id,
       savingsMovement.goal_id AS savings_goal_id,
@@ -452,7 +454,7 @@ async function syncRecurringSourceExpenses(db: SQLite.SQLiteDatabase): Promise<v
 
       await transaction.runAsync(
         `UPDATE recurring_expenses SET
-          name = ?, amount = ?, original_amount = ?, split_percentage = ?,
+          name = ?, amount = ?, original_amount = ?, split_percentage = ?, split_mode = ?,
           category_id = ?, payment_method_id = ?, savings_goal_id = ?, savings_kind = ?,
           start_date = CASE
             WHEN NOT EXISTS (
@@ -467,6 +469,7 @@ async function syncRecurringSourceExpenses(db: SQLite.SQLiteDatabase): Promise<v
         source.amount,
         source.original_amount,
         source.split_percentage,
+        source.split_mode,
         source.category_id,
         source.payment_method_id,
         source.savings_kind === 'contribution' ? source.savings_goal_id : null,
@@ -535,6 +538,7 @@ async function initializeDatabase(): Promise<void> {
       date TEXT NOT NULL,
       original_amount INTEGER,
       split_percentage REAL,
+      split_mode TEXT CHECK (split_mode IS NULL OR split_mode IN ('percentage', 'amount')),
       credit_payment_target_id INTEGER,
 
       FOREIGN KEY(category_id)
@@ -628,6 +632,7 @@ async function initializeDatabase(): Promise<void> {
       amount INTEGER NOT NULL,
       original_amount INTEGER,
       split_percentage REAL,
+      split_mode TEXT CHECK (split_mode IS NULL OR split_mode IN ('percentage', 'amount')),
       category_id INTEGER,
       payment_method_id INTEGER,
       frequency TEXT NOT NULL CHECK (frequency IN ('weekly', 'monthly', 'annual', 'custom')),
@@ -841,6 +846,9 @@ async function initializeDatabase(): Promise<void> {
   if (!expenseColumns.some((column) => column.name === 'split_percentage')) {
     await db.execAsync('ALTER TABLE expenses ADD COLUMN split_percentage REAL;');
   }
+  if (!expenseColumns.some((column) => column.name === 'split_mode')) {
+    await db.execAsync("ALTER TABLE expenses ADD COLUMN split_mode TEXT CHECK (split_mode IS NULL OR split_mode IN ('percentage', 'amount'));");
+  }
   if (!expenseColumns.some((column) => column.name === 'payment_method_id')) {
     await db.execAsync('ALTER TABLE expenses ADD COLUMN payment_method_id INTEGER;');
   }
@@ -920,6 +928,9 @@ async function initializeDatabase(): Promise<void> {
   const recurringExpenseColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(recurring_expenses)'
   );
+  if (!recurringExpenseColumns.some((column) => column.name === 'split_mode')) {
+    await db.execAsync("ALTER TABLE recurring_expenses ADD COLUMN split_mode TEXT CHECK (split_mode IS NULL OR split_mode IN ('percentage', 'amount'));");
+  }
   if (!recurringExpenseColumns.some((column) => column.name === 'savings_goal_id')) {
     await db.execAsync(
       'ALTER TABLE recurring_expenses ADD COLUMN savings_goal_id INTEGER REFERENCES savings_goals(id) ON DELETE SET NULL;'
@@ -2347,6 +2358,9 @@ function validateExpense(data: NewExpense): void {
   const hasOriginalAmount = data.originalAmount != null;
   const hasSplitPercentage = data.splitPercentage != null;
   if (hasOriginalAmount !== hasSplitPercentage) {
+    throw new Error(t('validation.invalidSplitAmount'));
+  }
+  if (hasOriginalAmount !== (data.splitMode != null)) {
     throw new Error(t('validation.invalidSplitAmount'));
   }
   if (data.originalAmount != null && data.splitPercentage != null && (
@@ -4788,6 +4802,7 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
         e.date,
         e.original_amount AS originalAmount,
         e.split_percentage AS splitPercentage,
+        e.split_mode AS splitMode,
         e.payment_method_id AS paymentMethodId,
         e.credit_payment_target_id AS creditPaymentTargetId,
         e.recurring_expense_id AS recurringExpenseId,
@@ -4856,6 +4871,7 @@ export async function getExpenseById(id: number): Promise<ExpenseWithCategory | 
       e.date,
       e.original_amount AS originalAmount,
       e.split_percentage AS splitPercentage,
+      e.split_mode AS splitMode,
       e.payment_method_id AS paymentMethodId,
       e.credit_payment_target_id AS creditPaymentTargetId,
       e.recurring_expense_id AS recurringExpenseId,
@@ -4960,8 +4976,8 @@ export async function createExpense(
     const result = await transaction.runAsync(
       `INSERT INTO expenses (
         name, amount, category_id, period_id, date, original_amount,
-        split_percentage, payment_method_id, credit_payment_target_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        split_percentage, split_mode, payment_method_id, credit_payment_target_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       data.name.trim(),
       data.amount,
       data.categoryId,
@@ -4969,6 +4985,7 @@ export async function createExpense(
       data.date,
       data.originalAmount,
       data.splitPercentage,
+      data.splitMode,
       effectivePaymentMethodId,
       data.creditPaymentTargetId ?? null
     );
@@ -5038,7 +5055,7 @@ export async function updateExpense(
     await transaction.runAsync(
       `UPDATE expenses SET
         name = ?, amount = ?, category_id = ?, date = ?,
-        original_amount = ?, split_percentage = ?, payment_method_id = ?,
+        original_amount = ?, split_percentage = ?, split_mode = ?, payment_method_id = ?,
         credit_payment_target_id = ?
        WHERE id = ?`,
       data.name.trim(),
@@ -5047,6 +5064,7 @@ export async function updateExpense(
       data.date,
       data.originalAmount,
       data.splitPercentage,
+      data.splitMode,
       effectivePaymentMethodId,
       creditPaymentTargetId,
       id
@@ -5121,7 +5139,7 @@ export async function updateExpense(
 
     await transaction.runAsync(
       `UPDATE recurring_expenses SET
-        name = ?, amount = ?, original_amount = ?, split_percentage = ?,
+        name = ?, amount = ?, original_amount = ?, split_percentage = ?, split_mode = ?,
         category_id = ?, payment_method_id = ?, savings_goal_id = ?, savings_kind = ?,
         start_date = ?, execution_day = ?,
         end_date = CASE WHEN end_date IS NOT NULL AND end_date < ? THEN ? ELSE end_date END,
@@ -5131,6 +5149,7 @@ export async function updateExpense(
       data.amount,
       data.originalAmount,
       data.splitPercentage,
+      data.splitMode,
       data.categoryId,
       effectivePaymentMethodId,
       selection?.kind === 'contribution' ? selection.goalId : null,
@@ -5258,6 +5277,10 @@ export async function deleteExpense(
 function validateRecurringExpense(data: NewRecurringExpense): void {
   if (!data.name.trim()) throw new Error(t('database.recurringExpenseName'));
   if (!Number.isFinite(data.amount) || data.amount <= 0) throw new Error(t('validation.invalidAmount'));
+  const hasOriginalAmount = data.originalAmount != null;
+  if (hasOriginalAmount !== (data.splitPercentage != null) || hasOriginalAmount !== (data.splitMode != null)) {
+    throw new Error(t('validation.invalidSplitAmount'));
+  }
   if (data.frequency === 'custom' && (!Number.isInteger(data.intervalMonths) || data.intervalMonths < 1)) {
     throw new Error(t('database.customInterval'));
   }
@@ -5279,6 +5302,7 @@ function mapRecurringExpense(row: Record<string, unknown>): RecurringExpense {
     amount: Number(row.amount),
     originalAmount: row.original_amount == null ? null : Number(row.original_amount),
     splitPercentage: row.split_percentage == null ? null : Number(row.split_percentage),
+    splitMode: row.split_mode === 'amount' || row.split_mode === 'percentage' ? row.split_mode : null,
     categoryId: row.category_id == null ? null : Number(row.category_id),
     paymentMethodId: row.payment_method_id == null ? null : Number(row.payment_method_id),
     frequency: row.frequency as RecurringExpense['frequency'],
@@ -5408,6 +5432,7 @@ function recurringInsertValues(data: NewRecurringExpense) {
     data.amount,
     data.originalAmount,
     data.splitPercentage,
+    data.splitMode,
     data.categoryId,
     data.paymentMethodId,
     data.frequency,
@@ -5425,10 +5450,10 @@ function recurringInsertValues(data: NewRecurringExpense) {
 }
 
 const RECURRING_INSERT_SQL = `INSERT INTO recurring_expenses (
-  name, amount, original_amount, split_percentage, category_id, payment_method_id,
+  name, amount, original_amount, split_percentage, split_mode, category_id, payment_method_id,
   frequency, interval_months, execution_basis, execution_day, registration_mode,
   start_date, end_date, active, source_expense_id, savings_goal_id, savings_kind
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 type RecurringDateRule = Pick<
   RecurringExpense,
@@ -5560,9 +5585,9 @@ export async function createExpenseWithRecurrence(
     );
     const expenseResult = await transaction.runAsync(
       `INSERT INTO expenses (
-        name, amount, category_id, period_id, date, original_amount, split_percentage,
+        name, amount, category_id, period_id, date, original_amount, split_percentage, split_mode,
         payment_method_id, recurring_expense_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       expense.name.trim(),
       expense.amount,
       expense.categoryId,
@@ -5570,6 +5595,7 @@ export async function createExpenseWithRecurrence(
       expense.date,
       expense.originalAmount,
       expense.splitPercentage,
+      expense.splitMode,
       paymentMethodId,
       recurringResult.lastInsertRowId
     );
@@ -5722,9 +5748,9 @@ async function insertGeneratedRecurringExpense(
 ): Promise<number> {
   const result = await transaction.runAsync(
     `INSERT INTO expenses (
-      name, amount, category_id, period_id, date, original_amount, split_percentage,
+      name, amount, category_id, period_id, date, original_amount, split_percentage, split_mode,
       payment_method_id, recurring_expense_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     rule.name,
     rule.amount,
     rule.categoryId,
@@ -5732,6 +5758,7 @@ async function insertGeneratedRecurringExpense(
     scheduledDate,
     rule.originalAmount,
     rule.splitPercentage,
+    rule.splitMode,
     rule.paymentMethodId,
     rule.id
   );
@@ -7150,6 +7177,7 @@ export async function getPeriodStatement(
         e.date,
         e.original_amount AS originalAmount,
         e.split_percentage AS splitPercentage,
+        e.split_mode AS splitMode,
         e.payment_method_id AS paymentMethodId,
         e.recurring_expense_id AS recurringExpenseId,
         e.debt_plan_id AS debtPlanId,

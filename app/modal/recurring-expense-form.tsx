@@ -12,6 +12,7 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { resolveExpenseSplitMode } from '@/lib/expense-split-mode';
 import { formatCLP, formatCLPInput, parseAmount, toDateString } from '@/lib/format';
 import { parseIsoDate } from '@/lib/recurrence';
 import { t } from '@/lib/i18n';
@@ -119,6 +120,9 @@ export default function RecurringExpenseFormScreen() {
         amount,
         originalAmount: expenseDetails?.originalAmount ?? null,
         splitPercentage: expenseDetails?.splitPercentage ?? null,
+        splitMode: expenseDetails?.originalAmount != null
+          ? resolveExpenseSplitMode(expenseDetails.splitMode, expenseDetails.splitPercentage)
+          : null,
         categoryId: canEditMovement ? categoryId : expenseDetails?.categoryId ?? null,
         paymentMethodId: canEditMovement ? paymentMethodId : expenseDetails?.paymentMethodId ?? null,
         savingsGoalId: expenseDetails?.savingsGoalId ?? null,
