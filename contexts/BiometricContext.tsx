@@ -22,7 +22,7 @@ type BiometricContextValue = {
   isChecking: boolean;
   isLocked: boolean;
   authenticationType: string;
-  authenticate: () => Promise<boolean>;
+  authenticate: (options?: { automatic?: boolean }) => Promise<boolean>;
   setEnabled: (enabled: boolean) => Promise<boolean>;
 };
 
@@ -52,17 +52,21 @@ export function BiometricProvider({ children }: PropsWithChildren) {
   const enabledRef = useRef(false);
   const isLockedRef = useRef(false);
   const authenticatingRef = useRef(false);
+  const automaticAttemptedRef = useRef(false);
   const backgroundStartedAtRef = useRef<number | null>(null);
 
-  const authenticate = useCallback(async () => {
+  const authenticate = useCallback(async (options?: { automatic?: boolean }) => {
+    const automatic = options?.automatic === true;
     if (
       Platform.OS === 'web' ||
       AppState.currentState !== 'active' ||
-      authenticatingRef.current
+      authenticatingRef.current ||
+      (automatic && automaticAttemptedRef.current)
     ) {
       return false;
     }
 
+    if (automatic) automaticAttemptedRef.current = true;
     authenticatingRef.current = true;
     try {
       const result = await LocalAuthentication.authenticateAsync({
@@ -109,6 +113,7 @@ export function BiometricProvider({ children }: PropsWithChildren) {
         setEnabledState(shouldLock);
         enabledRef.current = shouldLock;
         isLockedRef.current = shouldLock;
+        automaticAttemptedRef.current = false;
         setIsLocked(shouldLock);
       } finally {
         if (mounted) setIsChecking(false);
@@ -127,6 +132,7 @@ export function BiometricProvider({ children }: PropsWithChildren) {
     const lockApp = () => {
       if (!enabledRef.current || isLockedRef.current) return;
       isLockedRef.current = true;
+      automaticAttemptedRef.current = false;
       setIsLocked(true);
     };
 
@@ -170,6 +176,7 @@ export function BiometricProvider({ children }: PropsWithChildren) {
 
       enabledRef.current = nextEnabled;
       isLockedRef.current = false;
+      automaticAttemptedRef.current = false;
       setEnabledState(nextEnabled);
       setIsLocked(false);
       return true;

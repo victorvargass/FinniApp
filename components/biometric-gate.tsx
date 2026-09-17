@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AppState,
   AppStateStatus,
@@ -18,7 +18,6 @@ import { t } from '@/lib/i18n';
 
 export function BiometricGate({ children }: React.PropsWithChildren) {
   const { authenticate, authenticationType, isChecking, isLocked } = useBiometric();
-  const autoPromptedRef = useRef(false);
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -33,15 +32,9 @@ export function BiometricGate({ children }: React.PropsWithChildren) {
   }, []);
 
   useEffect(() => {
-    if (!isLocked) {
-      autoPromptedRef.current = false;
-      return;
-    }
-
-    if (appState === 'active' && !autoPromptedRef.current) {
+    if (isLocked && appState === 'active') {
       const timer = setTimeout(() => {
-        autoPromptedRef.current = true;
-        authenticate();
+        authenticate({ automatic: true });
       }, 250);
 
       return () => clearTimeout(timer);
@@ -64,7 +57,9 @@ export function BiometricGate({ children }: React.PropsWithChildren) {
         </ThemedText>
         <Pressable
           accessibilityRole="button"
-          onPress={authenticate}
+          onPress={() => {
+            authenticate();
+          }}
           style={({ pressed }) => [
             styles.button,
             { backgroundColor: colors.tint },
