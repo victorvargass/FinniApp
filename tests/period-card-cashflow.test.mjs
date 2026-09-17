@@ -4,11 +4,32 @@ import { DatabaseSync } from 'node:sqlite';
 
 import {
   calculatePeriodAvailable,
+  calculatePeriodOverviewExpenses,
   PERIOD_CARD_ADJUSTMENTS_SQL,
   PERIOD_CARD_PAYMENTS_SQL,
 } from '../lib/period-card-cashflow.ts';
 
-test('a purchase and an account-funded card payment each reduce period available', () => {
+test('the home overview excludes credit purchases but keeps every other expense', () => {
+  assert.equal(calculatePeriodOverviewExpenses([
+    { amount: 30_000, paymentMethodType: 'credit' },
+    { amount: 20_000, paymentMethodType: 'debit' },
+    { amount: 10_000, paymentMethodType: 'cash' },
+    { amount: 5_000, paymentMethodType: null },
+  ]), 35_000);
+});
+
+test('a credit purchase affects period available only when paid from an account', () => {
+  const overviewExpenses = calculatePeriodOverviewExpenses([
+    { amount: 30_000, paymentMethodType: 'credit' },
+  ]);
+
+  assert.equal(calculatePeriodAvailable(100_000, overviewExpenses, 0, {
+    paymentsFromAccounts: 30_000,
+    internalAdjustments: 0,
+  }), 70_000);
+});
+
+test('a non-credit purchase and an account-funded card payment each reduce period available', () => {
   assert.equal(calculatePeriodAvailable(100_000, 30_000, 0, {
     paymentsFromAccounts: 30_000,
     internalAdjustments: 0,

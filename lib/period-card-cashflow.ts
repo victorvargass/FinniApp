@@ -1,6 +1,13 @@
+import type { PaymentMethodType } from './types';
+
 export type PeriodCardCashflow = {
   paymentsFromAccounts: number;
   internalAdjustments: number;
+};
+
+type PeriodOverviewExpense = {
+  amount: number;
+  paymentMethodType: PaymentMethodType | null;
 };
 
 export const PERIOD_CARD_PAYMENTS_SQL = `
@@ -17,6 +24,15 @@ export const PERIOD_CARD_ADJUSTMENTS_SQL = `
     ON adjustment.date BETWEEN period.start_date AND period.end_date
   GROUP BY period.id
 `;
+
+export function calculatePeriodOverviewExpenses(
+  expenses: readonly PeriodOverviewExpense[]
+): number {
+  return expenses.reduce(
+    (total, expense) => total + (expense.paymentMethodType === 'credit' ? 0 : expense.amount),
+    0
+  );
+}
 
 export function calculatePeriodAvailable(
   incomes: number,

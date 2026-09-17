@@ -24,7 +24,10 @@ import { findMostUrgentCategoryLimit } from '@/lib/home-insights';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
-import { calculatePeriodAvailable } from '@/lib/period-card-cashflow';
+import {
+  calculatePeriodAvailable,
+  calculatePeriodOverviewExpenses,
+} from '@/lib/period-card-cashflow';
 import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
 import type { Debt, DebtPlan } from '@/lib/types';
 import {
@@ -104,6 +107,19 @@ export default function HomeScreen() {
   const periodSavingsWithdrawals = periodSavingsGoalActivity.reduce((sum, item) => sum + item.withdrawals, 0);
   const periodSavingsAvailable = periodSavingsWithdrawals + periodSavingsFundingTotal;
   const selectedPeriodReport = periodHistory.find((period) => period.periodId === selectedPeriod?.id);
+  const periodOverviewExpensesTotal = useMemo(
+    () => calculatePeriodOverviewExpenses(expenses),
+    [expenses]
+  );
+  const periodOverviewBalance = calculatePeriodAvailable(
+    periodIncomesTotal,
+    periodOverviewExpensesTotal,
+    periodSavingsAvailable,
+    {
+      paymentsFromAccounts: selectedPeriodReport?.cardPaymentsFromAccountsTotal ?? 0,
+      internalAdjustments: selectedPeriodReport?.cardInternalAdjustmentsTotal ?? 0,
+    }
+  );
   const periodBalance = calculatePeriodAvailable(
     periodIncomesTotal,
     periodExpensesTotal,
@@ -375,9 +391,9 @@ export default function HomeScreen() {
         </ThemedView>
 
         <HomeOverview
-          balance={periodBalance}
+          balance={periodOverviewBalance}
           incomeTotal={periodIncomesTotal}
-          expenseTotal={periodExpensesTotal}
+          expenseTotal={periodOverviewExpensesTotal}
           cardPaymentsTotal={selectedPeriodReport?.cardPaymentsFromAccountsTotal ?? 0}
           cardAdjustmentsTotal={selectedPeriodReport?.cardInternalAdjustmentsTotal ?? 0}
           attentionItems={attentionItems}
