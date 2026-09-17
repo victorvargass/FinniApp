@@ -7,6 +7,7 @@ import { CategoryChart } from '@/components/CategoryChart';
 import { BreakdownSection, type BreakdownMode } from '@/components/breakdown-section';
 import { HomeDebtsCard } from '@/components/home-debts-card';
 import { HomeOverview, type HomeAttentionItem } from '@/components/home-overview';
+import { HomePaymentBalancesCard } from '@/components/home-payment-balances-card';
 import { LimitProgressBar } from '@/components/LimitProgressBar';
 import { PaymentMethodChart } from '@/components/PaymentMethodChart';
 import { PeriodSelector } from '@/components/period-selector';
@@ -423,6 +424,28 @@ export default function HomeScreen() {
             {t('savings.releasedInBalance', { amount: formatCLP(periodSavingsAvailable) })}
           </ThemedText>
         )}
+
+        <HomePaymentBalancesCard
+          kind="wallet"
+          paymentMethods={paymentMethods}
+          backgroundColor={colors.surface}
+          onManage={() => router.push('/modal/payment-methods')}
+          onOpenPaymentMethod={(id) => router.push({
+            pathname: '/modal/payment-method-detail',
+            params: { id: String(id) },
+          })}
+        />
+
+        <HomePaymentBalancesCard
+          kind="credit"
+          paymentMethods={paymentMethods}
+          backgroundColor={colors.surface}
+          onManage={() => router.push('/modal/payment-methods')}
+          onOpenPaymentMethod={(id) => router.push({
+            pathname: '/modal/payment-method-detail',
+            params: { id: String(id) },
+          })}
+        />
 
         {selectedPeriod && (
           <SavingsGoalsPeriodCard
