@@ -987,6 +987,7 @@ const es = {
     releasedInBalance: 'Incluye %{amount} liberados desde ahorros',
   },
   paymentMethods: {
+    description: 'Administra el efectivo, las cuentas y las tarjetas que usas para registrar movimientos y controlar sus saldos o cupos.',
     cash: 'Efectivo',
     credit: 'Crédito',
     debit: 'Débito',

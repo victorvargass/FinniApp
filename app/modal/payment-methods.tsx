@@ -69,6 +69,9 @@ export default function PaymentMethodsScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={styles.guideHeader}>
+            <ThemedText style={styles.description}>
+              {t('paymentMethods.description')}
+            </ThemedText>
             <FeatureGuideButton onPress={guide.open} />
           </View>
         }
@@ -166,7 +169,8 @@ export default function PaymentMethodsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   list: { padding: 20, paddingBottom: 100 },
-  guideHeader: { alignItems: 'flex-end', marginBottom: 2 },
+  guideHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 2 },
+  description: { flex: 1, opacity: 0.7, lineHeight: 21 },
   sectionTitle: { fontSize: 18, marginTop: 14, marginBottom: 6, paddingHorizontal: 12 },
   card: { borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   inactive: { opacity: 0.55 },

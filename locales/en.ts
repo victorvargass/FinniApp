@@ -987,6 +987,7 @@ const en = {
     releasedInBalance: 'Includes %{amount} unlocked from savings',
   },
   paymentMethods: {
+    description: 'Manage the cash, accounts, and cards you use to record transactions and track their balances or credit.',
     cash: 'Cash',
     credit: 'Credit',
     debit: 'Debit',
