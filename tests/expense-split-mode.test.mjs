@@ -1,7 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveExpenseSplitMode } from '../lib/expense-split-mode.ts';
+import {
+  getPercentageSelectionAfterModeChange,
+  resolveExpenseSplitMode,
+} from '../lib/expense-split-mode.ts';
+
+test('switching from amount to percentage defaults to the 50% preset', () => {
+  assert.deepEqual(getPercentageSelectionAfterModeChange('amount'), {
+    percentageText: '50',
+    usesCustomPercentage: false,
+  });
+});
+
+test('staying in percentage mode preserves the current selection', () => {
+  assert.equal(getPercentageSelectionAfterModeChange('percentage'), null);
+});
 
 test('saved split mode is restored exactly when editing', () => {
   assert.equal(resolveExpenseSplitMode('amount', 50), 'amount');

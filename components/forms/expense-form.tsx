@@ -12,7 +12,10 @@ import { Colors, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { resolveExpenseSplitMode } from '@/lib/expense-split-mode';
+import {
+  getPercentageSelectionAfterModeChange,
+  resolveExpenseSplitMode,
+} from '@/lib/expense-split-mode';
 import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
@@ -710,7 +713,14 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           <>
             <View style={styles.shareOptions}>
               <Pressable
-                onPress={() => setSplitMode('percentage')}
+                onPress={() => {
+                  const selection = getPercentageSelectionAfterModeChange(splitMode);
+                  if (selection) {
+                    setPercentageText(selection.percentageText);
+                    setUsesCustomPercentage(selection.usesCustomPercentage);
+                  }
+                  setSplitMode('percentage');
+                }}
                 style={[
                   styles.shareButton,
                   { borderColor: colors.icon },
