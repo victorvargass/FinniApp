@@ -11,6 +11,7 @@ import { ThemedText } from './themed-text';
 
 export type FeatureGuideKey =
   | 'payment-methods'
+  | 'groupings'
   | 'savings'
   | 'debts'
   | 'recurrences'

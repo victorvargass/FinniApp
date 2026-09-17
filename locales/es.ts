@@ -168,6 +168,16 @@ const es = {
       historyTitle: 'Tu historial se conserva',
       historyBody: 'Los gastos antiguos quedan como “No especificado”. Puedes desactivar un medio de pago sin perder su historial.',
     },
+    groupings: {
+      organizeTitle: 'Ordena sin cambiar tus montos',
+      organizeBody: 'Las agrupaciones te ayudan a ordenar, filtrar y entender tus movimientos y metas. Solo cambian cómo se presenta la información; no modifican saldos ni totales.',
+      categoriesTitle: 'Categorías para gastos e ingresos',
+      categoriesBody: 'Las categorías de gastos y las de ingresos se administran por separado. En gastos también puedes definir un límite por período para controlar tu presupuesto.',
+      savingsTitle: 'Grupos para tus metas de ahorro',
+      savingsBody: 'Asigna un grupo opcional a cada meta para verlas ordenadas en Inicio y en la lista completa de metas. Sus aportes, retiros y saldos siguen funcionando igual.',
+      optionalTitle: 'Siempre son opcionales',
+      optionalBody: 'Si no eliges una categoría o grupo, el registro quedará en “No especificado”. Si luego eliminas la agrupación, los movimientos y las metas se conservan con todos sus montos.',
+    },
     savings: {
       goalTitle: 'Cada meta guarda su propio saldo',
       goalBody: 'Define cuánto quieres reunir, una fecha objetivo y si ese ahorro permitirá retiros. El monto inicial representa lo que ya habías ahorrado antes de crearla.',
@@ -326,6 +336,7 @@ const es = {
     limitPerPeriod: 'Límite: %{amount}/período',
   },
   groupings: {
+    intro: 'Organiza tus movimientos y metas para encontrarlos y compararlos con mayor facilidad.',
     expenseCategories: 'Gastos',
     incomeCategories: 'Ingresos',
     categoriesDescription: 'Organiza gastos e ingresos con categorías opcionales.',

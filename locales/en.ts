@@ -168,6 +168,16 @@ const en = {
       historyTitle: 'Your history is preserved',
       historyBody: 'Past expenses remain as “Not specified”. You can deactivate a payment method without losing its history.',
     },
+    groupings: {
+      organizeTitle: 'Organize without changing amounts',
+      organizeBody: 'Groups help you organize, filter, and understand your transactions and goals. They only change how information is presented; balances and totals stay the same.',
+      categoriesTitle: 'Categories for expenses and income',
+      categoriesBody: 'Expense and income categories are managed separately. Expense categories can also have a per-period limit to help you control your budget.',
+      savingsTitle: 'Groups for savings goals',
+      savingsBody: 'Assign an optional group to each goal to organize them on Home and in the full goals list. Contributions, withdrawals, and balances continue to work the same way.',
+      optionalTitle: 'They are always optional',
+      optionalBody: 'Without a category or group, the record appears as “Not specified”. If you later delete the grouping, transactions and goals keep all their amounts.',
+    },
     savings: {
       goalTitle: 'Each goal keeps its own balance',
       goalBody: 'Define how much you want to save, a target date, and whether withdrawals are allowed. The starting amount represents money you had already saved before creating it.',
@@ -326,6 +336,7 @@ const en = {
     limitPerPeriod: 'Limit: %{amount}/period',
   },
   groupings: {
+    intro: 'Organize your transactions and goals so they are easier to find and compare.',
     expenseCategories: 'Expenses',
     incomeCategories: 'Income',
     categoriesDescription: 'Organize expenses and income with optional categories.',
