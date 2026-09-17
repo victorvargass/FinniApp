@@ -4,17 +4,18 @@ import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EmptyState } from '@/components/empty-state';
+import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
+import { FloatingActionButton } from '@/components/floating-action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
-import { EmptyState } from '@/components/empty-state';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
-import { describeRecurrence, parseIsoDate } from '@/lib/recurrence';
 import { t } from '@/lib/i18n';
+import { describeRecurrence, parseIsoDate } from '@/lib/recurrence';
 import { showToast } from '@/lib/toast';
 
 function showResult(message: string) {
@@ -53,24 +54,12 @@ export default function RecurringExpensesScreen() {
     },
   ];
 
-  const openNewRecurringMovement = () => router.push(
-    section === 'incomes'
-      ? '/modal/recurring-income-form'
-      : '/modal/recurring-expense-form'
-  );
-
   const floatingAddButton = (
-    <Pressable
+    <FloatingActionButton
+      href={section === 'incomes' ? '/modal/recurring-income-form' : '/modal/recurring-expense-form'}
       accessibilityLabel={t(section === 'incomes' ? 'recurrence.newIncome' : 'recurrence.newExpense')}
-      accessibilityRole="button"
-      onPress={openNewRecurringMovement}
-      style={({ pressed }) => [
-        styles.floatingAdd,
-        { backgroundColor: colors.action },
-        pressed && styles.pressed,
-      ]}>
-      <Ionicons name="add" size={30} color={colors.onPrimary} />
-    </Pressable>
+      avoidBottomInset
+    />
   );
 
   const tabs = (
@@ -345,20 +334,5 @@ const styles = StyleSheet.create({
   action: { flex: 1, borderWidth: 1, borderRadius: 9, padding: 10, alignItems: 'center' },
   approve: { borderColor: '#0B315B', backgroundColor: '#0B315B' },
   approveText: { color: '#fff', fontWeight: '700' },
-  floatingAdd: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 5,
-  },
   pressed: { opacity: 0.72 },
 });
