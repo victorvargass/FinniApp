@@ -66,6 +66,8 @@ export default function HomeScreen() {
     savingsGoals,
     savingsGroups,
     isPeriodChanging,
+    periodRefreshFailed,
+    refresh,
     setPeriodStartDate,
     setPeriodEndDate,
     closeCurrentPeriod,
@@ -656,8 +658,30 @@ export default function HomeScreen() {
           accessibilityLabel={t('period.loading')}
           accessibilityRole="progressbar"
           style={[styles.loadingOverlay, { backgroundColor: `${colors.screen}F2` }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <ThemedText type="defaultSemiBold">{t('period.loading')}</ThemedText>
+          {periodRefreshFailed ? (
+            <View style={styles.loadingErrorContent}>
+              <ThemedText type="subtitle" style={styles.loadingErrorText}>
+                {t('period.loadFailed')}
+              </ThemedText>
+              <ThemedText style={styles.loadingErrorText}>
+                {t('period.loadFailedHint')}
+              </ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void refresh().catch(() => undefined)}
+                style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              >
+                <ThemedText type="defaultSemiBold" style={styles.retryButtonText}>
+                  {t('common.retry')}
+                </ThemedText>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <ThemedText type="defaultSemiBold">{t('period.loading')}</ThemedText>
+            </>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -674,6 +698,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
+  },
+  loadingErrorContent: {
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  loadingErrorText: {
+    textAlign: 'center',
+  },
+  retryButton: {
+    minWidth: 150,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingHorizontal: 24,
+  },
+  retryButtonText: {
+    color: '#fff',
   },
   scroll: {
     padding: 20,

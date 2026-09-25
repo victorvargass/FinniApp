@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import * as db from '@/repositories';
 import { t } from '@/lib/i18n';
-import { logAppError } from '@/lib/logger';
+import { attachDiagnosticMetadata, logAppError } from '@/lib/logger';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import type {
   AccountTransfer,
@@ -104,6 +104,7 @@ type DatabaseContextValue = {
   periodExpensesTotal: number;
   isReady: boolean;
   isPeriodChanging: boolean;
+  periodRefreshFailed: boolean;
   refresh: () => Promise<void>;
   runDatabaseMaintenance: (operation: () => Promise<void>) => Promise<void>;
   selectPeriod: (periodId: number) => void;
@@ -200,6 +201,14 @@ type DatabaseContextValue = {
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
 
+async function refreshStep<T>(code: string, operation: Promise<T>): Promise<T> {
+  try {
+    return await operation;
+  } catch (error) {
+    throw attachDiagnosticMetadata(error, { stage: 'refresh', code });
+  }
+}
+
 export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings>({
     id: 1,
@@ -218,6 +227,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [loadedPeriodId, setLoadedPeriodId] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [hasRefreshed, setHasRefreshed] = useState(false);
+  const [periodRefreshFailed, setPeriodRefreshFailed] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [relationshipTypes, setRelationshipTypes] = useState<RelationshipType[]>([]);
@@ -246,6 +256,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const refreshRequestedRef = useRef(false);
   const maintenanceGateRef = useRef<Promise<void> | null>(null);
   const recurringSyncPromiseRef = useRef<Promise<void> | null>(null);
+  const skipNextSelectedPeriodRefreshRef = useRef(false);
 
   selectedPeriodIdRef.current = selectedPeriodId;
 
@@ -286,23 +297,28 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       return refreshPromiseRef.current;
     }
     const runRefreshes = async () => {
-      do {
-        refreshRequestedRef.current = false;
+      try {
+        setPeriodRefreshFailed(false);
+        do {
+          refreshRequestedRef.current = false;
 
-        const nextSettings = await db.getSettings();
+        const nextSettings = await refreshStep('REFRESH_SETTINGS', db.getSettings());
         if (nextSettings.pushNotificationsEnabled) {
           await syncMovementReminder(nextSettings, true, false).catch(() => undefined);
         } else {
           await cancelFinniNotifications().catch(() => undefined);
         }
-        const generatedExpenses = await db.processDueRecurringExpenses();
+        const generatedExpenses = await refreshStep(
+          'REFRESH_RECURRING_EXPENSES',
+          db.processDueRecurringExpenses()
+        );
         await notifyGeneratedRecurringExpenses(
           generatedExpenses,
           nextSettings.pushNotificationsEnabled
         ).catch(() => undefined);
-        await db.processProjectedInstallments();
-        await db.processDueRecurringIncomes();
-        const allPeriods = await db.getPeriods();
+        await refreshStep('REFRESH_INSTALLMENTS', db.processProjectedInstallments());
+        await refreshStep('REFRESH_RECURRING_INCOMES', db.processDueRecurringIncomes());
+        const allPeriods = await refreshStep('REFRESH_PERIODS', db.getPeriods());
         setSettings(nextSettings);
         setPeriods(allPeriods);
         const currentSelectedPeriodId = selectedPeriodIdRef.current;
@@ -317,33 +333,34 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         }
         if (targetPeriodId !== currentSelectedPeriodId) {
           selectedPeriodIdRef.current = targetPeriodId;
+          skipNextSelectedPeriodRefreshRef.current = true;
           setSelectedPeriodId(targetPeriodId);
         }
         const [cats, contactRows, relationshipRows, incomeCats, groups, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
-          db.getCategories(),
-          db.getContacts(),
-          db.getRelationshipTypes(),
-          db.getIncomeCategories(),
-          db.getSavingsGroups(),
-          db.getPaymentMethods(true),
-          db.getPaymentMethodTotals(targetPeriodId),
-          db.getCardPaymentMovementsForPeriod(targetPeriodId),
-          db.getAccountTransfersForPeriod(targetPeriodId),
-          db.getRecurringExpenses(),
-          db.getRecurringDecisionItems(),
-          db.getRecurringIncomes(),
-          db.getSavingsGoals(true),
-          db.getPeriodSavingsGoalActivity(targetPeriodId),
-          db.getPeriodSavingsFundingTotal(targetPeriodId),
-          db.getExpenses(targetPeriodId),
-          db.getIncomes(targetPeriodId),
-          db.getExpenseNames(),
-          db.getIncomeNames(),
-          db.getPeriodCategoryExpensesTotals(targetPeriodId),
-          db.getPeriodIncomesTotal(targetPeriodId),
-          db.getPeriodHistory(),
-          db.getDebts(),
-          db.getDebtPlans(),
+          refreshStep('REFRESH_CATEGORIES', db.getCategories()),
+          refreshStep('REFRESH_CONTACTS', db.getContacts()),
+          refreshStep('REFRESH_RELATIONSHIPS', db.getRelationshipTypes()),
+          refreshStep('REFRESH_INCOME_CATEGORIES', db.getIncomeCategories()),
+          refreshStep('REFRESH_SAVINGS_GROUPS', db.getSavingsGroups()),
+          refreshStep('REFRESH_PAYMENT_METHODS', db.getPaymentMethods(true)),
+          refreshStep('REFRESH_PAYMENT_TOTALS', db.getPaymentMethodTotals(targetPeriodId)),
+          refreshStep('REFRESH_CARD_PAYMENTS', db.getCardPaymentMovementsForPeriod(targetPeriodId)),
+          refreshStep('REFRESH_TRANSFERS', db.getAccountTransfersForPeriod(targetPeriodId)),
+          refreshStep('REFRESH_RECURRING_LIST', db.getRecurringExpenses()),
+          refreshStep('REFRESH_RECURRING_DECISIONS', db.getRecurringDecisionItems()),
+          refreshStep('REFRESH_RECURRING_INCOME_LIST', db.getRecurringIncomes()),
+          refreshStep('REFRESH_SAVINGS_GOALS', db.getSavingsGoals(true)),
+          refreshStep('REFRESH_SAVINGS_ACTIVITY', db.getPeriodSavingsGoalActivity(targetPeriodId)),
+          refreshStep('REFRESH_SAVINGS_TOTAL', db.getPeriodSavingsFundingTotal(targetPeriodId)),
+          refreshStep('REFRESH_EXPENSES', db.getExpenses(targetPeriodId)),
+          refreshStep('REFRESH_INCOMES', db.getIncomes(targetPeriodId)),
+          refreshStep('REFRESH_EXPENSE_NAMES', db.getExpenseNames()),
+          refreshStep('REFRESH_INCOME_NAMES', db.getIncomeNames()),
+          refreshStep('REFRESH_CATEGORY_TOTALS', db.getPeriodCategoryExpensesTotals(targetPeriodId)),
+          refreshStep('REFRESH_INCOME_TOTAL', db.getPeriodIncomesTotal(targetPeriodId)),
+          refreshStep('REFRESH_HISTORY', db.getPeriodHistory()),
+          refreshStep('REFRESH_DEBTS', db.getDebts()),
+          refreshStep('REFRESH_DEBT_PLANS', db.getDebtPlans()),
         ]);
         await syncFinancialReminders({
           paymentMethods: methods,
@@ -378,7 +395,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         setPeriodHistory(history);
         setLoadedPeriodId(targetPeriodId);
         setHasRefreshed(true);
-      } while (refreshRequestedRef.current);
+        } while (refreshRequestedRef.current);
+      } catch (error) {
+        setPeriodRefreshFailed(true);
+        throw error;
+      }
     };
 
     const refreshPromise = runRefreshes().finally(() => {
@@ -442,6 +463,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isReady) return;
+    if (skipNextSelectedPeriodRefreshRef.current) {
+      skipNextSelectedPeriodRefreshRef.current = false;
+      return;
+    }
     void refresh().catch((error) => {
       logAppError('database.refresh', error);
     });
@@ -941,6 +966,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     async () => {
       const nextPeriod = await db.closeCurrentPeriod();
       selectedPeriodIdRef.current = nextPeriod.id;
+      skipNextSelectedPeriodRefreshRef.current = true;
       setSelectedPeriodId(nextPeriod.id);
       // The period is already committed at this point. A later refresh error
       // must not make the UI suggest closing it a second time.
@@ -1036,6 +1062,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       periodExpensesTotal,
       isReady,
       isPeriodChanging,
+      periodRefreshFailed,
       refresh,
       runDatabaseMaintenance,
       selectPeriod,
@@ -1160,6 +1187,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       periodExpensesTotal,
       isReady,
       isPeriodChanging,
+      periodRefreshFailed,
       refresh,
       runDatabaseMaintenance,
       selectPeriod,

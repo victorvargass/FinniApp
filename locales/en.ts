@@ -574,6 +574,8 @@ const en = {
     current: 'Current period',
     historical: 'Past period',
     loading: 'Loading period...',
+    loadFailed: 'We could not load this period',
+    loadFailedHint: 'Your data is still saved. Retry or open Settings → Support and feedback to share the diagnostic.',
     invalidStart: 'The start date cannot be greater than the end date.',
     invalidEnd: 'The end date cannot be less than the start date.',
     updateStartError: 'Error updating start date',

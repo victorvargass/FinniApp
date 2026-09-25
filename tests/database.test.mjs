@@ -18,6 +18,28 @@ function temporaryDatabase() {
   return new DatabaseSync(':memory:');
 }
 
+test('movement UNION projections include exactly one time column per branch', () => {
+  const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+  const methodMovements = source.slice(
+    source.indexOf('export async function getPaymentMethodMovements'),
+    source.indexOf('function mapCreditCardAdjustment')
+  );
+  const cardMovements = source.slice(
+    source.indexOf('export async function getCardPaymentMovementsForPeriod'),
+    source.indexOf('export async function createAccountTransfer')
+  );
+
+  assert.match(
+    methodMovements,
+    /adjustment\.date,\s+adjustment\.time,\s+'credit_adjustment' AS kind/
+  );
+  assert.match(
+    cardMovements,
+    /adjustment\.date,\s+adjustment\.time,\s+NULL AS source_payment_method_id/
+  );
+  assert.doesNotMatch(cardMovements, /adjustment\.time,\s+adjustment\.time,/);
+});
+
 test('deleting optional classifications preserves income and savings balances', () => {
   const database = temporaryDatabase();
   try {

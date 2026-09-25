@@ -3504,6 +3504,7 @@ export async function getPaymentMethodMovements(
          COALESCE(NULLIF(TRIM(adjustment.note), ''), '') AS name,
          adjustment.amount,
          adjustment.date,
+         adjustment.time,
          'credit_adjustment' AS kind,
          adjustment.kind AS category_name,
          NULL AS related_payment_method_name
@@ -3804,7 +3805,6 @@ export async function getCardPaymentMovementsForPeriod(
          adjustment.note AS name,
          adjustment.amount,
          adjustment.date,
-         adjustment.time,
          adjustment.time,
          NULL AS source_payment_method_id,
          NULL AS source_payment_method_name,

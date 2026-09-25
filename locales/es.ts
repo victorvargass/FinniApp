@@ -574,6 +574,8 @@ const es = {
     current: 'Período actual',
     historical: 'Período histórico',
     loading: 'Cargando período...',
+    loadFailed: 'No pudimos cargar este período',
+    loadFailedHint: 'Tus datos siguen guardados. Reintenta o entra a Configuración → Soporte y comentarios para compartir el diagnóstico.',
     invalidStart: 'La fecha de inicio no puede ser mayor a la fecha de término.',
     invalidEnd: 'La fecha de término no puede ser menor a la fecha de inicio.',
     updateStartError: 'Error al actualizar fecha de inicio',
