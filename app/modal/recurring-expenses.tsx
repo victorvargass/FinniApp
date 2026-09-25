@@ -16,6 +16,7 @@ import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { describeRecurrence, parseIsoDate } from '@/lib/recurrence';
+import { getRecurringExpensesForSection } from '@/lib/recurring-sections';
 import { showToast } from '@/lib/toast';
 
 function showResult(message: string) {
@@ -34,7 +35,12 @@ export default function RecurringExpensesScreen() {
     removeRecurringIncome,
   } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const [section, setSection] = useState<'expenses' | 'incomes'>('incomes');
+  const [section, setSection] = useState<'expenses' | 'incomes' | 'savings'>('incomes');
+  const isSavingsSection = section === 'savings';
+  const visibleRecurringExpenses = getRecurringExpensesForSection(
+    recurringExpenses,
+    isSavingsSection ? 'savings' : 'expenses'
+  );
   const guide = useFeatureGuide('recurrences');
   const guideSlides = [
     {
@@ -56,8 +62,14 @@ export default function RecurringExpensesScreen() {
 
   const floatingAddButton = (
     <FloatingActionButton
-      href={section === 'incomes' ? '/modal/recurring-income-form' : '/modal/recurring-expense-form'}
-      accessibilityLabel={t(section === 'incomes' ? 'recurrence.newIncome' : 'recurrence.newExpense')}
+      href={section === 'incomes'
+        ? '/modal/recurring-income-form'
+        : section === 'savings'
+          ? { pathname: '/modal/recurring-expense-form', params: { savingsContribution: 'true' } }
+          : '/modal/recurring-expense-form'}
+      accessibilityLabel={t(section === 'incomes'
+        ? 'recurrence.newIncome'
+        : section === 'savings' ? 'recurrence.newSavings' : 'recurrence.newExpense')}
       avoidBottomInset
     />
   );
@@ -69,7 +81,7 @@ export default function RecurringExpensesScreen() {
         <FeatureGuideButton onPress={guide.open} />
       </View>
       <View style={[styles.tabs, { borderColor: colors.border }]}>
-        {([['incomes', t('navigation.incomes')], ['expenses', t('navigation.expenses')]] as const).map(([value, label]) => (
+        {([['incomes', t('navigation.incomes')], ['expenses', t('navigation.expenses')], ['savings', t('recurrence.savings')]] as const).map(([value, label]) => (
           <Pressable key={value} onPress={() => setSection(value)} style={[styles.tab, section === value && styles.selectedTab]}>
             <ThemedText style={section === value ? styles.selectedTabText : undefined}>{label}</ThemedText>
           </Pressable>
@@ -187,7 +199,7 @@ export default function RecurringExpensesScreen() {
   const confirmRemove = (id: number, name: string) => {
     Alert.alert(
       t('recurrence.delete'),
-      t('recurrence.removeExpenseQuestion', { name }),
+      t(isSavingsSection ? 'recurrence.removeSavingsQuestion' : 'recurrence.removeExpenseQuestion', { name }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -212,15 +224,15 @@ export default function RecurringExpensesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <FlatList
-        data={recurringExpenses}
+        data={visibleRecurringExpenses}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         ListHeaderComponent={tabs}
         ListEmptyComponent={(
           <EmptyState
             icon="repeat-outline"
-            title={t('recurrence.emptyExpenseTitle')}
-            description={t('recurrence.emptyExpenses')}
+            title={t(isSavingsSection ? 'recurrence.emptySavingsTitle' : 'recurrence.emptyExpenseTitle')}
+            description={t(isSavingsSection ? 'recurrence.emptySavings' : 'recurrence.emptyExpenses')}
           />
         )}
         renderItem={({ item }) => (
@@ -234,10 +246,19 @@ export default function RecurringExpensesScreen() {
                 onLongPress={() => confirmRemove(item.id, item.name)}
                 delayLongPress={500}
                 style={styles.main}>
-                <View style={[styles.dot, { backgroundColor: item.categoryColor ?? colors.primary }]} />
+                <View style={[styles.dot, {
+                  backgroundColor: isSavingsSection
+                    ? item.savingsGoalColor ?? colors.tint
+                    : item.categoryColor ?? colors.primary,
+                }]} />
                 <View style={styles.copy}>
                   <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
                   <ThemedText style={styles.amount}>{formatCLP(item.amount)}</ThemedText>
+                  {isSavingsSection && item.savingsGoalName && (
+                    <ThemedText style={styles.secondary}>
+                      {t('recurrence.savingsGoal', { name: item.savingsGoalName })}
+                    </ThemedText>
+                  )}
                   <ThemedText style={styles.secondary}>{describeRecurrence(item)}</ThemedText>
                   <ThemedText style={styles.secondary}>
                     {item.nextDate
@@ -256,7 +277,7 @@ export default function RecurringExpensesScreen() {
                       Alert.alert(t('errors.couldNotChange'), error instanceof Error ? error.message : t('common.tryAgain'));
                     });
                 }}
-                trackColor={{ true: colors.primary }}
+                trackColor={{ true: isSavingsSection ? colors.tint : colors.primary }}
               />
             </View>
 

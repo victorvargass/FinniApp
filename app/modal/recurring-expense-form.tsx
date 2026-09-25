@@ -19,7 +19,6 @@ import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
 import type { NewRecurringSchedule } from '@/lib/types';
-import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
 function defaultSchedule(date = new Date()): NewRecurringSchedule {
   return {
@@ -47,19 +46,22 @@ function MetadataChip({ label, color }: { label: string; color: string }) {
 }
 
 export default function RecurringExpenseFormScreen() {
-  const { id, sourceExpenseId: requestedSourceId } = useLocalSearchParams<{
+  const { id, sourceExpenseId: requestedSourceId, savingsContribution } = useLocalSearchParams<{
     id?: string;
     sourceExpenseId?: string;
+    savingsContribution?: string;
   }>();
   const {
     recurringExpenses,
     expenses,
     categories,
     paymentMethods,
+    savingsGoals,
     settings,
     addRecurringExpense,
     editRecurringExpense,
     removeRecurringExpense,
+    setPushNotificationsEnabled,
   } = useDatabase();
   const navigation = useNavigation();
   const colors = Colors[useColorScheme() ?? 'light'];
@@ -67,6 +69,10 @@ export default function RecurringExpenseFormScreen() {
   const requestedSource = requestedSourceId
     ? expenses.find((item) => item.id === Number(requestedSourceId))
     : undefined;
+  const expenseDetails = recurring ?? requestedSource;
+  const isSavingsRecurrence = savingsContribution === 'true'
+    || (expenseDetails?.savingsGoalId != null && expenseDetails.savingsKind === 'contribution');
+  const savingsCategory = categories.find((category) => category.systemKey === 'savings');
 
   const [schedule, setSchedule] = useState<NewRecurringSchedule>(recurring
     ? {
@@ -83,23 +89,40 @@ export default function RecurringExpenseFormScreen() {
   const [removing, setRemoving] = useState(false);
   const [useStoredNextDate, setUseStoredNextDate] = useState(recurring != null);
 
-  const expenseDetails = recurring ?? requestedSource;
   const defaultPaymentMethodId = paymentMethods.find(
-    (method) => method.id === settings.defaultPaymentMethodId && method.active
-  )?.id ?? paymentMethods.find((method) => method.active)?.id ?? null;
+    (method) => method.id === settings.defaultPaymentMethodId
+      && method.active
+      && (!isSavingsRecurrence || method.type !== 'credit')
+  )?.id ?? paymentMethods.find(
+    (method) => method.active && (!isSavingsRecurrence || method.type !== 'credit')
+  )?.id ?? null;
   const [name, setName] = useState(expenseDetails?.name ?? '');
   const [amountText, setAmountText] = useState(
     expenseDetails ? formatCLPInput(expenseDetails.amount) : ''
   );
-  const [categoryId, setCategoryId] = useState<number | null>(expenseDetails?.categoryId ?? null);
+  const [categoryId, setCategoryId] = useState<number | null>(
+    expenseDetails?.categoryId ?? (isSavingsRecurrence ? savingsCategory?.id ?? null : null)
+  );
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
     expenseDetails?.paymentMethodId ?? defaultPaymentMethodId
+  );
+  const [savingsGoalId, setSavingsGoalId] = useState<number | null>(
+    expenseDetails?.savingsGoalId ?? null
   );
   const canEditMovement = expenseDetails == null || (recurring != null && recurring.sourceExpenseId == null);
 
   useEffect(() => {
-    navigation.setOptions({ title: recurring ? t('recurrence.edit') : t('recurrence.newExpense') });
-  }, [navigation, recurring]);
+    navigation.setOptions({
+      title: isSavingsRecurrence
+        ? recurring ? t('recurrence.editSavings') : t('recurrence.newSavings')
+        : recurring ? t('recurrence.edit') : t('recurrence.newExpense'),
+    });
+  }, [isSavingsRecurrence, navigation, recurring]);
+
+  useEffect(() => {
+    if (!isSavingsRecurrence || expenseDetails || !savingsCategory) return;
+    setCategoryId(savingsCategory.id);
+  }, [expenseDetails, isSavingsRecurrence, savingsCategory]);
 
   const save = async () => {
     const amount = canEditMovement ? parseAmount(amountText) : expenseDetails?.amount;
@@ -107,11 +130,20 @@ export default function RecurringExpenseFormScreen() {
     if (!recurringName || amount == null || amount <= 0) {
       return Alert.alert(t('validation.missingData'), t('recurrence.invalidNameAmount'));
     }
-    const notificationsGranted = await ensureRecurringNotificationPermission();
-    if (!notificationsGranted && schedule.registrationMode === 'confirmation') {
-      return Alert.alert(
-        t('expenses.notificationsDisabled'), t('expenses.notificationsDisabledHint')
-      );
+    if (isSavingsRecurrence && savingsGoalId == null) {
+      return Alert.alert(t('validation.missingData'), t('database.selectSavingsGoal'));
+    }
+    if (isSavingsRecurrence && savingsCategory == null) {
+      return Alert.alert(t('common.error'), t('errors.couldNotSave'));
+    }
+    if (schedule.active && schedule.registrationMode === 'confirmation') {
+      try {
+        await setPushNotificationsEnabled(true);
+      } catch {
+        return Alert.alert(
+          t('expenses.notificationsDisabled'), t('expenses.notificationsDisabledHint')
+        );
+      }
     }
     setSaving(true);
     try {
@@ -123,10 +155,14 @@ export default function RecurringExpenseFormScreen() {
         splitMode: expenseDetails?.originalAmount != null
           ? resolveExpenseSplitMode(expenseDetails.splitMode, expenseDetails.splitPercentage)
           : null,
-        categoryId: canEditMovement ? categoryId : expenseDetails?.categoryId ?? null,
+        categoryId: isSavingsRecurrence
+          ? savingsCategory!.id
+          : canEditMovement ? categoryId : expenseDetails?.categoryId ?? null,
         paymentMethodId: canEditMovement ? paymentMethodId : expenseDetails?.paymentMethodId ?? null,
-        savingsGoalId: expenseDetails?.savingsGoalId ?? null,
-        savingsKind: expenseDetails?.savingsKind === 'contribution' ? 'contribution' as const : null,
+        savingsGoalId: isSavingsRecurrence
+          ? canEditMovement ? savingsGoalId : expenseDetails?.savingsGoalId ?? null
+          : null,
+        savingsKind: isSavingsRecurrence ? 'contribution' as const : null,
         ...schedule,
         sourceExpenseId: recurring ? recurring.sourceExpenseId : requestedSource?.id ?? null,
       };
@@ -144,7 +180,8 @@ export default function RecurringExpenseFormScreen() {
   const confirmRemove = () => {
     if (!recurring) return;
     Alert.alert(
-      t('recurrence.delete'), t('recurrence.deleteExpenseSchedule'),
+      t('recurrence.delete'),
+      t(isSavingsRecurrence ? 'recurrence.deleteSavingsSchedule' : 'recurrence.deleteExpenseSchedule'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -177,15 +214,21 @@ export default function RecurringExpenseFormScreen() {
           <ThemedView style={[styles.detailsCard, { borderColor: colors.border }]}>
             <View style={styles.detailsHeader}>
               <View style={styles.sourceCopy}>
-                <ThemedText style={styles.hint}>{t('navigation.expense')}</ThemedText>
+                <ThemedText style={styles.hint}>
+                  {t(isSavingsRecurrence ? 'recurrence.savings' : 'navigation.expense')}
+                </ThemedText>
                 <ThemedText type="defaultSemiBold">{expenseDetails.name}</ThemedText>
               </View>
               <ThemedText type="defaultSemiBold">{formatCLP(expenseDetails.amount)}</ThemedText>
             </View>
             <View style={styles.metadataChips}>
               <MetadataChip
-                label={expenseDetails.categoryName ?? t('expenses.noCategory')}
-                color={expenseDetails.categoryColor ?? '#60758E'}
+                label={isSavingsRecurrence
+                  ? expenseDetails.savingsGoalName ?? t('savings.noSpecificGoal')
+                  : expenseDetails.categoryName ?? t('expenses.noCategory')}
+                color={isSavingsRecurrence
+                  ? expenseDetails.savingsGoalColor ?? '#60758E'
+                  : expenseDetails.categoryColor ?? '#60758E'}
               />
               <MetadataChip
                 label={expenseDetails.paymentMethodName ?? t('expenses.noPaymentMethod')}
@@ -229,18 +272,30 @@ export default function RecurringExpenseFormScreen() {
               keyboardType="number-pad"
               style={[styles.input, { color: colors.text, borderColor: colors.border }]}
             />
-            <ColorSelect
-              searchable
-              label={t('expenses.categoryOptional')}
-              value={categoryId}
-              onChange={setCategoryId}
-              options={[
-                { value: null, label: t('expenses.noCategory'), color: colors.icon },
-                ...categories
-                  .filter((category) => category.systemKey == null)
-                  .map((category) => ({ value: category.id, label: category.name, color: category.color })),
-              ]}
-            />
+            {isSavingsRecurrence ? (
+              <ColorSelect
+                searchable
+                label={t('savings.contributionGoal')}
+                value={savingsGoalId}
+                onChange={setSavingsGoalId}
+                options={savingsGoals
+                  .filter((goal) => goal.status === 'active' || goal.id === savingsGoalId)
+                  .map((goal) => ({ value: goal.id, label: goal.name, color: goal.color }))}
+              />
+            ) : (
+              <ColorSelect
+                searchable
+                label={t('expenses.categoryOptional')}
+                value={categoryId}
+                onChange={setCategoryId}
+                options={[
+                  { value: null, label: t('expenses.noCategory'), color: colors.icon },
+                  ...categories
+                    .filter((category) => category.systemKey == null)
+                    .map((category) => ({ value: category.id, label: category.name, color: category.color })),
+                ]}
+              />
+            )}
             <ColorSelect
               label={t('expenses.paymentMethodOptional')}
               value={paymentMethodId}
@@ -248,7 +303,7 @@ export default function RecurringExpenseFormScreen() {
               options={[
                 { value: null, label: t('expenses.noPaymentMethod'), color: colors.icon },
                 ...paymentMethods
-                  .filter((method) => method.active)
+                  .filter((method) => method.active && (!isSavingsRecurrence || method.type !== 'credit'))
                   .map((method) => ({
                     value: method.id,
                     label: `${method.name} · ${t(`paymentMethods.${method.type}`)}`,
@@ -257,7 +312,9 @@ export default function RecurringExpenseFormScreen() {
                   })),
               ]}
             />
-            <ThemedText style={styles.emptyHint}>{t('recurrence.standaloneHint')}</ThemedText>
+            <ThemedText style={styles.emptyHint}>
+              {t(isSavingsRecurrence ? 'recurrence.standaloneSavingsHint' : 'recurrence.standaloneHint')}
+            </ThemedText>
           </View>
         )}
 

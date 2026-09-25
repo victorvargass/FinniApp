@@ -10,7 +10,7 @@
     {
       "id": "home-and-periods",
       "priority": "critical",
-      "routes": ["app/(tabs)/home.tsx"],
+      "routes": ["app/(tabs)/home.tsx", "app/modal/period-opening-balances.tsx"],
       "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/period-close-insights.test.mjs"]
     },
     {
