@@ -122,8 +122,8 @@ export function buildFinancialReminders(
       sourceKey: `debt-payment-due:${debt.id}:${reminderDateKey(date)}`,
       kind: 'debt-payment-due',
       date,
-      title: t('notifications.debtPaymentTitle', { name: debt.name }),
-      body: t('notifications.debtPaymentBody', {
+      title: t(debt.direction === 'receivable' ? 'notifications.debtCollectionTitle' : 'notifications.debtPaymentTitle', { name: debt.name }),
+      body: t(debt.direction === 'receivable' ? 'notifications.debtCollectionBody' : 'notifications.debtPaymentBody', {
         name: debt.name,
         amount: formatCLP(Math.min(debt.installmentAmount, debt.currentBalance)),
       }),

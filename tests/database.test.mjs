@@ -101,7 +101,7 @@ test('schema migration records a deterministic version and application id', asyn
     const migration = database.prepare('SELECT version, name FROM schema_migrations ORDER BY version DESC').get();
     assert.deepEqual({ ...migration }, {
       version: DATABASE_SCHEMA_VERSION,
-      name: 'financial-event-times',
+      name: 'contacts-and-receivable-debts',
     });
     assert.equal(database.prepare('PRAGMA user_version').get().user_version, DATABASE_SCHEMA_VERSION);
     assert.equal(database.prepare('PRAGMA application_id').get().application_id, DATABASE_APPLICATION_ID);

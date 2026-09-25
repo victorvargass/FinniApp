@@ -16,7 +16,7 @@ import { dateWithTime, toTimeString } from '@/lib/event-time';
 import { formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
-import type { DebtFrequency, DebtType, NewDebt } from '@/lib/types';
+import type { DebtDirection, DebtFrequency, DebtType, NewDebt } from '@/lib/types';
 
 type DebtFormType = DebtType | 'single';
 
@@ -28,11 +28,13 @@ function parseIsoDate(value: string) {
 export default function DebtFormScreen() {
   const { id, type: requestedType } = useLocalSearchParams<{ id?: string; type?: DebtType }>();
   const debtId = id ? Number(id) : null;
-  const { categories, paymentMethods, getDebt, addDebt, editDebt } = useDatabase();
+  const { categories, incomeCategories, contacts, paymentMethods, getDebt, addDebt, editDebt } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [type, setType] = useState<DebtFormType>(requestedType === 'variable' ? 'variable' : 'fixed');
+  const [direction, setDirection] = useState<DebtDirection>('payable');
   const [name, setName] = useState('');
   const [creditor, setCreditor] = useState('');
+  const [contactId, setContactId] = useState<number | null>(null);
   const [initialAmount, setInitialAmount] = useState('');
   const [creationDate, setCreationDate] = useState(toDateString(new Date()));
   const [balanceDate, setBalanceDate] = useState(toDateString(new Date()));
@@ -41,6 +43,7 @@ export default function DebtFormScreen() {
   const [frequency, setFrequency] = useState<DebtFrequency>('monthly');
   const [firstDueDate, setFirstDueDate] = useState(toDateString(new Date()));
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [incomeCategoryId, setIncomeCategoryId] = useState<number | null>(null);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [entryCount, setEntryCount] = useState(0);
@@ -55,13 +58,15 @@ export default function DebtFormScreen() {
     getDebt(debtId).then((debt) => {
       if (!debt) return;
       setType(debt.type === 'fixed' && debt.totalInstallments === 1 ? 'single' : debt.type);
+      setDirection(debt.direction);
       setName(debt.name); setCreditor(debt.creditor ?? '');
+      setContactId(debt.contactId);
       setInitialAmount(formatCLPInput(debt.initialAmount)); setInstallmentAmount(debt.installmentAmount ? formatCLPInput(debt.installmentAmount) : '');
       setCreationDate(debt.creationDate);
       setBalanceDate(debt.balanceDate);
       setBalanceTime(debt.balanceTime ?? debt.balanceUpdatedTime ?? toTimeString(new Date()));
       setFrequency(debt.frequency ?? 'monthly'); setFirstDueDate(debt.firstDueDate ?? toDateString(new Date()));
-      setCategoryId(debt.categoryId); setPaymentMethodId(debt.paymentMethodId); setNotes(debt.notes ?? ''); setEntryCount(debt.entryCount);
+      setCategoryId(debt.categoryId); setIncomeCategoryId(debt.incomeCategoryId); setPaymentMethodId(debt.paymentMethodId); setNotes(debt.notes ?? ''); setEntryCount(debt.entryCount);
     }).catch(() => undefined);
   }, [debtId, getDebt]);
 
@@ -86,7 +91,8 @@ export default function DebtFormScreen() {
     try {
       const data: NewDebt = {
         type: type === 'single' ? 'fixed' : type,
-        name: name.trim(), creditor: creditor.trim() || null, initialAmount: parsedInitial,
+        direction,
+        name: name.trim(), creditor: creditor.trim() || null, contactId, initialAmount: parsedInitial,
         creationDate,
         balanceDate,
         balanceTime,
@@ -96,7 +102,10 @@ export default function DebtFormScreen() {
           : type === 'fixed'
           ? frequency
           : parsedInstallment != null ? 'monthly' : null,
-        firstDueDate: parsedInstallment != null ? firstDueDate : null, categoryId, paymentMethodId, notes: notes.trim() || null,
+        firstDueDate: parsedInstallment != null ? firstDueDate : null,
+        categoryId: direction === 'payable' ? categoryId : null,
+        incomeCategoryId: direction === 'receivable' ? incomeCategoryId : null,
+        paymentMethodId, notes: notes.trim() || null,
       };
       if (debtId != null) {
         await editDebt(debtId, data);
@@ -114,7 +123,17 @@ export default function DebtFormScreen() {
 
   const categoryOptions = [
     { value: null, label: t('common.notSpecified') },
-    ...categories.filter((item) => item.purpose === 'general' && item.systemKey == null).map((item) => ({ value: item.id, label: item.name, color: item.color })),
+    ...(direction === 'payable'
+      ? categories.filter((item) => item.purpose === 'general' && item.systemKey == null)
+      : incomeCategories).map((item) => ({ value: item.id, label: item.name, color: item.color })),
+  ];
+  const contactOptions = [
+    { value: null, label: t('common.notSpecified') },
+    ...contacts.map((contact) => ({
+      value: contact.id,
+      label: contact.nickname ? `${contact.name} (${contact.nickname})` : contact.name,
+      color: contact.relationshipTypeColor ?? undefined,
+    })),
   ];
   const paymentOptions = [
     { value: null, label: t('common.notSpecified') },
@@ -134,6 +153,11 @@ export default function DebtFormScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <ThemedText style={styles.description}>{t('debts.formHint')}</ThemedText>
         <ThemedView style={styles.card}>
+          <SimpleSelect disabled={entryCount > 0} label={t('debts.direction')} value={direction} onChange={setDirection} options={[
+            { value: 'payable', label: t('debts.iOwe') },
+            { value: 'receivable', label: t('debts.owedToMe') },
+          ]} />
+          {entryCount > 0 && <ThemedText style={styles.hint}>{t('debts.directionLockedHint')}</ThemedText>}
           <SimpleSelect disabled={debtId != null} label={t('debts.type')} value={type} onChange={setType} options={[
             { value: 'fixed', label: t('debts.fixed') },
             { value: 'variable', label: t('debts.variable') },
@@ -141,7 +165,8 @@ export default function DebtFormScreen() {
           ]} />
           {debtId != null && <ThemedText style={styles.hint}>{t('debts.typeLockedHint')}</ThemedText>}
           <Field label={t('debts.name')} value={name} onChangeText={setName} colors={colors} placeholder={t('debts.namePlaceholder')} />
-          <Field label={t('debts.creditor')} value={creditor} onChangeText={setCreditor} colors={colors} placeholder={t('debts.creditorPlaceholder')} />
+          <SimpleSelect searchable label={t(direction === 'payable' ? 'debts.creditorContact' : 'debts.debtorContact')} value={contactId} onChange={setContactId} options={contactOptions} />
+          <Field label={t(direction === 'payable' ? 'debts.creditor' : 'debts.debtor')} value={creditor} onChangeText={setCreditor} colors={colors} placeholder={t(direction === 'payable' ? 'debts.creditorPlaceholder' : 'debts.debtorPlaceholder')} />
           <Field label={t('debts.initialReportedBalance')} value={initialAmount} onChangeText={setInitialAmount} colors={colors} keyboardType="number-pad" editable={entryCount === 0} />
           {entryCount > 0 && <ThemedText style={styles.hint}>{t('debts.initialLockedHint')}</ThemedText>}
           <View style={styles.group}>
@@ -206,7 +231,7 @@ export default function DebtFormScreen() {
               )}
             </>
           )}
-          <SimpleSelect searchable label={t('debts.defaultCategory')} value={categoryId} onChange={setCategoryId} options={categoryOptions} />
+          <SimpleSelect searchable label={t(direction === 'payable' ? 'debts.defaultCategory' : 'debts.defaultIncomeCategory')} value={direction === 'payable' ? categoryId : incomeCategoryId} onChange={direction === 'payable' ? setCategoryId : setIncomeCategoryId} options={categoryOptions} />
           <ThemedText style={styles.hint}>{t('debts.defaultCategoryHint')}</ThemedText>
           <SimpleSelect label={t('debts.defaultPaymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
           <Field label={t('debts.notes')} value={notes} onChangeText={setNotes} colors={colors} multiline placeholder={t('debts.notesPlaceholder')} />

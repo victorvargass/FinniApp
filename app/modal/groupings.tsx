@@ -38,6 +38,7 @@ export default function GroupingsScreen() {
   const sections = [
     { title: t('navigation.categories'), description: t('groupings.categoriesDescription'), route: '/modal/categories' as const, icon: 'pricetags-outline' as const },
     { title: t('navigation.savingsGroups'), description: t('groupings.savingsGroupsDescription'), route: '/modal/savings-groups' as const, icon: 'layers-outline' as const },
+    { title: t('navigation.contacts'), description: t('groupings.contactsDescription'), route: '/modal/contacts' as const, icon: 'people-outline' as const },
   ];
 
   return (
@@ -53,7 +54,7 @@ export default function GroupingsScreen() {
           <Pressable
             key={section.route}
             accessibilityRole="button"
-            onPress={() => router.push(section.route)}
+            onPress={() => router.push(section.route as never)}
             style={({ pressed }) => pressed && styles.pressed}>
             <ThemedView style={[styles.card, { borderColor: colors.border }]}>
               <Ionicons name={section.icon} size={25} color={colors.tint} />

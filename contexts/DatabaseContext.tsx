@@ -10,6 +10,7 @@ import type {
   AppNotification,
   CardPaymentMovement,
   Category,
+  Contact,
   CreditCardAdjustment,
   CreditCardCycle,
   DebtPlan,
@@ -18,6 +19,7 @@ import type {
   IncomeCategory,
   Debt,
   NewCategory,
+  NewContact,
   NewCreditCardAdjustment,
   NewAccountTransfer,
   NewExpense,
@@ -34,6 +36,7 @@ import type {
   NewRecurringExpense,
   NewRecurringIncome,
   NewRecurringSchedule,
+  NewRelationshipType,
   MovementReminderSettings,
   PaymentMethod,
   PaymentMethodDeletionInfo,
@@ -46,6 +49,7 @@ import type {
   RecurringExpense,
   RecurringIncome,
   RecurringMovementKind,
+  RelationshipType,
   NewSavingsGoal,
   NewSavingsGroup,
   NewSavingsGoalBalance,
@@ -71,6 +75,8 @@ import {
 
 type DatabaseContextValue = {
   categories: Category[];
+  contacts: Contact[];
+  relationshipTypes: RelationshipType[];
   incomeCategories: IncomeCategory[];
   savingsGroups: SavingsGroup[];
   paymentMethods: PaymentMethod[];
@@ -106,6 +112,11 @@ type DatabaseContextValue = {
   editCategory: (id: number, data: NewCategory) => Promise<void>;
   getCategoryExpenseCount: (id: number) => Promise<number>;
   removeCategory: (id: number, detachExpenses?: boolean) => Promise<void>;
+  saveContact: (data: NewContact, id?: number) => Promise<number>;
+  removeContact: (id: number) => Promise<void>;
+  getContact: (id: number) => Promise<Contact | null>;
+  saveRelationshipType: (data: NewRelationshipType, id?: number) => Promise<void>;
+  removeRelationshipType: (id: number) => Promise<void>;
   saveIncomeCategory: (data: NewIncomeCategory, id?: number) => Promise<void>;
   removeIncomeCategory: (id: number) => Promise<void>;
   saveSavingsGroup: (data: NewSavingsGroup, id?: number) => Promise<void>;
@@ -208,6 +219,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [hasRefreshed, setHasRefreshed] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [relationshipTypes, setRelationshipTypes] = useState<RelationshipType[]>([]);
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategory[]>([]);
   const [savingsGroups, setSavingsGroups] = useState<SavingsGroup[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -306,8 +319,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           selectedPeriodIdRef.current = targetPeriodId;
           setSelectedPeriodId(targetPeriodId);
         }
-        const [cats, incomeCats, groups, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
+        const [cats, contactRows, relationshipRows, incomeCats, groups, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
           db.getCategories(),
+          db.getContacts(),
+          db.getRelationshipTypes(),
           db.getIncomeCategories(),
           db.getSavingsGroups(),
           db.getPaymentMethods(true),
@@ -339,6 +354,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         await upsertRecurringDecisionNotifications(decisions).catch(() => undefined);
         const notifications = await db.getAppNotifications();
         setCategories(cats);
+        setContacts(contactRows);
+        setRelationshipTypes(relationshipRows);
         setIncomeCategories(incomeCats);
         setSavingsGroups(groups);
         setPaymentMethods(methods);
@@ -466,6 +483,29 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     (id: number) => db.getExpenseCountByCategory(id),
     []
   );
+
+  const saveContact = useCallback(async (data: NewContact, id?: number) => {
+    const savedId = await db.saveContact(data, id);
+    await refresh();
+    return savedId;
+  }, [refresh]);
+
+  const removeContact = useCallback(async (id: number) => {
+    await db.deleteContact(id);
+    await refresh();
+  }, [refresh]);
+
+  const getContact = useCallback((id: number) => db.getContact(id), []);
+
+  const saveRelationshipType = useCallback(async (data: NewRelationshipType, id?: number) => {
+    await db.saveRelationshipType(data, id);
+    await refresh();
+  }, [refresh]);
+
+  const removeRelationshipType = useCallback(async (id: number) => {
+    await db.deleteRelationshipType(id);
+    await refresh();
+  }, [refresh]);
 
   const saveIncomeCategory = useCallback(async (data: NewIncomeCategory, id?: number) => {
     await db.saveIncomeCategory(data, id);
@@ -967,6 +1007,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       categories,
+      contacts,
+      relationshipTypes,
       incomeCategories,
       savingsGroups,
       paymentMethods,
@@ -1002,6 +1044,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editCategory,
       getCategoryExpenseCount,
       removeCategory,
+      saveContact,
+      removeContact,
+      getContact,
+      saveRelationshipType,
+      removeRelationshipType,
       saveIncomeCategory,
       removeIncomeCategory,
       saveSavingsGroup,
@@ -1084,6 +1131,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       categories,
+      contacts,
+      relationshipTypes,
       incomeCategories,
       savingsGroups,
       paymentMethods,
@@ -1119,6 +1168,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       editCategory,
       getCategoryExpenseCount,
       removeCategory,
+      saveContact,
+      removeContact,
+      getContact,
+      saveRelationshipType,
+      removeRelationshipType,
       saveIncomeCategory,
       removeIncomeCategory,
       saveSavingsGroup,

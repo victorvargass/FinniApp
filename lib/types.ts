@@ -357,11 +357,58 @@ export type DebtPlan = NewInstallmentPurchase & {
 export type DebtType = 'fixed' | 'variable';
 export type DebtStatus = 'active' | 'paid' | 'archived';
 export type DebtFrequency = 'weekly' | 'monthly' | 'annual';
+export type DebtDirection = 'payable' | 'receivable';
+
+export type RelationshipType = {
+  id: number;
+  name: string;
+  color: string;
+};
+
+export type NewRelationshipType = Omit<RelationshipType, 'id'>;
+
+export type ContactBankAccount = {
+  id: number;
+  contactId: number;
+  bankName: string;
+  holderName: string | null;
+  rut: string | null;
+  accountType: string;
+  accountNumber: string;
+  email: string | null;
+};
+
+export type Contact = {
+  id: number;
+  name: string;
+  nickname: string | null;
+  relationshipTypeId: number | null;
+  relationshipTypeName: string | null;
+  relationshipTypeColor: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  bankAccounts: ContactBankAccount[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NewContact = {
+  name: string;
+  nickname: string | null;
+  relationshipTypeId: number | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  bankAccounts: Omit<ContactBankAccount, 'id' | 'contactId'>[];
+};
 
 export type NewDebt = {
   type: DebtType;
+  direction: DebtDirection;
   name: string;
   creditor: string | null;
+  contactId: number | null;
   initialAmount: number;
   creationDate: string;
   balanceDate: string;
@@ -370,6 +417,7 @@ export type NewDebt = {
   frequency: DebtFrequency | null;
   firstDueDate: string | null;
   categoryId: number | null;
+  incomeCategoryId: number | null;
   paymentMethodId: number | null;
   notes: string | null;
 };
@@ -383,6 +431,7 @@ export type DebtEntry = {
   time: string;
   periodId: number | null;
   expenseId: number | null;
+  incomeId: number | null;
   categoryId: number | null;
   categoryName: string | null;
   paymentMethodId: number | null;
@@ -393,6 +442,8 @@ export type DebtEntry = {
 
 export type Debt = NewDebt & {
   id: number;
+  contactName: string | null;
+  contactNickname: string | null;
   status: DebtStatus;
   currentBalance: number;
   balanceUpdatedAt: string | null;
@@ -601,6 +652,7 @@ export type RecurringOccurrence = {
   scheduledDate: string;
   status: RecurringOccurrenceStatus;
   expenseId: number | null;
+  incomeId: number | null;
 };
 
 export type RecurringConfirmationSchedule = {

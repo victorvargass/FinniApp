@@ -44,9 +44,9 @@
       "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/weekly-insights.test.mjs"]
     },
     {
-      "id": "debts-and-installments",
+      "id": "debts-and-payments",
       "priority": "critical",
-      "routes": ["app/modal/debts.tsx", "app/modal/debt-detail.tsx", "app/modal/manual-debt-form.tsx", "app/modal/manual-debt-detail.tsx", "app/modal/manual-debt-payment.tsx", "app/modal/manual-debt-balance.tsx"],
+      "routes": ["app/modal/debts.tsx", "app/modal/debt-detail.tsx", "app/modal/manual-debt-form.tsx", "app/modal/manual-debt-detail.tsx", "app/modal/manual-debt-payment.tsx", "app/modal/manual-debt-balance.tsx", "app/modal/contacts.tsx", "app/modal/contact-form.tsx"],
       "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/calculations.test.mjs"]
     },
     {

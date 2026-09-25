@@ -105,7 +105,7 @@ export default function DebtDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.titleRow}><View style={styles.titleCopy}><ThemedText type="title">{debt.name}</ThemedText>{debt.creditor && <ThemedText style={styles.secondary}>{debt.creditor}</ThemedText>}</View><Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-form', params: { id: String(debt.id) } })} hitSlop={8}><Ionicons name="create-outline" size={25} color={colors.primary} /></Pressable></View>
+        <View style={styles.titleRow}><View style={styles.titleCopy}><ThemedText type="title">{debt.name}</ThemedText>{(debt.contactName || debt.creditor) && <ThemedText style={styles.secondary}>{debt.contactName ?? debt.creditor}</ThemedText>}<ThemedText style={styles.secondary}>{t(debt.direction === 'receivable' ? 'debts.owedToMe' : 'debts.iOwe')}</ThemedText></View><Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-form', params: { id: String(debt.id) } })} hitSlop={8}><Ionicons name="create-outline" size={25} color={colors.primary} /></Pressable></View>
 
         <ThemedView style={styles.summary}>
           <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText style={styles.secondary}>{t('debts.currentBalance')}</ThemedText><ThemedText type="title">{formatCLP(debt.currentBalance)}</ThemedText></View>
@@ -152,7 +152,7 @@ export default function DebtDetailScreen() {
 
         {!isArchived && (
           <View style={styles.actions}>
-            {!isPaid && <Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-payment', params: { debtId: String(debt.id) } })} style={styles.primary}><Ionicons name="cash-outline" size={20} color="#fff" /><ThemedText style={styles.primaryText}>{t('debts.registerPayment')}</ThemedText></Pressable>}
+            {!isPaid && <Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-payment', params: { debtId: String(debt.id) } })} style={styles.primary}><Ionicons name="cash-outline" size={20} color="#fff" /><ThemedText style={styles.primaryText}>{t(debt.direction === 'receivable' ? 'debts.registerCollection' : 'debts.registerPayment')}</ThemedText></Pressable>}
             {debt.type === 'variable' && <Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-balance', params: { debtId: String(debt.id) } })} style={[styles.secondaryButton, { borderColor: colors.primary }]}><Ionicons name="sync-outline" size={20} color={colors.primary} /><ThemedText style={{ color: colors.primary, fontWeight: '700' }}>{t('debts.updateBalance')}</ThemedText></Pressable>}
           </View>
         )}
@@ -168,7 +168,7 @@ export default function DebtDetailScreen() {
               : deleteBalanceUpdate(entry)}>
             <ThemedView style={[styles.entry, usesLargeText && styles.entryLargeText]}>
               <View style={[styles.entryIcon, { backgroundColor: entry.kind === 'payment' ? '#1FAF78' : entry.amount > 0 ? '#D88916' : '#0B315B' }]}><Ionicons name={entry.kind === 'payment' ? 'arrow-down' : 'swap-vertical'} size={17} color="#fff" /></View>
-              <View style={styles.entryCopy}><ThemedText type="defaultSemiBold">{entry.kind === 'payment' ? t('debts.payment') : t('debts.balanceAdjustment')}</ThemedText><ThemedText style={styles.entryMeta}>{formatEventDateTime(entry.date, entry.time)}{entry.paymentMethodName ? ` · ${entry.paymentMethodName}` : ''}{entry.note ? ` · ${entry.note}` : ''}{entry.reportedBalance != null ? ` · ${t('debts.reportedBalanceEntry', { amount: formatCLP(entry.reportedBalance) })}` : ''}</ThemedText></View>
+              <View style={styles.entryCopy}><ThemedText type="defaultSemiBold">{entry.kind === 'payment' ? t(debt.direction === 'receivable' ? 'debts.collection' : 'debts.payment') : t('debts.balanceAdjustment')}</ThemedText><ThemedText style={styles.entryMeta}>{formatEventDateTime(entry.date, entry.time)}{entry.paymentMethodName ? ` · ${entry.paymentMethodName}` : ''}{entry.note ? ` · ${entry.note}` : ''}{entry.reportedBalance != null ? ` · ${t('debts.reportedBalanceEntry', { amount: formatCLP(entry.reportedBalance) })}` : ''}</ThemedText></View>
               <ThemedText style={[styles.entryAmount, usesLargeText && styles.entryAmountLargeText, { color: entry.kind === 'payment' || entry.amount < 0 ? '#1FAF78' : '#D88916' }]}>{entry.kind === 'payment' || entry.amount < 0 ? '−' : '+'}{formatCLP(Math.abs(entry.amount))}</ThemedText>
               {entry.reportedBalance != null && <Ionicons name="trash-outline" size={18} color="#C93F4B" />}
             </ThemedView>

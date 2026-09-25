@@ -44,9 +44,13 @@ const NULLABLE_RELATIONS: readonly NullableRelation[] = [
   { table: 'recurring_income_occurrences', column: 'income_id', parentTable: 'incomes' },
   { table: 'savings_goals', column: 'group_id', parentTable: 'savings_groups' },
   { table: 'manual_debts', column: 'category_id', parentTable: 'categories' },
+  { table: 'manual_debts', column: 'income_category_id', parentTable: 'income_categories' },
+  { table: 'manual_debts', column: 'contact_id', parentTable: 'contacts' },
   { table: 'manual_debts', column: 'payment_method_id', parentTable: 'payment_methods' },
   { table: 'manual_debt_entries', column: 'period_id', parentTable: 'periods' },
   { table: 'manual_debt_entries', column: 'expense_id', parentTable: 'expenses' },
+  { table: 'manual_debt_entries', column: 'income_id', parentTable: 'incomes' },
+  { table: 'contacts', column: 'relationship_type_id', parentTable: 'contact_relationships' },
 ] as const;
 
 // These rows only connect or project parent data. If their parent is gone,
@@ -61,6 +65,7 @@ const DEPENDENT_RELATIONS: readonly DependentRelation[] = [
   { table: 'savings_goal_movements', column: 'goal_id', parentTable: 'savings_goals' },
   { table: 'savings_goal_adjustments', column: 'goal_id', parentTable: 'savings_goals' },
   { table: 'manual_debt_entries', column: 'debt_id', parentTable: 'manual_debts' },
+  { table: 'contact_bank_accounts', column: 'contact_id', parentTable: 'contacts' },
 ] as const;
 
 async function getSchemaColumns(database: RelationDatabase): Promise<Map<string, Set<string>>> {

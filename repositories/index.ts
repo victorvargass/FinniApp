@@ -1,4 +1,5 @@
 export * from './categories';
+export * from './contacts';
 export * from './debts';
 export * from './movements';
 export * from './notifications';

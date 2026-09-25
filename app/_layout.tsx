@@ -94,6 +94,14 @@ function AppContent() {
                   options={{ presentation: 'fullScreenModal', title: t('navigation.savingsGroups') }}
                 />
                 <Stack.Screen
+                  name="modal/contacts"
+                  options={{ presentation: 'fullScreenModal', title: t('navigation.contacts') }}
+                />
+                <Stack.Screen
+                  name="modal/contact-form"
+                  options={{ presentation: 'modal', title: t('contacts.new') }}
+                />
+                <Stack.Screen
                   name="modal/organizer-form"
                   options={{ presentation: 'modal', title: t('navigation.groupings') }}
                 />

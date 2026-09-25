@@ -15,30 +15,35 @@ import { showToast } from '@/lib/toast';
 export default function OrganizerFormScreen() {
   const { kind, id } = useLocalSearchParams<{ kind?: string; id?: string }>();
   const savings = kind === 'savings';
+  const relationship = kind === 'relationship';
   const recordId = id ? Number(id) : null;
   const {
-    incomeCategories, savingsGroups, saveIncomeCategory, removeIncomeCategory,
+    incomeCategories, savingsGroups, relationshipTypes, saveIncomeCategory, removeIncomeCategory,
     saveSavingsGroup, removeSavingsGroup,
+    saveRelationshipType, removeRelationshipType,
   } = useDatabase();
   const navigation = useNavigation();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const record = (savings ? savingsGroups : incomeCategories).find((item) => item.id === recordId);
+  const record = (relationship ? relationshipTypes : savings ? savingsGroups : incomeCategories).find((item) => item.id === recordId);
   const [name, setName] = useState(record?.name ?? '');
-  const [color, setColor] = useState(record?.color ?? (savings ? '#20B9DB' : '#1FAF78'));
+  const defaultColor = relationship ? '#6C5CE7' : savings ? '#20B9DB' : '#1FAF78';
+  const [color, setColor] = useState(record?.color ?? defaultColor);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setName(record?.name ?? '');
-    setColor(record?.color ?? (savings ? '#20B9DB' : '#1FAF78'));
-  }, [recordId, record?.id, record?.name, record?.color, savings]);
+    setColor(record?.color ?? defaultColor);
+  }, [defaultColor, recordId, record?.id, record?.name, record?.color]);
 
   useEffect(() => {
     navigation.setOptions({
-      title: savings
+      title: relationship
+        ? t(record ? 'contacts.relationshipEdit' : 'contacts.relationshipNew')
+        : savings
         ? t(record ? 'groupings.savingsGroupEdit' : 'groupings.savingsGroupNew')
         : t(record ? 'categories.edit' : 'categories.new'),
     });
-  }, [navigation, record, savings]);
+  }, [navigation, record, relationship, savings]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -51,9 +56,12 @@ export default function OrganizerFormScreen() {
     }
     setSaving(true);
     try {
-      if (savings) await saveSavingsGroup({ name, color }, recordId ?? undefined);
+      if (relationship) await saveRelationshipType({ name, color }, recordId ?? undefined);
+      else if (savings) await saveSavingsGroup({ name, color }, recordId ?? undefined);
       else await saveIncomeCategory({ name, color }, recordId ?? undefined);
-      showToast(t(savings
+      showToast(t(relationship
+        ? (record ? 'contacts.relationshipUpdated' : 'contacts.relationshipCreated')
+        : savings
         ? (record ? 'groupings.savingsGroupUpdated' : 'groupings.savingsGroupCreated')
         : (record ? 'categories.updated' : 'categories.created')));
       router.back();
@@ -67,16 +75,17 @@ export default function OrganizerFormScreen() {
   const handleDelete = () => {
     if (recordId == null) return;
     Alert.alert(
-      t(savings ? 'groupings.savingsGroupDelete' : 'categories.delete'),
-      t(savings ? 'groupings.savingsGroupDeleteQuestion' : 'groupings.incomeDeleteQuestion'),
+      t(relationship ? 'contacts.relationshipDelete' : savings ? 'groupings.savingsGroupDelete' : 'categories.delete'),
+      t(relationship ? 'contacts.relationshipDeleteHint' : savings ? 'groupings.savingsGroupDeleteQuestion' : 'groupings.incomeDeleteQuestion'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         { text: t('common.delete'), style: 'destructive', onPress: async () => {
           setSaving(true);
           try {
-            if (savings) await removeSavingsGroup(recordId);
+            if (relationship) await removeRelationshipType(recordId);
+            else if (savings) await removeSavingsGroup(recordId);
             else await removeIncomeCategory(recordId);
-            showToast(t(savings ? 'groupings.savingsGroupDeleted' : 'groupings.incomeCategoryDeleted'));
+            showToast(t(relationship ? 'contacts.relationshipDeleted' : savings ? 'groupings.savingsGroupDeleted' : 'groupings.incomeCategoryDeleted'));
             router.back();
           } catch (error) {
             Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.couldNotDelete'));
@@ -98,7 +107,7 @@ export default function OrganizerFormScreen() {
           style={[styles.input, { color: colors.text, borderColor: colors.border }]}
           value={name}
           onChangeText={setName}
-          placeholder={t(savings ? 'groupings.savingsGroupPlaceholder' : 'incomes.namePlaceholder')}
+          placeholder={t(relationship ? 'contacts.relationshipPlaceholder' : savings ? 'groupings.savingsGroupPlaceholder' : 'incomes.namePlaceholder')}
           placeholderTextColor={colors.icon}
         />
         <ThemedText type="defaultSemiBold">{t('categories.color')}</ThemedText>
@@ -108,7 +117,7 @@ export default function OrganizerFormScreen() {
         </Pressable>
         {record && (
           <Pressable onPress={handleDelete} disabled={saving} style={[styles.delete, { borderColor: colors.border }, saving && styles.disabled]}>
-            <ThemedText style={styles.deleteText}>{t(savings ? 'groupings.savingsGroupDelete' : 'categories.delete')}</ThemedText>
+            <ThemedText style={styles.deleteText}>{t(relationship ? 'contacts.relationshipDelete' : savings ? 'groupings.savingsGroupDelete' : 'categories.delete')}</ThemedText>
           </Pressable>
         )}
       </ScrollView>

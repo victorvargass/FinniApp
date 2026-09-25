@@ -28,7 +28,7 @@ export default function DebtPaymentScreen() {
   const debtId = Number(debtIdParam);
   const entryId = entryIdParam ? Number(entryIdParam) : null;
   const navigation = useNavigation();
-  const { periods, selectedPeriod, selectedPeriodId, categories, paymentMethods, getDebt, addDebtPayment, editDebtPayment, removeDebtPayment } = useDatabase();
+  const { periods, selectedPeriod, selectedPeriodId, categories, incomeCategories, paymentMethods, getDebt, addDebtPayment, editDebtPayment, removeDebtPayment } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [debt, setDebt] = useState<Debt | null>(null);
   const [amount, setAmount] = useState('');
@@ -44,9 +44,11 @@ export default function DebtPaymentScreen() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: entryId == null ? t('debts.registerPayment') : t('debts.editPayment'),
+      title: debt?.direction === 'receivable'
+        ? entryId == null ? t('debts.registerCollection') : t('debts.editCollection')
+        : entryId == null ? t('debts.registerPayment') : t('debts.editPayment'),
     });
-  }, [entryId, navigation]);
+  }, [debt?.direction, entryId, navigation]);
 
   useEffect(() => {
     getDebt(debtId).then((value) => {
@@ -61,7 +63,7 @@ export default function DebtPaymentScreen() {
       setDate(entry?.date ?? defaultDate);
       setTime(entry?.time ?? toTimeString(new Date()));
       setPeriodId(entry?.periodId ?? selectedPeriodId);
-      setCategoryId(entry?.categoryId ?? value.categoryId);
+      setCategoryId(entry?.categoryId ?? (value.direction === 'receivable' ? value.incomeCategoryId : value.categoryId));
       setPaymentMethodId(entry?.paymentMethodId ?? value.paymentMethodId);
       setNote(entry?.note ?? '');
     }).catch(() => undefined);
@@ -75,7 +77,9 @@ export default function DebtPaymentScreen() {
       const data = { amount: parsedAmount, date, time, periodId, categoryId, paymentMethodId, note: note.trim() || null };
       if (entryId == null) await addDebtPayment(debtId, data);
       else await editDebtPayment(entryId, data);
-      showFeedback(entryId == null ? t('debts.paymentRegistered') : t('debts.paymentUpdated'));
+      showFeedback(debt?.direction === 'receivable'
+        ? entryId == null ? t('debts.collectionRegistered') : t('debts.collectionUpdated')
+        : entryId == null ? t('debts.paymentRegistered') : t('debts.paymentUpdated'));
       router.back();
     } catch (error) {
       Alert.alert(t('errors.couldNotSave'), errorMessage(error));
@@ -84,24 +88,30 @@ export default function DebtPaymentScreen() {
 
   const confirmDelete = () => {
     if (entryId == null) return;
-    Alert.alert(t('debts.deletePayment'), t('debts.deletePaymentHint'), [
+    Alert.alert(
+      t(debt?.direction === 'receivable' ? 'debts.deleteCollection' : 'debts.deletePayment'),
+      t(debt?.direction === 'receivable' ? 'debts.deleteCollectionHint' : 'debts.deletePaymentHint'), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.delete'), style: 'destructive', onPress: () => {
         setSaving(true);
-        removeDebtPayment(entryId).then(() => { showFeedback(t('debts.paymentDeleted')); router.back(); })
+        removeDebtPayment(entryId).then(() => { showFeedback(t(debt?.direction === 'receivable' ? 'debts.collectionDeleted' : 'debts.paymentDeleted')); router.back(); })
           .catch((error) => Alert.alert(t('errors.couldNotDelete'), errorMessage(error)))
           .finally(() => setSaving(false));
       } },
-    ]);
+      ]
+    );
   };
 
   if (!debt) return <SafeAreaView style={styles.safe}><View style={styles.center}><ThemedText>{t('common.loading')}</ThemedText></View></SafeAreaView>;
   const periodOptions = periods.map((item) => ({ value: item.id, label: `${formatDate(parseIsoDate(item.startDate))} – ${formatDate(parseIsoDate(item.endDate))}` }));
-  const categoryOptions = [{ value: null, label: t('common.notSpecified') }, ...categories.filter((item) => item.purpose === 'general' && item.systemKey == null).map((item) => ({ value: item.id, label: item.name, color: item.color }))];
+  const categoryOptions = [{ value: null, label: t('common.notSpecified') }, ...(debt.direction === 'receivable'
+    ? incomeCategories
+    : categories.filter((item) => item.purpose === 'general' && item.systemKey == null)
+  ).map((item) => ({ value: item.id, label: item.name, color: item.color }))];
   const paymentOptions = [
     { value: null, label: t('common.notSpecified') },
     ...paymentMethods
-      .filter((item) => item.active || item.id === paymentMethodId)
+      .filter((item) => (item.active || item.id === paymentMethodId) && (debt.direction !== 'receivable' || item.type !== 'credit'))
       .map((item) => ({
         value: item.id,
         label: `${item.name} · ${t(`paymentMethods.${item.type}`)}`,
@@ -135,11 +145,11 @@ export default function DebtPaymentScreen() {
             {showTime && <DateTimePicker value={dateWithTime(parseIsoDate(date), time)} mode="time" onChange={(_, value) => { if (Platform.OS === 'android') setShowTime(false); if (value) setTime(toTimeString(value)); }} />}
           </View>
           <SimpleSelect searchable label={t('debts.category')} value={categoryId} onChange={setCategoryId} options={categoryOptions} />
-          <SimpleSelect label={t('debts.paymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
+          <SimpleSelect label={t(debt.direction === 'receivable' ? 'debts.collectionDestination' : 'debts.paymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
           <View style={styles.group}><ThemedText style={styles.label}>{t('debts.paymentNote')}</ThemedText><TextInput multiline value={note} onChangeText={setNote} placeholder={t('debts.paymentNotePlaceholder')} placeholderTextColor={colors.icon} style={[styles.input, styles.multiline, { borderColor: colors.border, color: colors.text }]} /></View>
         </ThemedView>
-        <Pressable disabled={saving} onPress={() => { void save(); }} style={[styles.primary, saving && styles.disabled]}><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('debts.savePayment')}</ThemedText></Pressable>
-        {entryId != null && <Pressable disabled={saving} onPress={confirmDelete} style={styles.danger}><ThemedText style={styles.dangerText}>{t('debts.deletePayment')}</ThemedText></Pressable>}
+        <Pressable disabled={saving} onPress={() => { void save(); }} style={[styles.primary, saving && styles.disabled]}><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t(debt.direction === 'receivable' ? 'debts.saveCollection' : 'debts.savePayment')}</ThemedText></Pressable>
+        {entryId != null && <Pressable disabled={saving} onPress={confirmDelete} style={styles.danger}><ThemedText style={styles.dangerText}>{t(debt.direction === 'receivable' ? 'debts.deleteCollection' : 'debts.deletePayment')}</ThemedText></Pressable>}
       </ScrollView>
     </SafeAreaView>
   );

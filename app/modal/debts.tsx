@@ -58,8 +58,25 @@ export default function DebtsScreen() {
   const method = paymentMethods.find((item) => item.id === methodId);
   const creditCards = paymentMethods.filter((item) => item.type === 'credit');
   const activeDebts = debts.filter((item) => item.status !== 'archived');
-  const totalDebtBalance = activeDebts.reduce((sum, item) => sum + item.currentBalance, 0)
+  const payableDebts = debts.filter((item) => item.direction === 'payable');
+  const receivableDebts = debts.filter((item) => item.direction === 'receivable');
+  const totalDebtBalance = activeDebts.filter((item) => item.direction === 'payable').reduce((sum, item) => sum + item.currentBalance, 0)
     + creditCards.reduce((sum, item) => sum + (item.usedAmount ?? 0), 0);
+  const totalReceivable = activeDebts.filter((item) => item.direction === 'receivable').reduce((sum, item) => sum + item.currentBalance, 0);
+  const renderDebt = (debt: Debt) => (
+    <Pressable key={debt.id} onPress={() => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(debt.id) } })}>
+      <ThemedView style={[styles.card, debt.status === 'archived' && styles.archived]}>
+        <View style={styles.header}>
+          <View style={[styles.debtIcon, { backgroundColor: debt.direction === 'receivable' ? '#20A486' : debt.type === 'fixed' ? '#0B315B' : '#D88916' }]}><Ionicons name={debt.direction === 'receivable' ? 'arrow-down-outline' : debt.type === 'fixed' ? 'calendar-outline' : 'analytics-outline'} size={17} color="#fff" /></View>
+          <View style={styles.copy}><ThemedText type="defaultSemiBold">{debt.name}</ThemedText><ThemedText style={styles.secondary}>{debt.contactName ?? debt.creditor ?? (debt.type === 'fixed' ? t('debts.fixed') : t('debts.variable'))}</ThemedText></View>
+          <Ionicons name="chevron-forward" size={21} color={colors.icon} />
+        </View>
+        <View style={styles.row}><ThemedText>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
+        {debt.nextDueDate && <ThemedText style={styles.secondary}>{t('debts.nextDueValue', { date: new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${debt.nextDueDate}T12:00:00`)) })}</ThemedText>}
+        <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#1FAF78' : debt.status === 'archived' ? '#60758E' : colors.primary }]}>{debt.status === 'paid' ? t('debts.statusPaid') : debt.status === 'archived' ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
+      </ThemedView>
+    </Pressable>
+  );
   const planList = (
     <>
       {plans.length === 0 && (
@@ -126,6 +143,7 @@ export default function DebtsScreen() {
             <ThemedView style={styles.summaryCard}>
               <ThemedText style={styles.secondary}>{t('debts.totalFinancialDebt')}</ThemedText>
               <ThemedText type="title">{formatCLP(totalDebtBalance)}</ThemedText>
+              {totalReceivable > 0 && <ThemedText style={styles.receivable}>{t('debts.totalReceivable', { amount: formatCLP(totalReceivable) })}</ThemedText>}
             </ThemedView>
             <View style={styles.sectionHeading}>
               <View style={styles.copy}><ThemedText type="subtitle">{t('debts.creditCards')}</ThemedText><ThemedText style={styles.secondary}>{t('debts.creditCardsHint')}</ThemedText></View>
@@ -163,20 +181,10 @@ export default function DebtsScreen() {
                 <ThemedText style={styles.secondary}>{t('debts.emptyHint')}</ThemedText>
               </ThemedView>
             )}
-            {debts.map((debt) => (
-              <Pressable key={debt.id} onPress={() => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(debt.id) } })}>
-                <ThemedView style={[styles.card, debt.status === 'archived' && styles.archived]}>
-                  <View style={styles.header}>
-                    <View style={[styles.debtIcon, { backgroundColor: debt.type === 'fixed' ? '#0B315B' : '#D88916' }]}><Ionicons name={debt.type === 'fixed' ? 'calendar-outline' : 'analytics-outline'} size={17} color="#fff" /></View>
-                    <View style={styles.copy}><ThemedText type="defaultSemiBold">{debt.name}</ThemedText><ThemedText style={styles.secondary}>{debt.creditor ?? (debt.type === 'fixed' ? t('debts.fixed') : t('debts.variable'))}</ThemedText></View>
-                    <Ionicons name="chevron-forward" size={21} color={colors.icon} />
-                  </View>
-                  <View style={styles.row}><ThemedText>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
-                  {debt.nextDueDate && <ThemedText style={styles.secondary}>{t('debts.nextDueValue', { date: new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${debt.nextDueDate}T12:00:00`)) })}</ThemedText>}
-                  <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#1FAF78' : debt.status === 'archived' ? '#60758E' : colors.primary }]}>{debt.status === 'paid' ? t('debts.statusPaid') : debt.status === 'archived' ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
-                </ThemedView>
-              </Pressable>
-            ))}
+            {payableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.payableSection')}</ThemedText>}
+            {payableDebts.map(renderDebt)}
+            {receivableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.receivableSection')}</ThemedText>}
+            {receivableDebts.map(renderDebt)}
           </>
         )}
         {method?.type === 'credit' && (
@@ -220,6 +228,7 @@ const styles = StyleSheet.create({
   dot: { width: 16, height: 16, borderRadius: 6 }, copy: { flex: 1 }, secondary: { opacity: 0.62, fontSize: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 }, status: { fontSize: 12, fontWeight: '700' },
   summaryCard: { borderRadius: 12, padding: 16, gap: 5 },
+  receivable: { color: '#138F73', fontWeight: '700', marginTop: 4 },
   debtIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, archived: { opacity: 0.62 },
   sectionHeading: { marginTop: 4 }, methodSummary: { borderRadius: 12, padding: 16, gap: 10 }, methodActions: { flexDirection: 'row', gap: 10 }, methodButton: { flex: 1, minHeight: 45, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
 });

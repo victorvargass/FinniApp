@@ -70,19 +70,24 @@ export function HomeDebtsCard({
   onOpenPaymentMethod,
 }: HomeDebtsCardProps) {
   const activeDebts = debts.filter((item) => item.status === 'active');
+  const payableDebts = activeDebts.filter((item) => item.direction === 'payable');
+  const receivableDebts = activeDebts.filter((item) => item.direction === 'receivable');
   const activePlans = plans.filter((item) => item.status === 'active' || item.status === 'projected');
   const creditCards = paymentMethods.filter((item) =>
     item.active && item.type === 'credit' && (item.usedAmount ?? 0) > 0
   );
   if (activeDebts.length === 0 && activePlans.length === 0 && creditCards.length === 0) return null;
 
-  const totalBalance = activeDebts.reduce((sum, item) => sum + item.currentBalance, 0)
+  const totalBalance = payableDebts.reduce((sum, item) => sum + item.currentBalance, 0)
     + creditCards.reduce((sum, item) => sum + (item.usedAmount ?? 0), 0);
+  const totalReceivable = receivableDebts.reduce((sum, item) => sum + item.currentBalance, 0);
 
   return (
     <ExpandableFinanceCard
       title={t('navigation.debts')}
-      summary={t('debts.homeSummary', { amount: formatCLP(totalBalance) })}
+      summary={totalReceivable > 0
+        ? t('debts.homeSummaryWithReceivable', { payable: formatCLP(totalBalance), receivable: formatCLP(totalReceivable) })
+        : t('debts.homeSummary', { amount: formatCLP(totalBalance) })}
       backgroundColor={backgroundColor}
       manageAccessibilityLabel={t('accessibility.debtDetails')}
       onManage={onManage}>
@@ -109,17 +114,34 @@ export function HomeDebtsCard({
           );
         })}
 
-        {activeDebts.length > 0 && (
-          <ThemedText style={styles.sectionLabel}>{t('debts.otherDebts')}</ThemedText>
+        {payableDebts.length > 0 && (
+          <ThemedText style={styles.sectionLabel}>{t('debts.payableSection')}</ThemedText>
         )}
-        {activeDebts.map((debt) => (
+        {payableDebts.map((debt) => (
           <DebtRow
             key={`debt-${debt.id}`}
             color={debt.type === 'fixed' ? '#174A73' : '#D88916'}
             name={debt.name}
             detail={debt.nextDueDate
               ? t('debts.nextDueValue', { date: formatDate(new Date(`${debt.nextDueDate}T12:00:00`)) })
-              : debt.creditor ?? t(debt.type === 'fixed' ? 'debts.fixed' : 'debts.variable')}
+              : debt.contactName ?? debt.creditor ?? t(debt.type === 'fixed' ? 'debts.fixed' : 'debts.variable')}
+            amount={debt.currentBalance}
+            total={debt.initialAmount}
+            onPress={() => onOpenDebt(debt.id)}
+          />
+        ))}
+
+        {receivableDebts.length > 0 && (
+          <ThemedText style={styles.sectionLabel}>{t('debts.receivableSection')}</ThemedText>
+        )}
+        {receivableDebts.map((debt) => (
+          <DebtRow
+            key={`receivable-${debt.id}`}
+            color="#20A486"
+            name={debt.name}
+            detail={debt.nextDueDate
+              ? t('debts.nextDueValue', { date: formatDate(new Date(`${debt.nextDueDate}T12:00:00`)) })
+              : debt.contactName ?? debt.creditor ?? t(debt.type === 'fixed' ? 'debts.fixed' : 'debts.variable')}
             amount={debt.currentBalance}
             total={debt.initialAmount}
             onPress={() => onOpenDebt(debt.id)}
