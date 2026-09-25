@@ -157,13 +157,22 @@ export default function UserScreen() {
   const { language, setLanguage } = useLanguage();
   const { setPreference: setThemePreference } = useThemePreference();
   const { resetOnboarding } = useOnboarding();
-  const { recurringDecisions, savingsGoals, settings, setMovementReminder, resetLocalData } = useDatabase();
+  const {
+    appNotifications,
+    savingsGoals,
+    settings,
+    setMovementReminder,
+    setPushNotificationsEnabled,
+    resetLocalData,
+    refresh,
+  } = useDatabase();
   const [resetModalVisible, setResetModalVisible] = React.useState(false);
   const [resetConfirmation, setResetConfirmation] = React.useState('');
   const [isResetting, setIsResetting] = React.useState(false);
+  const [isUpdatingNotifications, setIsUpdatingNotifications] = React.useState(false);
   const [publishedUpdate, setPublishedUpdate] = React.useState<PublishedUpdateStatus>({ kind: 'checking' });
   const activeUpdate = getActiveUpdate();
-  const pendingConfirmations = recurringDecisions.filter((item) => item.status === 'pending').length;
+  const unreadNotifications = appNotifications.filter((item) => !item.isRead).length;
   const activeSavingsGoals = savingsGoals.filter((goal) => goal.status === 'active');
   const totalSavings = savingsGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
   const {
@@ -186,11 +195,12 @@ export default function UserScreen() {
   useFocusEffect(React.useCallback(() => {
     let active = true;
     setPublishedUpdate({ kind: 'checking' });
+    void refresh().catch(() => undefined);
     void checkPublishedUpdate().then((status) => {
       if (active) setPublishedUpdate(status);
     });
     return () => { active = false; };
-  }, []));
+  }, [refresh]));
 
   const closeResetModal = () => {
     if (isResetting) return;
@@ -238,6 +248,24 @@ export default function UserScreen() {
     }
   };
 
+  const showNotificationPermissionError = (error: unknown) => {
+    if (error instanceof NotificationPermissionError && !error.canAskAgain) {
+      Alert.alert(
+        t('settings.notificationPermissionTitle'),
+        t('settings.notificationPermissionSettingsHint'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('settings.openSettings'), onPress: () => { void Linking.openSettings(); } },
+        ]
+      );
+      return;
+    }
+    Alert.alert(
+      t('errors.couldNotUpdate'),
+      error instanceof Error ? error.message : t('common.tryAgain')
+    );
+  };
+
   const contactSupport = async () => {
     try {
       const latestPublishedUpdate = await checkPublishedUpdate();
@@ -281,8 +309,8 @@ export default function UserScreen() {
         <ThemedView style={styles.header}>
           <ThemedText type="title">{t('settings.title')}</ThemedText>
           <Pressable
-            accessibilityLabel={pendingConfirmations > 0
-              ? t('settings.notificationsPending', { count: pendingConfirmations })
+            accessibilityLabel={unreadNotifications > 0
+              ? t('settings.notificationsPending', { count: unreadNotifications })
               : t('navigation.notifications')}
             accessibilityRole="button"
             onPress={() => router.push('/modal/recurring-confirmations')}
@@ -292,10 +320,10 @@ export default function UserScreen() {
               pressed && styles.buttonPressed,
             ]}>
             <Ionicons name="notifications-outline" size={25} color={colors.icon} />
-            {pendingConfirmations > 0 && (
+            {unreadNotifications > 0 && (
               <View style={styles.notificationBadge}>
                 <ThemedText style={styles.notificationBadgeText}>
-                  {pendingConfirmations > 99 ? '99+' : pendingConfirmations}
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
                 </ThemedText>
               </View>
             )}
@@ -390,6 +418,32 @@ export default function UserScreen() {
         </ThemedText>
         <ThemedView style={[styles.card, styles.groupCard]}>
           <View style={styles.settingRow}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('settings.pushNotifications')}</ThemedText>
+              <ThemedText style={styles.description}>
+                {t(settings.pushNotificationsEnabled
+                  ? 'settings.pushNotificationsHint'
+                  : 'settings.pushNotificationsPausedHint')}
+              </ThemedText>
+            </View>
+            <Switch
+              accessibilityLabel={t('accessibility.togglePushNotifications')}
+              disabled={isUpdatingNotifications}
+              value={settings.pushNotificationsEnabled}
+              onValueChange={(enabled) => {
+                setIsUpdatingNotifications(true);
+                setPushNotificationsEnabled(enabled)
+                  .then(() => showToast(t(enabled
+                    ? 'settings.pushNotificationsEnabledToast'
+                    : 'settings.pushNotificationsDisabledToast')))
+                  .catch(showNotificationPermissionError)
+                  .finally(() => setIsUpdatingNotifications(false));
+              }}
+              trackColor={{ true: colors.primary }}
+            />
+          </View>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.settingRow}>
             <Pressable
               accessibilityLabel={t('accessibility.configureReminder')}
               accessibilityRole="button"
@@ -406,6 +460,7 @@ export default function UserScreen() {
             </Pressable>
             <Switch
               accessibilityLabel={t('accessibility.toggleReminder')}
+              disabled={isUpdatingNotifications}
               value={settings.movementReminderEnabled}
               onValueChange={(movementReminderEnabled) => {
                 setMovementReminder({
@@ -418,20 +473,7 @@ export default function UserScreen() {
                   .then(() => showToast(t(movementReminderEnabled
                     ? 'settings.reminderEnabledToast'
                     : 'settings.reminderDisabledToast')))
-                  .catch((toggleError) => {
-                    if (toggleError instanceof NotificationPermissionError && !toggleError.canAskAgain) {
-                      Alert.alert(
-                        t('settings.notificationPermissionTitle'),
-                        t('settings.notificationPermissionSettingsHint'),
-                        [
-                          { text: t('common.cancel'), style: 'cancel' },
-                          { text: t('settings.openSettings'), onPress: () => { void Linking.openSettings(); } },
-                        ]
-                      );
-                      return;
-                    }
-                    Alert.alert(t('errors.couldNotUpdate'), toggleError instanceof Error ? toggleError.message : t('common.tryAgain'));
-                  });
+                  .catch(showNotificationPermissionError);
               }}
               trackColor={{ true: colors.primary }}
             />

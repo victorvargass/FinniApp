@@ -28,7 +28,6 @@ import type {
   NewRecurringSchedule,
   SavingsExpenseKind,
 } from '@/lib/types';
-import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
 import { getDefaultRecurringSchedule, getEstimatedBillingDate, getNameSuggestions, parseDateString } from './helpers';
 import { ColorSelect, NameSuggestions } from './shared';
@@ -65,6 +64,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     getCreditCardCycles,
     settings,
     setPeriodEndDate,
+    setPushNotificationsEnabled,
   } = useDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -489,13 +489,16 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       return;
     }
     if (!expense && makeRecurring) {
-      const granted = await ensureRecurringNotificationPermission();
-      if (!granted && recurringSchedule.registrationMode === 'confirmation') {
-        Alert.alert(
-          t('expenses.notificationsDisabled'),
-          t('expenses.notificationsDisabledHint')
-        );
-        return;
+      if (recurringSchedule.active && recurringSchedule.registrationMode === 'confirmation') {
+        try {
+          await setPushNotificationsEnabled(true);
+        } catch {
+          Alert.alert(
+            t('expenses.notificationsDisabled'),
+            t('expenses.notificationsDisabledHint')
+          );
+          return;
+        }
       }
     }
 

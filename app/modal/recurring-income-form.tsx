@@ -15,7 +15,6 @@ import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
 import type { NewRecurringSchedule } from '@/lib/types';
-import { ensureRecurringNotificationPermission } from '@/services/RecurringNotificationService';
 
 function showResult(message: string) {
   showToast(message);
@@ -31,6 +30,7 @@ export default function RecurringIncomeFormScreen() {
     paymentMethods,
     incomeCategories,
     settings,
+    setPushNotificationsEnabled,
   } = useDatabase();
   const recurring = id ? recurringIncomes.find((item) => item.id === Number(id)) : undefined;
   const navigation = useNavigation();
@@ -61,9 +61,12 @@ export default function RecurringIncomeFormScreen() {
     const amount = parseAmount(amountText);
     if (!name.trim() || amount == null) return Alert.alert(t('validation.missingData'), t('recurrence.invalidNameAmount'));
     if (paymentMethodId == null) return Alert.alert(t('common.error'), t('incomes.destinationRequired'));
-    const notificationsGranted = await ensureRecurringNotificationPermission();
-    if (!notificationsGranted && schedule.registrationMode === 'confirmation') {
-      return Alert.alert(t('expenses.notificationsDisabled'), t('expenses.notificationsDisabledHint'));
+    if (schedule.active && schedule.registrationMode === 'confirmation') {
+      try {
+        await setPushNotificationsEnabled(true);
+      } catch {
+        return Alert.alert(t('expenses.notificationsDisabled'), t('expenses.notificationsDisabledHint'));
+      }
     }
     setSaving(true);
     try {

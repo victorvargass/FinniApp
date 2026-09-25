@@ -13,6 +13,7 @@ import {
 } from '@/services/RecurringNotificationService';
 import { getMovementReminderUrl } from '@/services/MovementReminderService';
 import { getFinancialReminderUrl } from '@/services/FinancialReminderService';
+import { recordDeliveredNotification } from '@/services/NotificationInboxService';
 
 function showResult(message: string) {
   showToast(message);
@@ -25,12 +26,16 @@ export function RecurringNotificationController() {
     approveRecurringOccurrence,
     skipRecurringOccurrence,
     markRecurringOccurrencePending,
+    markAppNotificationReadBySourceKey,
+    refresh,
   } = useDatabase();
   const handledResponse = useRef<string | null>(null);
 
   useEffect(() => {
     const handleResponse = async (response: Notifications.NotificationResponse) => {
       const responseKey = `${response.notification.request.identifier}:${response.actionIdentifier}`;
+      const inboxKey = await recordDeliveredNotification(response.notification);
+      await markAppNotificationReadBySourceKey(inboxKey);
       const financialReminderUrl = getFinancialReminderUrl(response);
       if (financialReminderUrl) {
         if (handledResponse.current === responseKey) return;
@@ -66,7 +71,16 @@ export function RecurringNotificationController() {
         const recurring = (data.kind === 'expense' ? recurringExpenses : recurringIncomes).find(
           (item) => item.id === data.recurringId
         );
-        const noun = data.kind === 'expense' ? t('navigation.expense').toLocaleLowerCase() : t('navigation.income').toLocaleLowerCase();
+        const isSavingsContribution = data.kind === 'expense'
+          && recurring != null
+          && 'savingsGoalId' in recurring
+          && recurring.savingsGoalId != null
+          && recurring.savingsKind === 'contribution';
+        const noun = isSavingsContribution
+          ? t('recurrence.saving')
+          : data.kind === 'expense'
+            ? t('navigation.expense').toLocaleLowerCase()
+            : t('navigation.income').toLocaleLowerCase();
         const description = recurring
           ? t('notifications.scheduledDescription', { name: recurring.name, amount: formatCLP(recurring.amount) })
           : t('notifications.fallbackDescription', { movement: noun });
@@ -74,7 +88,9 @@ export function RecurringNotificationController() {
         const confirmMovement = async () => {
           try {
             await approveRecurringOccurrence(data.kind, data.recurringId, data.scheduledDate);
-            showResult(t(data.kind === 'expense' ? 'notifications.resultExpense' : 'notifications.resultIncome'));
+            showResult(t(isSavingsContribution
+              ? 'notifications.resultSavings'
+              : data.kind === 'expense' ? 'notifications.resultExpense' : 'notifications.resultIncome'));
             router.replace({
               pathname: '/(tabs)/movements',
               params: { movementType: data.kind === 'expense' ? 'expenses' : 'incomes' },
@@ -133,6 +149,11 @@ export function RecurringNotificationController() {
     };
 
     configureRecurringNotifications().catch(() => undefined);
+    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      recordDeliveredNotification(notification)
+        .then(() => refresh())
+        .catch(() => undefined);
+    });
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       handleResponse(response).catch((error) => {
         Alert.alert(
@@ -151,10 +172,15 @@ export function RecurringNotificationController() {
           error instanceof Error ? error.message : t('common.tryAgain')
         );
       });
-    return () => subscription.remove();
+    return () => {
+      receivedSubscription.remove();
+      subscription.remove();
+    };
   }, [
     approveRecurringOccurrence,
     markRecurringOccurrencePending,
+    markAppNotificationReadBySourceKey,
+    refresh,
     recurringExpenses,
     recurringIncomes,
     skipRecurringOccurrence,

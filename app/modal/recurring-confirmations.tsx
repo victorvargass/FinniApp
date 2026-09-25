@@ -3,60 +3,128 @@ import { router } from 'expo-router';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { EmptyState } from '@/components/empty-state';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatDate } from '@/lib/format';
-import { parseIsoDate } from '@/lib/recurrence';
-import { t } from '@/lib/i18n';
+import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
-import type { RecurringDecisionItem } from '@/lib/types';
+import type { AppNotification, RecurringDecisionItem } from '@/lib/types';
 
 function showResult(message: string) {
   showToast(message);
 }
 
-export default function RecurringConfirmationsScreen() {
+function getMovementNoun(item: RecurringDecisionItem): string {
+  if (item.isSavingsContribution) return t('recurrence.saving');
+  return item.kind === 'expense'
+    ? t('navigation.expense').toLowerCase()
+    : t('navigation.income').toLowerCase();
+}
+
+function notificationIcon(kind: string): keyof typeof Ionicons.glyphMap {
+  if (kind === 'movement-reminder') return 'create-outline';
+  if (kind.startsWith('recurring-')) return 'repeat-outline';
+  if (kind.startsWith('card-')) return 'card-outline';
+  if (kind.includes('debt') || kind.includes('installment')) return 'cash-outline';
+  if (kind === 'period-ending') return 'calendar-outline';
+  return 'notifications-outline';
+}
+
+function notificationDate(timestamp: number): string {
+  return new Intl.DateTimeFormat(APP_LOCALE, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(timestamp));
+}
+
+export default function NotificationsScreen() {
   const {
+    appNotifications,
     recurringDecisions,
     approveRecurringOccurrence,
     skipRecurringOccurrence,
-    dismissSkippedOccurrence,
     retryRecurringOccurrence,
+    setAppNotificationRead,
+    deleteAppNotification,
   } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const pending = recurringDecisions.filter((item) => item.status === 'pending');
-  const skipped = recurringDecisions.filter((item) => item.status === 'skipped');
+  const unread = appNotifications.filter((item) => !item.isRead);
+  const read = appNotifications.filter((item) => item.isRead);
   const sections = [
-    { title: t('recurrence.pendingSection'), data: pending },
-    { title: t('recurrence.skippedSection'), data: skipped },
+    { title: t('notifications.unreadSection'), data: unread },
+    { title: t('notifications.readSection'), data: read },
   ].filter((section) => section.data.length > 0);
 
-  const confirmMovement = async (item: RecurringDecisionItem) => {
-    const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
-    const nounTitle = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
+  const relatedDecision = (notification: AppNotification) => recurringDecisions.find(
+    (item) => item.kind === notification.recurringKind
+      && item.recurringId === notification.recurringId
+      && item.scheduledDate === notification.recurringDate
+  );
+
+  const openNotification = async (notification: AppNotification) => {
+    if (!notification.isRead) await setAppNotificationRead(notification.id, true);
+    if (relatedDecision(notification)) return;
+    if (notification.actionUrl) router.push(notification.actionUrl as never);
+  };
+
+  const showNotificationMenu = (notification: AppNotification) => {
+    Alert.alert(notification.title, undefined, [
+      {
+        text: t(notification.isRead ? 'notifications.markUnread' : 'notifications.markRead'),
+        onPress: () => { void setAppNotificationRead(notification.id, !notification.isRead); },
+      },
+      {
+        text: t('common.delete'),
+        style: 'destructive',
+        onPress: () => {
+          Alert.alert(
+            t('notifications.deleteTitle'),
+            t('notifications.deleteDescription'),
+            [
+              { text: t('common.cancel'), style: 'cancel' },
+              {
+                text: t('common.delete'),
+                style: 'destructive',
+                onPress: () => {
+                  void deleteAppNotification(notification.id)
+                    .then(() => showResult(t('notifications.deleted')))
+                    .catch(() => Alert.alert(t('errors.couldNotDelete'), t('common.tryAgain')));
+                },
+              },
+            ]
+          );
+        },
+      },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
+
+  const confirmMovement = async (notification: AppNotification, decision: RecurringDecisionItem) => {
+    const noun = getMovementNoun(decision);
     try {
-      await approveRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate);
-      showResult(t('recurrence.createdMovement', { movement: nounTitle }));
+      await approveRecurringOccurrence(decision.kind, decision.recurringId, decision.scheduledDate);
+      await setAppNotificationRead(notification.id, true);
+      showResult(t('recurrence.createdMovement', { movement: noun }));
       router.replace({
         pathname: '/(tabs)/movements',
-        params: { movementType: item.kind === 'expense' ? 'expenses' : 'incomes' },
+        params: { movementType: decision.kind === 'expense' ? 'expenses' : 'incomes' },
       });
     } catch (error) {
       Alert.alert(
         t('recurrence.createErrorTitle', { movement: noun }),
-        t('recurrence.pendingAfterError', { message: error instanceof Error ? error.message : t('common.tryAgain') })
+        t('recurrence.pendingAfterError', {
+          message: error instanceof Error ? error.message : t('common.tryAgain'),
+        })
       );
     }
   };
 
-  const omitMovement = (item: RecurringDecisionItem) => {
-    const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
-    const nounTitle = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
+  const omitMovement = (notification: AppNotification, decision: RecurringDecisionItem) => {
+    const noun = getMovementNoun(decision);
     Alert.alert(
       t('recurrence.skipTitle', { movement: noun }),
       t('recurrence.skipDescription', { movement: noun }),
@@ -66,70 +134,46 @@ export default function RecurringConfirmationsScreen() {
           text: t('common.skip'),
           style: 'destructive',
           onPress: () => {
-            skipRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate)
-              .then(() => showResult(t('recurrence.omittedMovement', { movement: nounTitle })))
-              .catch((error) => {
-                Alert.alert(
-                  t('recurrence.skipError'),
-                  error instanceof Error ? error.message : t('common.tryAgain')
-                );
-              });
+            skipRecurringOccurrence(decision.kind, decision.recurringId, decision.scheduledDate)
+              .then(async () => {
+                await setAppNotificationRead(notification.id, true);
+                showResult(t('recurrence.omittedMovement', { movement: noun }));
+              })
+              .catch((error) => Alert.alert(
+                t('recurrence.skipError'),
+                error instanceof Error ? error.message : t('common.tryAgain')
+              ));
           },
         },
       ]
     );
   };
 
-  const retryMovement = (item: RecurringDecisionItem) => {
-    const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
-    const nounTitle = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
+  const retryMovement = (notification: AppNotification, decision: RecurringDecisionItem) => {
+    const noun = getMovementNoun(decision);
     Alert.alert(
       t('recurrence.retryTitle', { movement: noun }),
-      t('recurrence.retryQuestion', { movement: noun, name: item.name }),
+      t('recurrence.retryQuestion', { movement: noun, name: decision.name }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('recurrence.createMovement', { movement: noun }),
           onPress: () => {
-            retryRecurringOccurrence(item.kind, item.recurringId, item.scheduledDate)
-              .then(() => {
-                showResult(t('recurrence.createdMovement', { movement: nounTitle }));
+            retryRecurringOccurrence(decision.kind, decision.recurringId, decision.scheduledDate)
+              .then(async () => {
+                await setAppNotificationRead(notification.id, true);
+                showResult(t('recurrence.createdMovement', { movement: noun }));
                 router.replace({
                   pathname: '/(tabs)/movements',
-                  params: { movementType: item.kind === 'expense' ? 'expenses' : 'incomes' },
+                  params: { movementType: decision.kind === 'expense' ? 'expenses' : 'incomes' },
                 });
               })
-              .catch((error) => {
-                Alert.alert(
-                  t('recurrence.createErrorTitle', { movement: noun }),
-                  t('recurrence.pendingAfterRetryError', { message: error instanceof Error ? error.message : t('common.tryAgain') })
-                );
-              });
-          },
-        },
-      ]
-    );
-  };
-
-  const deleteSkippedNotification = (item: RecurringDecisionItem) => {
-    const noun = item.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
-    Alert.alert(
-      t('recurrence.deleteNotification'),
-      t('recurrence.deleteNotificationDescription', { name: item.name, movement: noun }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: () => {
-            dismissSkippedOccurrence(item.kind, item.recurringId, item.scheduledDate)
-              .then(() => showResult(t('recurrence.notificationDeleted')))
-              .catch((error) => {
-                Alert.alert(
-                  t('errors.couldNotDelete'),
-                  error instanceof Error ? error.message : t('common.tryAgain')
-                );
-              });
+              .catch((error) => Alert.alert(
+                t('recurrence.createErrorTitle', { movement: noun }),
+                t('recurrence.pendingAfterRetryError', {
+                  message: error instanceof Error ? error.message : t('common.tryAgain'),
+                })
+              ));
           },
         },
       ]
@@ -140,62 +184,99 @@ export default function RecurringConfirmationsScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <SectionList
         sections={sections}
-        keyExtractor={(item) => `${item.kind}-${item.recurringId}-${item.scheduledDate}`}
-        contentContainerStyle={styles.list}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={[styles.list, sections.length === 0 && styles.emptyList]}
+        ListHeaderComponent={sections.length > 0 ? (
+          <ThemedText style={styles.intro}>{t('notifications.centerDescription')}</ThemedText>
+        ) : null}
         ListEmptyComponent={(
           <EmptyState
             icon="checkmark-done-circle-outline"
-            title={t('recurrence.decisionsEmptyTitle')}
-            description={t('recurrence.decisionsEmpty')}
-            actionLabel={t('navigation.recurringMovements')}
-            onAction={() => router.push('/modal/recurring-expenses')}
+            title={t('notifications.emptyTitle')}
+            description={t('notifications.emptyDescription')}
           />
         )}
         renderSectionHeader={({ section }) => (
           <ThemedText type="subtitle" style={styles.sectionTitle}>{section.title}</ThemedText>
         )}
-        renderItem={({ item }) => (
-          <ThemedView style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons
-                name={item.status === 'pending' ? 'notifications-outline' : 'return-up-back-outline'}
-                size={21}
-                color={item.status === 'pending' ? colors.primary : colors.icon}
-              />
-              <View style={styles.copy}>
-                <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
-                <ThemedText style={styles.meta}>
-                  {formatCLP(item.amount)} · {formatDate(parseIsoDate(item.scheduledDate))}
-                </ThemedText>
-              </View>
-            </View>
-            {item.status === 'pending' ? (
-              <View style={styles.actions}>
+        renderItem={({ item }) => {
+          const decision = relatedDecision(item);
+          return (
+            <ThemedView style={[
+              styles.card,
+              { borderColor: item.isRead ? colors.border : colors.primary },
+            ]}>
+              <View style={styles.cardHeader}>
                 <Pressable
-                  onPress={() => omitMovement(item)}
-                  style={[styles.action, { borderColor: colors.border }]}>
-                  <ThemedText type="defaultSemiBold">{t('common.skip')}</ThemedText>
+                  accessibilityRole="button"
+                  accessibilityLabel={item.title}
+                  onPress={() => void openNotification(item)}
+                  style={({ pressed }) => [styles.notificationMain, pressed && styles.pressed]}>
+                  <View style={[
+                    styles.iconBox,
+                    { backgroundColor: item.isRead ? colors.background : `${colors.primary}18` },
+                  ]}>
+                    <Ionicons
+                      name={notificationIcon(item.kind)}
+                      size={21}
+                      color={item.isRead ? colors.icon : colors.primary}
+                    />
+                  </View>
+                  <View style={styles.copy}>
+                    <View style={styles.titleRow}>
+                      {!item.isRead && (
+                        <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
+                      )}
+                      <ThemedText type="defaultSemiBold" style={styles.title}>{item.title}</ThemedText>
+                    </View>
+                    <ThemedText style={styles.body}>{item.body}</ThemedText>
+                    <ThemedText style={styles.meta}>{notificationDate(item.scheduledFor)}</ThemedText>
+                  </View>
                 </Pressable>
-                <Pressable onPress={() => void confirmMovement(item)} style={[styles.action, styles.primary]}>
-                  <ThemedText style={styles.primaryText}>{t('common.confirm')}</ThemedText>
+                <Pressable
+                  accessibilityLabel={t('notifications.optionsFor', { title: item.title })}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => showNotificationMenu(item)}
+                  style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
+                  <Ionicons name="ellipsis-vertical" size={21} color={colors.icon} />
                 </Pressable>
               </View>
-            ) : (
-              <View style={styles.actions}>
+
+              {decision?.status === 'pending' && (
+                <View style={styles.actions}>
+                  <Pressable
+                    onPress={() => omitMovement(item, decision)}
+                    style={[styles.action, { borderColor: colors.border }]}>
+                    <ThemedText type="defaultSemiBold">{t('common.skip')}</ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void confirmMovement(item, decision)}
+                    style={[styles.action, styles.primary]}>
+                    <ThemedText style={styles.primaryText}>{t('common.confirm')}</ThemedText>
+                  </Pressable>
+                </View>
+              )}
+              {decision?.status === 'skipped' && (
                 <Pressable
-                  onPress={() => deleteSkippedNotification(item)}
-                  style={[styles.action, { borderColor: '#C93F4B' }]}>
-                  <ThemedText type="defaultSemiBold" style={styles.deleteText}>{t('common.delete')}</ThemedText>
+                  onPress={() => retryMovement(item, decision)}
+                  style={[styles.singleAction, { borderColor: colors.primary }]}>
+                  <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
+                    {t('common.retry')}
+                  </ThemedText>
                 </Pressable>
+              )}
+              {!decision && item.actionUrl && (
                 <Pressable
-                  onPress={() => retryMovement(item)}
-                  style={[styles.action, { borderColor: colors.primary }]}>
-                  <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>{t('common.retry')}</ThemedText>
+                  onPress={() => void openNotification(item)}
+                  style={[styles.singleAction, { borderColor: colors.border }]}>
+                  <ThemedText type="defaultSemiBold">{t('notifications.viewDetail')}</ThemedText>
+                  <Ionicons name="chevron-forward" size={18} color={colors.icon} />
                 </Pressable>
-              </View>
-            )}
-          </ThemedView>
-        )}
+              )}
+            </ThemedView>
+          );
+        }}
       />
     </SafeAreaView>
   );
@@ -203,17 +284,33 @@ export default function RecurringConfirmationsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  list: { padding: 20, paddingBottom: 32, gap: 10 },
-  intro: { opacity: 0.72, lineHeight: 20, marginBottom: 10 },
-  empty: { textAlign: 'center', opacity: 0.6, marginTop: 40 },
-  sectionTitle: { marginTop: 10, marginBottom: 4 },
-  card: { borderRadius: 12, padding: 14, gap: 12, marginBottom: 10 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  copy: { flex: 1, gap: 3 },
-  meta: { opacity: 0.65, fontSize: 13 },
+  list: { padding: 20, paddingBottom: 32 },
+  emptyList: { flexGrow: 1, justifyContent: 'center' },
+  intro: { opacity: 0.72, lineHeight: 21, marginBottom: 14 },
+  sectionTitle: { marginTop: 10, marginBottom: 8 },
+  card: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 12, marginBottom: 10 },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  notificationMain: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
+  iconBox: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  copy: { flex: 1, gap: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  title: { flex: 1 },
+  unreadDot: { width: 7, height: 7, borderRadius: 4 },
+  body: { opacity: 0.78, lineHeight: 20 },
+  meta: { opacity: 0.58, fontSize: 12, marginTop: 2 },
+  menuButton: { padding: 4 },
+  pressed: { opacity: 0.65 },
   actions: { flexDirection: 'row', gap: 8 },
   action: { flex: 1, borderWidth: 1, borderRadius: 9, padding: 11, alignItems: 'center' },
+  singleAction: {
+    borderWidth: 1,
+    borderRadius: 9,
+    padding: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
   primary: { borderColor: '#0B315B', backgroundColor: '#0B315B' },
   primaryText: { color: '#fff', fontWeight: '700' },
-  deleteText: { color: '#C93F4B' },
 });
