@@ -2,6 +2,7 @@ import * as SQLite from 'expo-sqlite';
 import { t } from './i18n';
 
 import { withDatabaseLock } from './database-lock';
+import { repairRecoverableDatabaseRelations } from './database-relations';
 import {
   DATABASE_APPLICATION_ID,
   DATABASE_NAME,
@@ -16,6 +17,7 @@ import {
 import { calculateAvailableBalance } from './payment-method-calculations';
 import { PERIOD_CARD_ADJUSTMENTS_SQL, PERIOD_CARD_PAYMENTS_SQL } from './period-card-cashflow';
 import { spendingExpenseSql } from './movement-classification';
+import { canUpdateExpenseAcrossCreditCycles } from './credit-cycle-edit';
 import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate, isSinglePaymentDebt } from './debt-calculations';
 import {
   MANUAL_DEBT_BALANCE_AT_DATE_SQL,
@@ -34,6 +36,7 @@ import {
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from './types';
 import type {
   AccountTransfer,
+  AppNotification,
   CardPaymentMovement,
   Category,
   CreditCardAdjustment,
@@ -48,6 +51,7 @@ import type {
   NewCategory,
   NewCreditCardAdjustment,
   NewAccountTransfer,
+  NewAppNotification,
   NewCreditCardCycle,
   NewExpense,
   NewIncome,
@@ -66,6 +70,7 @@ import type {
   NewSavingsGroup,
   NewSavingsGoalBalance,
   PaymentMethod,
+  PaymentMethodBalanceUpdate,
   PaymentMethodMovement,
   PaymentMethodTotal,
   Period,
@@ -506,12 +511,30 @@ async function initializeDatabase(): Promise<void> {
       id INTEGER PRIMARY KEY CHECK (id = 1),
       current_period_id INTEGER,
       default_payment_method_id INTEGER,
+      push_notifications_enabled INTEGER NOT NULL DEFAULT 0,
       movement_reminder_enabled INTEGER NOT NULL DEFAULT 0,
       movement_reminder_frequency TEXT NOT NULL DEFAULT 'daily',
       movement_reminder_weekday INTEGER NOT NULL DEFAULT 1,
       movement_reminder_hour INTEGER NOT NULL DEFAULT 21,
       movement_reminder_minute INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY (current_period_id) REFERENCES periods(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS app_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_key TEXT NOT NULL UNIQUE,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      scheduled_for INTEGER NOT NULL,
+      action_url TEXT,
+      recurring_kind TEXT CHECK (recurring_kind IS NULL OR recurring_kind IN ('expense', 'income')),
+      recurring_id INTEGER,
+      recurring_date TEXT,
+      read_at TEXT,
+      deleted_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS categories (
@@ -1292,6 +1315,14 @@ async function initializeDatabase(): Promise<void> {
     await db.execAsync("ALTER TABLE settings ADD COLUMN movement_reminder_hour INTEGER NOT NULL DEFAULT 21;");
     await db.execAsync("ALTER TABLE settings ADD COLUMN movement_reminder_minute INTEGER NOT NULL DEFAULT 0;");
   }
+  if (!currentSettingsColumns.some((column) => column.name === 'push_notifications_enabled')) {
+    await db.execAsync('ALTER TABLE settings ADD COLUMN push_notifications_enabled INTEGER NOT NULL DEFAULT 0;');
+    if (previousSchemaVersion > 0) {
+      // Before this preference existed, notifications were globally enabled.
+      // Preserve that behavior for existing installations; new installs start disabled.
+      await db.execAsync('UPDATE settings SET push_notifications_enabled = 1 WHERE id = 1;');
+    }
+  }
 
   await db.runAsync(
     "UPDATE recurring_expenses SET execution_basis = 'calendar' WHERE execution_basis != 'calendar'"
@@ -1349,6 +1380,8 @@ async function initializeDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_savings_movements_goal ON savings_goal_movements(goal_id);
     CREATE INDEX IF NOT EXISTS idx_savings_adjustments_goal ON savings_goal_adjustments(goal_id, date);
     CREATE INDEX IF NOT EXISTS idx_recurring_savings_goal ON recurring_expenses(savings_goal_id);
+    CREATE INDEX IF NOT EXISTS idx_app_notifications_visible ON app_notifications(deleted_at, scheduled_for DESC);
+    CREATE INDEX IF NOT EXISTS idx_app_notifications_kind_schedule ON app_notifications(kind, scheduled_for);
     CREATE INDEX IF NOT EXISTS idx_manual_debt_entries_debt ON manual_debt_entries(debt_id, date);
     CREATE INDEX IF NOT EXISTS idx_manual_debt_entries_expense ON manual_debt_entries(expense_id);
     CREATE INDEX IF NOT EXISTS idx_account_transfers_source_date ON account_transfers(source_payment_method_id, date);
@@ -1537,6 +1570,10 @@ async function initializeDatabase(): Promise<void> {
       await reconcileLegacySplitCardCycles(transaction, t('database.billingDifference'));
     });
   }
+  // Older releases could leave optional references pointing to records that
+  // were later removed. Repair those links before a backup is created; no
+  // expense, income or transfer is removed by this cleanup.
+  await repairRecoverableDatabaseRelations(db);
   await recordAppliedSchema(db);
 }
 
@@ -1564,6 +1601,7 @@ export async function resetLocalData(): Promise<void> {
       DELETE FROM manual_debt_entries;
       DELETE FROM recurring_expense_occurrences;
       DELETE FROM recurring_income_occurrences;
+      DELETE FROM app_notifications;
       DELETE FROM credit_card_cycles;
       DELETE FROM credit_card_adjustments;
       DELETE FROM debt_installments;
@@ -3521,78 +3559,113 @@ export async function updatePaymentMethod(id: number, data: NewPaymentMethod): P
   );
 }
 
-export async function updatePaymentMethodBalance(
-  id: number,
-  data: NewPaymentMethodBalance
-): Promise<void> {
+function validatePaymentMethodBalance(data: NewPaymentMethodBalance): void {
   if (!Number.isInteger(data.balance) || data.balance < 0) {
     throw new Error(t('database.paymentBalanceInvalid'));
   }
   if (!isValidIsoDate(data.date) || data.date > toLocalIsoDate(new Date())) {
     throw new Error(t('database.paymentBalanceDateRequired'));
   }
+}
+
+async function updatePaymentMethodBalanceInTransaction(
+  transaction: SQLite.SQLiteDatabase,
+  id: number,
+  data: NewPaymentMethodBalance,
+  syncedAt: string
+): Promise<void> {
+  const method = await transaction.getFirstAsync<{
+    type: PaymentMethod['type']; balance_updated_at: string | null;
+  }>(
+    'SELECT type, balance_updated_at FROM payment_methods WHERE id = ?',
+    id
+  );
+  if (!method) throw new Error(t('database.paymentMissing'));
+  if (method.balance_updated_at && data.date < method.balance_updated_at) {
+    throw new Error(t('database.paymentBalanceDateOlder'));
+  }
+  const chargeAnchor = await transaction.getFirstAsync<{ id: number }>(
+    'SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE payment_method_id = ? AND date <= ?',
+    id,
+    data.date
+  );
+  const paymentAnchor = await transaction.getFirstAsync<{ id: number }>(
+    'SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE credit_payment_target_id = ? AND date <= ?',
+    id,
+    data.date
+  );
+  const adjustmentAnchor = await transaction.getFirstAsync<{ id: number }>(
+    'SELECT COALESCE(MAX(id), 0) AS id FROM credit_card_adjustments WHERE payment_method_id = ? AND date <= ?',
+    id,
+    data.date
+  );
+  const debtPlanAnchor = await transaction.getFirstAsync<{ id: number }>(
+    'SELECT COALESCE(MAX(id), 0) AS id FROM debt_plans WHERE payment_method_id = ? AND purchase_date <= ?',
+    id,
+    data.date
+  );
+  const incomeAnchor = await transaction.getFirstAsync<{ id: number }>(
+    'SELECT COALESCE(MAX(id), 0) AS id FROM incomes WHERE payment_method_id = ? AND date <= ?',
+    id,
+    data.date
+  );
+  const transferAnchor = await transaction.getFirstAsync<{ id: number }>(
+    `SELECT COALESCE(MAX(id), 0) AS id FROM account_transfers
+     WHERE (source_payment_method_id = ? OR destination_payment_method_id = ?) AND date <= ?`,
+    id,
+    id,
+    data.date
+  );
+  await transaction.runAsync(
+    `UPDATE payment_methods
+     SET reported_balance = ?, balance_updated_at = ?,
+         balance_synced_at = ?,
+         balance_expense_anchor_id = ?, balance_payment_anchor_id = ?, balance_adjustment_anchor_id = ?, balance_income_anchor_id = ?,
+         balance_debt_plan_anchor_id = ?, balance_transfer_anchor_id = ?
+     WHERE id = ?`,
+    data.balance,
+    data.date,
+    syncedAt,
+    Number(chargeAnchor?.id ?? 0),
+    Number(paymentAnchor?.id ?? 0),
+    Number(adjustmentAnchor?.id ?? 0),
+    Number(incomeAnchor?.id ?? 0),
+    Number(debtPlanAnchor?.id ?? 0),
+    Number(transferAnchor?.id ?? 0),
+    id
+  );
+}
+
+export async function updatePaymentMethodBalance(
+  id: number,
+  data: NewPaymentMethodBalance
+): Promise<void> {
+  validatePaymentMethodBalance(data);
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
-    const method = await transaction.getFirstAsync<{
-      type: PaymentMethod['type']; balance_updated_at: string | null;
-    }>(
-      'SELECT type, balance_updated_at FROM payment_methods WHERE id = ?',
-      id
-    );
-    if (!method) throw new Error(t('database.paymentMissing'));
-    if (method.balance_updated_at && data.date < method.balance_updated_at) {
-      throw new Error(t('database.paymentBalanceDateOlder'));
+    await updatePaymentMethodBalanceInTransaction(transaction, id, data, new Date().toISOString());
+  });
+}
+
+export async function updatePaymentMethodBalances(
+  updates: PaymentMethodBalanceUpdate[]
+): Promise<void> {
+  if (updates.length === 0) return;
+  const ids = new Set<number>();
+  for (const update of updates) {
+    if (!Number.isInteger(update.id) || ids.has(update.id)) {
+      throw new Error(t('database.paymentMissing'));
     }
-    const chargeAnchor = await transaction.getFirstAsync<{ id: number }>(
-      'SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE payment_method_id = ? AND date <= ?',
-      id,
-      data.date
-    );
-    const paymentAnchor = await transaction.getFirstAsync<{ id: number }>(
-      'SELECT COALESCE(MAX(id), 0) AS id FROM expenses WHERE credit_payment_target_id = ? AND date <= ?',
-      id,
-      data.date
-    );
-    const adjustmentAnchor = await transaction.getFirstAsync<{ id: number }>(
-      'SELECT COALESCE(MAX(id), 0) AS id FROM credit_card_adjustments WHERE payment_method_id = ? AND date <= ?',
-      id,
-      data.date
-    );
-    const debtPlanAnchor = await transaction.getFirstAsync<{ id: number }>(
-      'SELECT COALESCE(MAX(id), 0) AS id FROM debt_plans WHERE payment_method_id = ? AND purchase_date <= ?',
-      id,
-      data.date
-    );
-    const incomeAnchor = await transaction.getFirstAsync<{ id: number }>(
-      'SELECT COALESCE(MAX(id), 0) AS id FROM incomes WHERE payment_method_id = ? AND date <= ?',
-      id,
-      data.date
-    );
-    const transferAnchor = await transaction.getFirstAsync<{ id: number }>(
-      `SELECT COALESCE(MAX(id), 0) AS id FROM account_transfers
-       WHERE (source_payment_method_id = ? OR destination_payment_method_id = ?) AND date <= ?`,
-      id,
-      id,
-      data.date
-    );
-    await transaction.runAsync(
-      `UPDATE payment_methods
-       SET reported_balance = ?, balance_updated_at = ?,
-           balance_synced_at = ?,
-           balance_expense_anchor_id = ?, balance_payment_anchor_id = ?, balance_adjustment_anchor_id = ?, balance_income_anchor_id = ?,
-           balance_debt_plan_anchor_id = ?, balance_transfer_anchor_id = ?
-       WHERE id = ?`,
-      data.balance,
-      data.date,
-      new Date().toISOString(),
-      Number(chargeAnchor?.id ?? 0),
-      Number(paymentAnchor?.id ?? 0),
-      Number(adjustmentAnchor?.id ?? 0),
-      Number(incomeAnchor?.id ?? 0),
-      Number(debtPlanAnchor?.id ?? 0),
-      Number(transferAnchor?.id ?? 0),
-      id
-    );
+    ids.add(update.id);
+    validatePaymentMethodBalance(update);
+  }
+
+  const db = await getDb();
+  const syncedAt = new Date().toISOString();
+  await withExclusiveTransaction(db, async (transaction) => {
+    for (const update of updates) {
+      await updatePaymentMethodBalanceInTransaction(transaction, update.id, update, syncedAt);
+    }
   });
 }
 
@@ -4930,7 +5003,18 @@ async function assertCreditCardCycleIsEditable(
   paymentMethodId: number | null,
   date: string
 ): Promise<void> {
-  if (paymentMethodId == null) return;
+  const reconciledCycleId = await getReconciledCreditCardCycleId(db, paymentMethodId, date);
+  if (reconciledCycleId != null) {
+    throw new Error(t('database.reconciledExpense'));
+  }
+}
+
+async function getReconciledCreditCardCycleId(
+  db: SQLite.SQLiteDatabase,
+  paymentMethodId: number | null,
+  date: string
+): Promise<number | null> {
+  if (paymentMethodId == null) return null;
   const reconciledCycle = await db.getFirstAsync<{ id: number }>(
     `SELECT id
      FROM credit_card_cycles
@@ -4943,8 +5027,38 @@ async function assertCreditCardCycleIsEditable(
     date,
     date
   );
-  if (reconciledCycle) {
-    throw new Error(t('database.reconciledExpense'));
+  return reconciledCycle?.id ?? null;
+}
+
+async function assertExpenseCreditCardCycleUpdateAllowed(
+  db: SQLite.SQLiteDatabase,
+  current: {
+    paymentMethodId: number | null;
+    date: string;
+    amount: number;
+    originalAmount: number | null;
+  },
+  next: {
+    paymentMethodId: number | null;
+    date: string;
+    amount: number;
+    originalAmount: number | null;
+  }
+): Promise<void> {
+  const [currentCycleId, nextCycleId] = await Promise.all([
+    getReconciledCreditCardCycleId(db, current.paymentMethodId, current.date),
+    getReconciledCreditCardCycleId(db, next.paymentMethodId, next.date),
+  ]);
+  const allowed = canUpdateExpenseAcrossCreditCycles({
+    currentCycleId,
+    nextCycleId,
+    currentPaymentMethodId: current.paymentMethodId,
+    nextPaymentMethodId: next.paymentMethodId,
+    currentOutflow: current.originalAmount ?? current.amount,
+    nextOutflow: next.originalAmount ?? next.amount,
+  });
+  if (!allowed) {
+    throw new Error(t('database.reconciledExpenseUpdate'));
   }
 }
 
@@ -5004,11 +5118,13 @@ export async function updateExpense(
   const expense = await db.getFirstAsync<{
     period_id: number;
     date: string;
+    amount: number;
+    original_amount: number | null;
     payment_method_id: number | null;
     recurring_expense_id: number | null;
     credit_payment_target_id: number | null;
   }>(
-    `SELECT period_id, date, payment_method_id, recurring_expense_id,
+    `SELECT period_id, date, amount, original_amount, payment_method_id, recurring_expense_id,
        credit_payment_target_id FROM expenses WHERE id = ?`,
     id
   );
@@ -5023,8 +5139,21 @@ export async function updateExpense(
     ? null
     : data.paymentMethodId;
   await assertDateBelongsToPeriod(db, expense.period_id, data.date);
-  await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
-  await assertCreditCardCycleIsEditable(db, effectivePaymentMethodId, data.date);
+  await assertExpenseCreditCardCycleUpdateAllowed(
+    db,
+    {
+      paymentMethodId: expense.payment_method_id,
+      date: expense.date,
+      amount: expense.amount,
+      originalAmount: expense.original_amount,
+    },
+    {
+      paymentMethodId: effectivePaymentMethodId,
+      date: data.date,
+      amount: data.amount,
+      originalAmount: data.originalAmount,
+    }
+  );
   const creditPaymentTargetId = data.creditPaymentTargetId === undefined
     ? expense.credit_payment_target_id
     : data.creditPaymentTargetId;
@@ -5319,6 +5448,8 @@ function mapRecurringExpense(row: Record<string, unknown>): RecurringExpense {
     paymentMethodColor: row.payment_method_color == null ? null : String(row.payment_method_color),
     savingsGoalId: row.savings_goal_id == null ? null : Number(row.savings_goal_id),
     savingsKind: row.savings_kind === 'contribution' ? 'contribution' : null,
+    savingsGoalName: row.savings_goal_name == null ? null : String(row.savings_goal_name),
+    savingsGoalColor: row.savings_goal_color == null ? null : String(row.savings_goal_color),
     nextDate: null,
     pendingCount: 0,
   };
@@ -5331,10 +5462,13 @@ async function getRecurringRows(db: SQLite.SQLiteDatabase): Promise<RecurringExp
        c.name AS category_name,
        c.color AS category_color,
        pm.name AS payment_method_name,
-       pm.color AS payment_method_color
+       pm.color AS payment_method_color,
+       sg.name AS savings_goal_name,
+       sg.color AS savings_goal_color
      FROM recurring_expenses r
      LEFT JOIN categories c ON c.id = r.category_id
      LEFT JOIN payment_methods pm ON pm.id = r.payment_method_id
+     LEFT JOIN savings_goals sg ON sg.id = r.savings_goal_id
      ORDER BY r.active DESC, r.name COLLATE NOCASE ASC`
   );
   return rows.map(mapRecurringExpense);
@@ -5387,10 +5521,13 @@ export async function getRecurringDecisionItems(): Promise<RecurringDecisionItem
     amount: number;
     scheduled_date: string;
     status: 'pending' | 'skipped';
+    is_savings_contribution: number;
   }>(
     `SELECT * FROM (
        SELECT 'expense' AS kind, o.recurring_expense_id AS recurring_id,
-              r.name, r.amount, o.scheduled_date, o.status
+              r.name, r.amount, o.scheduled_date, o.status,
+              CASE WHEN r.savings_goal_id IS NOT NULL AND r.savings_kind = 'contribution'
+                THEN 1 ELSE 0 END AS is_savings_contribution
        FROM recurring_expense_occurrences o
        INNER JOIN recurring_expenses r ON r.id = o.recurring_expense_id
        WHERE o.status IN ('pending', 'skipped') AND o.dismissed = 0
@@ -5401,7 +5538,8 @@ export async function getRecurringDecisionItems(): Promise<RecurringDecisionItem
          )
        UNION ALL
        SELECT 'income' AS kind, o.recurring_income_id AS recurring_id,
-              r.name, r.amount, o.scheduled_date, o.status
+              r.name, r.amount, o.scheduled_date, o.status,
+              0 AS is_savings_contribution
        FROM recurring_income_occurrences o
        INNER JOIN recurring_incomes r ON r.id = o.recurring_income_id
        WHERE o.status IN ('pending', 'skipped') AND o.dismissed = 0
@@ -5422,6 +5560,7 @@ export async function getRecurringDecisionItems(): Promise<RecurringDecisionItem
     name: row.name,
     amount: row.amount,
     scheduledDate: row.scheduled_date,
+    isSavingsContribution: row.is_savings_contribution === 1,
     status: row.status,
   }));
 }
@@ -5621,21 +5760,44 @@ export async function createExpenseWithRecurrence(
 export async function updateRecurringExpense(id: number, data: NewRecurringExpense): Promise<void> {
   validateRecurringExpense(data);
   const db = await getDb();
-  await assertCreditPaymentSelection(db, data.categoryId, data.paymentMethodId, null);
   await withExclusiveTransaction(db, async (transaction) => {
     const current = await transaction.getFirstAsync<{
       id: number;
+      name: string;
+      amount: number;
+      original_amount: number | null;
+      split_percentage: number | null;
+      split_mode: RecurringExpense['splitMode'];
+      category_id: number | null;
+      payment_method_id: number | null;
+      source_expense_id: number | null;
       savings_goal_id: number | null;
       savings_kind: string | null;
       active: number;
-    }>('SELECT id, savings_goal_id, savings_kind, active FROM recurring_expenses WHERE id = ?', id);
+    }>(
+      `SELECT id, name, amount, original_amount, split_percentage, split_mode,
+              category_id, payment_method_id, source_expense_id,
+              savings_goal_id, savings_kind, active
+       FROM recurring_expenses
+       WHERE id = ?`,
+      id
+    );
     if (!current) throw new Error(t('database.recurringExpenseMissing'));
-    const savingsGoalId = data.savingsGoalId === undefined
-      ? current.savings_goal_id
-      : data.savingsGoalId;
-    const savingsKind = data.savingsKind === undefined
-      ? current.savings_kind
-      : data.savingsKind;
+    const canEditMovement = current.source_expense_id == null;
+    const savingsGoalId = canEditMovement
+      ? data.savingsGoalId ?? null
+      : current.savings_goal_id;
+    const savingsKind = canEditMovement
+      ? data.savingsKind ?? null
+      : current.savings_kind;
+    const categoryId = canEditMovement ? data.categoryId : current.category_id;
+    const paymentMethodId = canEditMovement ? data.paymentMethodId : current.payment_method_id;
+    const selection = savingsGoalId != null && savingsKind === 'contribution'
+      ? { goalId: savingsGoalId, kind: 'contribution' as const }
+      : null;
+    await assertCreditPaymentSelection(transaction, categoryId, paymentMethodId, null);
+    await assertSavingsSelectionMatchesCategory(transaction, categoryId, selection);
+    await assertSavingsPaymentMethodAllowed(transaction, categoryId, selection, paymentMethodId);
     if (savingsGoalId != null && savingsKind === 'contribution') {
       const existingLink = current.savings_goal_id == null
         ? null
@@ -5653,11 +5815,20 @@ export async function updateRecurringExpense(id: number, data: NewRecurringExpen
     }
     await transaction.runAsync(
       `UPDATE recurring_expenses SET
+        name = ?, amount = ?, original_amount = ?, split_percentage = ?, split_mode = ?,
+        category_id = ?, payment_method_id = ?,
         frequency = ?, interval_months = ?, execution_basis = ?,
         execution_day = ?, registration_mode = ?, start_date = ?, end_date = ?, active = ?,
         savings_goal_id = ?, savings_kind = ?,
         updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
+      canEditMovement ? data.name.trim() : current.name,
+      canEditMovement ? data.amount : current.amount,
+      canEditMovement ? data.originalAmount : current.original_amount,
+      canEditMovement ? data.splitPercentage : current.split_percentage,
+      canEditMovement ? data.splitMode : current.split_mode,
+      categoryId,
+      paymentMethodId,
       data.frequency,
       data.frequency === 'custom' ? data.intervalMonths : 1,
       'calendar',
@@ -5852,6 +6023,7 @@ export async function processDueRecurringExpenses(
           name: rule.name,
           amount: rule.amount,
           scheduledDate,
+          isSavingsContribution: rule.savingsGoalId != null && rule.savingsKind === 'contribution',
         });
       }
     }
@@ -6004,6 +6176,7 @@ export async function getUpcomingRecurringConfirmations(
         name: rule.name,
         amount: rule.amount,
         scheduledDate,
+        isSavingsContribution: rule.savingsGoalId != null && rule.savingsKind === 'contribution',
       });
     }
   }
@@ -6032,6 +6205,7 @@ export async function getUpcomingRecurringConfirmations(
         name: rule.name,
         amount: rule.amount,
         scheduledDate,
+        isSavingsContribution: false,
       });
     }
   }
@@ -6738,6 +6912,7 @@ export async function getSettings(): Promise<Settings> {
     id: number;
     current_period_id: number | null;
     default_payment_method_id: number | null;
+    push_notifications_enabled: number;
     movement_reminder_enabled: number;
     movement_reminder_frequency: 'daily' | 'weekly';
     movement_reminder_weekday: number;
@@ -6752,6 +6927,7 @@ export async function getSettings(): Promise<Settings> {
       s.id,
       s.current_period_id,
       s.default_payment_method_id,
+      s.push_notifications_enabled,
       s.movement_reminder_enabled,
       s.movement_reminder_frequency,
       s.movement_reminder_weekday,
@@ -6774,6 +6950,7 @@ export async function getSettings(): Promise<Settings> {
     id: row?.id ?? 1,
     currentPeriodId: row?.current_period_id ?? null,
     defaultPaymentMethodId: row?.default_payment_method_id ?? null,
+    pushNotificationsEnabled: (row?.push_notifications_enabled ?? 0) === 1,
     movementReminderEnabled: (row?.movement_reminder_enabled ?? 0) === 1,
     movementReminderFrequency: row?.movement_reminder_frequency ?? 'daily',
     movementReminderWeekday: row?.movement_reminder_weekday ?? 1,
@@ -6798,6 +6975,150 @@ export async function updateMovementReminderSettings(data: import('./types').Mov
      WHERE id = 1`,
     data.movementReminderEnabled ? 1 : 0, data.movementReminderFrequency,
     data.movementReminderWeekday, data.movementReminderHour, data.movementReminderMinute
+  );
+}
+
+export async function updatePushNotificationsEnabled(enabled: boolean): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'UPDATE settings SET push_notifications_enabled = ? WHERE id = 1',
+    enabled ? 1 : 0
+  );
+}
+
+export async function upsertAppNotifications(items: NewAppNotification[]): Promise<void> {
+  if (items.length === 0) return;
+  const database = await getDb();
+  await withExclusiveTransaction(database, async (transaction) => {
+    for (const item of items) {
+      await transaction.runAsync(
+        `INSERT INTO app_notifications (
+          source_key, kind, title, body, scheduled_for, action_url,
+          recurring_kind, recurring_id, recurring_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source_key) DO UPDATE SET
+          kind = excluded.kind,
+          title = excluded.title,
+          body = excluded.body,
+          scheduled_for = excluded.scheduled_for,
+          action_url = excluded.action_url,
+          recurring_kind = excluded.recurring_kind,
+          recurring_id = excluded.recurring_id,
+          recurring_date = excluded.recurring_date,
+          updated_at = CURRENT_TIMESTAMP`,
+        item.sourceKey,
+        item.kind,
+        item.title,
+        item.body,
+        item.scheduledFor,
+        item.actionUrl,
+        item.recurringKind,
+        item.recurringId,
+        item.recurringDate
+      );
+    }
+  });
+}
+
+export async function replaceFutureAppNotifications(
+  kinds: string[],
+  items: NewAppNotification[]
+): Promise<void> {
+  const database = await getDb();
+  await withExclusiveTransaction(database, async (transaction) => {
+    if (kinds.length > 0) {
+      const placeholders = kinds.map(() => '?').join(', ');
+      await transaction.runAsync(
+        `DELETE FROM app_notifications
+         WHERE kind IN (${placeholders}) AND scheduled_for > ?
+           AND read_at IS NULL AND deleted_at IS NULL`,
+        ...kinds,
+        Date.now()
+      );
+    }
+    for (const item of items) {
+      await transaction.runAsync(
+        `INSERT INTO app_notifications (
+          source_key, kind, title, body, scheduled_for, action_url,
+          recurring_kind, recurring_id, recurring_date
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source_key) DO UPDATE SET
+          kind = excluded.kind,
+          title = excluded.title,
+          body = excluded.body,
+          scheduled_for = excluded.scheduled_for,
+          action_url = excluded.action_url,
+          recurring_kind = excluded.recurring_kind,
+          recurring_id = excluded.recurring_id,
+          recurring_date = excluded.recurring_date,
+          updated_at = CURRENT_TIMESTAMP`,
+        item.sourceKey,
+        item.kind,
+        item.title,
+        item.body,
+        item.scheduledFor,
+        item.actionUrl,
+        item.recurringKind,
+        item.recurringId,
+        item.recurringDate
+      );
+    }
+  });
+}
+
+export async function getAppNotifications(): Promise<AppNotification[]> {
+  const database = await getDb();
+  const rows = await database.getAllAsync<Omit<AppNotification, 'isRead'> & { isRead: number }>(
+    `SELECT
+      id,
+      source_key AS sourceKey,
+      kind,
+      title,
+      body,
+      scheduled_for AS scheduledFor,
+      action_url AS actionUrl,
+      recurring_kind AS recurringKind,
+      recurring_id AS recurringId,
+      recurring_date AS recurringDate,
+      read_at AS readAt,
+      created_at AS createdAt,
+      CASE WHEN read_at IS NULL THEN 0 ELSE 1 END AS isRead
+     FROM app_notifications
+     WHERE deleted_at IS NULL AND scheduled_for <= ?
+     ORDER BY scheduled_for DESC, id DESC
+     LIMIT 200`,
+    Date.now()
+  );
+  return rows.map((row) => ({ ...row, isRead: row.isRead === 1 }));
+}
+
+export async function setAppNotificationRead(id: number, read: boolean): Promise<void> {
+  const database = await getDb();
+  await database.runAsync(
+    `UPDATE app_notifications
+     SET read_at = ${read ? 'CURRENT_TIMESTAMP' : 'NULL'}, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND deleted_at IS NULL`,
+    id
+  );
+}
+
+export async function markAppNotificationReadBySourceKey(sourceKey: string): Promise<void> {
+  const database = await getDb();
+  await database.runAsync(
+    `UPDATE app_notifications
+     SET read_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+     WHERE source_key = ? AND deleted_at IS NULL`,
+    sourceKey
+  );
+}
+
+export async function deleteAppNotification(id: number): Promise<void> {
+  const database = await getDb();
+  await database.runAsync(
+    `UPDATE app_notifications
+     SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    id
   );
 }
 

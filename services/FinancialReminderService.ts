@@ -5,6 +5,7 @@ import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getEstimatedPaymentDueDate } from '@/lib/payment-method-calculations';
 import type { Debt, DebtPlan, PaymentMethod, Period } from '@/lib/types';
+import { replaceFutureAppNotifications } from '@/repositories/notifications';
 
 const CHANNEL = 'financial-reminders';
 const MAX_SCHEDULED_REMINDERS = 20;
@@ -19,6 +20,7 @@ const FINANCIAL_KINDS = [
 type FinancialNotificationKind = typeof FINANCIAL_KINDS[number];
 
 type Reminder = {
+  sourceKey: string;
   kind: FinancialNotificationKind;
   date: Date;
   title: string;
@@ -66,6 +68,10 @@ function futureDate(value: string | null, now: Date, hour = 9): Date | null {
   return date.getTime() > now.getTime() ? date : null;
 }
 
+function reminderDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
 export function buildFinancialReminders(
   data: FinancialReminderData,
   now = new Date()
@@ -77,9 +83,11 @@ export function buildFinancialReminders(
     const detailUrl = `/modal/payment-method-detail?id=${method.id}`;
 
     if (method.billingDay != null) {
+      const date = nextMonthlyDate(method.billingDay, now);
       reminders.push({
+        sourceKey: `card-billing-date:${method.id}:${reminderDateKey(date)}`,
         kind: 'card-billing-date',
-        date: nextMonthlyDate(method.billingDay, now),
+        date,
         title: t('notifications.cardBillingTitle', { name: method.name }),
         body: t('notifications.cardBillingBody', { name: method.name }),
         url: `/modal/card-cycles?id=${method.id}`,
@@ -93,6 +101,7 @@ export function buildFinancialReminders(
       );
       if (dueDate.getTime() > now.getTime()) {
         reminders.push({
+          sourceKey: `card-payment-due:${method.id}:${reminderDateKey(dueDate)}`,
           kind: 'card-payment-due',
           date: dueDate,
           title: t('notifications.cardDueTitle', { name: method.name }),
@@ -110,6 +119,7 @@ export function buildFinancialReminders(
     const date = debt.status === 'active' ? futureDate(debt.nextDueDate, now) : null;
     if (!date || debt.installmentAmount == null) continue;
     reminders.push({
+      sourceKey: `debt-payment-due:${debt.id}:${reminderDateKey(date)}`,
       kind: 'debt-payment-due',
       date,
       title: t('notifications.debtPaymentTitle', { name: debt.name }),
@@ -127,6 +137,7 @@ export function buildFinancialReminders(
       : null;
     if (!date || plan.nextInstallmentNumber == null || plan.nextInstallmentAmount == null) continue;
     reminders.push({
+      sourceKey: `installment-payment-due:${plan.id}:${reminderDateKey(date)}`,
       kind: 'installment-payment-due',
       date,
       title: t('notifications.installmentDueTitle', { name: plan.name }),
@@ -146,6 +157,7 @@ export function buildFinancialReminders(
     warningDate.setHours(20, 0, 0, 0);
     if (warningDate.getTime() > now.getTime()) {
       reminders.push({
+        sourceKey: `period-ending:${data.currentPeriod.id}:${reminderDateKey(warningDate)}`,
         kind: 'period-ending',
         date: warningDate,
         title: t('notifications.periodEndingTitle'),
@@ -160,7 +172,7 @@ export function buildFinancialReminders(
     .slice(0, MAX_SCHEDULED_REMINDERS);
 }
 
-async function cancelScheduledFinancialReminders(): Promise<void> {
+export async function cancelFinancialReminders(): Promise<void> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled
@@ -169,31 +181,54 @@ async function cancelScheduledFinancialReminders(): Promise<void> {
       ))
       .map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier))
   );
+  await replaceFutureAppNotifications([...FINANCIAL_KINDS], []);
 }
 
-export async function syncFinancialReminders(data: FinancialReminderData): Promise<void> {
+export async function configureFinancialReminderChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(CHANNEL, {
+    name: t('notifications.financialChannelName'),
+    description: t('notifications.financialChannelDescription'),
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: 'default',
+  });
+}
+
+export async function syncFinancialReminders(
+  data: FinancialReminderData,
+  notificationsEnabled = true
+): Promise<void> {
   if (Platform.OS === 'web') return;
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(CHANNEL, {
-      name: t('notifications.financialChannelName'),
-      description: t('notifications.financialChannelDescription'),
-      importance: Notifications.AndroidImportance.DEFAULT,
-      sound: 'default',
-    });
-  }
-
-  await cancelScheduledFinancialReminders();
+  await configureFinancialReminderChannel();
+  await cancelFinancialReminders();
+  if (!notificationsEnabled) return;
   const permission = await Notifications.getPermissionsAsync();
   if (!permission.granted) return;
 
-  for (const reminder of buildFinancialReminders(data)) {
+  const reminders = buildFinancialReminders(data);
+  await replaceFutureAppNotifications(
+    [...FINANCIAL_KINDS],
+    reminders.map((reminder) => ({
+      sourceKey: reminder.sourceKey,
+      kind: reminder.kind,
+      title: reminder.title,
+      body: reminder.body,
+      scheduledFor: reminder.date.getTime(),
+      actionUrl: reminder.url,
+      recurringKind: null,
+      recurringId: null,
+      recurringDate: null,
+    }))
+  );
+
+  for (const reminder of reminders) {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: reminder.title,
         body: reminder.body,
         sound: 'default',
-        data: { kind: reminder.kind, url: reminder.url },
+        data: { kind: reminder.kind, url: reminder.url, inboxKey: reminder.sourceKey },
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,

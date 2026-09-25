@@ -233,6 +233,10 @@ export type NewPaymentMethodBalance = {
   date: string;
 };
 
+export type PaymentMethodBalanceUpdate = NewPaymentMethodBalance & {
+  id: number;
+};
+
 export type NewAccountTransfer = {
   sourcePaymentMethodId: number;
   destinationPaymentMethodId: number;
@@ -565,6 +569,8 @@ export type RecurringExpense = NewRecurringExpense & {
   paymentMethodColor: string | null;
   savingsGoalId: number | null;
   savingsKind: Extract<SavingsExpenseKind, 'contribution'> | null;
+  savingsGoalName: string | null;
+  savingsGoalColor: string | null;
   nextDate: string | null;
   pendingCount: number;
 };
@@ -583,6 +589,7 @@ export type RecurringConfirmationSchedule = {
   name: string;
   amount: number;
   scheduledDate: string;
+  isSavingsContribution: boolean;
 };
 
 export type GeneratedRecurringExpenseNotification = {
@@ -590,6 +597,7 @@ export type GeneratedRecurringExpenseNotification = {
   name: string;
   amount: number;
   scheduledDate: string;
+  isSavingsContribution: boolean;
 };
 
 export type RecurringDecisionItem = RecurringConfirmationSchedule & {
@@ -625,6 +633,7 @@ export type Settings = {
   currentPeriodId: number | null;
   defaultPaymentMethodId: number | null;
   currentPeriod?: Period | null;
+  pushNotificationsEnabled: boolean;
   movementReminderEnabled: boolean;
   movementReminderFrequency: 'daily' | 'weekly';
   movementReminderWeekday: number;
@@ -635,3 +644,22 @@ export type Settings = {
 export type MovementReminderSettings = Pick<Settings,
   'movementReminderEnabled' | 'movementReminderFrequency' | 'movementReminderWeekday' |
   'movementReminderHour' | 'movementReminderMinute'>;
+
+export type AppNotification = {
+  id: number;
+  sourceKey: string;
+  kind: string;
+  title: string;
+  body: string;
+  scheduledFor: number;
+  actionUrl: string | null;
+  recurringKind: RecurringMovementKind | null;
+  recurringId: number | null;
+  recurringDate: string | null;
+  readAt: string | null;
+  createdAt: string;
+  isRead: boolean;
+};
+
+export type NewAppNotification = Omit<AppNotification,
+  'id' | 'readAt' | 'createdAt' | 'isRead'>;

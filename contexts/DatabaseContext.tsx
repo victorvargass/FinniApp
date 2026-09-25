@@ -7,6 +7,7 @@ import { logAppError } from '@/lib/logger';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import type {
   AccountTransfer,
+  AppNotification,
   CardPaymentMovement,
   Category,
   CreditCardAdjustment,
@@ -29,6 +30,7 @@ import type {
   NewCreditCardCycle,
   NewPaymentMethod,
   NewPaymentMethodBalance,
+  PaymentMethodBalanceUpdate,
   NewRecurringExpense,
   NewRecurringIncome,
   NewRecurringSchedule,
@@ -58,9 +60,14 @@ import { addIsoDays, toIsoDate } from '@/lib/recurrence';
 import {
   notifyGeneratedRecurringExpenses,
   syncRecurringNotifications,
+  upsertRecurringDecisionNotifications,
 } from '@/services/RecurringNotificationService';
 import { syncMovementReminder } from '@/services/MovementReminderService';
 import { syncFinancialReminders } from '@/services/FinancialReminderService';
+import {
+  cancelFinniNotifications,
+  ensurePushNotificationPermission,
+} from '@/services/NotificationPreferencesService';
 
 type DatabaseContextValue = {
   categories: Category[];
@@ -70,6 +77,7 @@ type DatabaseContextValue = {
   paymentMethodTotals: PaymentMethodTotal[];
   cardPaymentMovements: CardPaymentMovement[];
   accountTransfers: AccountTransfer[];
+  appNotifications: AppNotification[];
   recurringExpenses: RecurringExpense[];
   recurringDecisions: RecurringDecisionItem[];
   recurringIncomes: RecurringIncome[];
@@ -93,7 +101,7 @@ type DatabaseContextValue = {
   refresh: () => Promise<void>;
   runDatabaseMaintenance: (operation: () => Promise<void>) => Promise<void>;
   selectPeriod: (periodId: number) => void;
-  closeCurrentPeriod: () => Promise<void>;
+  closeCurrentPeriod: () => Promise<Period>;
   addCategory: (data: NewCategory) => Promise<void>;
   editCategory: (id: number, data: NewCategory) => Promise<void>;
   getCategoryExpenseCount: (id: number) => Promise<number>;
@@ -105,6 +113,7 @@ type DatabaseContextValue = {
   addPaymentMethod: (data: NewPaymentMethod) => Promise<void>;
   editPaymentMethod: (id: number, data: NewPaymentMethod) => Promise<void>;
   updatePaymentMethodBalance: (id: number, data: NewPaymentMethodBalance) => Promise<void>;
+  updatePaymentMethodBalances: (updates: PaymentMethodBalanceUpdate[]) => Promise<void>;
   setPaymentMethodActive: (id: number, active: boolean) => Promise<void>;
   setDefaultPaymentMethod: (id: number | null) => Promise<void>;
   getPaymentMethodDeletionInfo: (id: number) => Promise<PaymentMethodDeletionInfo>;
@@ -161,6 +170,9 @@ type DatabaseContextValue = {
   dismissSkippedOccurrence: (kind: RecurringMovementKind, recurringId: number, scheduledDate: string) => Promise<void>;
   markRecurringOccurrencePending: (kind: RecurringMovementKind, recurringId: number, scheduledDate: string) => Promise<void>;
   retryRecurringOccurrence: (kind: RecurringMovementKind, recurringId: number, scheduledDate: string) => Promise<void>;
+  setAppNotificationRead: (id: number, read: boolean) => Promise<void>;
+  markAppNotificationReadBySourceKey: (sourceKey: string) => Promise<void>;
+  deleteAppNotification: (id: number) => Promise<void>;
   addExpense: (data: NewExpense, recurringSchedule?: NewRecurringSchedule) => Promise<void>;
   editExpense: (id: number, data: NewExpense) => Promise<void>;
   removeExpense: (id: number) => Promise<void>;
@@ -170,6 +182,7 @@ type DatabaseContextValue = {
   setPeriodStartDate: (date: string) => Promise<void>;
   setPeriodEndDate: (date: string) => Promise<void>;
   setPeriodDates: (startDate: string, endDate: string) => Promise<void>;
+  setPushNotificationsEnabled: (enabled: boolean) => Promise<void>;
   setMovementReminder: (data: MovementReminderSettings) => Promise<void>;
   resetLocalData: () => Promise<void>;
 };
@@ -181,6 +194,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     id: 1,
     currentPeriodId: null,
     defaultPaymentMethodId: null,
+    pushNotificationsEnabled: false,
     movementReminderEnabled: false,
     movementReminderFrequency: 'daily',
     movementReminderWeekday: 1,
@@ -200,6 +214,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [paymentMethodTotals, setPaymentMethodTotals] = useState<PaymentMethodTotal[]>([]);
   const [cardPaymentMovements, setCardPaymentMovements] = useState<CardPaymentMovement[]>([]);
   const [accountTransfers, setAccountTransfers] = useState<AccountTransfer[]>([]);
+  const [appNotifications, setAppNotifications] = useState<AppNotification[]>([]);
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [recurringDecisions, setRecurringDecisions] = useState<RecurringDecisionItem[]>([]);
   const [recurringIncomes, setRecurringIncomes] = useState<RecurringIncome[]>([]);
@@ -242,6 +257,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       startDate: item.startDate,
       endDate: item.endDate,
       active: item.active,
+      savingsGoalId: 'savingsGoalId' in item ? item.savingsGoalId : null,
+      savingsKind: 'savingsKind' in item ? item.savingsKind : null,
       kind: 'categoryId' in item ? 'expense' : 'income',
     }))),
     [recurringExpenses, recurringIncomes]
@@ -259,11 +276,19 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       do {
         refreshRequestedRef.current = false;
 
+        const nextSettings = await db.getSettings();
+        if (nextSettings.pushNotificationsEnabled) {
+          await syncMovementReminder(nextSettings, true, false).catch(() => undefined);
+        } else {
+          await cancelFinniNotifications().catch(() => undefined);
+        }
         const generatedExpenses = await db.processDueRecurringExpenses();
-        await notifyGeneratedRecurringExpenses(generatedExpenses).catch(() => undefined);
+        await notifyGeneratedRecurringExpenses(
+          generatedExpenses,
+          nextSettings.pushNotificationsEnabled
+        ).catch(() => undefined);
         await db.processProjectedInstallments();
         await db.processDueRecurringIncomes();
-        const nextSettings = await db.getSettings();
         const allPeriods = await db.getPeriods();
         setSettings(nextSettings);
         setPeriods(allPeriods);
@@ -310,7 +335,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           debts,
           debtPlans,
           currentPeriod: nextSettings.currentPeriod ?? null,
-        }).catch(() => undefined);
+        }, nextSettings.pushNotificationsEnabled).catch(() => undefined);
+        await upsertRecurringDecisionNotifications(decisions).catch(() => undefined);
+        const notifications = await db.getAppNotifications();
         setCategories(cats);
         setIncomeCategories(incomeCats);
         setSavingsGroups(groups);
@@ -318,6 +345,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         setPaymentMethodTotals(methodTotals);
         setCardPaymentMovements(cardPayments);
         setAccountTransfers(transfers);
+        setAppNotifications(notifications);
         setRecurringExpenses(recurring);
         setRecurringDecisions(decisions);
         setRecurringIncomes(recurringIncomeRows);
@@ -368,7 +396,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     if (!isReady || !hasRefreshed) return;
     const today = toIsoDate(new Date());
     const syncPromise = db.getUpcomingRecurringConfirmations(addIsoDays(today, 365), today)
-      .then(syncRecurringNotifications)
+      .then(async (schedules) => {
+        await syncRecurringNotifications(schedules, settings.pushNotificationsEnabled);
+        setAppNotifications(await db.getAppNotifications());
+      })
       .catch(() => undefined)
       .finally(() => {
         if (recurringSyncPromiseRef.current === syncPromise) {
@@ -376,7 +407,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         }
       });
     recurringSyncPromiseRef.current = syncPromise;
-  }, [hasRefreshed, isReady, recurringNotificationKey]);
+  }, [hasRefreshed, isReady, recurringNotificationKey, settings.pushNotificationsEnabled]);
 
   useEffect(() => {
     let active = true;
@@ -644,6 +675,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const updatePaymentMethodBalances = useCallback(async (updates: PaymentMethodBalanceUpdate[]) => {
+    await db.updatePaymentMethodBalances(updates);
+    await refresh();
+  }, [refresh]);
+
   const addSavingsGoalBalanceAdjustment = useCallback(async (id: number, data: NewSavingsGoalBalance) => {
     await db.addSavingsGoalBalanceAdjustment(id, data);
     await refresh();
@@ -864,9 +900,16 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const closeCurrentPeriod = useCallback(
     async () => {
       const nextPeriod = await db.closeCurrentPeriod();
+      selectedPeriodIdRef.current = nextPeriod.id;
       setSelectedPeriodId(nextPeriod.id);
+      // The period is already committed at this point. A later refresh error
+      // must not make the UI suggest closing it a second time.
+      void refresh().catch((error) => {
+        logAppError('database.refresh', error);
+      });
+      return nextPeriod;
     },
-    []
+    [refresh]
   );
 
   const selectPeriod = useCallback((periodId: number) => {
@@ -875,18 +918,49 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setMovementReminder = useCallback(async (data: MovementReminderSettings) => {
-    const scheduled = await syncMovementReminder(data);
+    let notificationsEnabled = settings.pushNotificationsEnabled;
+    if (data.movementReminderEnabled && !notificationsEnabled) {
+      await ensurePushNotificationPermission();
+      await db.updatePushNotificationsEnabled(true);
+      notificationsEnabled = true;
+    }
+    const scheduled = await syncMovementReminder(data, notificationsEnabled);
     if (data.movementReminderEnabled && !scheduled) {
       throw new Error(t('errors.notificationPermissionRequired'));
     }
     await db.updateMovementReminderSettings(data);
     await refresh();
+  }, [refresh, settings.pushNotificationsEnabled]);
+
+  const setPushNotificationsEnabled = useCallback(async (enabled: boolean) => {
+    if (enabled) {
+      await ensurePushNotificationPermission();
+    }
+    await db.updatePushNotificationsEnabled(enabled);
+    if (!enabled) {
+      await cancelFinniNotifications();
+    }
+    await refresh();
   }, [refresh]);
+
+  const setAppNotificationRead = useCallback(async (id: number, read: boolean) => {
+    await db.setAppNotificationRead(id, read);
+    setAppNotifications(await db.getAppNotifications());
+  }, []);
+
+  const markAppNotificationReadBySourceKey = useCallback(async (sourceKey: string) => {
+    await db.markAppNotificationReadBySourceKey(sourceKey);
+    setAppNotifications(await db.getAppNotifications());
+  }, []);
+
+  const deleteAppNotification = useCallback(async (id: number) => {
+    await db.deleteAppNotification(id);
+    setAppNotifications(await db.getAppNotifications());
+  }, []);
 
   const resetLocalData = useCallback(async () => {
     await db.resetLocalData();
-    const resetSettings = await db.getSettings();
-    await syncMovementReminder(resetSettings).catch(() => undefined);
+    await cancelFinniNotifications().catch(() => undefined);
     await refresh();
   }, [refresh]);
 
@@ -899,6 +973,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       paymentMethodTotals,
       cardPaymentMovements,
       accountTransfers,
+      appNotifications,
       recurringExpenses,
       recurringDecisions,
       recurringIncomes,
@@ -934,6 +1009,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addPaymentMethod,
       editPaymentMethod,
       updatePaymentMethodBalance,
+      updatePaymentMethodBalances,
       setPaymentMethodActive,
       setDefaultPaymentMethod,
       getPaymentMethodDeletionInfo,
@@ -990,6 +1066,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       dismissSkippedOccurrence,
       markRecurringOccurrencePending,
       retryRecurringOccurrence,
+      setAppNotificationRead,
+      markAppNotificationReadBySourceKey,
+      deleteAppNotification,
       addExpense,
       editExpense,
       removeExpense,
@@ -999,6 +1078,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setPeriodStartDate,
       setPeriodEndDate,
       setPeriodDates,
+      setPushNotificationsEnabled,
       setMovementReminder,
       resetLocalData,
     }),
@@ -1010,6 +1090,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       paymentMethodTotals,
       cardPaymentMovements,
       accountTransfers,
+      appNotifications,
       recurringExpenses,
       recurringDecisions,
       recurringIncomes,
@@ -1045,6 +1126,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addPaymentMethod,
       editPaymentMethod,
       updatePaymentMethodBalance,
+      updatePaymentMethodBalances,
       setPaymentMethodActive,
       setDefaultPaymentMethod,
       getPaymentMethodDeletionInfo,
@@ -1101,6 +1183,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       dismissSkippedOccurrence,
       markRecurringOccurrencePending,
       retryRecurringOccurrence,
+      setAppNotificationRead,
+      markAppNotificationReadBySourceKey,
+      deleteAppNotification,
       addExpense,
       editExpense,
       removeExpense,
@@ -1110,6 +1195,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setPeriodStartDate,
       setPeriodEndDate,
       setPeriodDates,
+      setPushNotificationsEnabled,
       setMovementReminder,
       resetLocalData,
     ]

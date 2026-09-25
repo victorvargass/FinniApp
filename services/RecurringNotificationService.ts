@@ -7,10 +7,19 @@ import { parseIsoDate } from '@/lib/recurrence';
 import type {
   GeneratedRecurringExpenseNotification,
   RecurringConfirmationSchedule,
+  RecurringDecisionItem,
 } from '@/lib/types';
+import {
+  replaceFutureAppNotifications,
+  upsertAppNotifications,
+} from '@/repositories/notifications';
 
 const RECURRING_CHANNEL = 'recurring-expenses';
-const DATA_KINDS = ['recurring-expense', 'recurring-income'] as const;
+const DATA_KINDS = [
+  'recurring-expense',
+  'recurring-income',
+  'recurring-expense-generated',
+] as const;
 const LEGACY_CATEGORIES = [
   'recurring-expense-confirmation',
   'recurring_expense_confirmation',
@@ -54,26 +63,46 @@ export async function ensureRecurringNotificationPermission(): Promise<boolean> 
 }
 
 export async function notifyGeneratedRecurringExpenses(
-  expenses: GeneratedRecurringExpenseNotification[]
+  expenses: GeneratedRecurringExpenseNotification[],
+  notificationsEnabled = true
 ): Promise<void> {
-  if (Platform.OS === 'web' || expenses.length === 0) return;
+  if (Platform.OS === 'web' || !notificationsEnabled || expenses.length === 0) return;
   await configureRecurringNotifications();
   const permission = await Notifications.getPermissionsAsync();
   if (!permission.granted) return;
 
   for (const expense of expenses) {
+    const title = t(expense.isSavingsContribution
+      ? 'notifications.recurringSavingsRegistered'
+      : 'notifications.recurringExpenseRegistered');
+    const body = t(expense.isSavingsContribution
+      ? 'notifications.generatedSavingsBody'
+      : 'notifications.generatedExpenseBody', {
+      name: expense.name,
+      amount: formatCLP(expense.amount),
+    });
+    const inboxKey = `recurring-expense-generated:${expense.recurringExpenseId}:${expense.scheduledDate}`;
+    await upsertAppNotifications([{
+      sourceKey: inboxKey,
+      kind: 'recurring-expense-generated',
+      title,
+      body,
+      scheduledFor: Date.now(),
+      actionUrl: '/(tabs)/movements?movementType=expenses',
+      recurringKind: null,
+      recurringId: null,
+      recurringDate: null,
+    }]);
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: t('notifications.recurringExpenseRegistered'),
-        body: t('notifications.generatedExpenseBody', {
-          name: expense.name,
-          amount: formatCLP(expense.amount),
-        }),
+        title,
+        body,
         sound: 'default',
         data: {
           kind: 'recurring-expense-generated',
           recurringExpenseId: expense.recurringExpenseId,
           scheduledDate: expense.scheduledDate,
+          inboxKey,
         },
       },
       trigger: {
@@ -92,29 +121,75 @@ function notificationDate(scheduledDate: string): Date {
   return date;
 }
 
-async function cancelOurScheduledNotifications(): Promise<void> {
+function inboxNotificationDate(scheduledDate: string): Date {
+  const date = parseIsoDate(scheduledDate);
+  date.setHours(9, 0, 0, 0);
+  return date;
+}
+
+function recurringInboxItem(schedule: RecurringConfirmationSchedule) {
+  const noun = schedule.isSavingsContribution
+    ? t('recurrence.saving')
+    : schedule.kind === 'expense'
+      ? t('navigation.expense').toLowerCase()
+      : t('navigation.income').toLowerCase();
+  return {
+    sourceKey: `recurring-${schedule.kind}:${schedule.recurringId}:${schedule.scheduledDate}`,
+    kind: `recurring-${schedule.kind}`,
+    title: t('notifications.recurringReviewTitle', { movement: noun }),
+    body: t('notifications.recurringReviewBody', {
+      name: schedule.name,
+      amount: formatCLP(schedule.amount),
+    }),
+    scheduledFor: inboxNotificationDate(schedule.scheduledDate).getTime(),
+    actionUrl: schedule.kind === 'expense'
+      ? `/modal/recurring-expense-form?id=${schedule.recurringId}`
+      : `/modal/recurring-income-form?id=${schedule.recurringId}`,
+    recurringKind: schedule.kind,
+    recurringId: schedule.recurringId,
+    recurringDate: schedule.scheduledDate,
+  };
+}
+
+export async function upsertRecurringDecisionNotifications(
+  decisions: RecurringDecisionItem[]
+): Promise<void> {
+  await upsertAppNotifications(decisions.map(recurringInboxItem));
+}
+
+export async function cancelRecurringNotifications(): Promise<void> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled
       .filter((item) => DATA_KINDS.includes(item.content.data?.kind as typeof DATA_KINDS[number]))
       .map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier))
   );
+  await replaceFutureAppNotifications([...DATA_KINDS], []);
 }
 
 export async function syncRecurringNotifications(
-  schedules: RecurringConfirmationSchedule[]
+  schedules: RecurringConfirmationSchedule[],
+  notificationsEnabled = true
 ): Promise<void> {
   if (Platform.OS === 'web') return;
   await configureRecurringNotifications();
-  await cancelOurScheduledNotifications();
+  await cancelRecurringNotifications();
+  if (!notificationsEnabled) return;
   const permission = await Notifications.getPermissionsAsync();
   if (!permission.granted) return;
 
   const limited = [...schedules]
     .sort((first, second) => first.scheduledDate.localeCompare(second.scheduledDate))
     .slice(0, 40);
-  for (const schedule of limited) {
-    const noun = schedule.kind === 'expense' ? t('navigation.expense').toLowerCase() : t('navigation.income').toLowerCase();
+  const inboxItems = limited.map(recurringInboxItem);
+  await replaceFutureAppNotifications([...DATA_KINDS], inboxItems);
+  for (const [index, schedule] of limited.entries()) {
+    const noun = schedule.isSavingsContribution
+      ? t('recurrence.saving')
+      : schedule.kind === 'expense'
+        ? t('navigation.expense').toLowerCase()
+        : t('navigation.income').toLowerCase();
+    const inboxItem = inboxItems[index];
     await Notifications.scheduleNotificationAsync({
       content: {
         title: t('notifications.recurringReviewTitle', { movement: noun }),
@@ -127,6 +202,7 @@ export async function syncRecurringNotifications(
           kind: `recurring-${schedule.kind}`,
           recurringId: schedule.recurringId,
           scheduledDate: schedule.scheduledDate,
+          inboxKey: inboxItem.sourceKey,
         },
       },
       trigger: {

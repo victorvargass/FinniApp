@@ -3,4 +3,5 @@ export {
   initDatabase,
   resetLocalData,
   updateMovementReminderSettings,
+  updatePushNotificationsEnabled,
 } from '@/lib/db';

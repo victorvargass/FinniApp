@@ -1,6 +1,7 @@
 export * from './categories';
 export * from './debts';
 export * from './movements';
+export * from './notifications';
 export * from './payment-methods';
 export * from './periods';
 export * from './recurrences';

@@ -25,6 +25,8 @@ export const SCHEMA_MIGRATIONS = [
   { version: 18, name: 'income-categories-and-savings-groups' },
   { version: 19, name: 'split-purchase-payment-outflows' },
   { version: 20, name: 'persist-expense-split-mode' },
+  { version: 21, name: 'global-push-notification-preference' },
+  { version: 22, name: 'persistent-notification-center' },
 ] as const;
 
 // Legacy version 16 tied the declared balance to the historical creation date.
