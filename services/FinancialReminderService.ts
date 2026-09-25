@@ -62,9 +62,12 @@ function nextMonthlyDate(day: number, now: Date): Date {
   );
 }
 
-function futureDate(value: string | null, now: Date, hour = 9): Date | null {
+function futureDate(value: string | null, now: Date, hour = 9, time?: string | null): Date | null {
   if (!value) return null;
-  const date = atTime(localDate(value), hour);
+  const parsedTime = time?.match(/^(\d{2}):(\d{2})$/);
+  const date = parsedTime
+    ? new Date(`${value}T${parsedTime[1]}:${parsedTime[2]}:00`)
+    : atTime(localDate(value), hour);
   return date.getTime() > now.getTime() ? date : null;
 }
 
@@ -116,7 +119,7 @@ export function buildFinancialReminders(
   }
 
   for (const debt of data.debts) {
-    const date = debt.status === 'active' ? futureDate(debt.nextDueDate, now) : null;
+    const date = debt.status === 'active' ? futureDate(debt.nextDueDate, now, 9, debt.dueTime) : null;
     if (!date || debt.installmentAmount == null) continue;
     reminders.push({
       sourceKey: `debt-payment-due:${debt.id}:${reminderDateKey(date)}`,

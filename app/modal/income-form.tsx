@@ -49,6 +49,14 @@ export default function IncomeFormModal() {
     });
   }, [navigation, income, isRepeating, requestedSavingsGoalId]);
 
+  useEffect(() => {
+    if (income?.debtEntryId == null || income.debtId == null) return;
+    router.replace({
+      pathname: '/modal/manual-debt-payment',
+      params: { debtId: String(income.debtId), entryId: String(income.debtEntryId) },
+    });
+  }, [income]);
+
   if (loading) {
     return (
       <ThemedView style={[styles.container, styles.center]}>
@@ -62,6 +70,15 @@ export default function IncomeFormModal() {
     return (
       <ThemedView style={[styles.container, styles.center]}>
         <ThemedText>{t('database.incomeMissing')}</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (income?.debtEntryId != null) {
+    return (
+      <ThemedView style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" />
+        <ThemedText>{t('debts.loadingPayment')}</ThemedText>
       </ThemedView>
     );
   }

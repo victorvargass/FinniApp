@@ -21,11 +21,14 @@ import { formatCLP, formatCLPInput, formatDate, formatTime, parseAmount, toDateS
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
+import * as database from '@/lib/db';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
 import type {
   CreditCardAdjustment,
   CreditCardAdjustmentKind,
   Expense,
+  ExpenseShareStatus,
+  NewExpenseShare,
   NewRecurringSchedule,
   SavingsExpenseKind,
 } from '@/lib/types';
@@ -35,6 +38,15 @@ import { ColorSelect, NameSuggestions } from './shared';
 import { styles } from './styles';
 
 const LAST_EXPENSE_PAYMENT_METHOD_KEY = '@finniapp/last-expense-payment-method-id';
+
+type ReceivableShareDraft = {
+  localId: number;
+  contactId: number | null;
+  amountText: string;
+  status: ExpenseShareStatus;
+  dueDate: Date | null;
+  paymentMethodId: number | null;
+};
 
 type ExpenseFormProps = {
   expense?: Expense;
@@ -50,6 +62,7 @@ type ExpenseFormProps = {
 export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, initialSavingsContribution = false, onSuccess }: ExpenseFormProps) {
   const {
     categories,
+    contacts,
     paymentMethods,
     expenseNames,
     addExpense,
@@ -157,6 +170,11 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const [billingCycleHint, setBillingCycleHint] = useState<string | null>(null);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(Boolean(expense || creditAdjustment || expenseWasSplit));
   const [saving, setSaving] = useState(false);
+  const [receivableShares, setReceivableShares] = useState<ReceivableShareDraft[]>([]);
+  const [sharesLoading, setSharesLoading] = useState(Boolean(expense));
+  const [receivablesLocked, setReceivablesLocked] = useState(false);
+  const [activeShareDateId, setActiveShareDateId] = useState<number | null>(null);
+  const [activeShareTimeId, setActiveShareTimeId] = useState<number | null>(null);
   const totalAmount = parseAmount(amountText as string);
   const percentage = Number(percentageText.replace(',', '.'));
   const hasValidPercentage =
@@ -178,6 +196,25 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       ? percentage
       : Number(((amountToSave / totalAmount) * 100).toFixed(6))
     : null;
+  const receivableTotal = totalAmount != null && amountToSave != null
+    ? Math.max(0, totalAmount - amountToSave)
+    : 0;
+  const assignedReceivableTotal = receivableShares.reduce(
+    (sum, share) => sum + (parseAmount(share.amountText) ?? 0),
+    0
+  );
+  const remainingReceivable = receivableTotal - assignedReceivableTotal;
+  const activeShareDate = receivableShares.find((share) => share.localId === activeShareDateId);
+  const activeShareTime = receivableShares.find((share) => share.localId === activeShareTimeId);
+  const receivablePaymentMethods = paymentMethods.filter(
+    (method) => method.type !== 'credit' && (method.active || receivableShares.some((share) => share.paymentMethodId === method.id))
+  );
+  const selectedReceivableContactIds = new Set(
+    receivableShares.map((share) => share.contactId).filter((id): id is number => id != null)
+  );
+  const hasAvailableReceivableContact = contacts.some(
+    (contact) => !selectedReceivableContactIds.has(contact.id)
+  );
   const nameSuggestions = getNameSuggestions(expenseNames, name);
   const visiblePaymentMethods = paymentMethods.filter(
     (method) => method.active || method.id === paymentMethodId
@@ -314,6 +351,37 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   };
 
   useEffect(() => {
+    if (!expense) {
+      setSharesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSharesLoading(true);
+    database.getExpenseShares(expense.id)
+      .then((shares) => {
+        if (cancelled) return;
+        setReceivableShares(shares.map((share) => ({
+          localId: share.id,
+          contactId: share.contactId,
+          amountText: formatCLPInput(share.amount),
+          status: share.status,
+          dueDate: share.dueDate == null
+            ? null
+            : dateWithTime(parseDateString(share.dueDate), share.dueTime ?? '09:00'),
+          paymentMethodId: share.paymentMethodId,
+        })));
+        setReceivablesLocked(shares.some((share) => share.paymentCount > 0));
+      })
+      .catch((error) => {
+        Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.couldNotSave'));
+      })
+      .finally(() => {
+        if (!cancelled) setSharesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [expense]);
+
+  useEffect(() => {
     if (hasLoadedLastPaymentMethod) return;
     if (initialExpense || creditAdjustment || initialCreditPaymentTargetId || settings.defaultPaymentMethodId != null) {
       setHasLoadedLastPaymentMethod(true);
@@ -446,6 +514,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   }, [date, expense, makeRecurring]);
 
   const handleSave = async (skipAvailableBalanceWarning = false) => {
+    if (sharesLoading) return;
     if (!name.trim() && !isCardAdjustment) {
       Alert.alert(t('common.error'), t('validation.invalidExpenseName'));
       return;
@@ -469,6 +538,33 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     if (isCardPayment && !isCardAdjustment && paymentMethodId == null) {
       Alert.alert(t('common.error'), t('database.creditPaymentSourceRequired'));
       return;
+    }
+    if (receivableShares.length > 0) {
+      if (!isSplitAmount || receivableTotal <= 0 || remainingReceivable !== 0) {
+        Alert.alert(t('common.error'), t('database.splitReceivablesTotalMismatch'));
+        return;
+      }
+      const contactIds = new Set<number>();
+      for (const share of receivableShares) {
+        const shareAmount = parseAmount(share.amountText);
+        if (share.contactId == null || shareAmount == null || shareAmount <= 0) {
+          Alert.alert(t('common.error'), t('validation.invalidAmount'));
+          return;
+        }
+        if (contactIds.has(share.contactId)) {
+          Alert.alert(t('common.error'), t('database.splitReceivablesDuplicateContact'));
+          return;
+        }
+        contactIds.add(share.contactId);
+        if (share.status === 'paid' && share.paymentMethodId == null) {
+          Alert.alert(t('common.error'), t('database.splitReceivablesPaymentMethodRequired'));
+          return;
+        }
+      }
+      if (!expense && makeRecurring) {
+        Alert.alert(t('common.error'), t('database.splitReceivablesCannotRecur'));
+        return;
+      }
     }
     if (isDedicatedSavingsContributionFlow && savingsGoalId == null) {
       Alert.alert(t('common.error'), t('database.selectSavingsGoal'));
@@ -559,6 +655,18 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         creditPaymentTargetId: isCardPayment ? creditPaymentTargetId : null,
         date: toDateString(date),
         time: toTimeString(date),
+        receivableShares: (isSplitAmount ? receivableShares : []).map((share): NewExpenseShare => ({
+          contactId: share.contactId!,
+          amount: parseAmount(share.amountText)!,
+          status: share.status,
+          dueDate: share.status === 'pending' && share.dueDate != null
+            ? toDateString(share.dueDate)
+            : null,
+          dueTime: share.status === 'pending' && share.dueDate != null
+            ? toTimeString(share.dueDate)
+            : null,
+          paymentMethodId: share.status === 'paid' ? share.paymentMethodId : null,
+        })),
       };
       if (expense) {
         await editExpense(expense.id, data);
@@ -697,6 +805,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       <TextInput
         accessibilityLabel={t('expenses.amountTotal')}
         testID="expense-amount-input"
+        editable={!receivablesLocked}
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
         onChangeText={(value) => setAmountText(formatCLPInput(value))}
@@ -714,7 +823,11 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           </View>
           <Switch
             accessibilityLabel={t('accessibility.toggleExpenseSplit')}
-            onValueChange={setIsSplitAmount}
+            disabled={receivablesLocked}
+            onValueChange={(value) => {
+              setIsSplitAmount(value);
+              if (!value) setReceivableShares([]);
+            }}
             trackColor={{ true: colors.tint }}
             value={isSplitAmount}
           />
@@ -724,6 +837,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           <>
             <View style={styles.shareOptions}>
               <Pressable
+                disabled={receivablesLocked}
                 onPress={() => {
                   const selection = getPercentageSelectionAfterModeChange(splitMode);
                   if (selection) {
@@ -742,6 +856,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                 </ThemedText>
               </Pressable>
               <Pressable
+                disabled={receivablesLocked}
                 onPress={() => {
                   if (!shareAmountText && amountToSave != null) {
                     setShareAmountText(formatCLPInput(amountToSave));
@@ -767,6 +882,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                     return (
                       <Pressable
                         key={preset}
+                        disabled={receivablesLocked}
                         onPress={() => {
                           setUsesCustomPercentage(false);
                           setPercentageText(String(preset));
@@ -783,6 +899,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                     );
                   })}
                   <Pressable
+                    disabled={receivablesLocked}
                     onPress={() => setUsesCustomPercentage(true)}
                     style={[
                       styles.shareButton,
@@ -803,6 +920,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                     <View style={[styles.percentageInputContainer, { borderColor: colors.icon }]}>
                       <TextInput
                         accessibilityLabel={t('forms.manualPercentage')}
+                        editable={!receivablesLocked}
                         keyboardType="decimal-pad"
                         maxLength={6}
                         onChangeText={(value) =>
@@ -824,6 +942,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                 <ThemedText style={styles.manualPercentageLabel}>{t('expenses.yourAmount')}</ThemedText>
                 <TextInput
                   accessibilityLabel={t('expenses.yourAmount')}
+                  editable={!receivablesLocked}
                   keyboardType="number-pad"
                   onChangeText={(value) => setShareAmountText(formatCLPInput(value))}
                   placeholder={t('forms.amountPlaceholder')}
@@ -840,6 +959,248 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           <ThemedText style={styles.shareResult}>
             {t('expenses.splitResult', { amount: formatCLP(amountToSave), total: formatCLP(totalAmount) })}
           </ThemedText>
+        )}
+
+        {isSplitAmount && receivableTotal > 0 && (
+          <View style={[styles.receivablesBox, { borderColor: colors.border }]}>
+            <View style={styles.receivablesHeader}>
+              <View style={styles.receivablesHeaderCopy}>
+                <ThemedText type="defaultSemiBold">{t('expenses.receivablesTitle')}</ThemedText>
+                <ThemedText style={styles.shareDescription}>{t('expenses.receivablesDescription')}</ThemedText>
+              </View>
+              <Ionicons name="people-outline" size={23} color={colors.tint} />
+            </View>
+
+            {receivablesLocked && (
+              <View style={[styles.receivablesNotice, { borderColor: colors.warning ?? '#D88916' }]}>
+                <Ionicons name="lock-closed-outline" size={18} color={colors.warning ?? '#D88916'} />
+                <ThemedText style={styles.receivablesNoticeText}>{t('expenses.receivablesLockedHint')}</ThemedText>
+              </View>
+            )}
+
+            {receivableShares.map((share, index) => (
+              <View key={share.localId} style={[styles.receivableCard, { borderColor: colors.border }]}>
+                <View style={styles.receivableCardHeader}>
+                  <ThemedText type="defaultSemiBold">{t('expenses.participant')} {index + 1}</ThemedText>
+                  <Pressable
+                    accessibilityLabel={t('expenses.removeParticipant')}
+                    disabled={receivablesLocked}
+                    hitSlop={10}
+                    onPress={() => setReceivableShares((current) => current.filter((item) => item.localId !== share.localId))}>
+                    <Ionicons name="trash-outline" size={20} color={receivablesLocked ? colors.icon : colors.danger} />
+                  </Pressable>
+                </View>
+
+                {contacts.length > 0 ? (
+                  <ColorSelect
+                    searchable
+                    disabled={receivablesLocked}
+                    label={t('expenses.participant')}
+                    value={share.contactId}
+                    onChange={(contactId) => setReceivableShares((current) => current.map((item) => (
+                      item.localId === share.localId ? { ...item, contactId } : item
+                    )))}
+                    options={contacts
+                      .filter((contact) => contact.id === share.contactId || !selectedReceivableContactIds.has(contact.id))
+                      .map((contact) => ({
+                      value: contact.id,
+                      label: contact.nickname || contact.name,
+                      color: contact.relationshipTypeColor ?? '#60758E',
+                      }))}
+                  />
+                ) : (
+                  <View style={styles.emptyReceivables}>
+                    <ThemedText style={styles.shareDescription}>{t('expenses.noContactsHint')}</ThemedText>
+                    <Pressable onPress={() => router.push({ pathname: '/modal/contacts' } as never)}>
+                      <ThemedText style={{ color: colors.tint, fontWeight: '700' }}>{t('expenses.manageContacts')}</ThemedText>
+                    </Pressable>
+                  </View>
+                )}
+
+                <ThemedText style={styles.label}>{t('expenses.participantAmount')}</ThemedText>
+                <TextInput
+                  editable={!receivablesLocked}
+                  keyboardType="number-pad"
+                  onChangeText={(value) => setReceivableShares((current) => current.map((item) => (
+                    item.localId === share.localId ? { ...item, amountText: formatCLPInput(value) } : item
+                  )))}
+                  placeholder={t('forms.amountPlaceholder')}
+                  placeholderTextColor={colors.icon}
+                  style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
+                  value={share.amountText}
+                />
+
+                <View style={styles.shareOptions}>
+                  {(['pending', 'paid'] as const).map((status) => (
+                    <Pressable
+                      key={status}
+                      disabled={receivablesLocked}
+                      onPress={() => setReceivableShares((current) => current.map((item) => (
+                        item.localId === share.localId
+                          ? { ...item, status, paymentMethodId: status === 'paid'
+                            ? item.paymentMethodId ?? receivablePaymentMethods[0]?.id ?? null
+                            : null }
+                          : item
+                      )))}
+                      style={[
+                        styles.shareButton,
+                        { borderColor: colors.icon },
+                        share.status === status && styles.shareButtonSelected,
+                      ]}>
+                      <ThemedText style={share.status === status ? styles.shareButtonTextSelected : undefined}>
+                        {t(status === 'pending' ? 'expenses.pending' : 'expenses.alreadyPaid')}
+                      </ThemedText>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {share.status === 'pending' ? (
+                  <>
+                    <ThemedText style={styles.label}>{t('expenses.dueDateOptional')}</ThemedText>
+                    <View style={styles.receivableDateRow}>
+                      <Pressable
+                        disabled={receivablesLocked}
+                        onPress={() => {
+                          if (share.dueDate == null) {
+                            setReceivableShares((current) => current.map((item) => (
+                              item.localId === share.localId ? { ...item, dueDate: dateWithTime(date, '09:00') } : item
+                            )));
+                          }
+                          setActiveShareTimeId(null);
+                          setActiveShareDateId(share.localId);
+                        }}
+                        style={[styles.dateButton, styles.receivableDateButton, { borderColor: colors.icon }]}>
+                        <ThemedText>{share.dueDate == null ? t('expenses.noDueDate') : formatDate(share.dueDate)}</ThemedText>
+                      </Pressable>
+                      {share.dueDate != null && (
+                        <Pressable
+                          disabled={receivablesLocked}
+                          onPress={() => {
+                            setActiveShareDateId(null);
+                            setActiveShareTimeId(share.localId);
+                          }}
+                          style={[styles.dateButton, styles.receivableTimeButton, { borderColor: colors.icon }]}>
+                          <ThemedText>{formatTime(share.dueDate)}</ThemedText>
+                        </Pressable>
+                      )}
+                      {share.dueDate != null && !receivablesLocked && (
+                        <Pressable
+                          accessibilityLabel={t('expenses.noDueDate')}
+                          hitSlop={8}
+                          onPress={() => setReceivableShares((current) => current.map((item) => (
+                            item.localId === share.localId ? { ...item, dueDate: null } : item
+                          )))}>
+                          <Ionicons name="close-circle-outline" size={23} color={colors.icon} />
+                        </Pressable>
+                      )}
+                    </View>
+                  </>
+                ) : (
+                  <ColorSelect
+                    disabled={receivablesLocked}
+                    label={t('expenses.receiveIn')}
+                    value={share.paymentMethodId}
+                    onChange={(paymentMethodId) => setReceivableShares((current) => current.map((item) => (
+                      item.localId === share.localId ? { ...item, paymentMethodId } : item
+                    )))}
+                    options={receivablePaymentMethods.map((method) => ({
+                      value: method.id,
+                      label: method.name,
+                      color: method.color,
+                      ...getPaymentMethodOptionGroup(method.type),
+                    }))}
+                  />
+                )}
+              </View>
+            ))}
+
+            <ThemedText style={styles.receivablesSummary}>
+              {t('expenses.assignedReceivables', {
+                assigned: formatCLP(assignedReceivableTotal),
+                total: formatCLP(receivableTotal),
+              })}
+            </ThemedText>
+            <ThemedText style={[
+              styles.shareDescription,
+              { color: remainingReceivable === 0 ? colors.success : colors.danger },
+            ]}>
+              {remainingReceivable === 0
+                ? t('expenses.receivablesComplete')
+                : t(remainingReceivable > 0
+                  ? 'expenses.remainingReceivable'
+                  : 'expenses.overassignedReceivable', { amount: formatCLP(Math.abs(remainingReceivable)) })}
+            </ThemedText>
+
+            {!receivablesLocked && (
+              <Pressable
+                disabled={!hasAvailableReceivableContact || remainingReceivable <= 0}
+                onPress={() => {
+                  const usedContacts = new Set(receivableShares.map((item) => item.contactId));
+                  const contact = contacts.find((item) => !usedContacts.has(item.id)) ?? contacts[0];
+                  const defaultDestination = receivablePaymentMethods.find((method) => method.id === settings.defaultPaymentMethodId)
+                    ?? receivablePaymentMethods[0];
+                  setMakeRecurring(false);
+                  setReceivableShares((current) => [...current, {
+                    localId: Date.now() + current.length,
+                    contactId: contact?.id ?? null,
+                    amountText: formatCLPInput(Math.max(0, remainingReceivable)),
+                    status: 'pending',
+                    dueDate: null,
+                    paymentMethodId: defaultDestination?.id ?? null,
+                  }]);
+                }}
+                style={[
+                  styles.receivableAddButton,
+                  { borderColor: colors.tint },
+                  (!hasAvailableReceivableContact || remainingReceivable <= 0) && styles.buttonDisabled,
+                ]}>
+                <Ionicons name="person-add-outline" size={19} color={colors.tint} />
+                <ThemedText style={{ color: colors.tint, fontWeight: '700' }}>{t('expenses.addParticipant')}</ThemedText>
+              </Pressable>
+            )}
+
+            {activeShareDate?.dueDate != null && (
+              <>
+                <DateTimePicker
+                  minimumDate={date}
+                  mode="date"
+                  value={activeShareDate.dueDate}
+                  onChange={(_event, selected) => {
+                    if (Platform.OS !== 'ios') setActiveShareDateId(null);
+                    if (!selected) return;
+                    setReceivableShares((current) => current.map((item) => item.localId === activeShareDate.localId
+                      ? { ...item, dueDate: dateWithTime(selected, toTimeString(item.dueDate ?? dateWithTime(date, '09:00'))) }
+                      : item));
+                  }}
+                />
+                {Platform.OS === 'ios' && (
+                  <Pressable style={styles.doneDate} onPress={() => setActiveShareDateId(null)}>
+                    <ThemedText type="link">{t('common.done')}</ThemedText>
+                  </Pressable>
+                )}
+              </>
+            )}
+            {activeShareTime?.dueDate != null && (
+              <>
+                <DateTimePicker
+                  mode="time"
+                  value={activeShareTime.dueDate}
+                  onChange={(_event, selected) => {
+                    if (Platform.OS !== 'ios') setActiveShareTimeId(null);
+                    if (!selected) return;
+                    setReceivableShares((current) => current.map((item) => item.localId === activeShareTime.localId
+                      ? { ...item, dueDate: dateWithTime(item.dueDate ?? date, toTimeString(selected)) }
+                      : item));
+                  }}
+                />
+                {Platform.OS === 'ios' && (
+                  <Pressable style={styles.doneDate} onPress={() => setActiveShareTimeId(null)}>
+                    <ThemedText type="link">{t('common.done')}</ThemedText>
+                  </Pressable>
+                )}
+              </>
+            )}
+          </View>
         )}
       </View>}
 
@@ -991,6 +1352,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       ) : !isCardAdjustment ? (
         <ColorSelect
           label={isCardPayment ? t('paymentMethods.sourcePaymentMethod') : t('expenses.paymentMethodOptional')}
+          disabled={receivablesLocked}
           value={paymentMethodId}
           onChange={(value) => {
             if (value === VIRTUAL_SAVINGS_PAYMENT_METHOD_ID) {
@@ -1186,6 +1548,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
             {isInstallmentPurchase ? t('installments.purchaseDate') : t('forms.date')}
           </ThemedText>
           <Pressable
+            disabled={receivablesLocked}
             style={[styles.dateButton, { borderColor: colors.icon }]}
             onPress={() => setShowDatePicker(true)}>
             <ThemedText>{formatDate(date)}</ThemedText>
@@ -1216,6 +1579,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           )}
           <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
           <Pressable
+            disabled={receivablesLocked}
             style={[styles.dateButton, { borderColor: colors.icon }]}
             onPress={() => setShowTimePicker(true)}>
             <ThemedText>{formatTime(date)}</ThemedText>
@@ -1239,7 +1603,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         </>
       )}
 
-      {showAdvancedOptions && !expense && !isCardPayment && !isInstallmentPurchase && savingsKind !== 'funded_expense' && (
+      {showAdvancedOptions && !expense && !isCardPayment && !isInstallmentPurchase && savingsKind !== 'funded_expense' && receivableShares.length === 0 && (
         <View style={[styles.recurringBox, { borderColor: colors.border }]}>
           <View style={styles.recurringHeader}>
             <View style={styles.recurringHeaderCopy}>
@@ -1269,7 +1633,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
 
       {expense && (
         <View style={styles.recurringExpenseActions}>
-          {expense.debtPlanId == null && !isCardPayment && (
+          {expense.debtPlanId == null && !isCardPayment && receivableShares.length === 0 && (
             <Pressable
               onPress={() => router.push({
                 pathname: '/modal/recurring-expense-form',
@@ -1324,9 +1688,9 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     <View style={[styles.formFooter, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, LayoutTokens.formFooterBottom) }]}>
       <Pressable
         testID="expense-save"
-        style={[styles.button, styles.footerButton, saving && styles.buttonDisabled]}
+        style={[styles.button, styles.footerButton, (saving || sharesLoading) && styles.buttonDisabled]}
         onPress={() => { void handleSave(); }}
-        disabled={saving}>
+        disabled={saving || sharesLoading}>
         <ThemedText style={styles.buttonText}>
           {expense || creditAdjustment ? t('common.update') : t('common.save')}
         </ThemedText>

@@ -101,6 +101,26 @@ export type SavingsGoalPeriodActivity = {
 };
 
 export type ExpenseSplitMode = 'percentage' | 'amount';
+export type ExpenseShareStatus = 'pending' | 'paid';
+
+export type NewExpenseShare = {
+  contactId: number;
+  amount: number;
+  status: ExpenseShareStatus;
+  dueDate: string | null;
+  dueTime?: string | null;
+  paymentMethodId: number | null;
+};
+
+export type ExpenseShare = NewExpenseShare & {
+  id: number;
+  expenseId: number;
+  debtId: number;
+  contactName: string;
+  contactNickname: string | null;
+  contactColor: string | null;
+  paymentCount: number;
+};
 
 export type Expense = {
   id: number;
@@ -143,6 +163,8 @@ export type Income = {
   savingsGoalId: number | null;
   savingsGoalName: string | null;
   savingsGoalColor: string | null;
+  debtId: number | null;
+  debtEntryId: number | null;
 };
 
 export type ExpenseWithCategory = Expense & {
@@ -453,6 +475,7 @@ export type Debt = NewDebt & {
   entryCount: number;
   totalInstallments: number | null;
   nextDueDate: string | null;
+  dueTime: string | null;
   createdAt: string;
   updatedAt: string;
   entries?: DebtEntry[];
@@ -598,6 +621,7 @@ export type NewExpense = {
   savingsGoalId?: number | null;
   savingsKind?: SavingsExpenseKind | null;
   creditPaymentTargetId?: number | null;
+  receivableShares?: NewExpenseShare[];
 };
 
 export type RecurringFrequency = 'weekly' | 'monthly' | 'annual' | 'custom';

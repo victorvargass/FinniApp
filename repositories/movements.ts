@@ -6,6 +6,7 @@ export {
   deleteExpense,
   deleteIncome,
   getExpenseNames,
+  getExpenseShares,
   getExpenses,
   getIncomeNames,
   getIncomes,

@@ -46,6 +46,7 @@ import type {
   CreditCardCycle,
   DebtPlan,
   ExpenseWithCategory,
+  ExpenseShare,
   GeneratedRecurringExpenseNotification,
   Income,
   IncomeCategory,
@@ -58,6 +59,7 @@ import type {
   NewAppNotification,
   NewCreditCardCycle,
   NewExpense,
+  NewExpenseShare,
   NewIncome,
   NewIncomeCategory,
   NewInstallmentPurchase,
@@ -985,6 +987,25 @@ async function initializeDatabase(): Promise<void> {
       FOREIGN KEY(income_id) REFERENCES incomes(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS expense_shares (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      expense_id INTEGER NOT NULL,
+      contact_id INTEGER NOT NULL,
+      debt_id INTEGER NOT NULL UNIQUE,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      status TEXT NOT NULL CHECK (status IN ('pending', 'paid')),
+      due_date TEXT,
+      due_time TEXT,
+      payment_method_id INTEGER,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(expense_id, contact_id),
+      FOREIGN KEY(expense_id) REFERENCES expenses(id) ON DELETE RESTRICT,
+      FOREIGN KEY(contact_id) REFERENCES contacts(id) ON DELETE RESTRICT,
+      FOREIGN KEY(debt_id) REFERENCES manual_debts(id) ON DELETE RESTRICT,
+      FOREIGN KEY(payment_method_id) REFERENCES payment_methods(id) ON DELETE SET NULL
+    );
+
   `);
 
   // Existing databases can have an older expenses/incomes schema. Migrate it
@@ -1535,6 +1556,8 @@ async function initializeDatabase(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_manual_debts_contact ON manual_debts(contact_id);
     CREATE INDEX IF NOT EXISTS idx_contacts_relationship ON contacts(relationship_type_id);
     CREATE INDEX IF NOT EXISTS idx_contact_accounts_contact ON contact_bank_accounts(contact_id);
+    CREATE INDEX IF NOT EXISTS idx_expense_shares_expense ON expense_shares(expense_id);
+    CREATE INDEX IF NOT EXISTS idx_expense_shares_contact ON expense_shares(contact_id);
     CREATE INDEX IF NOT EXISTS idx_account_transfers_source_date ON account_transfers(source_payment_method_id, date);
     CREATE INDEX IF NOT EXISTS idx_account_transfers_destination_date ON account_transfers(destination_payment_method_id, date);
     CREATE INDEX IF NOT EXISTS idx_credit_card_adjustments_method_date ON credit_card_adjustments(payment_method_id, date);
@@ -1752,6 +1775,7 @@ export async function resetLocalData(): Promise<void> {
   const database = await getDb();
   await withExclusiveTransaction(database, async (transaction) => {
     await transaction.execAsync(`
+      DELETE FROM expense_shares;
       DELETE FROM savings_goal_movements;
       DELETE FROM savings_goal_adjustments;
       DELETE FROM manual_debt_entries;
@@ -2591,6 +2615,209 @@ function validateExpense(data: NewExpense): void {
     || data.splitPercentage > 100
   )) {
     throw new Error(t('validation.invalidSplitAmount'));
+  }
+  validateExpenseShares(data);
+}
+
+function validateExpenseShares(data: NewExpense): void {
+  if (data.receivableShares === undefined) return;
+  const shares = data.receivableShares;
+  if (shares.length === 0) return;
+  if (data.originalAmount == null || data.amount >= data.originalAmount) {
+    throw new Error(t('database.splitReceivablesRequireSplit'));
+  }
+  const contacts = new Set<number>();
+  let assigned = 0;
+  for (const share of shares) {
+    if (!Number.isInteger(share.contactId) || contacts.has(share.contactId)) {
+      throw new Error(t('database.splitReceivablesDuplicateContact'));
+    }
+    contacts.add(share.contactId);
+    if (!Number.isInteger(share.amount) || share.amount <= 0) {
+      throw new Error(t('validation.invalidAmount'));
+    }
+    if (share.dueDate != null && (
+      !/^\d{4}-\d{2}-\d{2}$/.test(share.dueDate)
+      || share.dueDate < data.date
+    )) {
+      throw new Error(t('database.splitReceivablesInvalidDueDate'));
+    }
+    if (share.dueTime != null && !isValidTimeString(share.dueTime)) {
+      throw new Error(t('database.splitReceivablesInvalidDueTime'));
+    }
+    if (share.status === 'paid' && share.paymentMethodId == null) {
+      throw new Error(t('database.splitReceivablesPaymentMethodRequired'));
+    }
+    assigned += share.amount;
+  }
+  if (assigned !== data.originalAmount - data.amount) {
+    throw new Error(t('database.splitReceivablesTotalMismatch'));
+  }
+}
+
+type ExpenseShareRow = {
+  id: number;
+  expense_id: number;
+  contact_id: number;
+  debt_id: number;
+  amount: number;
+  status: ExpenseShare['status'];
+  due_date: string | null;
+  due_time: string | null;
+  payment_method_id: number | null;
+  contact_name: string;
+  contact_nickname: string | null;
+  contact_color: string | null;
+  payment_count: number;
+};
+
+function expenseShareMatches(row: ExpenseShareRow, share: NewExpenseShare): boolean {
+  return row.contact_id === share.contactId
+    && row.amount === share.amount
+    && row.status === share.status
+    && row.due_date === share.dueDate
+    && row.due_time === (share.dueDate == null ? null : share.dueTime ?? '09:00')
+    && row.payment_method_id === (share.status === 'paid' ? share.paymentMethodId : null);
+}
+
+async function getExpenseShareRows(
+  database: SQLite.SQLiteDatabase,
+  expenseId: number
+): Promise<ExpenseShareRow[]> {
+  return database.getAllAsync<ExpenseShareRow>(
+    `SELECT share.*, contact.name AS contact_name, contact.nickname AS contact_nickname,
+      relationship.color AS contact_color,
+      COALESCE(SUM(CASE WHEN entry.kind = 'payment' THEN 1 ELSE 0 END), 0) AS payment_count
+     FROM expense_shares share
+     INNER JOIN contacts contact ON contact.id = share.contact_id
+     LEFT JOIN contact_relationships relationship ON relationship.id = contact.relationship_type_id
+     LEFT JOIN manual_debt_entries entry ON entry.debt_id = share.debt_id
+     WHERE share.expense_id = ?
+     GROUP BY share.id
+     ORDER BY share.id ASC`,
+    expenseId
+  );
+}
+
+export async function getExpenseShares(expenseId: number): Promise<ExpenseShare[]> {
+  const rows = await getExpenseShareRows(await getDb(), expenseId);
+  return rows.map((row) => ({
+    id: row.id,
+    expenseId: row.expense_id,
+    contactId: row.contact_id,
+    debtId: row.debt_id,
+    amount: row.amount,
+    status: row.status,
+    dueDate: row.due_date,
+    dueTime: row.due_time,
+    paymentMethodId: row.payment_method_id,
+    contactName: row.contact_name,
+    contactNickname: row.contact_nickname,
+    contactColor: row.contact_color,
+    paymentCount: Number(row.payment_count),
+  }));
+}
+
+async function replaceExpenseShares(
+  database: SQLite.SQLiteDatabase,
+  expenseId: number,
+  expense: {
+    name: string;
+    amount: number;
+    originalAmount: number | null;
+    periodId: number;
+    date: string;
+    time: string;
+  },
+  shares: NewExpenseShare[]
+): Promise<void> {
+  const existing = await getExpenseShareRows(database, expenseId);
+  const same = existing.length === shares.length
+    && existing.every((row, index) => expenseShareMatches(row, shares[index]));
+  if (same) {
+    for (const row of existing) {
+      await database.runAsync(
+        'UPDATE manual_debts SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        expense.name,
+        row.debt_id
+      );
+    }
+    return;
+  }
+  if (existing.some((row) => Number(row.payment_count) > 0)) {
+    throw new Error(t('database.splitReceivablesLocked'));
+  }
+
+  for (const share of shares) {
+    const contact = await database.getFirstAsync<{ id: number }>(
+      'SELECT id FROM contacts WHERE id = ?', share.contactId
+    );
+    if (!contact) throw new Error(t('database.contactMissing'));
+    if (share.status === 'paid') {
+      await assertIncomePaymentMethod(database, share.paymentMethodId, true);
+    }
+  }
+
+  await database.runAsync('DELETE FROM expense_shares WHERE expense_id = ?', expenseId);
+  for (const row of existing) {
+    await database.runAsync('DELETE FROM manual_debts WHERE id = ?', row.debt_id);
+  }
+
+  for (const share of shares) {
+    const dueDate = share.status === 'pending' ? share.dueDate : null;
+    const dueTime = dueDate == null ? null : share.dueTime ?? '09:00';
+    const debt = await database.runAsync(
+      `INSERT INTO manual_debts
+        (type, direction, name, contact_id, initial_amount, balance_updated_at,
+         balance_updated_time, balance_payment_anchor_id, installment_amount,
+         frequency, first_due_date, status, created_at)
+       VALUES ('fixed', 'receivable', ?, ?, ?, ?, ?, 0, ?, NULL, ?, 'active', ?)`,
+      expense.name,
+      share.contactId,
+      share.amount,
+      expense.date,
+      expense.time,
+      share.amount,
+      dueDate,
+      `${expense.date} ${expense.time}:00`
+    );
+    await database.runAsync(
+      `INSERT INTO expense_shares
+        (expense_id, contact_id, debt_id, amount, status, due_date, due_time, payment_method_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      expenseId,
+      share.contactId,
+      debt.lastInsertRowId,
+      share.amount,
+      share.status,
+      dueDate,
+      dueTime,
+      share.status === 'paid' ? share.paymentMethodId : null
+    );
+    if (share.status === 'paid') {
+      const income = await database.runAsync(
+        `INSERT INTO incomes (name, amount, period_id, date, time, payment_method_id, category_id)
+         VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+        t('database.splitExpenseCollection', { name: expense.name }),
+        share.amount,
+        expense.periodId,
+        expense.date,
+        expense.time,
+        share.paymentMethodId
+      );
+      await database.runAsync(
+        `INSERT INTO manual_debt_entries
+          (debt_id, kind, amount, date, time, period_id, income_id, note)
+         VALUES (?, 'payment', ?, ?, ?, ?, ?, ?)`,
+        debt.lastInsertRowId,
+        share.amount,
+        expense.date,
+        expense.time,
+        expense.periodId,
+        income.lastInsertRowId,
+        t('database.splitExpensePaidAtPurchase')
+      );
+    }
   }
 }
 
@@ -4623,6 +4850,7 @@ function mapDebt(row: Record<string, unknown>): Debt {
           singlePayment
         )
       : null,
+    dueTime: row.expense_share_due_time == null ? null : String(row.expense_share_due_time),
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -4632,6 +4860,7 @@ export async function getDebts(): Promise<Debt[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<Record<string, unknown>>(`
     SELECT d.*, contact.name AS contact_name, contact.nickname AS contact_nickname,
+      (SELECT share.due_time FROM expense_shares share WHERE share.debt_id = d.id) AS expense_share_due_time,
       COUNT(entry.id) AS entry_count,
       COALESCE(SUM(CASE WHEN entry.kind = 'payment'
         AND (snapshot.id IS NOT NULL AND ${afterTimedBoundarySql(
@@ -4747,6 +4976,10 @@ export async function updateDebt(id: number, data: NewDebt): Promise<void> {
   validateDebt(data);
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
+    const managedShare = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT id FROM expense_shares WHERE debt_id = ?', id
+    );
+    if (managedShare) throw new Error(t('database.splitDebtManagedByExpense'));
     const existing = await transaction.getFirstAsync<{
       type: string; direction: string; initial_amount: number; entry_count: number;
       balance_updated_at: string | null; balance_updated_time: string | null; balance_payment_anchor_id: number;
@@ -4972,6 +5205,36 @@ async function reconcileDebtSnapshots(db: SQLite.SQLiteDatabase, debtId: number)
   }
 }
 
+async function syncExpenseShareCollectionStatus(
+  database: SQLite.SQLiteDatabase,
+  debtId: number
+): Promise<void> {
+  const share = await database.getFirstAsync<{ id: number; amount: number }>(
+    'SELECT id, amount FROM expense_shares WHERE debt_id = ?', debtId
+  );
+  if (!share) return;
+  const payments = await database.getFirstAsync<{ total: number; payment_method_id: number | null }>(
+    `SELECT COALESCE(SUM(entry.amount), 0) AS total,
+      (SELECT income.payment_method_id
+       FROM manual_debt_entries latest
+       INNER JOIN incomes income ON income.id = latest.income_id
+       WHERE latest.debt_id = ? AND latest.kind = 'payment'
+       ORDER BY latest.date DESC, latest.time DESC, latest.id DESC LIMIT 1) AS payment_method_id
+     FROM manual_debt_entries entry
+     WHERE entry.debt_id = ? AND entry.kind = 'payment'`,
+    debtId,
+    debtId
+  );
+  const paid = Number(payments?.total ?? 0) >= share.amount;
+  await database.runAsync(
+    `UPDATE expense_shares SET status = ?, payment_method_id = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    paid ? 'paid' : 'pending',
+    paid ? payments?.payment_method_id ?? null : null,
+    share.id
+  );
+}
+
 export async function createDebtPayment(debtId: number, data: NewDebtPayment): Promise<void> {
   if (!Number.isInteger(data.amount) || data.amount <= 0) throw new Error(t('validation.invalidAmount'));
   const db = await getDb();
@@ -5020,6 +5283,7 @@ export async function createDebtPayment(debtId: number, data: NewDebtPayment): P
       debtId, data.amount, data.date, resolveEventTime(data.time), data.periodId,
       expenseId, incomeId, data.note?.trim() || null
     );
+    await syncExpenseShareCollectionStatus(transaction, debtId);
     await reconcileDebtSnapshots(transaction, debtId);
     await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', debtId);
   });
@@ -5086,6 +5350,7 @@ export async function updateDebtPayment(entryId: number, data: NewDebtPayment): 
       `UPDATE manual_debt_entries SET amount = ?, date = ?, time = ?, period_id = ?, note = ? WHERE id = ?`,
       data.amount, data.date, data.time ?? entry.movement_time, data.periodId, data.note?.trim() || null, entryId
     );
+    await syncExpenseShareCollectionStatus(transaction, entry.debt_id);
     await reconcileDebtSnapshots(transaction, entry.debt_id);
     await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', entry.debt_id);
   });
@@ -5119,6 +5384,7 @@ export async function deleteDebtPayment(entryId: number): Promise<void> {
     await transaction.runAsync('DELETE FROM manual_debt_entries WHERE id = ?', entryId);
     if (entry.expense_id != null) await transaction.runAsync('DELETE FROM expenses WHERE id = ?', entry.expense_id);
     if (entry.income_id != null) await transaction.runAsync('DELETE FROM incomes WHERE id = ?', entry.income_id);
+    await syncExpenseShareCollectionStatus(transaction, entry.debt_id);
     await reconcileDebtSnapshots(transaction, entry.debt_id);
     await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', entry.debt_id);
   });
@@ -5189,6 +5455,10 @@ export async function setDebtArchived(id: number, archived: boolean): Promise<vo
 export async function deleteDebt(id: number): Promise<void> {
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
+    const managedShare = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT id FROM expense_shares WHERE debt_id = ?', id
+    );
+    if (managedShare) throw new Error(t('database.splitDebtManagedByExpense'));
     const entries = await transaction.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) AS count FROM manual_debt_entries WHERE debt_id = ?', id
     );
@@ -5645,6 +5915,15 @@ export async function createExpense(
     );
     createdId = result.lastInsertRowId;
     await setExpenseSavingsMovement(transaction, createdId, data.amount, selection);
+    await replaceExpenseShares(
+      transaction,
+      createdId,
+      {
+        name: data.name.trim(), amount: data.amount, originalAmount: data.originalAmount,
+        periodId: targetPeriodId, date: data.date, time: resolveEventTime(data.time),
+      },
+      data.receivableShares ?? []
+    );
   });
   return createdId;
 }
@@ -5679,6 +5958,18 @@ export async function updateExpense(
   const effectivePaymentMethodId = selection?.kind === 'funded_expense'
     ? null
     : data.paymentMethodId;
+  const existingShares = await getExpenseShareRows(db, id);
+  const hasShareCollections = existingShares.some((share) => Number(share.payment_count) > 0);
+  const nextTime = data.time ?? expense.time;
+  if (hasShareCollections && (
+    data.amount !== expense.amount
+    || data.originalAmount !== expense.original_amount
+    || data.date !== expense.date
+    || nextTime !== expense.time
+    || effectivePaymentMethodId !== expense.payment_method_id
+  )) {
+    throw new Error(t('database.splitReceivablesLocked'));
+  }
   await assertDateBelongsToPeriod(db, expense.period_id, data.date);
   await assertExpenseCreditCardCycleUpdateAllowed(
     db,
@@ -5742,6 +6033,18 @@ export async function updateExpense(
     );
 
     await setExpenseSavingsMovement(transaction, id, data.amount, selection);
+
+    if (data.receivableShares !== undefined) {
+      await replaceExpenseShares(
+        transaction,
+        id,
+        {
+          name: data.name.trim(), amount: data.amount, originalAmount: data.originalAmount,
+          periodId: expense.period_id, date: data.date, time: nextTime,
+        },
+        data.receivableShares
+      );
+    }
 
     if (debtEntry) {
       await transaction.runAsync(
@@ -5855,6 +6158,10 @@ export async function deleteExpense(
   );
   await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
   await withExclusiveTransaction(db, async (transaction) => {
+    const expenseShares = await getExpenseShareRows(transaction, id);
+    if (expenseShares.some((share) => Number(share.payment_count) > 0)) {
+      throw new Error(t('database.splitExpenseHasCollections'));
+    }
     const savingsMovement = await getExpenseSavingsMovement(transaction, id);
     const recurringOccurrence = await transaction.getFirstAsync<{
       occurrence_id: number;
@@ -5874,6 +6181,10 @@ export async function deleteExpense(
       id
     );
 
+    await transaction.runAsync('DELETE FROM expense_shares WHERE expense_id = ?', id);
+    for (const share of expenseShares) {
+      await transaction.runAsync('DELETE FROM manual_debts WHERE id = ?', share.debt_id);
+    }
     await transaction.runAsync('DELETE FROM savings_goal_movements WHERE expense_id = ?', id);
     await transaction.runAsync('DELETE FROM manual_debt_entries WHERE expense_id = ?', id);
     await transaction.runAsync('DELETE FROM expenses WHERE id = ?', id);
@@ -6230,6 +6541,9 @@ export async function createExpenseWithRecurrence(
   schedule: NewRecurringSchedule,
   periodId: number
 ): Promise<number> {
+  if ((expense.receivableShares?.length ?? 0) > 0) {
+    throw new Error(t('database.splitReceivablesCannotRecur'));
+  }
   if (expense.creditPaymentTargetId != null) {
     throw new Error(t('database.creditPaymentCannotRecur'));
   }
@@ -6771,6 +7085,8 @@ export async function getIncomes(periodId?: number): Promise<Income[]> {
       income.date,
       income.time,
       income.recurring_income_id AS recurringIncomeId,
+      (SELECT entry.debt_id FROM manual_debt_entries entry WHERE entry.income_id = income.id) AS debtId,
+      (SELECT entry.id FROM manual_debt_entries entry WHERE entry.income_id = income.id) AS debtEntryId,
       paymentMethod.id AS paymentMethodId,
       paymentMethod.name AS paymentMethodName,
       paymentMethod.type AS paymentMethodType,
@@ -6806,6 +7122,8 @@ export async function getIncomeById(id: number): Promise<Income | null> {
        income.date,
        income.time,
        income.recurring_income_id AS recurringIncomeId,
+       (SELECT entry.debt_id FROM manual_debt_entries entry WHERE entry.income_id = income.id) AS debtId,
+       (SELECT entry.id FROM manual_debt_entries entry WHERE entry.income_id = income.id) AS debtEntryId,
        paymentMethod.id AS paymentMethodId,
        paymentMethod.name AS paymentMethodName,
        paymentMethod.type AS paymentMethodType,
