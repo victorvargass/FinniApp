@@ -8,6 +8,7 @@ import {
   resetDatabaseConnection,
 } from '@/lib/db';
 import { withDatabaseLock } from '@/lib/database-lock';
+import { repairRecoverableDatabaseRelations } from '@/lib/database-relations';
 import {
   DATABASE_APPLICATION_ID,
   DATABASE_NAME,
@@ -20,6 +21,67 @@ import { t } from '@/lib/i18n';
 import { attachDiagnosticMetadata } from '@/lib/logger';
 
 export class DatabaseService {
+  private static async deserializeBackupFile(file: File): Promise<SQLite.SQLiteDatabase> {
+    const bytes = await file.bytes();
+    if (bytes.length < 100) {
+      throw new Error(t('errors.emptyBackup'));
+    }
+    if (bytes.length > MAX_BACKUP_SIZE_BYTES) {
+      throw new Error(t('errors.invalidBackupVersion'));
+    }
+    if (!hasValidSQLiteHeader(bytes)) {
+      throw new Error(t('errors.invalidBackupIntegrity'));
+    }
+
+    try {
+      return await SQLite.deserializeDatabaseAsync(bytes);
+    } catch {
+      throw new Error(t('errors.invalidBackupIntegrity'));
+    }
+  }
+
+  private static async validateBackupDatabase(
+    candidate: SQLite.SQLiteDatabase,
+    repairRecoverableRelations = false
+  ): Promise<void> {
+    const integrity = await candidate.getFirstAsync<{ integrity_check: string }>(
+      'PRAGMA integrity_check'
+    );
+
+    if (integrity?.integrity_check !== 'ok') {
+      throw new Error(t('errors.invalidBackupIntegrity'));
+    }
+
+    const tables = await candidate.getAllAsync<{ name: string }>(
+      `SELECT name FROM sqlite_master
+       WHERE type = 'table' AND name IN ('settings', 'periods', 'categories', 'expenses', 'incomes')`
+    );
+
+    const found = new Set(tables.map((table) => table.name));
+    if (REQUIRED_BACKUP_TABLES.some((table) => !found.has(table))) {
+      throw new Error(t('errors.invalidBackupVersion'));
+    }
+
+    const version = await candidate.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+    if ((version?.user_version ?? 0) > DATABASE_SCHEMA_VERSION) {
+      throw new Error(t('errors.invalidBackupVersion'));
+    }
+
+    const application = await candidate.getFirstAsync<{ application_id: number }>('PRAGMA application_id');
+    if (application?.application_id !== 0 && application?.application_id !== DATABASE_APPLICATION_ID) {
+      throw new Error(t('errors.invalidBackupVersion'));
+    }
+
+    if (repairRecoverableRelations) {
+      await repairRecoverableDatabaseRelations(candidate);
+    }
+
+    const foreignKeyErrors = await candidate.getAllAsync('PRAGMA foreign_key_check');
+    if (foreignKeyErrors.length > 0) {
+      throw new Error(t('errors.invalidBackupRelations'));
+    }
+  }
+
   static async getBackupDiagnosticMetadata(file: File): Promise<{
     backupSizeBytes: number;
     backupSchemaVersion: number | null;
@@ -124,58 +186,10 @@ export class DatabaseService {
    * current database.
    */
   static async validateBackupFile(file: File): Promise<void> {
-    const bytes = await file.bytes();
-    if (bytes.length < 100) {
-      throw new Error(t('errors.emptyBackup'));
-    }
-    if (bytes.length > MAX_BACKUP_SIZE_BYTES) {
-      throw new Error(t('errors.invalidBackupVersion'));
-    }
-
-    if (!hasValidSQLiteHeader(bytes)) {
-      throw new Error(t('errors.invalidBackupIntegrity'));
-    }
-
-    let candidate: SQLite.SQLiteDatabase;
-    try {
-      candidate = await SQLite.deserializeDatabaseAsync(bytes);
-    } catch {
-      throw new Error(t('errors.invalidBackupIntegrity'));
-    }
+    const candidate = await this.deserializeBackupFile(file);
 
     try {
-      const integrity = await candidate.getFirstAsync<{ integrity_check: string }>(
-        'PRAGMA integrity_check'
-      );
-
-      if (integrity?.integrity_check !== 'ok') {
-        throw new Error(t('errors.invalidBackupIntegrity'));
-      }
-
-      const tables = await candidate.getAllAsync<{ name: string }>(
-        `SELECT name FROM sqlite_master
-         WHERE type = 'table' AND name IN ('settings', 'periods', 'categories', 'expenses', 'incomes')`
-      );
-
-      const found = new Set(tables.map((table) => table.name));
-      if (REQUIRED_BACKUP_TABLES.some((table) => !found.has(table))) {
-        throw new Error(t('errors.invalidBackupVersion'));
-      }
-
-      const foreignKeyErrors = await candidate.getAllAsync('PRAGMA foreign_key_check');
-      if (foreignKeyErrors.length > 0) {
-        throw new Error(t('errors.invalidBackupRelations'));
-      }
-
-      const version = await candidate.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-      if ((version?.user_version ?? 0) > DATABASE_SCHEMA_VERSION) {
-        throw new Error(t('errors.invalidBackupVersion'));
-      }
-
-      const application = await candidate.getFirstAsync<{ application_id: number }>('PRAGMA application_id');
-      if (application?.application_id !== 0 && application?.application_id !== DATABASE_APPLICATION_ID) {
-        throw new Error(t('errors.invalidBackupVersion'));
-      }
+      await this.validateBackupDatabase(candidate);
     } catch (error) {
       throw attachDiagnosticMetadata(error, { stage: 'validation' });
     } finally {
@@ -189,9 +203,6 @@ export class DatabaseService {
    * DatabaseContext keeps reads paused for the complete operation.
    */
   static async restoreFromFile(file: File): Promise<void> {
-    await this.validateBackupFile(file);
-
-    const bytes = await file.bytes();
     const tempDirectory = new Directory(
       Paths.cache,
       `restore-${Date.now()}`
@@ -199,7 +210,7 @@ export class DatabaseService {
     tempDirectory.create({ idempotent: true, intermediates: true });
 
     const rollbackName = 'rollback.db';
-    const source = await SQLite.deserializeDatabaseAsync(bytes);
+    const source = await this.deserializeBackupFile(file);
 
     const rollback = await SQLite.openDatabaseAsync(
       rollbackName,
@@ -208,6 +219,15 @@ export class DatabaseService {
     );
 
     try {
+      try {
+        // Legacy FinniApp backups may contain optional references left behind
+        // by older deletion flows. Repair only those safe links in the
+        // in-memory source, then require every remaining foreign key to pass.
+        await this.validateBackupDatabase(source, true);
+      } catch (error) {
+        throw attachDiagnosticMetadata(error, { stage: 'validation' });
+      }
+
       await withDatabaseLock(async () => {
         // Keep a local rollback copy so a failed restore does not leave the
         // application without its previous database.
