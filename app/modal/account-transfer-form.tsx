@@ -13,7 +13,8 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { changeTransferSource, getProjectedSourceBalance, getTransferableSourceBalance } from '@/lib/account-transfer-calculations';
-import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
+import { formatCLP, formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
@@ -40,8 +41,10 @@ export default function AccountTransferFormScreen() {
   const [destinationId, setDestinationId] = useState<number | null>(null);
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(toDateString(new Date()));
+  const [time, setTime] = useState(toTimeString(new Date()));
   const [note, setNote] = useState('');
   const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
   const [transferAll, setTransferAll] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -65,6 +68,7 @@ export default function AccountTransferFormScreen() {
           setDestinationId(transfer.destinationPaymentMethodId);
           setAmount(formatCLPInput(transfer.amount));
           setDate(transfer.date);
+          setTime(transfer.time);
           setNote(transfer.note ?? '');
         }
       })
@@ -139,6 +143,7 @@ export default function AccountTransferFormScreen() {
       destinationPaymentMethodId: destinationId,
       amount: parsedAmount,
       date,
+      time,
       note: note.trim() || null,
     };
     setSaving(true);
@@ -296,6 +301,20 @@ export default function AccountTransferFormScreen() {
               onChange={(_, value) => {
                 if (Platform.OS === 'android') setShowDate(false);
                 if (value) setDate(toDateString(value));
+              }}
+            />
+          )}
+          <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
+          <Pressable onPress={() => setShowTime(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
+            <ThemedText>{formatTime(dateWithTime(new Date(`${date}T12:00:00`), time))}</ThemedText>
+          </Pressable>
+          {showTime && (
+            <DateTimePicker
+              value={dateWithTime(new Date(`${date}T12:00:00`), time)}
+              mode="time"
+              onChange={(_, value) => {
+                if (Platform.OS === 'android') setShowTime(false);
+                if (value) setTime(toTimeString(value));
               }}
             />
           )}

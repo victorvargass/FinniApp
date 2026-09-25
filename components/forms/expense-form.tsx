@@ -12,11 +12,12 @@ import { Colors, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
 import {
   getPercentageSelectionAfterModeChange,
   resolveExpenseSplitMode,
 } from '@/lib/expense-split-mode';
-import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { formatCLP, formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
@@ -130,7 +131,10 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const [hasLoadedLastPaymentMethod, setHasLoadedLastPaymentMethod] = useState(false);
   const [date, setDate] = useState(
     creditAdjustment?.date || expense?.date
-      ? parseDateString(creditAdjustment?.date ?? expense!.date)
+      ? dateWithTime(
+          parseDateString(creditAdjustment?.date ?? expense!.date),
+          creditAdjustment?.time ?? expense?.time ?? toTimeString(new Date())
+        )
       : selectedPeriod
         ? (() => {
             const today = new Date();
@@ -141,6 +145,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [makeRecurring, setMakeRecurring] = useState(false);
   const [isInstallmentPurchase, setIsInstallmentPurchase] = useState(false);
   const [installmentCountText, setInstallmentCountText] = useState('3');
@@ -241,6 +246,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       : undefined;
 
   const selectMovementDate = (selected: Date) => {
+    selected.setHours(date.getHours(), date.getMinutes(), 0, 0);
     if (isInstallmentPurchase || isCardAdjustment) {
       setDate(selected);
       return;
@@ -526,6 +532,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           paymentMethodId: creditPaymentTargetId!,
           amount: amountToSave,
           date: toDateString(date),
+          time: toTimeString(date),
           kind: creditAdjustmentKind,
           note: name.trim() || null,
         };
@@ -551,6 +558,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         savingsKind,
         creditPaymentTargetId: isCardPayment ? creditPaymentTargetId : null,
         date: toDateString(date),
+        time: toTimeString(date),
       };
       if (expense) {
         await editExpense(expense.id, data);
@@ -1203,6 +1211,28 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           )}
           {Platform.OS === 'ios' && showDatePicker && (
             <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>
+              <ThemedText type="link">{t('common.done')}</ThemedText>
+            </Pressable>
+          )}
+          <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
+          <Pressable
+            style={[styles.dateButton, { borderColor: colors.icon }]}
+            onPress={() => setShowTimePicker(true)}>
+            <ThemedText>{formatTime(date)}</ThemedText>
+          </Pressable>
+          {showTimePicker && (
+            <DateTimePicker
+              value={date}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(_, selected) => {
+                if (Platform.OS === 'android') setShowTimePicker(false);
+                if (selected) setDate(dateWithTime(date, toTimeString(selected)));
+              }}
+            />
+          )}
+          {Platform.OS === 'ios' && showTimePicker && (
+            <Pressable style={styles.doneDate} onPress={() => setShowTimePicker(false)}>
               <ThemedText type="link">{t('common.done')}</ThemedText>
             </Pressable>
           )}

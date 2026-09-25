@@ -45,6 +45,19 @@ export function parseAmount(value: string): number | null {
   return parsePositiveCurrency(value);
 }
 
+export function formatTime(date: Date): string {
+  return new Intl.DateTimeFormat(APP_LOCALE, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
+export function formatEventDateTime(date: string, time = '12:00'): string {
+  const value = new Date(`${date}T${time}:00`);
+  return `${formatDate(value)} · ${formatTime(value)}`;
+}
+
 /** Parses a formatted CLP input when zero is a valid value. */
 export function parseNonNegativeAmount(value: string): number | null {
   return parseNonNegativeCurrency(value);

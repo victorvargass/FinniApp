@@ -20,6 +20,7 @@ const es = {
     deleted: 'Eliminado',
     dateUnavailable: 'Fecha no disponible',
     date: 'Fecha',
+    time: 'Hora',
     details: 'Detalles',
     done: 'Listo',
     edit: 'Editar',

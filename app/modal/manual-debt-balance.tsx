@@ -11,7 +11,8 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
-import { formatCLP, formatCLPInput, formatDate, parseNonNegativeAmount, toDateString } from '@/lib/format';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
+import { formatCLP, formatCLPInput, formatDate, formatTime, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { Debt } from '@/lib/types';
 
@@ -28,8 +29,10 @@ export default function DebtBalanceScreen() {
   const [debt, setDebt] = useState<Debt | null>(null);
   const [balance, setBalance] = useState('');
   const [date, setDate] = useState(toDateString(new Date()));
+  const [time, setTime] = useState(toTimeString(new Date()));
   const [note, setNote] = useState('');
   const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { getDebt(debtId).then((value) => { setDebt(value); if (value) setBalance(formatCLPInput(value.currentBalance)); }).catch(() => undefined); }, [debtId, getDebt]);
@@ -39,7 +42,7 @@ export default function DebtBalanceScreen() {
     if (parsed == null) return Alert.alert(t('debts.invalidBalance'), t('debts.invalidBalanceHint'));
     setSaving(true);
     try {
-      await addDebtBalanceAdjustment(debtId, { balance: parsed, date, note: note.trim() || null });
+      await addDebtBalanceAdjustment(debtId, { balance: parsed, date, time, note: note.trim() || null });
       showFeedback(t('debts.balanceUpdated'));
       router.back();
     } catch (error) {
@@ -56,6 +59,7 @@ export default function DebtBalanceScreen() {
           <View style={styles.row}><ThemedText>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
           <View style={styles.group}><ThemedText style={styles.label}>{t('debts.newReportedBalance')}</ThemedText><TextInput keyboardType="number-pad" value={balance} onChangeText={(value) => setBalance(formatCLPInput(value))} style={[styles.input, { color: colors.text, borderColor: colors.border }]} /></View>
           <View style={styles.group}><ThemedText style={styles.label}>{t('common.date')}</ThemedText><Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatDate(parseIsoDate(date))}</ThemedText></Pressable>{showDate && <DateTimePicker value={parseIsoDate(date)} mode="date" minimumDate={parseIsoDate(debt.balanceDate)} maximumDate={new Date()} onChange={(_, value) => { if (Platform.OS === 'android') setShowDate(false); if (value) setDate(toDateString(value)); }} />}</View>
+          <View style={styles.group}><ThemedText style={styles.label}>{t('common.time')}</ThemedText><Pressable onPress={() => setShowTime(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatTime(dateWithTime(parseIsoDate(date), time))}</ThemedText></Pressable>{showTime && <DateTimePicker value={dateWithTime(parseIsoDate(date), time)} mode="time" onChange={(_, value) => { if (Platform.OS === 'android') setShowTime(false); if (value) setTime(toTimeString(value)); }} />}</View>
           <View style={styles.group}><ThemedText style={styles.label}>{t('debts.adjustmentNote')}</ThemedText><TextInput multiline value={note} onChangeText={setNote} placeholder={t('debts.adjustmentNotePlaceholder')} placeholderTextColor={colors.icon} style={[styles.input, styles.multiline, { color: colors.text, borderColor: colors.border }]} /></View>
         </ThemedView>
         <Pressable disabled={saving} onPress={() => { void save(); }} style={[styles.primary, saving && styles.disabled]}><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('debts.saveBalance')}</ThemedText></Pressable>

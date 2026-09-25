@@ -10,7 +10,8 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatCLPInput, formatDate, parseNonNegativeAmount, toDateString } from '@/lib/format';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
+import { formatCLP, formatCLPInput, formatDate, formatTime, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 
@@ -22,8 +23,10 @@ export default function SavingsGoalBalanceScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
   const [balance, setBalance] = useState(goal ? formatCLPInput(goal.currentAmount) : '');
   const [date, setDate] = useState(toDateString(new Date()));
+  const [time, setTime] = useState(toTimeString(new Date()));
   const [note, setNote] = useState('');
   const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -37,6 +40,7 @@ export default function SavingsGoalBalanceScreen() {
       await addSavingsGoalBalanceAdjustment(savingsGoalId, {
         balance: parsed,
         date,
+        time,
         note: note.trim() || null,
       });
       showToast(t('savings.balanceUpdated'));
@@ -63,6 +67,13 @@ export default function SavingsGoalBalanceScreen() {
           <View style={styles.row}>
             <ThemedText>{t('savings.currentBalance')}</ThemedText>
             <ThemedText type="defaultSemiBold">{formatCLP(goal.currentAmount)}</ThemedText>
+          </View>
+          <View style={styles.group}>
+            <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
+            <Pressable onPress={() => setShowTime(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
+              <ThemedText>{formatTime(dateWithTime(new Date(`${date}T12:00:00`), time))}</ThemedText>
+            </Pressable>
+            {showTime && <DateTimePicker value={dateWithTime(new Date(`${date}T12:00:00`), time)} mode="time" onChange={(_, value) => { if (Platform.OS === 'android') setShowTime(false); if (value) setTime(toTimeString(value)); }} />}
           </View>
           <View style={styles.group}>
             <ThemedText style={styles.label}>{t('savings.newReportedBalance')}</ThemedText>

@@ -38,6 +38,7 @@ export function CardPaymentMovements() {
           || (isPayment ? t('movementLedger.cardPayment') : getAdjustmentLabel(movement.adjustmentKind)),
         amount: movement.amount,
         date: movement.date,
+        time: movement.time,
         description: isPayment
           ? t('movementLedger.paymentRoute', {
               source: sourceName,

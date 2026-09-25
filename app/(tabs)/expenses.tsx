@@ -21,7 +21,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatDate } from '@/lib/format';
+import { formatCLP, formatEventDateTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
@@ -850,10 +850,10 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
                     </View>
                     <ThemedText style={[styles.meta, { fontSize: 12 }]}>
                       {groupBy === 'category'
-                        ? `${formatDate(new Date(`${expense.date}T12:00:00`))} · ${expense.paymentMethodName ?? t('common.notSpecified')}`
+                        ? `${formatEventDateTime(expense.date, expense.time)} · ${expense.paymentMethodName ?? t('common.notSpecified')}`
                         : groupBy === 'payment-method'
-                          ? `${expense.categoryName ?? t('expenses.noCategory')} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`
-                          : `${expense.categoryName ?? t('expenses.noCategory')} · ${expense.paymentMethodName ?? t('common.notSpecified')} · ${formatDate(new Date(`${expense.date}T12:00:00`))}`}
+                          ? `${expense.categoryName ?? t('expenses.noCategory')} · ${formatEventDateTime(expense.date, expense.time)}`
+                          : `${expense.categoryName ?? t('expenses.noCategory')} · ${expense.paymentMethodName ?? t('common.notSpecified')} · ${formatEventDateTime(expense.date, expense.time)}`}
                       {expense.savingsGoalName
                         ? t(expense.savingsKind === 'funded_expense' ? 'savings.expenseFromGoal' : 'savings.expenseGoal', { name: expense.savingsGoalName })
                         : ''}

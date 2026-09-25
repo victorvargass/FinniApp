@@ -12,7 +12,8 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
-import { formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
+import { formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import type { DebtFrequency, DebtType, NewDebt } from '@/lib/types';
@@ -35,6 +36,7 @@ export default function DebtFormScreen() {
   const [initialAmount, setInitialAmount] = useState('');
   const [creationDate, setCreationDate] = useState(toDateString(new Date()));
   const [balanceDate, setBalanceDate] = useState(toDateString(new Date()));
+  const [balanceTime, setBalanceTime] = useState(toTimeString(new Date()));
   const [installmentAmount, setInstallmentAmount] = useState('');
   const [frequency, setFrequency] = useState<DebtFrequency>('monthly');
   const [firstDueDate, setFirstDueDate] = useState(toDateString(new Date()));
@@ -45,6 +47,7 @@ export default function DebtFormScreen() {
   const [showDate, setShowDate] = useState(false);
   const [showCreationDate, setShowCreationDate] = useState(false);
   const [showBalanceDate, setShowBalanceDate] = useState(false);
+  const [showBalanceTime, setShowBalanceTime] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function DebtFormScreen() {
       setInitialAmount(formatCLPInput(debt.initialAmount)); setInstallmentAmount(debt.installmentAmount ? formatCLPInput(debt.installmentAmount) : '');
       setCreationDate(debt.creationDate);
       setBalanceDate(debt.balanceDate);
+      setBalanceTime(debt.balanceTime ?? debt.balanceUpdatedTime ?? toTimeString(new Date()));
       setFrequency(debt.frequency ?? 'monthly'); setFirstDueDate(debt.firstDueDate ?? toDateString(new Date()));
       setCategoryId(debt.categoryId); setPaymentMethodId(debt.paymentMethodId); setNotes(debt.notes ?? ''); setEntryCount(debt.entryCount);
     }).catch(() => undefined);
@@ -85,6 +89,7 @@ export default function DebtFormScreen() {
         name: name.trim(), creditor: creditor.trim() || null, initialAmount: parsedInitial,
         creationDate,
         balanceDate,
+        balanceTime,
         installmentAmount: parsedInstallment,
         frequency: type === 'single'
           ? null
@@ -146,6 +151,13 @@ export default function DebtFormScreen() {
             </Pressable>
             <ThemedText style={styles.hint}>{t('common.reportedBalanceDateHint')}</ThemedText>
             {showBalanceDate && <DateTimePicker maximumDate={new Date()} minimumDate={parseIsoDate(creationDate)} value={parseIsoDate(balanceDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowBalanceDate(false); if (date) setBalanceDate(toDateString(date)); }} />}
+          </View>
+          <View style={styles.group}>
+            <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
+            <Pressable onPress={() => setShowBalanceTime(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
+              <ThemedText>{formatTime(dateWithTime(parseIsoDate(balanceDate), balanceTime))}</ThemedText>
+            </Pressable>
+            {showBalanceTime && <DateTimePicker value={dateWithTime(parseIsoDate(balanceDate), balanceTime)} mode="time" onChange={(_, value) => { if (Platform.OS === 'android') setShowBalanceTime(false); if (value) setBalanceTime(toTimeString(value)); }} />}
           </View>
           <View style={styles.group}>
             <ThemedText style={styles.label}>{t('common.creationDate')}</ThemedText>

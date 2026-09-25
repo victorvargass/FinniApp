@@ -20,6 +20,7 @@ export function AccountTransferMovements() {
       title: transfer.note?.trim() || t('transfers.defaultName'),
       amount: transfer.amount,
       date: transfer.date,
+      time: transfer.time,
       description: t('movementLedger.transferRoute', {
         source: transfer.sourcePaymentMethodName,
         target: transfer.destinationPaymentMethodName,

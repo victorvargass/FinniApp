@@ -11,7 +11,8 @@ import { Colors, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
+import { formatCLP, formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
@@ -81,7 +82,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   const [categoryId, setCategoryId] = useState<number | null>(initialIncome?.categoryId ?? null);
   const [date, setDate] = useState(
     income?.date
-      ? parseDateString(income.date)
+      ? dateWithTime(parseDateString(income.date), income.time ?? toTimeString(new Date()))
       : selectedPeriod
         ? (() => {
             const today = new Date();
@@ -92,6 +93,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
         : new Date()
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [makeIncomeRecurring, setMakeIncomeRecurring] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(Boolean(income || initialSavingsGoal));
   const [incomeSchedule, setIncomeSchedule] = useState<NewRecurringSchedule>(() =>
@@ -121,6 +123,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     : undefined;
 
   const selectMovementDate = (selected: Date) => {
+    selected.setHours(date.getHours(), date.getMinutes(), 0, 0);
     const selectedDate = toDateString(selected);
     if (!formPeriod || !canExtendCurrentPeriod || selectedDate <= formPeriod.endDate) {
       setDate(selected);
@@ -210,6 +213,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
         name: name.trim(),
         amount,
         date: toDateString(date),
+        time: toTimeString(date),
         savingsGoalId: effectiveSavingsGoalId,
         paymentMethodId,
         categoryId: effectiveSavingsGoalId == null ? categoryId : null,
@@ -471,6 +475,28 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
           )}
           {Platform.OS === 'ios' && showDatePicker && (
             <Pressable style={styles.doneDate} onPress={() => setShowDatePicker(false)}>
+              <ThemedText type="link">{t('common.done')}</ThemedText>
+            </Pressable>
+          )}
+          <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
+          <Pressable
+            style={[styles.dateButton, { borderColor: colors.icon }]}
+            onPress={() => setShowTimePicker(true)}>
+            <ThemedText>{formatTime(date)}</ThemedText>
+          </Pressable>
+          {showTimePicker && (
+            <DateTimePicker
+              value={date}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(_, selected) => {
+                if (Platform.OS === 'android') setShowTimePicker(false);
+                if (selected) setDate(dateWithTime(date, toTimeString(selected)));
+              }}
+            />
+          )}
+          {Platform.OS === 'ios' && showTimePicker && (
+            <Pressable style={styles.doneDate} onPress={() => setShowTimePicker(false)}>
               <ThemedText type="link">{t('common.done')}</ThemedText>
             </Pressable>
           )}

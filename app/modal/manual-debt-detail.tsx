@@ -12,7 +12,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
 import { isSinglePaymentDebt } from '@/lib/debt-calculations';
-import { formatCLP, formatDate } from '@/lib/format';
+import { formatCLP, formatDate, formatEventDateTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { addIsoDays, addIsoMonths } from '@/lib/recurrence';
 import type { Debt, DebtEntry } from '@/lib/types';
@@ -168,7 +168,7 @@ export default function DebtDetailScreen() {
               : deleteBalanceUpdate(entry)}>
             <ThemedView style={[styles.entry, usesLargeText && styles.entryLargeText]}>
               <View style={[styles.entryIcon, { backgroundColor: entry.kind === 'payment' ? '#1FAF78' : entry.amount > 0 ? '#D88916' : '#0B315B' }]}><Ionicons name={entry.kind === 'payment' ? 'arrow-down' : 'swap-vertical'} size={17} color="#fff" /></View>
-              <View style={styles.entryCopy}><ThemedText type="defaultSemiBold">{entry.kind === 'payment' ? t('debts.payment') : t('debts.balanceAdjustment')}</ThemedText><ThemedText style={styles.entryMeta}>{formatDate(parseIsoDate(entry.date))}{entry.paymentMethodName ? ` · ${entry.paymentMethodName}` : ''}{entry.note ? ` · ${entry.note}` : ''}{entry.reportedBalance != null ? ` · ${t('debts.reportedBalanceEntry', { amount: formatCLP(entry.reportedBalance) })}` : ''}</ThemedText></View>
+              <View style={styles.entryCopy}><ThemedText type="defaultSemiBold">{entry.kind === 'payment' ? t('debts.payment') : t('debts.balanceAdjustment')}</ThemedText><ThemedText style={styles.entryMeta}>{formatEventDateTime(entry.date, entry.time)}{entry.paymentMethodName ? ` · ${entry.paymentMethodName}` : ''}{entry.note ? ` · ${entry.note}` : ''}{entry.reportedBalance != null ? ` · ${t('debts.reportedBalanceEntry', { amount: formatCLP(entry.reportedBalance) })}` : ''}</ThemedText></View>
               <ThemedText style={[styles.entryAmount, usesLargeText && styles.entryAmountLargeText, { color: entry.kind === 'payment' || entry.amount < 0 ? '#1FAF78' : '#D88916' }]}>{entry.kind === 'payment' || entry.amount < 0 ? '−' : '+'}{formatCLP(Math.abs(entry.amount))}</ThemedText>
               {entry.reportedBalance != null && <Ionicons name="trash-outline" size={18} color="#C93F4B" />}
             </ThemedView>

@@ -15,9 +15,10 @@ export type SavingsBalanceBoundary = BalanceSnapshotBoundary;
 export function isSavingsMovementCoveredByBalance(
   movementDate: string,
   movementId: number | undefined,
-  boundary: SavingsBalanceBoundary
+  boundary: SavingsBalanceBoundary,
+  movementTime?: string
 ): boolean {
-  return isMovementCoveredByBalanceSnapshot(movementDate, movementId, boundary);
+  return isMovementCoveredByBalanceSnapshot(movementDate, movementId, boundary, movementTime);
 }
 
 export function getSavingsBalanceAdjustmentAmount(

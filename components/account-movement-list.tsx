@@ -19,7 +19,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatCLP, formatDate } from '@/lib/format';
+import { formatCLP, formatEventDateTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { matchesSearchQuery } from '@/lib/search';
 
@@ -31,6 +31,7 @@ export type AccountMovementListItem = {
   title: string;
   amount: number;
   date: string;
+  time: string;
   description: string;
   color: string;
   icon: IconName;
@@ -70,8 +71,8 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 
 function sortMovements(items: AccountMovementListItem[], sortBy: SortOption) {
   return [...items].sort((first, second) => {
-    if (sortBy === 'date-desc') return second.date.localeCompare(first.date) || second.key.localeCompare(first.key);
-    if (sortBy === 'date-asc') return first.date.localeCompare(second.date) || first.key.localeCompare(second.key);
+    if (sortBy === 'date-desc') return `${second.date}T${second.time}`.localeCompare(`${first.date}T${first.time}`) || second.key.localeCompare(first.key);
+    if (sortBy === 'date-asc') return `${first.date}T${first.time}`.localeCompare(`${second.date}T${second.time}`) || first.key.localeCompare(second.key);
     if (sortBy === 'amount-desc') return second.amount - first.amount || second.date.localeCompare(first.date);
     return first.amount - second.amount || second.date.localeCompare(first.date);
   });
@@ -344,7 +345,7 @@ export function AccountMovementList({
                 <View style={styles.movementCopy}>
                   <ThemedText numberOfLines={1} type="defaultSemiBold">{movement.title}</ThemedText>
                   <ThemedText numberOfLines={2} style={styles.movementMeta}>
-                    {movement.description} · {formatDate(new Date(`${movement.date}T12:00:00`))}
+                    {movement.description} · {formatEventDateTime(movement.date, movement.time)}
                   </ThemedText>
                 </View>
                 <View style={styles.amountColumn}>

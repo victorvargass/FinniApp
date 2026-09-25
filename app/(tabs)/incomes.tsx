@@ -20,7 +20,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatDate } from '@/lib/format';
+import { formatCLP, formatEventDateTime } from '@/lib/format';
 import { getIncomeGroupIdentity } from '@/lib/income-grouping';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
@@ -533,7 +533,7 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
                     )}
                   </View>
                   <ThemedText style={[styles.meta, { fontSize: 12 }]}>
-                    {formatDate(new Date(`${income.date}T12:00:00`))}
+                    {formatEventDateTime(income.date, income.time)}
                     {groupBy !== 'category' && income.categoryName ? ` · ${income.categoryName}` : ''}
                     {income.savingsGoalName ? t('savings.incomeWithdrawalFrom', { name: income.savingsGoalName }) : ''}
                     {groupBy === 'none' && income.paymentMethodName

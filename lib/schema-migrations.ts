@@ -27,6 +27,7 @@ export const SCHEMA_MIGRATIONS = [
   { version: 20, name: 'persist-expense-split-mode' },
   { version: 21, name: 'global-push-notification-preference' },
   { version: 22, name: 'persistent-notification-center' },
+  { version: 23, name: 'financial-event-times' },
 ] as const;
 
 // Legacy version 16 tied the declared balance to the historical creation date.

@@ -12,7 +12,8 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
+import { formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import type { PaymentMethodType } from '@/lib/types';
@@ -48,7 +49,9 @@ export default function PaymentMethodFormScreen() {
   const [creditLimitText, setCreditLimitText] = useState(method?.creditLimit != null ? formatCLPInput(method.creditLimit) : '');
   const [reportedBalanceText, setReportedBalanceText] = useState('');
   const [balanceDate, setBalanceDate] = useState(toDateString(new Date()));
+  const [balanceTime, setBalanceTime] = useState(toTimeString(new Date()));
   const [showBalanceDate, setShowBalanceDate] = useState(false);
+  const [showBalanceTime, setShowBalanceTime] = useState(false);
   const [color, setColor] = useState(method?.color ?? '#0B315B');
   const [saving, setSaving] = useState(false);
   const types: { value: PaymentMethodType; label: string }[] = [
@@ -85,6 +88,7 @@ export default function PaymentMethodFormScreen() {
         creditLimit,
         reportedBalance,
         balanceDate: reportedBalance == null ? null : balanceDate,
+        balanceTime: reportedBalance == null ? null : balanceTime,
         paymentDueDay: type === 'credit' ? dueDay : null,
       };
       if (method) await editPaymentMethod(method.id, data);
@@ -276,6 +280,22 @@ export default function PaymentMethodFormScreen() {
               onChange={(_, value) => {
                 if (Platform.OS === 'android') setShowBalanceDate(false);
                 if (value) setBalanceDate(toDateString(value));
+              }}
+            />
+          )}
+          <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
+          <Pressable
+            onPress={() => setShowBalanceTime(true)}
+            style={[styles.input, styles.date, { borderColor: colors.border }]}>
+            <ThemedText>{formatTime(dateWithTime(new Date(`${balanceDate}T12:00:00`), balanceTime))}</ThemedText>
+          </Pressable>
+          {showBalanceTime && (
+            <DateTimePicker
+              value={dateWithTime(new Date(`${balanceDate}T12:00:00`), balanceTime)}
+              mode="time"
+              onChange={(_, value) => {
+                if (Platform.OS === 'android') setShowBalanceTime(false);
+                if (value) setBalanceTime(toTimeString(value));
               }}
             />
           )}

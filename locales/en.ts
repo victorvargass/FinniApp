@@ -20,6 +20,7 @@ const en = {
     deleted: 'Deleted',
     dateUnavailable: 'Date not available',
     date: 'Date',
+    time: 'Time',
     details: 'Details',
     done: 'Done',
     edit: 'Edit',

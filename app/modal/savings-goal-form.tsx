@@ -22,7 +22,8 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatCLPInput, formatDate, parseAmount, parseNonNegativeAmount, toDateString } from '@/lib/format';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
+import { formatCLP, formatCLPInput, formatDate, formatEventDateTime, formatTime, parseAmount, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import type { NewSavingsGoal, SavingsGoalMovement } from '@/lib/types';
@@ -90,7 +91,7 @@ export default function SavingsGoalFormScreen() {
     goal ? parseDate(goal.creationDate) : new Date()
   );
   const [balanceDate, setBalanceDate] = useState(
-    goal ? parseDate(goal.balanceDate) : new Date()
+    goal ? dateWithTime(parseDate(goal.balanceDate), goal.balanceTime ?? goal.balanceUpdatedTime ?? toTimeString(new Date())) : new Date()
   );
   const [deadline, setDeadline] = useState(
     goal ? parseDate(goal.deadline) : getDefaultDeadline()
@@ -99,6 +100,7 @@ export default function SavingsGoalFormScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCreationDatePicker, setShowCreationDatePicker] = useState(false);
   const [showBalanceDatePicker, setShowBalanceDatePicker] = useState(false);
+  const [showBalanceTimePicker, setShowBalanceTimePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [movements, setMovements] = useState<SavingsGoalMovement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(Boolean(goal));
@@ -176,6 +178,7 @@ export default function SavingsGoalFormScreen() {
       allowWithdrawals,
       creationDate: toDateString(creationDate),
       balanceDate: toDateString(balanceDate),
+      balanceTime: toTimeString(balanceDate),
       deadline: toDateString(deadline),
       color: color.toLowerCase(),
     };
@@ -412,7 +415,7 @@ export default function SavingsGoalFormScreen() {
                     <View style={styles.movementCopy}>
                       <ThemedText type="defaultSemiBold" numberOfLines={1}>{movement.name}</ThemedText>
                       <ThemedText style={styles.movementMeta}>
-                        {label} · {formatMovementDate(movement.date)}
+                        {label} · {formatEventDateTime(movement.date, movement.time)}
                       </ThemedText>
                     </View>
                     <View style={styles.movementValue}>
@@ -495,9 +498,27 @@ export default function SavingsGoalFormScreen() {
             onChange={(_, selectedDate) => {
               if (Platform.OS === 'android') setShowBalanceDatePicker(false);
               if (selectedDate) {
-                selectedDate.setHours(12, 0, 0, 0);
+                selectedDate.setHours(balanceDate.getHours(), balanceDate.getMinutes(), 0, 0);
                 setBalanceDate(selectedDate);
               }
+            }}
+            value={balanceDate}
+          />
+        )}
+        <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setShowBalanceTimePicker(true)}
+          style={[styles.dateButton, { borderColor: colors.border }]}>
+          <ThemedText>{formatTime(balanceDate)}</ThemedText>
+        </Pressable>
+        {showBalanceTimePicker && (
+          <DateTimePicker
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            mode="time"
+            onChange={(_, selectedDate) => {
+              if (Platform.OS === 'android') setShowBalanceTimePicker(false);
+              if (selectedDate) setBalanceDate(dateWithTime(balanceDate, toTimeString(selectedDate)));
             }}
             value={balanceDate}
           />

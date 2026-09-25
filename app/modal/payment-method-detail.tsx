@@ -9,7 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatCLP, formatDate } from '@/lib/format';
+import { formatCLP, formatDate, formatEventDateTime } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { getCardDueDate } from '@/lib/payment-method-calculations';
 import type { PaymentMethodMovement } from '@/lib/types';
@@ -350,7 +350,7 @@ export default function PaymentMethodDetailScreen() {
                 <View style={styles.movementCopy}>
                   <ThemedText type="defaultSemiBold" numberOfLines={1}>{movement.name || t('transfers.defaultName')}</ThemedText>
                   <ThemedText style={styles.movementMeta} numberOfLines={1}>
-                    {formatDate(new Date(`${movement.date}T12:00:00`))} · {detail}
+                    {formatEventDateTime(movement.date, movement.time)} · {detail}
                   </ThemedText>
                 </View>
                 <ThemedText style={[

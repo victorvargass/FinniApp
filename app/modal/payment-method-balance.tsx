@@ -10,7 +10,8 @@ import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatCLPInput, formatDate, parseNonNegativeAmount, toDateString } from '@/lib/format';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
+import { formatCLP, formatCLPInput, formatDate, formatTime, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 
@@ -22,13 +23,15 @@ export default function PaymentMethodBalanceScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
   const [balance, setBalance] = useState(method?.availableBalance == null ? '' : formatCLPInput(method.availableBalance));
   const [date, setDate] = useState(toDateString(new Date()));
+  const [time, setTime] = useState(toTimeString(new Date()));
   const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const persist = async (parsed: number) => {
     setSaving(true);
     try {
-      await updatePaymentMethodBalance(methodId, { balance: parsed, date });
+      await updatePaymentMethodBalance(methodId, { balance: parsed, date, time });
       showToast(t('paymentMethods.balanceUpdated'));
       router.back();
     } catch (error) {
@@ -95,6 +98,9 @@ export default function PaymentMethodBalanceScreen() {
           <ThemedText style={styles.label}>{t('paymentMethods.balanceDate')}</ThemedText>
           <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.date, { borderColor: colors.border }]}><ThemedText>{formatDate(new Date(`${date}T12:00:00`))}</ThemedText></Pressable>
           {showDate && <DateTimePicker maximumDate={new Date()} value={new Date(`${date}T12:00:00`)} mode="date" onChange={(_, value) => { if (Platform.OS === 'android') setShowDate(false); if (value) setDate(toDateString(value)); }} />}
+          <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
+          <Pressable onPress={() => setShowTime(true)} style={[styles.input, styles.date, { borderColor: colors.border }]}><ThemedText>{formatTime(dateWithTime(new Date(`${date}T12:00:00`), time))}</ThemedText></Pressable>
+          {showTime && <DateTimePicker value={dateWithTime(new Date(`${date}T12:00:00`), time)} mode="time" onChange={(_, value) => { if (Platform.OS === 'android') setShowTime(false); if (value) setTime(toTimeString(value)); }} />}
         </ThemedView>
         <Pressable disabled={saving} onPress={save} style={[styles.primary, saving && styles.disabled]}><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('paymentMethods.syncAction')}</ThemedText></Pressable>
       </ScrollView>

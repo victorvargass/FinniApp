@@ -40,6 +40,7 @@ export type NewSavingsGoal = {
   allowWithdrawals: boolean;
   creationDate: string;
   balanceDate: string;
+  balanceTime?: string;
   deadline: string;
   color: string;
 };
@@ -47,6 +48,7 @@ export type NewSavingsGoal = {
 export type NewSavingsGoalBalance = {
   balance: number;
   date: string;
+  time?: string;
   note: string | null;
 };
 
@@ -56,6 +58,7 @@ export type SavingsGoal = NewSavingsGoal & {
   status: SavingsGoalStatus;
   currentAmount: number;
   balanceUpdatedAt: string | null;
+  balanceUpdatedTime: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -67,6 +70,7 @@ export type SavingsGoalMovement = {
   name: string;
   amount: number;
   date: string;
+  time: string;
   expenseId: number | null;
   incomeId: number | null;
   reportedBalance: number | null;
@@ -105,6 +109,7 @@ export type Expense = {
   categoryId: number | null;
   periodId: number;
   date: string;
+  time: string;
   originalAmount: number | null;
   splitPercentage: number | null;
   splitMode: ExpenseSplitMode | null;
@@ -129,6 +134,7 @@ export type Income = {
   categoryColor: string | null;
   periodId: number;
   date: string;
+  time: string;
   recurringIncomeId: number | null;
   paymentMethodId: number | null;
   paymentMethodName: string | null;
@@ -163,6 +169,7 @@ export type PaymentMethod = {
   creditLimit: number | null;
   reportedBalance: number | null;
   balanceUpdatedAt: string | null;
+  balanceUpdatedTime: string | null;
   balanceSyncedAt: string | null;
   availableBalance: number | null;
   usedAmount: number | null;
@@ -183,6 +190,7 @@ export type PaymentMethodMovement = {
   name: string;
   amount: number;
   date: string;
+  time: string;
   kind: 'expense' | 'credit_payment' | 'credit_adjustment' | 'installment_purchase' | 'income' | 'savings_withdrawal' | 'transfer_in' | 'transfer_out';
   categoryName: string | null;
   relatedPaymentMethodName: string | null;
@@ -194,6 +202,7 @@ export type NewCreditCardAdjustment = {
   paymentMethodId: number;
   amount: number;
   date: string;
+  time?: string;
   kind: CreditCardAdjustmentKind;
   note: string | null;
 };
@@ -208,6 +217,7 @@ export type CardPaymentMovement = {
   name: string | null;
   amount: number;
   date: string;
+  time: string;
   sourcePaymentMethodId: number | null;
   sourcePaymentMethodName: string | null;
   sourcePaymentMethodColor: string | null;
@@ -225,12 +235,14 @@ export type NewPaymentMethod = {
   creditLimit: number | null;
   reportedBalance: number | null;
   balanceDate: string | null;
+  balanceTime?: string | null;
   paymentDueDay: number | null;
 };
 
 export type NewPaymentMethodBalance = {
   balance: number;
   date: string;
+  time?: string;
 };
 
 export type PaymentMethodBalanceUpdate = NewPaymentMethodBalance & {
@@ -242,10 +254,12 @@ export type NewAccountTransfer = {
   destinationPaymentMethodId: number;
   amount: number;
   date: string;
+  time?: string;
   note: string | null;
 };
 
-export type AccountTransfer = NewAccountTransfer & {
+export type AccountTransfer = Omit<NewAccountTransfer, 'time'> & {
+  time: string;
   id: number;
   sourcePaymentMethodName: string;
   sourcePaymentMethodColor: string;
@@ -351,6 +365,7 @@ export type NewDebt = {
   initialAmount: number;
   creationDate: string;
   balanceDate: string;
+  balanceTime?: string;
   installmentAmount: number | null;
   frequency: DebtFrequency | null;
   firstDueDate: string | null;
@@ -365,6 +380,7 @@ export type DebtEntry = {
   kind: 'payment' | 'adjustment';
   amount: number;
   date: string;
+  time: string;
   periodId: number | null;
   expenseId: number | null;
   categoryId: number | null;
@@ -380,6 +396,7 @@ export type Debt = NewDebt & {
   status: DebtStatus;
   currentBalance: number;
   balanceUpdatedAt: string | null;
+  balanceUpdatedTime: string | null;
   paidAmount: number;
   paymentCount: number;
   entryCount: number;
@@ -393,6 +410,7 @@ export type Debt = NewDebt & {
 export type NewDebtPayment = {
   amount: number;
   date: string;
+  time?: string;
   periodId: number;
   categoryId: number | null;
   paymentMethodId: number | null;
@@ -402,6 +420,7 @@ export type NewDebtPayment = {
 export type NewDebtBalance = {
   balance: number;
   date: string;
+  time?: string;
   note: string | null;
 };
 
@@ -523,6 +542,7 @@ export type NewExpense = {
   splitMode: ExpenseSplitMode | null;
   categoryId: number | null;
   date: string;
+  time?: string;
   paymentMethodId: number | null;
   savingsGoalId?: number | null;
   savingsKind?: SavingsExpenseKind | null;
@@ -624,6 +644,7 @@ export type NewIncome = {
   amount: number;
   categoryId?: number | null;
   date: string;
+  time?: string;
   paymentMethodId: number | null;
   savingsGoalId?: number | null;
 };

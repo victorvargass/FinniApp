@@ -12,7 +12,8 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
-import { formatCLP, formatCLPInput, formatDate, parseAmount, toDateString } from '@/lib/format';
+import { dateWithTime, toTimeString } from '@/lib/event-time';
+import { formatCLP, formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import type { Debt } from '@/lib/types';
@@ -32,11 +33,13 @@ export default function DebtPaymentScreen() {
   const [debt, setDebt] = useState<Debt | null>(null);
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(toDateString(new Date()));
+  const [time, setTime] = useState(toTimeString(new Date()));
   const [periodId, setPeriodId] = useState<number | null>(selectedPeriodId);
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function DebtPaymentScreen() {
         ? (toDateString(today) >= selectedPeriod.startDate && toDateString(today) <= selectedPeriod.endDate ? toDateString(today) : selectedPeriod.endDate)
         : toDateString(today);
       setDate(entry?.date ?? defaultDate);
+      setTime(entry?.time ?? toTimeString(new Date()));
       setPeriodId(entry?.periodId ?? selectedPeriodId);
       setCategoryId(entry?.categoryId ?? value.categoryId);
       setPaymentMethodId(entry?.paymentMethodId ?? value.paymentMethodId);
@@ -68,7 +72,7 @@ export default function DebtPaymentScreen() {
     if (parsedAmount == null || periodId == null) return Alert.alert(t('debts.missingPaymentData'), t('debts.missingPaymentDataHint'));
     setSaving(true);
     try {
-      const data = { amount: parsedAmount, date, periodId, categoryId, paymentMethodId, note: note.trim() || null };
+      const data = { amount: parsedAmount, date, time, periodId, categoryId, paymentMethodId, note: note.trim() || null };
       if (entryId == null) await addDebtPayment(debtId, data);
       else await editDebtPayment(entryId, data);
       showFeedback(entryId == null ? t('debts.paymentRegistered') : t('debts.paymentUpdated'));
@@ -124,6 +128,11 @@ export default function DebtPaymentScreen() {
             <ThemedText style={styles.label}>{t('common.date')}</ThemedText>
             <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatDate(parseIsoDate(date))}</ThemedText></Pressable>
             {showDate && <DateTimePicker value={parseIsoDate(date)} mode="date" onChange={(_, value) => { if (Platform.OS === 'android') setShowDate(false); if (value) setDate(toDateString(value)); }} />}
+          </View>
+          <View style={styles.group}>
+            <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
+            <Pressable onPress={() => setShowTime(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatTime(dateWithTime(parseIsoDate(date), time))}</ThemedText></Pressable>
+            {showTime && <DateTimePicker value={dateWithTime(parseIsoDate(date), time)} mode="time" onChange={(_, value) => { if (Platform.OS === 'android') setShowTime(false); if (value) setTime(toTimeString(value)); }} />}
           </View>
           <SimpleSelect searchable label={t('debts.category')} value={categoryId} onChange={setCategoryId} options={categoryOptions} />
           <SimpleSelect label={t('debts.paymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
