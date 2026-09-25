@@ -114,6 +114,10 @@ function AppContent() {
                   options={{ presentation: 'modal', title: t('paymentMethods.updateBalance') }}
                 />
                 <Stack.Screen
+                  name="modal/period-opening-balances"
+                  options={{ presentation: 'modal', title: t('period.openingBalancesTitle'), gestureEnabled: false }}
+                />
+                <Stack.Screen
                   name="modal/account-transfer-form"
                   options={{ presentation: 'modal', title: t('navigation.transfer') }}
                 />

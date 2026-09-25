@@ -621,9 +621,15 @@ export default function HomeScreen() {
                     style: 'destructive',
                     onPress: async () => {
                       try {
-                        await closeCurrentPeriod();
-
+                        const nextPeriod = await closeCurrentPeriod();
                         showToast(t('period.finished'));
+                        router.push({
+                          pathname: '/modal/period-opening-balances',
+                          params: {
+                            start: nextPeriod.startDate,
+                            end: nextPeriod.endDate,
+                          },
+                        });
                       } catch {
                         Alert.alert(
                           t('period.finishErrorTitle'),

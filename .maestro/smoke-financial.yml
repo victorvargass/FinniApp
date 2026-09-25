@@ -151,4 +151,19 @@ name: FinniApp financial smoke test
 - assertVisible: 'Finalizar período actual'
 - assertVisible: 'Finalizar y continuar'
 - tapOn: 'Cancelar'
+
+# Al finalizar, el nuevo período debe ofrecer una sincronización ordenada de cuentas.
+- tapOn:
+    id: 'period-close'
+- tapOn: 'Finalizar y continuar'
+- extendedWaitUntil:
+    visible: 'Configura tu punto de partida'
+    timeout: 15000
+- assertVisible: 'Efectivo'
+- assertVisible: 'Omitir'
+- assertVisible: 'Confirmar'
+- tapOn: 'Omitir'
+- assertNotVisible: 'Configura tu punto de partida'
+- assertVisible:
+    id: 'tab-home'
 - takeScreenshot: 'finniapp-financial-smoke'

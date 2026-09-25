@@ -24,4 +24,5 @@ export {
   updateAccountTransfer,
   updatePaymentMethod,
   updatePaymentMethodBalance,
+  updatePaymentMethodBalances,
 } from '@/lib/db';
