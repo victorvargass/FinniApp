@@ -27,7 +27,7 @@ function showResult(message: string) {
 export default function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const planId = Number(id);
-  const { periods, selectedPeriodId, getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, restoreRemovedInstallment, removeInstallmentPlan } = useDatabase();
+  const { periods, selectedPeriodId, getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, removeInstallmentPlan } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const { fontScale } = useWindowDimensions();
   const usesLargeText = fontScale >= 1.2;
@@ -35,7 +35,7 @@ export default function DebtDetailScreen() {
   const [periodId, setPeriodId] = useState<number | null>(selectedPeriodId);
   const [amountText, setAmountText] = useState('');
   const [saving, setSaving] = useState(false);
-  const [periodPickerAction, setPeriodPickerAction] = useState<'select' | number | null>(null);
+  const [periodPickerAction, setPeriodPickerAction] = useState<'select' | null>(null);
   const [pendingPeriodId, setPendingPeriodId] = useState<number | null>(null);
   const load = useCallback(async () => {
     const value = await getDebtPlan(planId);
@@ -55,7 +55,7 @@ export default function DebtDetailScreen() {
     finally { setSaving(false); }
   };
 
-  const openPeriodPicker = (action: 'select' | number) => {
+  const openPeriodPicker = (action: 'select') => {
     setPendingPeriodId(periodId ?? selectedPeriodId ?? periods[0]?.id ?? null);
     setPeriodPickerAction(action);
   };
@@ -67,17 +67,9 @@ export default function DebtDetailScreen() {
 
   const confirmPeriodSelection = () => {
     if (periodPickerAction == null || pendingPeriodId == null) return;
-    const action = periodPickerAction;
     const selectedId = pendingPeriodId;
     setPeriodId(selectedId);
     closePeriodPicker();
-    if (typeof action === 'number') {
-      void run(
-        () => restoreRemovedInstallment(action, selectedId),
-        t('installments.registerError'),
-        t('installments.registered')
-      );
-    }
   };
 
   const deletePlan = () => {
@@ -139,24 +131,15 @@ export default function DebtDetailScreen() {
           return (
             <View key={installment.id}>
               <ThemedView style={[styles.installment, usesLargeText && styles.installmentLargeText]}>
-                <View style={[styles.icon, isCompleted ? styles.posted : installment.status === 'cancelled' || installment.manuallyRemoved ? styles.cancelled : styles.projected]}>
-                  <Ionicons name={isCompleted ? 'checkmark' : installment.status === 'cancelled' || installment.manuallyRemoved ? 'close' : 'time-outline'} size={17} color="#fff" />
+                <View style={[styles.icon, isCompleted ? styles.posted : installment.status === 'cancelled' ? styles.cancelled : styles.projected]}>
+                  <Ionicons name={isCompleted ? 'checkmark' : installment.status === 'cancelled' ? 'close' : 'time-outline'} size={17} color="#fff" />
                 </View>
-                <View style={styles.copy}><ThemedText type="defaultSemiBold">{t('installments.installmentNumber', { number: installment.number, total: plan.totalInstallments })}</ThemedText><ThemedText style={styles.secondary}>{formatDate(parseDate(installment.dueDate))} · {installment.manuallyRemoved ? t('installments.manuallyRemoved') : installment.status === 'posted' ? t('installments.posted') : isSettled ? t('installments.settledInstallment') : installment.status === 'cancelled' ? t('installments.cancelled') : t('installments.projected')}</ThemedText></View>
+                <View style={styles.copy}><ThemedText type="defaultSemiBold">{t('installments.installmentNumber', { number: installment.number, total: plan.totalInstallments })}</ThemedText><ThemedText style={styles.secondary}>{formatDate(parseDate(installment.dueDate))} · {installment.status === 'posted' ? t('installments.posted') : isSettled ? t('installments.settledInstallment') : installment.status === 'cancelled' ? t('installments.cancelled') : t('installments.projected')}</ThemedText></View>
                 <ThemedText style={[styles.installmentAmount, usesLargeText && styles.installmentAmountLargeText]}>{formatCLP(installment.projectedAmount)}</ThemedText>
               </ThemedView>
               {installment.expenseId != null && (
                 <Pressable onPress={() => router.push({ pathname: '/modal/expense-form', params: { id: String(installment.expenseId) } })} style={styles.inlineAction}>
                   <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>{t('installments.editInstallment')}</ThemedText>
-                </Pressable>
-              )}
-              {installment.manuallyRemoved && (
-                <Pressable
-                  disabled={saving}
-                  onPress={() => openPeriodPicker(installment.id)}
-                  style={[styles.restoreButton, { borderColor: colors.primary }]}>
-                  <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-                  <ThemedText style={[styles.restoreButtonText, { color: colors.primary }]}>{t('installments.register')}</ThemedText>
                 </Pressable>
               )}
             </View>
@@ -192,7 +175,7 @@ export default function DebtDetailScreen() {
         <Pressable style={styles.modalOverlay} onPress={closePeriodPicker}>
           <Pressable style={[styles.modalSheet, { backgroundColor: colors.background }]} onPress={(event) => event.stopPropagation()}>
             <View style={styles.modalHeader}>
-              <ThemedText type="subtitle">{typeof periodPickerAction === 'number' ? t('installments.registerInstallmentIn') : t('common.selectPeriod')}</ThemedText>
+              <ThemedText type="subtitle">{t('common.selectPeriod')}</ThemedText>
               <Pressable accessibilityLabel={t('accessibility.closePeriodPicker')} hitSlop={8} onPress={closePeriodPicker}>
                 <Ionicons name="close" size={23} color={colors.icon} />
               </Pressable>
@@ -228,8 +211,6 @@ const styles = StyleSheet.create({
   primary: { minHeight: 46, backgroundColor: '#0B315B', borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' }, primaryText: { width: '100%', color: '#fff', fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   installment: { borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, installmentLargeText: { flexWrap: 'wrap', alignItems: 'flex-start' }, installmentAmount: { textAlign: 'right' }, installmentAmountLargeText: { width: '100%', paddingLeft: 38 }, icon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }, posted: { backgroundColor: '#1FAF78' }, projected: { backgroundColor: '#D88916' }, cancelled: { backgroundColor: '#60758E' }, copy: { flex: 1, minWidth: 0 },
   inlineAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9 },
-  restoreButton: { alignSelf: 'center', minHeight: 42, marginTop: 10, marginBottom: 4, borderWidth: 1, borderRadius: 9, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 16, paddingVertical: 9 },
-  restoreButtonText: { fontSize: 14, lineHeight: 20, fontWeight: '700' },
   danger: { borderWidth: 1, borderColor: '#C93F4B', borderRadius: 9, padding: 12, alignItems: 'center' }, dangerText: { color: '#C93F4B', fontWeight: '700' },
   disabled: { opacity: 0.4 }, deleteSection: { gap: 8, marginTop: 4 },
   modalOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, backgroundColor: 'rgba(0,0,0,0.45)' },

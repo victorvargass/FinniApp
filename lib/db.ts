@@ -8,6 +8,7 @@ import {
   DATABASE_NAME,
 } from './database-schema';
 import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financial-calculations';
+import { toDateString } from './format';
 import { paymentOutflowSql } from './expense-amounts';
 import { reconcileLegacySplitCardCycles } from './split-expense-migration';
 import {
@@ -5551,9 +5552,14 @@ export async function activateInstallmentPlan(id: number, periodId: number, actu
   await processProjectedInstallments();
 }
 
-export async function processProjectedInstallments(): Promise<void> {
+export async function processProjectedInstallments(now = new Date()): Promise<void> {
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
+    // Older versions treated a deleted installment as permanently removed.
+    // It is still part of the plan, so restore it to the ordinary projection.
+    await transaction.runAsync(
+      "UPDATE debt_installments SET manually_removed = 0 WHERE status = 'projected' AND manually_removed = 1"
+    );
     const installments = await transaction.getAllAsync<{
       id: number; debt_plan_id: number; installment_number: number; due_date: string; projected_amount: number;
       name: string; category_id: number | null; payment_method_id: number; total_installments: number;
@@ -5564,8 +5570,9 @@ export async function processProjectedInstallments(): Promise<void> {
        FROM debt_installments i
        INNER JOIN debt_plans p ON p.id = i.debt_plan_id AND p.status = 'active'
        INNER JOIN periods period ON i.due_date BETWEEN period.start_date AND period.end_date
-       WHERE i.status = 'projected' AND i.manually_removed = 0
-       ORDER BY i.due_date, i.installment_number`
+       WHERE i.status = 'projected' AND i.manually_removed = 0 AND i.due_date <= ?
+       ORDER BY i.due_date, i.installment_number`,
+      toDateString(now)
     );
     for (const item of installments) {
       await postInstallment(
@@ -6207,7 +6214,7 @@ export async function deleteExpense(
     if (expense.debt_installment_id != null) {
       await transaction.runAsync(
         `UPDATE debt_installments
-         SET status = 'projected', expense_id = NULL, manually_removed = 1
+         SET status = 'projected', expense_id = NULL, manually_removed = 0
          WHERE id = ?`,
         expense.debt_installment_id
       );

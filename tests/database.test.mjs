@@ -18,6 +18,26 @@ function temporaryDatabase() {
   return new DatabaseSync(':memory:');
 }
 
+test('deleting an installment restores its projection until its due date', () => {
+  const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+  const processing = source.slice(
+    source.indexOf('export async function processProjectedInstallments'),
+    source.indexOf('export async function restoreRemovedInstallment')
+  );
+  const deletion = source.slice(
+    source.indexOf('export async function deleteExpense'),
+    source.indexOf('export async function getRecurringExpenses')
+  );
+
+  assert.match(processing, /SET manually_removed = 0 WHERE status = 'projected'/);
+  assert.match(processing, /i\.due_date <= \?/);
+  assert.match(
+    deletion,
+    /SET status = 'projected', expense_id = NULL, manually_removed = 0\s+WHERE id = \?/
+  );
+  assert.doesNotMatch(deletion, /manually_removed = 1/);
+});
+
 test('movement UNION projections include exactly one time column per branch', () => {
   const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
   const methodMovements = source.slice(
