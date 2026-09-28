@@ -15,11 +15,22 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: 22.14.0
           cache: npm
       - run: npm ci
+      - name: Database migration contract
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+          npm run check:database-schema -- --base "$BASE_SHA"
       - name: Lint
         run: npm run lint
       - name: TypeScript

@@ -6,8 +6,19 @@ on:
       - master
 
 jobs:
+  verify_database_and_app:
+    name: Verify database migrations and app
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Database migration contract
+        run: npm run check:database-schema -- --base "${{ github.event.before }}"
+      - name: Lint, types and tests
+        run: npm run check
+
   update_preview:
     name: Publish Preview OTA
+    needs: [verify_database_and_app]
     type: update
     params:
       channel: preview
