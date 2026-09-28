@@ -70,7 +70,16 @@ export function HomePaymentBalancesCard({
                   {t('paymentMethods.configureCurrentBalance')}
                 </ThemedText>
               ) : (
-                <ThemedText type="defaultSemiBold">{formatCLP(method.availableBalance)}</ThemedText>
+                <ThemedText
+                  type="defaultSemiBold"
+                  style={kind === 'credit' ? [styles.availableCredit, { color: colors.primary }] : undefined}>
+                  {formatCLP(method.availableBalance)}
+                </ThemedText>
+              )}
+              {kind === 'credit' && (
+                <ThemedText style={[styles.creditLimit, { color: colors.textSecondary }]}>
+                  {t('paymentMethods.creditLimit')}: {method.creditLimit == null ? '—' : formatCLP(method.creditLimit)}
+                </ThemedText>
               )}
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.icon} />
@@ -88,6 +97,8 @@ const styles = StyleSheet.create({
   copy: { minWidth: 0, flex: 1, gap: 1 },
   type: { fontSize: 11, lineHeight: 15 },
   amountCopy: { maxWidth: '45%', alignItems: 'flex-end' },
+  availableCredit: { fontSize: 15, lineHeight: 20 },
+  creditLimit: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   pending: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   pressed: { opacity: 0.7 },
 });
