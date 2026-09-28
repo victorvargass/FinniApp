@@ -1452,6 +1452,8 @@ const en = {
     centerDescription: 'Find FinniApp alerts here and return to their related actions whenever needed.',
     unreadSection: 'Unread',
     readSection: 'Read',
+    today: 'Today',
+    yesterday: 'Yesterday',
     emptyTitle: 'Everything is up to date',
     emptyDescription: 'When FinniApp has an alert for you, it will appear here.',
     markRead: 'Mark as read',

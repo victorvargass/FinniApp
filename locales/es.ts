@@ -1452,6 +1452,8 @@ const es = {
     centerDescription: 'Aquí encontrarás los avisos de FinniApp y podrás volver a sus acciones relacionadas.',
     unreadSection: 'No leídas',
     readSection: 'Leídas',
+    today: 'Hoy',
+    yesterday: 'Ayer',
     emptyTitle: 'Todo está al día',
     emptyDescription: 'Cuando FinniApp tenga un aviso para ti, aparecerá aquí.',
     markRead: 'Marcar como leída',

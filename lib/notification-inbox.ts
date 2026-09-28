@@ -6,6 +6,29 @@ export function localNotificationDateKey(value: Date | number): string {
   return `${year}-${month}-${day}`;
 }
 
+export type NotificationDayBucket = 'today' | 'yesterday' | 'date';
+
+export function notificationDayBucket(
+  value: Date | number,
+  now: Date | number = Date.now()
+): NotificationDayBucket {
+  const notificationDate = typeof value === 'number' ? new Date(value) : value;
+  const currentDate = typeof now === 'number' ? new Date(now) : now;
+
+  if (localNotificationDateKey(notificationDate) === localNotificationDateKey(currentDate)) {
+    return 'today';
+  }
+
+  const yesterday = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth(),
+    currentDate.getDate() - 1
+  );
+  return localNotificationDateKey(notificationDate) === localNotificationDateKey(yesterday)
+    ? 'yesterday'
+    : 'date';
+}
+
 export const DEDUPLICATE_MOVEMENT_REMINDERS_SQL = `
   DELETE FROM app_notifications
   WHERE id IN (

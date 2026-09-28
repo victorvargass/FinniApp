@@ -5,11 +5,20 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   DEDUPLICATE_MOVEMENT_REMINDERS_SQL,
   localNotificationDateKey,
+  notificationDayBucket,
 } from '../lib/notification-inbox.ts';
 
 test('movement reminder keys use the device local calendar date', () => {
   const localEvening = new Date(2026, 8, 25, 21, 0, 0);
   assert.equal(localNotificationDateKey(localEvening), '2026-09-25');
+});
+
+test('notification day buckets follow local calendar days across month boundaries', () => {
+  const now = new Date(2026, 9, 1, 0, 15, 0);
+
+  assert.equal(notificationDayBucket(new Date(2026, 9, 1, 0, 1, 0), now), 'today');
+  assert.equal(notificationDayBucket(new Date(2026, 8, 30, 23, 59, 0), now), 'yesterday');
+  assert.equal(notificationDayBucket(new Date(2026, 8, 29, 23, 59, 0), now), 'date');
 });
 
 test('removes only duplicate movement reminders for the same local day', () => {

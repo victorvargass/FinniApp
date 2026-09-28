@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Modal, Pressable, SectionList, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
@@ -12,8 +12,13 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
+import { localNotificationDateKey, notificationDayBucket } from '@/lib/notification-inbox';
 import { showToast } from '@/lib/toast';
 import type { AppNotification, RecurringDecisionItem } from '@/lib/types';
+
+type NotificationListItem =
+  | { type: 'day'; key: string; label: string }
+  | { type: 'notification'; key: string; notification: AppNotification };
 
 function getMovementNoun(item: RecurringDecisionItem): string {
   if (item.isSavingsContribution) return t('recurrence.saving');
@@ -38,7 +43,53 @@ function notificationDate(timestamp: number): string {
   }).format(new Date(timestamp));
 }
 
+function notificationTime(timestamp: number): string {
+  return new Intl.DateTimeFormat(APP_LOCALE, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(timestamp));
+}
+
+function notificationDayLabel(timestamp: number): string {
+  const bucket = notificationDayBucket(timestamp);
+  if (bucket === 'today') return t('notifications.today');
+  if (bucket === 'yesterday') return t('notifications.yesterday');
+  return new Intl.DateTimeFormat(APP_LOCALE, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(timestamp));
+}
+
+function groupNotificationsByDay(
+  notifications: AppNotification[],
+  sectionKey: 'unread' | 'read'
+): NotificationListItem[] {
+  const rows: NotificationListItem[] = [];
+  let previousDay = '';
+
+  notifications.forEach((notification) => {
+    const day = localNotificationDateKey(notification.scheduledFor);
+    if (day !== previousDay) {
+      rows.push({
+        type: 'day',
+        key: `day-${sectionKey}-${day}`,
+        label: notificationDayLabel(notification.scheduledFor),
+      });
+      previousDay = day;
+    }
+    rows.push({
+      type: 'notification',
+      key: `notification-${notification.id}`,
+      notification,
+    });
+  });
+
+  return rows;
+}
+
 export default function NotificationsScreen() {
+  const insets = useSafeAreaInsets();
   const {
     appNotifications,
     recurringDecisions,
@@ -54,8 +105,8 @@ export default function NotificationsScreen() {
   const unread = appNotifications.filter((item) => !item.isRead);
   const read = appNotifications.filter((item) => item.isRead);
   const sections = [
-    { title: t('notifications.unreadSection'), data: unread },
-    { title: t('notifications.readSection'), data: read },
+    { title: t('notifications.unreadSection'), data: groupNotificationsByDay(unread, 'unread') },
+    { title: t('notifications.readSection'), data: groupNotificationsByDay(read, 'read') },
   ].filter((section) => section.data.length > 0);
 
   const relatedDecision = (notification: AppNotification) => recurringDecisions.find(
@@ -190,7 +241,7 @@ export default function NotificationsScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <SectionList
         sections={sections}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item) => item.key}
         contentContainerStyle={[styles.list, sections.length === 0 && styles.emptyList]}
         ListHeaderComponent={sections.length > 0 ? (
           <ThemedText style={styles.intro}>{t('notifications.centerDescription')}</ThemedText>
@@ -205,33 +256,42 @@ export default function NotificationsScreen() {
         renderSectionHeader={({ section }) => (
           <ThemedText type="subtitle" style={styles.sectionTitle}>{section.title}</ThemedText>
         )}
-        renderItem={({ item }) => (
+        renderItem={({ item }) => item.type === 'day' ? (
+          <ThemedText style={[styles.dayLabel, { color: colors.textSecondary }]}>
+            {item.label}
+          </ThemedText>
+        ) : (
           <ThemedView style={[styles.row, { borderColor: colors.border }]}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={item.title}
-              onPress={() => openDetails(item)}
+              accessibilityLabel={item.notification.title}
+              onPress={() => openDetails(item.notification)}
               style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}>
               <View style={[
                 styles.iconBox,
-                { backgroundColor: item.isRead ? colors.background : `${colors.primary}18` },
+                { backgroundColor: item.notification.isRead ? colors.background : `${colors.primary}18` },
               ]}>
                 <Ionicons
-                  name={notificationIcon(item.kind)}
+                  name={notificationIcon(item.notification.kind)}
                   size={20}
-                  color={item.isRead ? colors.icon : colors.primary}
+                  color={item.notification.isRead ? colors.icon : colors.primary}
                 />
               </View>
-              {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
-              <ThemedText type="defaultSemiBold" numberOfLines={2} style={styles.rowTitle}>
-                {item.title}
-              </ThemedText>
+              {!item.notification.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+              <View style={styles.rowCopy}>
+                <ThemedText type="defaultSemiBold" numberOfLines={2}>
+                  {item.notification.title}
+                </ThemedText>
+                <ThemedText style={[styles.rowTime, { color: colors.textSecondary }]}>
+                  {notificationTime(item.notification.scheduledFor)}
+                </ThemedText>
+              </View>
             </Pressable>
             <Pressable
               accessibilityLabel={t('common.delete')}
               accessibilityRole="button"
               hitSlop={8}
-              onPress={() => confirmDelete(item)}
+              onPress={() => confirmDelete(item.notification)}
               style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
               <Ionicons name="trash-outline" size={20} color={colors.danger} />
             </Pressable>
@@ -247,7 +307,10 @@ export default function NotificationsScreen() {
         <View style={styles.modalRoot}>
           <Pressable style={styles.backdrop} onPress={() => setSelectedNotificationId(null)} />
           {selectedNotification && (
-            <ThemedView style={[styles.sheet, { borderColor: colors.border }]}>
+            <ThemedView style={[
+              styles.sheet,
+              { borderColor: colors.border, paddingBottom: Math.max(insets.bottom + 18, 30) },
+            ]}>
               <View style={styles.sheetHeader}>
                 <View style={[styles.detailIcon, { backgroundColor: `${colors.primary}18` }]}>
                   <Ionicons name={notificationIcon(selectedNotification.kind)} size={23} color={colors.primary} />
@@ -321,6 +384,7 @@ const styles = StyleSheet.create({
   emptyList: { flexGrow: 1, justifyContent: 'center' },
   intro: { opacity: 0.72, lineHeight: 21, marginBottom: 14 },
   sectionTitle: { marginTop: 10, marginBottom: 8 },
+  dayLabel: { fontSize: 12, fontWeight: '600', marginTop: 4, marginBottom: 6, paddingHorizontal: 2 },
   row: {
     minHeight: 62,
     borderRadius: 14,
@@ -333,7 +397,8 @@ const styles = StyleSheet.create({
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
   iconBox: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   unreadDot: { width: 7, height: 7, borderRadius: 4 },
-  rowTitle: { flex: 1 },
+  rowCopy: { flex: 1, gap: 2 },
+  rowTime: { fontSize: 12 },
   deleteButton: { padding: 9 },
   pressed: { opacity: 0.62 },
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
