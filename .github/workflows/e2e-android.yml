@@ -35,16 +35,32 @@ jobs:
         env:
           MAESTRO_VERSION: 1.40.3
         run: curl -Ls https://get.maestro.mobile.dev | bash
+      - name: Enable KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       - name: Run critical journeys on Android 15
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           arch: x86_64
           profile: pixel_6
           disable-animations: true
+          disable-linux-hw-accel: false
           script: |
+            set -e
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             $HOME/.maestro/bin/maestro test .maestro/onboarding-full.yml .maestro/smoke-financial.yml .maestro/settings-and-localization.yml .maestro/google-drive-boundary.yml
+            touch "$RUNNER_TEMP/finniapp-maestro-passed"
+      - name: Verify critical journeys completed
+        if: always()
+        run: |
+          if [[ ! -f "$RUNNER_TEMP/finniapp-maestro-passed" ]]; then
+            echo "::error::Maestro or the Android emulator failed before all critical journeys completed."
+            exit 1
+          fi
       - name: Upload Maestro evidence
         if: always()
         uses: actions/upload-artifact@v6

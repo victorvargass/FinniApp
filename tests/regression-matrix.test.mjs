@@ -67,6 +67,15 @@ test('the distributable GitHub workflow waits for Android E2E', () => {
   assert.match(workflow, /needs: e2e/);
 });
 
+test('Android E2E distinguishes Maestro failures from emulator cleanup failures', () => {
+  const workflow = readFileSync(path.join(root, '.github/workflows/e2e-android.yml'), 'utf8');
+  assert.match(workflow, /MODE="0666"/);
+  assert.match(workflow, /disable-linux-hw-accel: false/);
+  assert.match(workflow, /continue-on-error: true/);
+  assert.match(workflow, /touch "\$RUNNER_TEMP\/finniapp-maestro-passed"/);
+  assert.match(workflow, /if \[\[ ! -f "\$RUNNER_TEMP\/finniapp-maestro-passed" \]\]/);
+});
+
 test('the preview update workflow uses the Node version required by the test suite', () => {
   const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   const workflow = readFileSync(path.join(root, '.eas/workflows/publish-preview-update.yml'), 'utf8');
