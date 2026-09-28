@@ -941,6 +941,8 @@ const en = {
     selectDebtorContact: 'Contact paying you',
     chooseContact: 'Select a contact to settle all their debts.',
     debtsIncluded: '%{count} debts included',
+    payContactTotal: 'Pay contact total',
+    collectContactTotal: 'Receive contact total',
     chooseDebt: 'Select a debt to continue.',
     noPayableDebts: 'You have no outstanding debts to pay.',
     noReceivableDebts: 'You have no outstanding collections.',

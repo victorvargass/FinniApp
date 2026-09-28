@@ -24,12 +24,14 @@ function parseIsoDate(value: string) {
 }
 
 export default function DebtPaymentScreen() {
-  const { debtId: debtIdParam, entryId: entryIdParam, direction: directionParam } = useLocalSearchParams<{
+  const { debtId: debtIdParam, entryId: entryIdParam, direction: directionParam, contactId: contactIdParam } = useLocalSearchParams<{
     debtId?: string;
     entryId?: string;
     direction?: DebtDirection;
+    contactId?: string;
   }>();
   const requestedDebtId = debtIdParam ? Number(debtIdParam) : null;
+  const requestedContactId = contactIdParam ? Number(contactIdParam) : null;
   const entryId = entryIdParam ? Number(entryIdParam) : null;
   const requestedDirection: DebtDirection = directionParam === 'receivable' ? 'receivable' : 'payable';
   const navigation = useNavigation();
@@ -39,8 +41,12 @@ export default function DebtPaymentScreen() {
   const [selectedDebtId, setSelectedDebtId] = useState<number | null>(
     requestedDebtId != null && Number.isInteger(requestedDebtId) ? requestedDebtId : null
   );
-  const [settlementScope, setSettlementScope] = useState<'debt' | 'contact'>('debt');
-  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
+  const [settlementScope, setSettlementScope] = useState<'debt' | 'contact'>(
+    requestedContactId != null && Number.isInteger(requestedContactId) ? 'contact' : 'debt'
+  );
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(
+    requestedContactId != null && Number.isInteger(requestedContactId) ? requestedContactId : null
+  );
   const [debt, setDebt] = useState<Debt | null>(null);
   const [loadingDebts, setLoadingDebts] = useState(true);
   const [amount, setAmount] = useState('');

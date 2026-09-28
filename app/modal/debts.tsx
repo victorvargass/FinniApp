@@ -25,6 +25,32 @@ function statusLabel(status: DebtPlan['status']): string {
   return t(keys[status]);
 }
 
+type ContactDebtGroup = {
+  contactId: number;
+  contactName: string;
+  debts: Debt[];
+  total: number;
+};
+
+function groupContactDebts(debts: Debt[]): { groups: ContactDebtGroup[]; remaining: Debt[] } {
+  const candidates = new Map<number, ContactDebtGroup>();
+  debts.forEach((debt) => {
+    if (debt.status !== 'active' || debt.currentBalance <= 0 || debt.contactId == null || !debt.contactName) return;
+    const group = candidates.get(debt.contactId) ?? {
+      contactId: debt.contactId,
+      contactName: debt.contactName,
+      debts: [],
+      total: 0,
+    };
+    group.debts.push(debt);
+    group.total += debt.currentBalance;
+    candidates.set(debt.contactId, group);
+  });
+  const groups = Array.from(candidates.values()).filter((group) => group.debts.length > 1);
+  const groupedIds = new Set(groups.flatMap((group) => group.debts.map((debt) => debt.id)));
+  return { groups, remaining: debts.filter((debt) => !groupedIds.has(debt.id)) };
+}
+
 export default function DebtsScreen() {
   const { paymentMethodId } = useLocalSearchParams<{ paymentMethodId?: string }>();
   const methodId = paymentMethodId ? Number(paymentMethodId) : undefined;
@@ -60,6 +86,8 @@ export default function DebtsScreen() {
   const activeDebts = debts.filter((item) => item.status !== 'archived');
   const payableDebts = debts.filter((item) => item.direction === 'payable');
   const receivableDebts = debts.filter((item) => item.direction === 'receivable');
+  const payableContactGroups = groupContactDebts(payableDebts);
+  const receivableContactGroups = groupContactDebts(receivableDebts);
   const totalDebtBalance = activeDebts.filter((item) => item.direction === 'payable').reduce((sum, item) => sum + item.currentBalance, 0)
     + creditCards.reduce((sum, item) => sum + (item.usedAmount ?? 0), 0);
   const totalReceivable = activeDebts.filter((item) => item.direction === 'receivable').reduce((sum, item) => sum + item.currentBalance, 0);
@@ -76,6 +104,34 @@ export default function DebtsScreen() {
         <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#1FAF78' : debt.status === 'archived' ? '#60758E' : colors.primary }]}>{debt.status === 'paid' ? t('debts.statusPaid') : debt.status === 'archived' ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
       </ThemedView>
     </Pressable>
+  );
+  const renderContactGroup = (group: ContactDebtGroup, direction: Debt['direction']) => (
+    <View key={`${direction}-contact-${group.contactId}`} style={styles.contactGroup}>
+      <ThemedView style={[styles.contactSummary, { borderColor: colors.border }]}>
+        <View style={styles.header}>
+          <View style={[styles.debtIcon, { backgroundColor: direction === 'receivable' ? '#20A486' : '#0B315B' }]}>
+            <Ionicons name="people-outline" size={18} color="#fff" />
+          </View>
+          <View style={styles.copy}>
+            <ThemedText type="defaultSemiBold">{group.contactName}</ThemedText>
+            <ThemedText style={styles.secondary}>{t('debts.debtsIncluded', { count: group.debts.length })}</ThemedText>
+          </View>
+          <ThemedText type="defaultSemiBold">{formatCLP(group.total)}</ThemedText>
+        </View>
+        <Pressable
+          onPress={() => router.push({
+            pathname: '/modal/manual-debt-payment',
+            params: { direction, contactId: String(group.contactId) },
+          })}
+          style={[styles.contactAction, { borderColor: colors.primary }]}>
+          <Ionicons name={direction === 'receivable' ? 'download-outline' : 'cash-outline'} size={18} color={colors.primary} />
+          <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>
+            {t(direction === 'receivable' ? 'debts.collectContactTotal' : 'debts.payContactTotal')}
+          </ThemedText>
+        </Pressable>
+      </ThemedView>
+      <View style={styles.groupedDebts}>{group.debts.map(renderDebt)}</View>
+    </View>
   );
   const planList = (
     <>
@@ -182,9 +238,11 @@ export default function DebtsScreen() {
               </ThemedView>
             )}
             {payableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.payableSection')}</ThemedText>}
-            {payableDebts.map(renderDebt)}
+            {payableContactGroups.groups.map((group) => renderContactGroup(group, 'payable'))}
+            {payableContactGroups.remaining.map(renderDebt)}
             {receivableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.receivableSection')}</ThemedText>}
-            {receivableDebts.map(renderDebt)}
+            {receivableContactGroups.groups.map((group) => renderContactGroup(group, 'receivable'))}
+            {receivableContactGroups.remaining.map(renderDebt)}
           </>
         )}
         {method?.type === 'credit' && (
@@ -231,4 +289,5 @@ const styles = StyleSheet.create({
   receivable: { color: '#138F73', fontWeight: '700', marginTop: 4 },
   debtIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, archived: { opacity: 0.62 },
   sectionHeading: { marginTop: 4 }, methodSummary: { borderRadius: 12, padding: 16, gap: 10 }, methodActions: { flexDirection: 'row', gap: 10 }, methodButton: { flex: 1, minHeight: 45, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  contactGroup: { gap: 8 }, contactSummary: { borderWidth: 1, borderRadius: 12, padding: 15, gap: 12 }, contactAction: { minHeight: 44, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, groupedDebts: { paddingLeft: 12, gap: 8 },
 });

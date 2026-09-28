@@ -941,6 +941,8 @@ const es = {
     selectDebtorContact: 'Contacto que te pagará',
     chooseContact: 'Selecciona un contacto para liquidar todas sus deudas.',
     debtsIncluded: '%{count} deudas incluidas',
+    payContactTotal: 'Pagar total del contacto',
+    collectContactTotal: 'Recibir total del contacto',
     chooseDebt: 'Selecciona una deuda para continuar.',
     noPayableDebts: 'No tienes deudas pendientes por pagar.',
     noReceivableDebts: 'No tienes cobros pendientes por recibir.',
