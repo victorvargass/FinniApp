@@ -68,6 +68,7 @@ import type {
   NewDebt,
   NewDebtBalance,
   NewDebtPayment,
+  NewDebtPaymentBatch,
   NewPaymentMethod,
   NewPaymentMethodBalance,
   NewPeriod,
@@ -173,12 +174,31 @@ function normalizeColor(color: string): string {
   return color.trim().toLowerCase();
 }
 
+async function findAvailableCategoryColor(
+  database: SQLite.SQLiteDatabase,
+  preferredColor: string
+): Promise<string> {
+  const usedColors = new Set(
+    (await database.getAllAsync<{ color: string }>('SELECT color FROM categories'))
+      .map((item) => normalizeColor(item.color))
+  );
+  const reservedColors = new Set(RESERVED_COLORS.map(normalizeColor));
+  const preferredValue = Number.parseInt(preferredColor.slice(1), 16);
+  for (let index = 0; index < 0x1000000; index += 1) {
+    const value = (preferredValue + index * 0x1f123b) & 0xffffff;
+    const candidate = `#${value.toString(16).padStart(6, '0')}`;
+    if (!usedColors.has(candidate) && !reservedColors.has(candidate)) return candidate;
+  }
+  throw new Error(t('database.invalidColor'));
+}
+
 const DEFAULT_CATEGORIES: NewCategory[] = [
   { name: t('database.defaultCategories.food'), color: '#e74c3c', periodLimit: null },
   { name: t('database.defaultCategories.transport'), color: '#3498db', periodLimit: null },
   { name: t('database.defaultCategories.bills'), color: '#34495e', periodLimit: null },
   { name: t('database.defaultCategories.savings'), color: '#27ae60', periodLimit: null, purpose: 'savings' },
   { name: t('database.defaultCategories.creditPayment'), color: '#d88916', periodLimit: null, systemKey: 'credit_payment' },
+  { name: t('database.defaultCategories.debtPayment'), color: '#5b6c8f', periodLimit: null },
   { name: t('database.defaultCategories.health'), color: '#1abc9c', periodLimit: null },
   { name: t('database.defaultCategories.fun'), color: '#9b59b6', periodLimit: null },
   { name: t('database.defaultCategories.pets'), color: '#e67e22', periodLimit: null },
@@ -1750,6 +1770,25 @@ async function initializeDatabase(): Promise<void> {
     await withExclusiveTransaction(db, async (transaction) => {
       await reconcileLegacySplitCardCycles(transaction, t('database.billingDifference'));
     });
+  }
+  if (previousSchemaVersion < 26) {
+    const debtPaymentCategoryName = t('database.defaultCategories.debtPayment');
+    const debtPaymentCategory = await db.getFirstAsync<{ id: number }>(
+      'SELECT id FROM categories WHERE name = ? COLLATE NOCASE LIMIT 1',
+      debtPaymentCategoryName
+    );
+    if (!debtPaymentCategory) {
+      await db.runAsync(
+        "INSERT INTO categories (name, color, period_limit, purpose, system_key) VALUES (?, ?, NULL, 'general', NULL)",
+        debtPaymentCategoryName,
+        await findAvailableCategoryColor(db, '#5b6c8f')
+      );
+    }
+    await db.runAsync(
+      'INSERT OR IGNORE INTO income_categories (name, color) VALUES (?, ?)',
+      debtPaymentCategoryName,
+      '#5b6c8f'
+    );
   }
   // Older releases could leave optional references pointing to records that
   // were later removed. Repair those links before a backup is created; no
@@ -5237,57 +5276,75 @@ async function syncExpenseShareCollectionStatus(
   );
 }
 
-export async function createDebtPayment(debtId: number, data: NewDebtPayment): Promise<void> {
+async function createDebtPaymentInTransaction(
+  transaction: SQLite.SQLiteDatabase,
+  debtId: number,
+  data: NewDebtPayment
+): Promise<void> {
   if (!Number.isInteger(data.amount) || data.amount <= 0) throw new Error(t('validation.invalidAmount'));
-  const db = await getDb();
-  await assertDateBelongsToPeriod(db, data.periodId, data.date);
-  await withExclusiveTransaction(db, async (transaction) => {
-    const debt = await transaction.getFirstAsync<{ name: string; direction: Debt['direction'] }>(
+  const debt = await transaction.getFirstAsync<{ name: string; direction: Debt['direction'] }>(
       'SELECT name, direction FROM manual_debts WHERE id = ?', debtId
-    );
-    if (!debt) throw new Error(t('database.debtMissing'));
-    if (debt.direction === 'receivable') {
-      await assertIncomePaymentMethod(transaction, data.paymentMethodId, true);
-    } else {
-      await assertDebtPaymentMethodExists(transaction, data.paymentMethodId);
-      await assertCreditPaymentSelection(transaction, data.categoryId, data.paymentMethodId, null);
-      await assertCreditCardCycleIsEditable(transaction, data.paymentMethodId, data.date);
-    }
-    const balanceAtPayment = await getDebtPaymentCapacityAtDate(
-      transaction, debtId, data.date, -1, resolveEventTime(data.time)
-    );
-    if (balanceAtPayment != null && data.amount > balanceAtPayment) {
-      throw new Error(t('database.debtPaymentTooHigh'));
-    }
-    let expenseId: number | null = null;
-    let incomeId: number | null = null;
-    if (debt.direction === 'receivable') {
-      const income = await transaction.runAsync(
+  );
+  if (!debt) throw new Error(t('database.debtMissing'));
+  if (debt.direction === 'receivable') {
+    await assertIncomePaymentMethod(transaction, data.paymentMethodId, true);
+  } else {
+    await assertDebtPaymentMethodExists(transaction, data.paymentMethodId);
+    await assertCreditPaymentSelection(transaction, data.categoryId, data.paymentMethodId, null);
+    await assertCreditCardCycleIsEditable(transaction, data.paymentMethodId, data.date);
+  }
+  const balanceAtPayment = await getDebtPaymentCapacityAtDate(
+    transaction, debtId, data.date, -1, resolveEventTime(data.time)
+  );
+  if (balanceAtPayment != null && data.amount > balanceAtPayment) {
+    throw new Error(t('database.debtPaymentTooHigh'));
+  }
+  let expenseId: number | null = null;
+  let incomeId: number | null = null;
+  if (debt.direction === 'receivable') {
+    const income = await transaction.runAsync(
         `INSERT INTO incomes (name, amount, period_id, date, time, payment_method_id, category_id)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         t('database.debtCollection', { name: debt.name }), data.amount, data.periodId,
         data.date, resolveEventTime(data.time), data.paymentMethodId, data.categoryId
-      );
-      incomeId = income.lastInsertRowId;
-    } else {
-      const expense = await transaction.runAsync(
+    );
+    incomeId = income.lastInsertRowId;
+  } else {
+    const expense = await transaction.runAsync(
         `INSERT INTO expenses
           (name, amount, category_id, period_id, date, time, original_amount, split_percentage, payment_method_id)
          VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?)`,
         t('database.debtPayment', { name: debt.name }), data.amount, data.categoryId,
         data.periodId, data.date, resolveEventTime(data.time), data.paymentMethodId
-      );
-      expenseId = expense.lastInsertRowId;
-    }
-    await transaction.runAsync(
+    );
+    expenseId = expense.lastInsertRowId;
+  }
+  await transaction.runAsync(
       `INSERT INTO manual_debt_entries (debt_id, kind, amount, date, time, period_id, expense_id, income_id, note)
        VALUES (?, 'payment', ?, ?, ?, ?, ?, ?, ?)`,
       debtId, data.amount, data.date, resolveEventTime(data.time), data.periodId,
       expenseId, incomeId, data.note?.trim() || null
-    );
-    await syncExpenseShareCollectionStatus(transaction, debtId);
-    await reconcileDebtSnapshots(transaction, debtId);
-    await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', debtId);
+  );
+  await syncExpenseShareCollectionStatus(transaction, debtId);
+  await reconcileDebtSnapshots(transaction, debtId);
+  await transaction.runAsync('UPDATE manual_debts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', debtId);
+}
+
+export async function createDebtPayment(debtId: number, data: NewDebtPayment): Promise<void> {
+  const db = await getDb();
+  await assertDateBelongsToPeriod(db, data.periodId, data.date);
+  await withExclusiveTransaction(db, (transaction) => createDebtPaymentInTransaction(transaction, debtId, data));
+}
+
+export async function createDebtPayments(data: NewDebtPaymentBatch): Promise<void> {
+  if (data.payments.length === 0) throw new Error(t('database.debtMissing'));
+  const { payments, ...commonData } = data;
+  const db = await getDb();
+  await assertDateBelongsToPeriod(db, data.periodId, data.date);
+  await withExclusiveTransaction(db, async (transaction) => {
+    for (const payment of payments) {
+      await createDebtPaymentInTransaction(transaction, payment.debtId, { ...commonData, amount: payment.amount });
+    }
   });
 }
 

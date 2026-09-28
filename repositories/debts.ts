@@ -3,6 +3,7 @@ export {
   addDebtBalanceAdjustment,
   createDebt,
   createDebtPayment,
+  createDebtPayments,
   createInstallmentPurchase,
   deleteDebt,
   deleteDebtBalanceAdjustment,

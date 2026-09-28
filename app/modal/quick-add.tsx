@@ -34,6 +34,28 @@ export default function QuickAddScreen() {
       onPress: () => router.replace('/modal/income-form'),
     },
     {
+      key: 'debt-payment',
+      icon: 'cash-outline' as const,
+      title: t('quickAdd.debtPaymentTitle'),
+      description: t('quickAdd.debtPaymentDescription'),
+      accent: colors.expense,
+      onPress: () => router.replace({
+        pathname: '/modal/manual-debt-payment',
+        params: { direction: 'payable' },
+      }),
+    },
+    {
+      key: 'debt-collection',
+      icon: 'download-outline' as const,
+      title: t('quickAdd.debtCollectionTitle'),
+      description: t('quickAdd.debtCollectionDescription'),
+      accent: colors.success,
+      onPress: () => router.replace({
+        pathname: '/modal/manual-debt-payment',
+        params: { direction: 'receivable' },
+      }),
+    },
+    {
       key: 'transfer',
       icon: 'swap-horizontal-outline' as const,
       title: t('quickAdd.transferTitle'),

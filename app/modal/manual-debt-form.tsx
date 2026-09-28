@@ -26,12 +26,15 @@ function parseIsoDate(value: string) {
 }
 
 export default function DebtFormScreen() {
-  const { id, type: requestedType } = useLocalSearchParams<{ id?: string; type?: DebtType }>();
+  const { id, type: requestedType, direction: requestedDirection } = useLocalSearchParams<{ id?: string; type?: DebtType; direction?: DebtDirection }>();
   const debtId = id ? Number(id) : null;
   const { categories, incomeCategories, contacts, paymentMethods, getDebt, addDebt, editDebt } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const debtPaymentCategoryName = t('database.defaultCategories.debtPayment');
+  const defaultExpenseCategoryId = categories.find((item) => item.name.localeCompare(debtPaymentCategoryName, undefined, { sensitivity: 'base' }) === 0)?.id ?? null;
+  const defaultIncomeCategoryId = incomeCategories.find((item) => item.name.localeCompare(debtPaymentCategoryName, undefined, { sensitivity: 'base' }) === 0)?.id ?? null;
   const [type, setType] = useState<DebtFormType>(requestedType === 'variable' ? 'variable' : 'fixed');
-  const [direction, setDirection] = useState<DebtDirection>('payable');
+  const [direction, setDirection] = useState<DebtDirection>(requestedDirection === 'receivable' ? 'receivable' : 'payable');
   const [name, setName] = useState('');
   const [creditor, setCreditor] = useState('');
   const [contactId, setContactId] = useState<number | null>(null);
@@ -42,8 +45,8 @@ export default function DebtFormScreen() {
   const [installmentAmount, setInstallmentAmount] = useState('');
   const [frequency, setFrequency] = useState<DebtFrequency>('monthly');
   const [firstDueDate, setFirstDueDate] = useState(toDateString(new Date()));
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [incomeCategoryId, setIncomeCategoryId] = useState<number | null>(null);
+  const [categoryId, setCategoryId] = useState<number | null>(defaultExpenseCategoryId);
+  const [incomeCategoryId, setIncomeCategoryId] = useState<number | null>(defaultIncomeCategoryId);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [entryCount, setEntryCount] = useState(0);

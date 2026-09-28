@@ -29,6 +29,7 @@ import type {
   NewDebt,
   NewDebtBalance,
   NewDebtPayment,
+  NewDebtPaymentBatch,
   NewCreditCardCycle,
   NewPaymentMethod,
   NewPaymentMethodBalance,
@@ -155,6 +156,7 @@ type DatabaseContextValue = {
   addDebt: (data: NewDebt) => Promise<number>;
   editDebt: (id: number, data: NewDebt) => Promise<void>;
   addDebtPayment: (debtId: number, data: NewDebtPayment) => Promise<void>;
+  addDebtPayments: (data: NewDebtPaymentBatch) => Promise<void>;
   editDebtPayment: (entryId: number, data: NewDebtPayment) => Promise<void>;
   removeDebtPayment: (entryId: number) => Promise<void>;
   addDebtBalanceAdjustment: (debtId: number, data: NewDebtBalance) => Promise<void>;
@@ -658,6 +660,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await db.createDebtPayment(debtId, data);
     await refresh();
   }, [refresh]);
+  const addDebtPayments = useCallback(async (data: NewDebtPaymentBatch) => {
+    await db.createDebtPayments(data);
+    await refresh();
+  }, [refresh]);
   const editDebtPayment = useCallback(async (entryId: number, data: NewDebtPayment) => {
     await db.updateDebtPayment(entryId, data);
     await refresh();
@@ -1113,6 +1119,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addDebt,
       editDebt,
       addDebtPayment,
+      addDebtPayments,
       editDebtPayment,
       removeDebtPayment,
       addDebtBalanceAdjustment,
@@ -1238,6 +1245,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addDebt,
       editDebt,
       addDebtPayment,
+      addDebtPayments,
       editDebtPayment,
       removeDebtPayment,
       addDebtBalanceAdjustment,

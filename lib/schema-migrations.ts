@@ -30,6 +30,7 @@ export const SCHEMA_MIGRATIONS = [
   { version: 23, name: 'financial-event-times' },
   { version: 24, name: 'contacts-and-receivable-debts' },
   { version: 25, name: 'split-expense-receivables' },
+  { version: 26, name: 'debt-payment-categories' },
 ] as const;
 
 // Legacy version 16 tied the declared balance to the historical creation date.

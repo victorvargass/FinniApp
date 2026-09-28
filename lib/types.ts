@@ -491,6 +491,10 @@ export type NewDebtPayment = {
   note: string | null;
 };
 
+export type NewDebtPaymentBatch = Omit<NewDebtPayment, 'amount'> & {
+  payments: { debtId: number; amount: number }[];
+};
+
 export type NewDebtBalance = {
   balance: number;
   date: string;
