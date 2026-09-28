@@ -5,7 +5,8 @@ export type LogContext =
   | 'database.initialize'
   | 'database.refresh'
   | 'database.restore'
-  | 'report.export';
+  | 'report.export'
+  | 'updates.currentToast';
 
 export type AppDiagnostic = {
   timestamp: string;

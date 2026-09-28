@@ -1253,6 +1253,7 @@ const es = {
     updateNotConfigured: 'Sin canal de actualizaciones',
     updateRollback: 'Se publicó un retorno a la versión incluida en la APK',
     updateUnavailable: 'No se pudo comprobar',
+    appUpdatedToast: 'FinniApp actualizada a la última versión',
     biometric: 'Bloqueo biométrico',
     language: 'Idioma',
     languageHint: 'Selecciona el idioma de la aplicación',
