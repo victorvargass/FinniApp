@@ -863,6 +863,7 @@ const es = {
     variable: 'Saldo variable',
     title: 'Deudas',
     cardPurchases: 'Compras con tarjeta en cuotas',
+    installmentPurchases: 'Compras en cuotas',
     cardPurchasesHint: 'Compras asociadas a tus tarjetas y avance de sus cuotas.',
     otherDebts: 'Préstamos y otras deudas',
     otherDebtsHint: 'Préstamos personales, créditos y saldos que administras por separado.',

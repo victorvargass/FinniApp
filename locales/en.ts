@@ -863,6 +863,7 @@ const en = {
     variable: 'Variable balance',
     title: 'Debts',
     cardPurchases: 'Card purchases in installments',
+    installmentPurchases: 'Installment purchases',
     cardPurchasesHint: 'Purchases linked to your cards and their installment progress.',
     otherDebts: 'Loans and other debts',
     otherDebtsHint: 'Personal loans, credit and balances you manage separately.',
