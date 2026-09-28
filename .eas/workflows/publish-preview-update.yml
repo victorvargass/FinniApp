@@ -1,5 +1,9 @@
 name: Publish Preview Update
 
+defaults:
+  tools:
+    node: '22.14.0'
+
 on:
   push:
     branches:

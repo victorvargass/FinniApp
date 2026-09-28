@@ -66,3 +66,10 @@ test('the distributable GitHub workflow waits for Android E2E', () => {
   assert.match(workflow, /e2e:\s*\n\s*uses: \.\/\.github\/workflows\/e2e-android\.yml/);
   assert.match(workflow, /needs: e2e/);
 });
+
+test('the preview update workflow uses the Node version required by the test suite', () => {
+  const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const workflow = readFileSync(path.join(root, '.eas/workflows/publish-preview-update.yml'), 'utf8');
+  assert.equal(packageJson.engines.node, '>=22.14.0');
+  assert.match(workflow, /defaults:\s*\n\s*tools:\s*\n\s*node: ['"]22\.14\.0['"]/);
+});
