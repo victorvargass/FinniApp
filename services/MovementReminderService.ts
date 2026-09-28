@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import type { MovementReminderSettings } from '@/lib/types';
 import { t } from '@/lib/i18n';
+import { localNotificationDateKey } from '@/lib/notification-inbox';
 import { replaceFutureAppNotifications } from '@/repositories/notifications';
 
 const CHANNEL = 'movement-reminders';
@@ -67,7 +68,7 @@ export async function syncMovementReminder(
   if (!permission.granted) throw new NotificationPermissionError(permission.canAskAgain);
 
   const nextDate = nextReminderDate(settings);
-  const inboxKey = `${KIND}:${nextDate.toISOString().slice(0, 10)}`;
+  const inboxKey = `${KIND}:${localNotificationDateKey(nextDate)}`;
   await replaceFutureAppNotifications([KIND], [{
     sourceKey: inboxKey,
     kind: KIND,

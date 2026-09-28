@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, SectionList, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/empty-state';
@@ -13,10 +14,6 @@ import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import type { AppNotification, RecurringDecisionItem } from '@/lib/types';
-
-function showResult(message: string) {
-  showToast(message);
-}
 
 function getMovementNoun(item: RecurringDecisionItem): string {
   if (item.isSavingsContribution) return t('recurrence.saving');
@@ -52,6 +49,8 @@ export default function NotificationsScreen() {
     deleteAppNotification,
   } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const [selectedNotificationId, setSelectedNotificationId] = useState<number | null>(null);
+  const selectedNotification = appNotifications.find((item) => item.id === selectedNotificationId) ?? null;
   const unread = appNotifications.filter((item) => !item.isRead);
   const read = appNotifications.filter((item) => item.isRead);
   const sections = [
@@ -64,43 +63,47 @@ export default function NotificationsScreen() {
       && item.recurringId === notification.recurringId
       && item.scheduledDate === notification.recurringDate
   );
+  const selectedDecision = selectedNotification ? relatedDecision(selectedNotification) : undefined;
 
-  const openNotification = async (notification: AppNotification) => {
+  const openDetails = (notification: AppNotification) => {
+    setSelectedNotificationId(notification.id);
+    if (!notification.isRead) {
+      void setAppNotificationRead(notification.id, true)
+        .catch(() => Alert.alert(t('errors.couldNotChange'), t('common.tryAgain')));
+    }
+  };
+
+  const goToAction = async (notification: AppNotification) => {
     if (!notification.isRead) await setAppNotificationRead(notification.id, true);
-    if (relatedDecision(notification)) return;
+    setSelectedNotificationId(null);
     if (notification.actionUrl) router.push(notification.actionUrl as never);
   };
 
-  const showNotificationMenu = (notification: AppNotification) => {
-    Alert.alert(notification.title, undefined, [
-      {
-        text: t(notification.isRead ? 'notifications.markUnread' : 'notifications.markRead'),
-        onPress: () => { void setAppNotificationRead(notification.id, !notification.isRead); },
-      },
+  const confirmDelete = (notification: AppNotification) => {
+    Alert.alert(t('notifications.deleteTitle'), t('notifications.deleteDescription'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
         style: 'destructive',
         onPress: () => {
-          Alert.alert(
-            t('notifications.deleteTitle'),
-            t('notifications.deleteDescription'),
-            [
-              { text: t('common.cancel'), style: 'cancel' },
-              {
-                text: t('common.delete'),
-                style: 'destructive',
-                onPress: () => {
-                  void deleteAppNotification(notification.id)
-                    .then(() => showResult(t('notifications.deleted')))
-                    .catch(() => Alert.alert(t('errors.couldNotDelete'), t('common.tryAgain')));
-                },
-              },
-            ]
-          );
+          void deleteAppNotification(notification.id)
+            .then(() => {
+              if (selectedNotificationId === notification.id) setSelectedNotificationId(null);
+              showToast(t('notifications.deleted'));
+            })
+            .catch(() => Alert.alert(t('errors.couldNotDelete'), t('common.tryAgain')));
         },
       },
-      { text: t('common.cancel'), style: 'cancel' },
     ]);
+  };
+
+  const markUnread = async (notification: AppNotification) => {
+    try {
+      await setAppNotificationRead(notification.id, false);
+      setSelectedNotificationId(null);
+    } catch {
+      Alert.alert(t('errors.couldNotChange'), t('common.tryAgain'));
+    }
   };
 
   const confirmMovement = async (notification: AppNotification, decision: RecurringDecisionItem) => {
@@ -108,7 +111,8 @@ export default function NotificationsScreen() {
     try {
       await approveRecurringOccurrence(decision.kind, decision.recurringId, decision.scheduledDate);
       await setAppNotificationRead(notification.id, true);
-      showResult(t('recurrence.createdMovement', { movement: noun }));
+      setSelectedNotificationId(null);
+      showToast(t('recurrence.createdMovement', { movement: noun }));
       router.replace({
         pathname: '/(tabs)/movements',
         params: { movementType: decision.kind === 'expense' ? 'expenses' : 'incomes' },
@@ -134,10 +138,11 @@ export default function NotificationsScreen() {
           text: t('common.skip'),
           style: 'destructive',
           onPress: () => {
-            skipRecurringOccurrence(decision.kind, decision.recurringId, decision.scheduledDate)
+            void skipRecurringOccurrence(decision.kind, decision.recurringId, decision.scheduledDate)
               .then(async () => {
                 await setAppNotificationRead(notification.id, true);
-                showResult(t('recurrence.omittedMovement', { movement: noun }));
+                setSelectedNotificationId(null);
+                showToast(t('recurrence.omittedMovement', { movement: noun }));
               })
               .catch((error) => Alert.alert(
                 t('recurrence.skipError'),
@@ -159,10 +164,11 @@ export default function NotificationsScreen() {
         {
           text: t('recurrence.createMovement', { movement: noun }),
           onPress: () => {
-            retryRecurringOccurrence(decision.kind, decision.recurringId, decision.scheduledDate)
+            void retryRecurringOccurrence(decision.kind, decision.recurringId, decision.scheduledDate)
               .then(async () => {
                 await setAppNotificationRead(notification.id, true);
-                showResult(t('recurrence.createdMovement', { movement: noun }));
+                setSelectedNotificationId(null);
+                showToast(t('recurrence.createdMovement', { movement: noun }));
                 router.replace({
                   pathname: '/(tabs)/movements',
                   params: { movementType: decision.kind === 'expense' ? 'expenses' : 'incomes' },
@@ -199,85 +205,112 @@ export default function NotificationsScreen() {
         renderSectionHeader={({ section }) => (
           <ThemedText type="subtitle" style={styles.sectionTitle}>{section.title}</ThemedText>
         )}
-        renderItem={({ item }) => {
-          const decision = relatedDecision(item);
-          return (
-            <ThemedView style={[
-              styles.card,
-              { borderColor: item.isRead ? colors.border : colors.primary },
-            ]}>
-              <View style={styles.cardHeader}>
+        renderItem={({ item }) => (
+          <ThemedView style={[styles.row, { borderColor: colors.border }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={item.title}
+              onPress={() => openDetails(item)}
+              style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}>
+              <View style={[
+                styles.iconBox,
+                { backgroundColor: item.isRead ? colors.background : `${colors.primary}18` },
+              ]}>
+                <Ionicons
+                  name={notificationIcon(item.kind)}
+                  size={20}
+                  color={item.isRead ? colors.icon : colors.primary}
+                />
+              </View>
+              {!item.isRead && <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />}
+              <ThemedText type="defaultSemiBold" numberOfLines={2} style={styles.rowTitle}>
+                {item.title}
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              accessibilityLabel={t('common.delete')}
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => confirmDelete(item)}
+              style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+            </Pressable>
+          </ThemedView>
+        )}
+      />
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={selectedNotification != null}
+        onRequestClose={() => setSelectedNotificationId(null)}>
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.backdrop} onPress={() => setSelectedNotificationId(null)} />
+          {selectedNotification && (
+            <ThemedView style={[styles.sheet, { borderColor: colors.border }]}>
+              <View style={styles.sheetHeader}>
+                <View style={[styles.detailIcon, { backgroundColor: `${colors.primary}18` }]}>
+                  <Ionicons name={notificationIcon(selectedNotification.kind)} size={23} color={colors.primary} />
+                </View>
+                <ThemedText type="subtitle" style={styles.sheetTitle}>{selectedNotification.title}</ThemedText>
                 <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={item.title}
-                  onPress={() => void openNotification(item)}
-                  style={({ pressed }) => [styles.notificationMain, pressed && styles.pressed]}>
-                  <View style={[
-                    styles.iconBox,
-                    { backgroundColor: item.isRead ? colors.background : `${colors.primary}18` },
-                  ]}>
-                    <Ionicons
-                      name={notificationIcon(item.kind)}
-                      size={21}
-                      color={item.isRead ? colors.icon : colors.primary}
-                    />
-                  </View>
-                  <View style={styles.copy}>
-                    <View style={styles.titleRow}>
-                      {!item.isRead && (
-                        <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
-                      )}
-                      <ThemedText type="defaultSemiBold" style={styles.title}>{item.title}</ThemedText>
-                    </View>
-                    <ThemedText style={styles.body}>{item.body}</ThemedText>
-                    <ThemedText style={styles.meta}>{notificationDate(item.scheduledFor)}</ThemedText>
-                  </View>
-                </Pressable>
-                <Pressable
-                  accessibilityLabel={t('notifications.optionsFor', { title: item.title })}
-                  accessibilityRole="button"
+                  accessibilityLabel={t('notifications.closeDetail')}
                   hitSlop={8}
-                  onPress={() => showNotificationMenu(item)}
-                  style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
-                  <Ionicons name="ellipsis-vertical" size={21} color={colors.icon} />
+                  onPress={() => setSelectedNotificationId(null)}
+                  style={({ pressed }) => pressed && styles.pressed}>
+                  <Ionicons name="close" size={25} color={colors.icon} />
                 </Pressable>
               </View>
+              <ThemedText style={[styles.detailBody, { color: colors.textSecondary }]}>
+                {selectedNotification.body}
+              </ThemedText>
+              <ThemedText style={[styles.detailDate, { color: colors.textSecondary }]}>
+                {notificationDate(selectedNotification.scheduledFor)}
+              </ThemedText>
 
-              {decision?.status === 'pending' && (
-                <View style={styles.actions}>
+              {selectedDecision?.status === 'pending' && (
+                <View style={styles.actionRow}>
                   <Pressable
-                    onPress={() => omitMovement(item, decision)}
-                    style={[styles.action, { borderColor: colors.border }]}>
+                    onPress={() => omitMovement(selectedNotification, selectedDecision)}
+                    style={[styles.button, { borderColor: colors.border }]}>
                     <ThemedText type="defaultSemiBold">{t('common.skip')}</ThemedText>
                   </Pressable>
                   <Pressable
-                    onPress={() => void confirmMovement(item, decision)}
-                    style={[styles.action, styles.primary]}>
-                    <ThemedText style={styles.primaryText}>{t('common.confirm')}</ThemedText>
+                    onPress={() => void confirmMovement(selectedNotification, selectedDecision)}
+                    style={[styles.button, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                    <ThemedText type="defaultSemiBold" style={{ color: colors.onPrimary }}>
+                      {t('common.confirm')}
+                    </ThemedText>
                   </Pressable>
                 </View>
               )}
-              {decision?.status === 'skipped' && (
+              {selectedDecision?.status === 'skipped' && (
                 <Pressable
-                  onPress={() => retryMovement(item, decision)}
-                  style={[styles.singleAction, { borderColor: colors.primary }]}>
+                  onPress={() => retryMovement(selectedNotification, selectedDecision)}
+                  style={[styles.fullButton, { borderColor: colors.primary }]}>
                   <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
                     {t('common.retry')}
                   </ThemedText>
                 </Pressable>
               )}
-              {!decision && item.actionUrl && (
+              {selectedNotification.actionUrl && (
                 <Pressable
-                  onPress={() => void openNotification(item)}
-                  style={[styles.singleAction, { borderColor: colors.border }]}>
-                  <ThemedText type="defaultSemiBold">{t('notifications.viewDetail')}</ThemedText>
-                  <Ionicons name="chevron-forward" size={18} color={colors.icon} />
+                  onPress={() => void goToAction(selectedNotification)}
+                  style={[styles.fullButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                  <ThemedText type="defaultSemiBold" style={{ color: colors.onPrimary }}>
+                    {t('notifications.goToAction')}
+                  </ThemedText>
                 </Pressable>
               )}
+              <Pressable
+                onPress={() => void markUnread(selectedNotification)}
+                style={[styles.fullButton, { borderColor: colors.border }]}>
+                <ThemedText type="defaultSemiBold">{t('notifications.markUnread')}</ThemedText>
+              </Pressable>
             </ThemedView>
-          );
-        }}
-      />
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -288,29 +321,52 @@ const styles = StyleSheet.create({
   emptyList: { flexGrow: 1, justifyContent: 'center' },
   intro: { opacity: 0.72, lineHeight: 21, marginBottom: 14 },
   sectionTitle: { marginTop: 10, marginBottom: 8 },
-  card: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 12, marginBottom: 10 },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  notificationMain: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
-  iconBox: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  copy: { flex: 1, gap: 4 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  title: { flex: 1 },
-  unreadDot: { width: 7, height: 7, borderRadius: 4 },
-  body: { opacity: 0.78, lineHeight: 20 },
-  meta: { opacity: 0.58, fontSize: 12, marginTop: 2 },
-  menuButton: { padding: 4 },
-  pressed: { opacity: 0.65 },
-  actions: { flexDirection: 'row', gap: 8 },
-  action: { flex: 1, borderWidth: 1, borderRadius: 9, padding: 11, alignItems: 'center' },
-  singleAction: {
+  row: {
+    minHeight: 62,
+    borderRadius: 14,
     borderWidth: 1,
-    borderRadius: 9,
-    padding: 11,
+    paddingHorizontal: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  iconBox: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  unreadDot: { width: 7, height: 7, borderRadius: 4 },
+  rowTitle: { flex: 1 },
+  deleteButton: { padding: 9 },
+  pressed: { opacity: 0.62 },
+  modalRoot: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.38)' },
+  sheet: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: 1,
+    padding: 20,
+    paddingBottom: 30,
+    gap: 14,
+  },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  detailIcon: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  sheetTitle: { flex: 1 },
+  detailBody: { lineHeight: 21 },
+  detailDate: { fontSize: 12 },
+  actionRow: { flexDirection: 'row', gap: 9, marginTop: 4 },
+  button: {
+    flex: 1,
+    minHeight: 47,
+    borderWidth: 1,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
+    paddingHorizontal: 12,
   },
-  primary: { borderColor: '#0B315B', backgroundColor: '#0B315B' },
-  primaryText: { color: '#fff', fontWeight: '700' },
+  fullButton: {
+    minHeight: 47,
+    borderWidth: 1,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
 });

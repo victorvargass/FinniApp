@@ -26,6 +26,7 @@ type HomeOverviewProps = {
   cardAdjustmentsTotal: number;
   attentionItems: HomeAttentionItem[];
   showAttention: boolean;
+  onOpenNotifications: () => void;
 };
 
 export function HomeOverview({
@@ -36,6 +37,7 @@ export function HomeOverview({
   cardAdjustmentsTotal,
   attentionItems,
   showAttention,
+  onOpenNotifications,
 }: HomeOverviewProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
 
@@ -114,6 +116,20 @@ export function HomeOverview({
             );
           })
         )}
+        <Pressable
+          accessibilityRole="button"
+          onPress={onOpenNotifications}
+          style={({ pressed }) => [
+            styles.notificationsButton,
+            { borderColor: colors.border, backgroundColor: colors.surface },
+            pressed && styles.pressed,
+          ]}>
+          <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+          <ThemedText type="defaultSemiBold" style={styles.notificationsButtonLabel}>
+            {t('home.viewNotifications')}
+          </ThemedText>
+          <Ionicons name="chevron-forward" size={19} color={colors.icon} />
+        </Pressable>
       </View>}
     </View>
   );
@@ -137,5 +153,15 @@ const styles = StyleSheet.create({
   attentionIcon: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   attentionCopy: { flex: 1, gap: 2 },
   attentionBody: { fontSize: 13, lineHeight: 18 },
+  notificationsButton: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  notificationsButtonLabel: { flex: 1 },
   pressed: { opacity: 0.7 },
 });

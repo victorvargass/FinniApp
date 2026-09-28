@@ -18,6 +18,7 @@ import { calculateAvailableBalance } from './payment-method-calculations';
 import { PERIOD_CARD_ADJUSTMENTS_SQL, PERIOD_CARD_PAYMENTS_SQL } from './period-card-cashflow';
 import { spendingExpenseSql } from './movement-classification';
 import { canUpdateExpenseAcrossCreditCycles } from './credit-cycle-edit';
+import { DEDUPLICATE_MOVEMENT_REMINDERS_SQL } from './notification-inbox';
 import { DEFAULT_EVENT_TIME, isValidTimeString, resolveEventTime } from './event-time';
 import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate, isSinglePaymentDebt } from './debt-calculations';
 import {
@@ -7932,6 +7933,9 @@ export async function replaceFutureAppNotifications(
 
 export async function getAppNotifications(): Promise<AppNotification[]> {
   const database = await getDb();
+  await withExclusiveTransaction(database, async (transaction) => {
+    await transaction.execAsync(DEDUPLICATE_MOVEMENT_REMINDERS_SQL);
+  });
   const rows = await database.getAllAsync<Omit<AppNotification, 'isRead'> & { isRead: number }>(
     `SELECT
       id,

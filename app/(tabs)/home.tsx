@@ -401,6 +401,7 @@ export default function HomeScreen() {
           cardAdjustmentsTotal={selectedPeriodReport?.cardInternalAdjustmentsTotal ?? 0}
           attentionItems={attentionItems}
           showAttention={Boolean(isCurrentPeriod)}
+          onOpenNotifications={() => router.push('/modal/recurring-confirmations')}
         />
         {isCurrentPeriod && (
           <ProgressiveSetup

@@ -1,21 +1,14 @@
 import type * as Notifications from 'expo-notifications';
 
 import { upsertAppNotifications } from '@/repositories/notifications';
-
-function localDateKey(timestamp: number): string {
-  const date = new Date(timestamp);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { localNotificationDateKey } from '@/lib/notification-inbox';
 
 export function getDeliveredNotificationInboxKey(
   notification: Notifications.Notification
 ): string {
   const data = notification.request.content.data;
   if (data?.kind === 'movement-reminder') {
-    return `movement-reminder:${localDateKey(notification.date)}`;
+    return `movement-reminder:${localNotificationDateKey(notification.date)}`;
   }
   return typeof data?.inboxKey === 'string'
     ? data.inboxKey
