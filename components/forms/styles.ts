@@ -78,22 +78,15 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 9,
   },
-  shareButtonSelected: {
-    borderColor: '#0B315B',
-    backgroundColor: '#20C9B51F',
-  },
   shareButtonTextSelected: {
-    color: '#0B315B',
     fontWeight: '700',
   },
   shareResult: {
-    color: '#0B315B',
     fontSize: 14,
     fontWeight: '600',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#20C9B51F',
   },
   receivablesBox: {
     borderWidth: 1,

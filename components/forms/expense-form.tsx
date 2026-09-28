@@ -849,9 +849,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                 style={[
                   styles.shareButton,
                   { borderColor: colors.icon },
-                  splitMode === 'percentage' && styles.shareButtonSelected,
+                  splitMode === 'percentage' && [
+                    { borderColor: colors.primary, backgroundColor: `${colors.tint}1F` },
+                  ],
                 ]}>
-                <ThemedText style={splitMode === 'percentage' ? styles.shareButtonTextSelected : undefined}>
+                <ThemedText style={splitMode === 'percentage'
+                  ? [styles.shareButtonTextSelected, { color: colors.primary }]
+                  : undefined}>
                   {t('expenses.byPercentage')}
                 </ThemedText>
               </Pressable>
@@ -866,9 +870,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                 style={[
                   styles.shareButton,
                   { borderColor: colors.icon },
-                  splitMode === 'amount' && styles.shareButtonSelected,
+                  splitMode === 'amount' && [
+                    { borderColor: colors.primary, backgroundColor: `${colors.tint}1F` },
+                  ],
                 ]}>
-                <ThemedText style={splitMode === 'amount' ? styles.shareButtonTextSelected : undefined}>
+                <ThemedText style={splitMode === 'amount'
+                  ? [styles.shareButtonTextSelected, { color: colors.primary }]
+                  : undefined}>
                   {t('expenses.byExactAmount')}
                 </ThemedText>
               </Pressable>
@@ -890,9 +898,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                         style={[
                           styles.shareButton,
                           { borderColor: colors.icon },
-                          selected && styles.shareButtonSelected,
+                          selected && [
+                            { borderColor: colors.primary, backgroundColor: `${colors.tint}1F` },
+                          ],
                         ]}>
-                        <ThemedText style={selected ? styles.shareButtonTextSelected : undefined}>
+                        <ThemedText style={selected
+                          ? [styles.shareButtonTextSelected, { color: colors.primary }]
+                          : undefined}>
                           {preset}%
                         </ThemedText>
                       </Pressable>
@@ -904,9 +916,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                     style={[
                       styles.shareButton,
                       { borderColor: colors.icon },
-                      usesCustomPercentage && styles.shareButtonSelected,
+                      usesCustomPercentage && [
+                        { borderColor: colors.primary, backgroundColor: `${colors.tint}1F` },
+                      ],
                     ]}>
-                    <ThemedText style={usesCustomPercentage ? styles.shareButtonTextSelected : undefined}>
+                    <ThemedText style={usesCustomPercentage
+                      ? [styles.shareButtonTextSelected, { color: colors.primary }]
+                      : undefined}>
                       {t('expenses.otherPercentage')}
                     </ThemedText>
                   </Pressable>
@@ -956,7 +972,10 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         )}
 
         {isSplitAmount && amountToSave != null && totalAmount != null && (
-          <ThemedText style={styles.shareResult}>
+          <ThemedText style={[
+            styles.shareResult,
+            { color: colors.primary, backgroundColor: `${colors.tint}1F` },
+          ]}>
             {t('expenses.splitResult', { amount: formatCLP(amountToSave), total: formatCLP(totalAmount) })}
           </ThemedText>
         )}
@@ -1045,9 +1064,14 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                       style={[
                         styles.shareButton,
                         { borderColor: colors.icon },
-                        share.status === status && styles.shareButtonSelected,
+                        share.status === status && {
+                          borderColor: colors.primary,
+                          backgroundColor: `${colors.tint}1F`,
+                        },
                       ]}>
-                      <ThemedText style={share.status === status ? styles.shareButtonTextSelected : undefined}>
+                      <ThemedText style={share.status === status
+                        ? [styles.shareButtonTextSelected, { color: colors.primary }]
+                        : undefined}>
                         {t(status === 'pending' ? 'expenses.pending' : 'expenses.alreadyPaid')}
                       </ThemedText>
                     </Pressable>
@@ -1268,11 +1292,16 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                 style={[
                   styles.shareButton,
                   { borderColor: colors.icon },
-                  cardPaymentOrigin === value && styles.shareButtonSelected,
+                  cardPaymentOrigin === value && {
+                    borderColor: colors.primary,
+                    backgroundColor: `${colors.tint}1F`,
+                  },
                   creditAdjustment != null && value !== cardPaymentOrigin && { opacity: 0.45 },
                 ]}>
                 <ThemedText
-                  style={cardPaymentOrigin === value ? styles.shareButtonTextSelected : undefined}>
+                  style={cardPaymentOrigin === value
+                    ? [styles.shareButtonTextSelected, { color: colors.primary }]
+                    : undefined}>
                   {label}
                 </ThemedText>
               </Pressable>
@@ -1523,7 +1552,10 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                 </View>
               )}
               {estimatedInstallmentAmount != null && (
-                <ThemedText style={styles.shareResult}>{t('installments.estimatedAmount', { amount: formatCLP(estimatedInstallmentAmount) })}</ThemedText>
+                <ThemedText style={[
+                  styles.shareResult,
+                  { color: colors.primary, backgroundColor: `${colors.tint}1F` },
+                ]}>{t('installments.estimatedAmount', { amount: formatCLP(estimatedInstallmentAmount) })}</ThemedText>
               )}
               <ThemedText style={styles.installmentSectionLabel}>{t('installments.firstInstallment')}</ThemedText>
               <View style={styles.shareOptions}>
@@ -1531,8 +1563,17 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                   <Pressable
                     key={value}
                     onPress={() => setFirstInstallmentTiming(value)}
-                    style={[styles.shareButton, { borderColor: colors.icon }, firstInstallmentTiming === value && styles.shareButtonSelected]}>
-                    <ThemedText style={firstInstallmentTiming === value ? styles.shareButtonTextSelected : undefined}>{label}</ThemedText>
+                    style={[
+                      styles.shareButton,
+                      { borderColor: colors.icon },
+                      firstInstallmentTiming === value && {
+                        borderColor: colors.primary,
+                        backgroundColor: `${colors.tint}1F`,
+                      },
+                    ]}>
+                    <ThemedText style={firstInstallmentTiming === value
+                      ? [styles.shareButtonTextSelected, { color: colors.primary }]
+                      : undefined}>{label}</ThemedText>
                   </Pressable>
                 ))}
               </View>

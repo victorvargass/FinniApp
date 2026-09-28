@@ -39,7 +39,9 @@ export function HomeOverview({
   showAttention,
   onOpenNotifications,
 }: HomeOverviewProps) {
-  const colors = Colors[useColorScheme() ?? 'light'];
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+  const incomeAmountColor = colorScheme === 'dark' ? colors.onPrimary : colors.success;
 
   return (
     <View style={styles.container}>
@@ -55,7 +57,7 @@ export function HomeOverview({
         <View style={styles.totals}>
           <View style={styles.totalItem}>
             <ThemedText style={[styles.totalLabel, { color: colors.onPrimary }]}>{t('navigation.incomes')}</ThemedText>
-            <ThemedText style={[styles.totalValue, { color: colors.success }]}>+{formatCLP(incomeTotal)}</ThemedText>
+            <ThemedText style={[styles.totalValue, { color: incomeAmountColor }]}>+{formatCLP(incomeTotal)}</ThemedText>
           </View>
           <View style={[styles.totalDivider, { backgroundColor: `${colors.onPrimary}33` }]} />
           <View style={styles.totalItem}>
