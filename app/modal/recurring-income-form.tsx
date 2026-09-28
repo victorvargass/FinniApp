@@ -49,6 +49,7 @@ export default function RecurringIncomeFormScreen() {
     executionDay: recurring.executionDay, startDate: recurring.startDate,
     endDate: recurring.endDate, active: recurring.active, registrationMode: recurring.registrationMode,
   } : { frequency: 'monthly', intervalMonths: 1, executionDay: new Date().getDate(), startDate: toDateString(new Date()), endDate: null, active: true, registrationMode: 'confirmation' });
+  const [useStoredNextDate, setUseStoredNextDate] = useState(recurring != null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -112,7 +113,22 @@ export default function RecurringIncomeFormScreen() {
         ...incomeCategories.map((category) => ({ value: category.id, label: category.name, color: category.color })),
       ]}
     />
-    <RecurringScheduleFields value={schedule} onChange={setSchedule} showActiveToggle fixedStartDate={recurring?.startDate} storedNextDate={recurring?.nextDate} movementKind="ingreso" />
+    <RecurringScheduleFields
+      value={schedule}
+      onChange={(nextSchedule) => {
+        const timingChanged =
+          nextSchedule.frequency !== schedule.frequency
+          || nextSchedule.intervalMonths !== schedule.intervalMonths
+          || nextSchedule.executionDay !== schedule.executionDay
+          || nextSchedule.startDate !== schedule.startDate
+          || nextSchedule.endDate !== schedule.endDate;
+        setSchedule(nextSchedule);
+        if (timingChanged) setUseStoredNextDate(false);
+      }}
+      showActiveToggle
+      storedNextDate={useStoredNextDate ? recurring?.nextDate ?? null : undefined}
+      movementKind="ingreso"
+    />
     <Pressable disabled={saving} onPress={save} style={styles.save}><ThemedText style={styles.saveText}>{saving ? t('common.saving') : t(recurring ? 'common.saveChanges' : 'recurrence.create')}</ThemedText></Pressable>
     {recurring && <Pressable disabled={saving} onPress={() => Alert.alert(t('recurrence.delete'), t('recurrence.keepPreviousIncomes'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => removeRecurringIncome(recurring.id).then(() => { showResult(t('recurrence.deleted')); router.back(); }).catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain'))) }])} style={styles.remove}><ThemedText style={styles.removeText}>{t('recurrence.delete')}</ThemedText></Pressable>}
   </ScrollView></SafeAreaView>;

@@ -5,9 +5,16 @@ import { Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatDate } from '@/lib/format';
+import { formatDate, toDateString } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
-import { addIsoDays, addIsoMonths, getOccurrenceDates, parseIsoDate, toIsoDate } from '@/lib/recurrence';
+import {
+  addIsoDays,
+  addIsoMonths,
+  getNextMonthlyExecutionDate,
+  getOccurrenceDates,
+  parseIsoDate,
+  toIsoDate,
+} from '@/lib/recurrence';
 import type {
   NewRecurringSchedule,
   RecurringFrequency,
@@ -129,7 +136,15 @@ export function RecurringScheduleFields({
             keyboardType="number-pad"
             maxLength={2}
             value={value.executionDay == null ? '' : String(value.executionDay)}
-            onChangeText={(text) => update({ executionDay: Number(text.replace(/\D/g, '')) || null })}
+            onChangeText={(text) => {
+              const executionDay = Number(text.replace(/\D/g, '')) || null;
+              update({
+                executionDay,
+                ...(executionDay != null && executionDay <= 31
+                  ? { startDate: getNextMonthlyExecutionDate(executionDay, toDateString(new Date())) }
+                  : {}),
+              });
+            }}
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
           />
           {(value.executionDay ?? 0) >= 29 && (
@@ -160,7 +175,7 @@ export function RecurringScheduleFields({
       {fixedStartDate == null && datePicker === 'start' && (
         <>
           <DateTimePicker
-            value={parseIsoDate(value.startDate)}
+            value={parseIsoDate(nextExecutionDate ?? value.startDate)}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={(_, selected) => {

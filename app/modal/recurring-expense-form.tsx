@@ -332,7 +332,7 @@ export default function RecurringExpenseFormScreen() {
             if (timingChanged) setUseStoredNextDate(false);
           }}
           showActiveToggle
-          fixedStartDate={recurring?.startDate ?? requestedSource?.date}
+          fixedStartDate={requestedSource?.date}
           storedNextDate={useStoredNextDate ? recurring?.nextDate ?? null : undefined}
         />
 

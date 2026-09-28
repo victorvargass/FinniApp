@@ -30,6 +30,20 @@ export function addIsoMonths(value: string, months: number, preferredDay?: numbe
   return toIsoDate(new Date(targetYear, normalizedMonth, Math.min(preferredDay ?? date.getDate(), lastDay), 12));
 }
 
+export function getNextMonthlyExecutionDate(executionDay: number, afterDate: string): string {
+  const reference = parseIsoDate(afterDate);
+  const lastDay = new Date(reference.getFullYear(), reference.getMonth() + 1, 0).getDate();
+  const sameMonth = toIsoDate(new Date(
+    reference.getFullYear(),
+    reference.getMonth(),
+    Math.min(executionDay, lastDay),
+    12
+  ));
+  return sameMonth > afterDate
+    ? sameMonth
+    : addIsoMonths(sameMonth, 1, executionDay);
+}
+
 function firstCalendarDate(rule: RecurrenceRuleLike): string {
   if (rule.frequency !== 'monthly' && rule.frequency !== 'custom') return rule.startDate;
   const executionDay = rule.executionDay ?? parseIsoDate(rule.startDate).getDate();

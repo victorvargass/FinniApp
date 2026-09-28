@@ -4,8 +4,17 @@ import test from 'node:test';
 import {
   addIsoMonths,
   getNextOccurrenceDate,
+  getNextMonthlyExecutionDate,
   getOccurrenceDates,
 } from '../lib/recurrence-core.ts';
+
+test('editing a monthly day chooses the first date strictly after today', () => {
+  assert.equal(getNextMonthlyExecutionDate(24, '2026-09-25'), '2026-10-24');
+  assert.equal(getNextMonthlyExecutionDate(25, '2026-09-25'), '2026-10-25');
+  assert.equal(getNextMonthlyExecutionDate(26, '2026-09-25'), '2026-09-26');
+  assert.equal(getNextMonthlyExecutionDate(30, '2026-09-25'), '2026-09-30');
+  assert.equal(getNextMonthlyExecutionDate(31, '2026-09-25'), '2026-09-30');
+});
 
 test('monthly recurrence clamps safely to the last day of short months', () => {
   assert.equal(addIsoMonths('2026-01-31', 1, 31), '2026-02-28');

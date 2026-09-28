@@ -7385,7 +7385,10 @@ export async function updateRecurringIncome(id: number, data: NewRecurringIncome
   const last = await db.getFirstAsync<{ date: string }>(
     'SELECT date FROM incomes WHERE recurring_income_id = ? ORDER BY date DESC, id DESC LIMIT 1', id
   );
-  const nextDate = getNextOccurrenceDate(data, last?.date ?? data.startDate);
+  const lastDate = last?.date ?? data.startDate;
+  const nextDate = data.startDate > lastDate
+    ? data.startDate
+    : getNextOccurrenceDate(data, lastDate);
   const result = await db.runAsync(
     `UPDATE recurring_incomes SET name = ?, amount = ?, frequency = ?, interval_months = ?,
       execution_day = ?, registration_mode = ?, start_date = ?, end_date = ?, next_date = ?, active = ?,
