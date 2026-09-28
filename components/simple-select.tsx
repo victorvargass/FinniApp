@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -25,6 +25,7 @@ export function SimpleSelect<T extends string | number | null>({
   onChange,
   disabled = false,
   searchable = false,
+  modalSize = 'content',
 }: {
   label: string;
   value: T;
@@ -32,7 +33,9 @@ export function SimpleSelect<T extends string | number | null>({
   onChange: (value: T) => void;
   disabled?: boolean;
   searchable?: boolean;
+  modalSize?: 'content' | 'large';
 }) {
+  const { height: windowHeight } = useWindowDimensions();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [visible, setVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,7 +62,16 @@ export function SimpleSelect<T extends string | number | null>({
       <Modal transparent animationType="fade" visible={visible} onRequestClose={closeSelect}>
         <Pressable style={styles.overlay} onPress={closeSelect}>
           <Pressable style={styles.dialogPosition} onPress={(event) => event.stopPropagation()}>
-            <ThemedView style={[styles.sheet, { backgroundColor: colors.surfaceRaised, minHeight: Math.min(520, 100 + options.length * 56) }]}>
+            <ThemedView style={[
+              styles.sheet,
+              {
+                backgroundColor: colors.surfaceRaised,
+                minHeight: modalSize === 'large'
+                  ? Math.min(Math.max(windowHeight * 0.68, 460), 720)
+                  : Math.min(520, 100 + options.length * 56),
+                maxHeight: modalSize === 'large' ? '82%' : '72%',
+              },
+            ]}>
               <ThemedText type="subtitle">{label}</ThemedText>
               {searchable && (
                 <View style={[styles.search, { borderColor: colors.border }]}>

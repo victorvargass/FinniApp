@@ -229,6 +229,7 @@ export default function DebtPaymentScreen() {
             {settlementScope === 'contact' ? (
               <SimpleSelect
                 searchable
+                modalSize="large"
                 label={t(effectiveDirection === 'receivable' ? 'debts.selectDebtorContact' : 'debts.selectCreditorContact')}
                 value={selectedContactId}
                 onChange={setSelectedContactId}
@@ -237,6 +238,7 @@ export default function DebtPaymentScreen() {
             ) : (
               <SimpleSelect
                 searchable
+                modalSize="large"
                 label={t(effectiveDirection === 'receivable' ? 'debts.selectReceivableDebt' : 'debts.selectPayableDebt')}
                 value={selectedDebtId}
                 onChange={setSelectedDebtId}
