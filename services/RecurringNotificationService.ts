@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { parseIsoDate } from '@/lib/recurrence';
+import { shouldScheduleRecurringNotification } from '@/lib/recurring-notification-sync';
 import type {
   GeneratedRecurringExpenseNotification,
   RecurringConfirmationSchedule,
@@ -11,6 +12,7 @@ import type {
 } from '@/lib/types';
 import {
   replaceFutureAppNotifications,
+  getExistingAppNotificationSourceKeys,
   upsertAppNotifications,
 } from '@/repositories/notifications';
 
@@ -173,8 +175,10 @@ export async function syncRecurringNotifications(
 ): Promise<void> {
   if (Platform.OS === 'web') return;
   await configureRecurringNotifications();
-  await cancelRecurringNotifications();
-  if (!notificationsEnabled) return;
+  if (!notificationsEnabled) {
+    await cancelRecurringNotifications();
+    return;
+  }
   const permission = await Notifications.getPermissionsAsync();
   if (!permission.granted) return;
 
@@ -182,6 +186,26 @@ export async function syncRecurringNotifications(
     .sort((first, second) => first.scheduledDate.localeCompare(second.scheduledDate))
     .slice(0, 40);
   const inboxItems = limited.map(recurringInboxItem);
+  const desiredKeys = new Set(inboxItems.map((item) => item.sourceKey));
+  const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+  const scheduledKeys = new Set<string>();
+  const cancellationIds: string[] = [];
+  for (const notification of scheduledNotifications) {
+    const kind = notification.content.data?.kind;
+    if (kind !== 'recurring-expense' && kind !== 'recurring-income') continue;
+    const inboxKey = typeof notification.content.data?.inboxKey === 'string'
+      ? notification.content.data.inboxKey
+      : null;
+    if (inboxKey == null || !desiredKeys.has(inboxKey) || scheduledKeys.has(inboxKey)) {
+      cancellationIds.push(notification.identifier);
+    } else {
+      scheduledKeys.add(inboxKey);
+    }
+  }
+  await Promise.all(cancellationIds.map((identifier) =>
+    Notifications.cancelScheduledNotificationAsync(identifier)
+  ));
+  const existingInboxKeys = new Set(await getExistingAppNotificationSourceKeys([...desiredKeys]));
   await replaceFutureAppNotifications([...DATA_KINDS], inboxItems);
   for (const [index, schedule] of limited.entries()) {
     const noun = schedule.isSavingsContribution
@@ -190,6 +214,13 @@ export async function syncRecurringNotifications(
         ? t('navigation.expense').toLowerCase()
         : t('navigation.income').toLowerCase();
     const inboxItem = inboxItems[index];
+    const triggerDate = notificationDate(schedule.scheduledDate);
+    if (!shouldScheduleRecurringNotification({
+      inboxKey: inboxItem.sourceKey,
+      triggerTime: inboxItem.scheduledFor,
+      scheduledKeys,
+      existingInboxKeys,
+    })) continue;
     await Notifications.scheduleNotificationAsync({
       content: {
         title: t('notifications.recurringReviewTitle', { movement: noun }),
@@ -207,7 +238,7 @@ export async function syncRecurringNotifications(
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: notificationDate(schedule.scheduledDate),
+        date: triggerDate,
         channelId: RECURRING_CHANNEL,
       },
     });

@@ -7952,6 +7952,18 @@ export async function upsertAppNotifications(items: NewAppNotification[]): Promi
   });
 }
 
+export async function getExistingAppNotificationSourceKeys(sourceKeys: string[]): Promise<string[]> {
+  if (sourceKeys.length === 0) return [];
+  const database = await getDb();
+  const placeholders = sourceKeys.map(() => '?').join(', ');
+  const rows = await database.getAllAsync<{ source_key: string }>(
+    `SELECT source_key FROM app_notifications
+     WHERE source_key IN (${placeholders}) AND deleted_at IS NULL`,
+    ...sourceKeys
+  );
+  return rows.map((row) => row.source_key);
+}
+
 export async function replaceFutureAppNotifications(
   kinds: string[],
   items: NewAppNotification[]

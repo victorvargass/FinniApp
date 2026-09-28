@@ -1,6 +1,7 @@
 export {
   deleteAppNotification,
   getAppNotifications,
+  getExistingAppNotificationSourceKeys,
   markAppNotificationReadBySourceKey,
   replaceFutureAppNotifications,
   setAppNotificationRead,
