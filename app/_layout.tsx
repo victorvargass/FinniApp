@@ -156,6 +156,10 @@ function AppContent() {
                   options={{ presentation: 'fullScreenModal', title: t('navigation.debts') }}
                 />
                 <Stack.Screen
+                  name="modal/archived-debts"
+                  options={{ presentation: 'fullScreenModal', title: t('debts.archivedTitle') }}
+                />
+                <Stack.Screen
                   name="modal/debt-detail"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.installmentDetail') }}
                 />

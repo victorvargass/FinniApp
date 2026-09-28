@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
 import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
@@ -55,9 +55,12 @@ export default function DebtsScreen() {
   const { paymentMethodId } = useLocalSearchParams<{ paymentMethodId?: string }>();
   const methodId = paymentMethodId ? Number(paymentMethodId) : undefined;
   const { getDebtPlans, getDebts, paymentMethods } = useDatabase();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [plans, setPlans] = useState<DebtPlan[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [menuVisible, setMenuVisible] = useState(false);
   const guide = useFeatureGuide('debts');
   const guideSlides = [
     {
@@ -81,16 +84,28 @@ export default function DebtsScreen() {
     setPlans(nextPlans); setDebts(nextDebts);
   }, [getDebtPlans, getDebts, methodId]);
   useFocusEffect(useCallback(() => { load().catch(() => undefined); }, [load]));
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: methodId == null ? () => (
+        <Pressable
+          accessibilityLabel={t('debts.moreOptions')}
+          hitSlop={10}
+          onPress={() => setMenuVisible(true)}>
+          <Ionicons name="ellipsis-vertical" size={23} color={colors.icon} />
+        </Pressable>
+      ) : undefined,
+    });
+  }, [colors.icon, methodId, navigation]);
   const method = paymentMethods.find((item) => item.id === methodId);
   const creditCards = paymentMethods.filter((item) => item.type === 'credit');
-  const activeDebts = debts.filter((item) => item.status !== 'archived');
-  const payableDebts = debts.filter((item) => item.direction === 'payable');
-  const receivableDebts = debts.filter((item) => item.direction === 'receivable');
+  const visibleDebts = debts.filter((item) => item.status !== 'archived');
+  const payableDebts = visibleDebts.filter((item) => item.direction === 'payable');
+  const receivableDebts = visibleDebts.filter((item) => item.direction === 'receivable');
   const payableContactGroups = groupContactDebts(payableDebts);
   const receivableContactGroups = groupContactDebts(receivableDebts);
-  const totalDebtBalance = activeDebts.filter((item) => item.direction === 'payable').reduce((sum, item) => sum + item.currentBalance, 0)
+  const totalDebtBalance = visibleDebts.filter((item) => item.direction === 'payable').reduce((sum, item) => sum + item.currentBalance, 0)
     + creditCards.reduce((sum, item) => sum + (item.usedAmount ?? 0), 0);
-  const totalReceivable = activeDebts.filter((item) => item.direction === 'receivable').reduce((sum, item) => sum + item.currentBalance, 0);
+  const totalReceivable = visibleDebts.filter((item) => item.direction === 'receivable').reduce((sum, item) => sum + item.currentBalance, 0);
   const renderDebt = (debt: Debt) => (
     <Pressable key={debt.id} onPress={() => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(debt.id) } })}>
       <ThemedView style={[styles.card, debt.status === 'archived' && styles.archived]}>
@@ -230,7 +245,7 @@ export default function DebtsScreen() {
                 <ThemedText style={styles.secondary}>{t('debts.otherDebtsHint')}</ThemedText>
               </View>
             </View>
-            {debts.length === 0 && (
+            {visibleDebts.length === 0 && (
               <ThemedView style={styles.empty}>
                 <Ionicons name="document-text-outline" size={34} color={colors.icon} />
                 <ThemedText>{t('debts.empty')}</ThemedText>
@@ -266,6 +281,35 @@ export default function DebtsScreen() {
           </>
         )}
       </ScrollView>
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+        transparent
+        visible={menuVisible}>
+        <Pressable style={styles.menuOverlay} onPress={() => setMenuVisible(false)}>
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={[
+              styles.menu,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+                top: insets.top + 48,
+              },
+            ]}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setMenuVisible(false);
+                router.push('/modal/archived-debts' as never);
+              }}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}>
+              <Ionicons name="archive-outline" size={20} color={colors.icon} />
+              <ThemedText type="defaultSemiBold">{t('debts.archivedMenu')}</ThemedText>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
       {methodId == null && (
         <FloatingActionButton
@@ -290,4 +334,8 @@ const styles = StyleSheet.create({
   debtIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, archived: { opacity: 0.62 },
   sectionHeading: { marginTop: 4 }, methodSummary: { borderRadius: 12, padding: 16, gap: 10 }, methodActions: { flexDirection: 'row', gap: 10 }, methodButton: { flex: 1, minHeight: 45, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   contactGroup: { gap: 8 }, contactSummary: { borderWidth: 1, borderRadius: 12, padding: 15, gap: 12 }, contactAction: { minHeight: 44, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, groupedDebts: { paddingLeft: 12, gap: 8 },
+  menuOverlay: { flex: 1 },
+  menu: { position: 'absolute', right: 12, minWidth: 180, borderWidth: 1, borderRadius: 12, padding: 6, elevation: 8, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  menuItem: { minHeight: 46, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 8 },
+  pressed: { opacity: 0.62 },
 });
