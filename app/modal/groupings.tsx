@@ -30,6 +30,11 @@ export default function GroupingsScreen() {
       body: t('featureGuides.groupings.savingsBody'),
     },
     {
+      icon: 'people-outline' as const,
+      title: t('featureGuides.groupings.contactsTitle'),
+      body: t('featureGuides.groupings.contactsBody'),
+    },
+    {
       icon: 'shield-checkmark-outline' as const,
       title: t('featureGuides.groupings.optionalTitle'),
       body: t('featureGuides.groupings.optionalBody'),

@@ -86,6 +86,16 @@ function SetupOverview() {
           <View style={styles.progressTrack}><View style={styles.progressValue} /></View>
         </View>
       </View>
+      <View style={styles.setupDivider} />
+      <View style={styles.setupRow}>
+        <View style={[styles.setupIcon, styles.contactsIcon]}>
+          <Ionicons name="people-outline" size={23} color={BrandColors.navy} />
+        </View>
+        <View style={styles.setupCopy}>
+          <ThemedText style={styles.setupTitle}>{t('onboarding.contactsAndPayments')}</ThemedText>
+          <ThemedText style={styles.setupHint}>{t('onboarding.contactsAndPaymentsHint')}</ThemedText>
+        </View>
+      </View>
     </View>
   );
 }
@@ -365,7 +375,7 @@ const styles = StyleSheet.create({
   setupCard: { width: '100%', maxWidth: 420, padding: 8, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E1E8', shadowColor: BrandColors.navy, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 22, elevation: 7 },
   setupRow: { minHeight: 88, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 12 },
   setupIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#F5F8FA', alignItems: 'center', justifyContent: 'center' },
-  calendarIcon: { backgroundColor: '#E8F9F6' }, categoryIcon: { backgroundColor: '#E8F4FA' }, setupCopy: { flex: 1, gap: 4 },
+  calendarIcon: { backgroundColor: '#E8F9F6' }, categoryIcon: { backgroundColor: '#E8F4FA' }, contactsIcon: { backgroundColor: '#F1ECFA' }, setupCopy: { flex: 1, gap: 4 },
   setupTitle: { color: BrandColors.navy, fontFamily: Fonts.bold, fontSize: 14, lineHeight: 18 }, setupHint: { color: BrandColors.blueGray, fontSize: 11, lineHeight: 15 },
   setupDivider: { height: 1, marginHorizontal: 14, backgroundColor: '#E8EEF2' }, categoryHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6 },
   limitAmount: { color: BrandColors.blueGray, fontSize: 9, lineHeight: 12 }, progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: '#D8E1E8' }, progressValue: { width: '64%', height: '100%', borderRadius: 3, backgroundColor: BrandColors.turquoise },
