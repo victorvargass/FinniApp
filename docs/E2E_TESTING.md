@@ -50,6 +50,28 @@ En Windows se recomienda Maestro CLI 1.40.3 para este proyecto. La versión 2.10
 
 Para validar Google Drive de extremo a extremo, agrega previamente al AVD una cuenta exclusiva de QA, ejecuta `.maestro/google-drive-boundary.yml`, pulsa `Conectar con Google` y continúa manualmente con respaldo, restauración y cierre de sesión. Usa datos desechables: restaurar reemplaza la base local del emulador.
 
+## Matriz de notificaciones en dispositivo real
+
+Ejecutar sobre el APK candidato y guardar modelo, Android, zona horaria,
+resultado y captura en la evidencia de la release.
+
+| Caso | Preparación | Resultado esperado |
+| --- | --- | --- |
+| Permiso aceptado | Instalación limpia; activar notificaciones | Se crea el canal, se programa el aviso y aparece una sola vez en sistema y bandeja. |
+| Permiso denegado | Instalación limpia; rechazar el permiso | La app explica cómo habilitarlo, no insiste en cada inicio y continúa funcionando. |
+| Reinicio | Programar un recordatorio futuro y reiniciar el teléfono | El recordatorio sigue programado y no se duplica. |
+| Cambio de hora | Programar, cambiar la hora del dispositivo y volver a automática | El aviso conserva la regla local configurada y no crea copias. |
+| Cambio de zona | Programar en `America/Santiago`, cambiar temporalmente de zona | La fecha/hora visible y la bandeja siguen una regla local coherente. |
+| Horario de verano | Usar fechas de transición de Santiago | No se omite ni se dispara dos veces la ocurrencia. |
+| Ejecución atrasada | Apagar el dispositivo durante la hora programada y encenderlo | La ocurrencia se muestra como máximo una vez y queda disponible en la bandeja. |
+| Actualización | Programar en la versión anterior y actualizar al APK candidato | La programación válida se conserva o se reconstruye sin duplicados. |
+| Switch global | Desactivar notificaciones en Preferencias | Se cancelan avisos de FinniApp; al reactivar se solicita permiso solo si corresponde. |
+| Acción profunda | Tocar un aviso recurrente, de deuda o tarjeta | Abre el detalle correcto y la bandeja permite leer/eliminar sin alterar el dato financiero. |
+
+Los casos de reinicio, zona horaria, horario de verano y actualización no se
+consideran aprobados con emulador únicamente: requieren al menos una pasada en
+el dispositivo Android usado para la candidata.
+
 ## Diagnóstico
 
 Maestro conserva capturas, jerarquía de accesibilidad y comandos fallidos. Los controles críticos tienen identificadores estables (`onboarding-*`, `tab-*`, `expense-*`, `income-*`, `period-close` y `settings-load-test-data`) para que cambios de estilo o traducciones no rompan los recorridos principales.
