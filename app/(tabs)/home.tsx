@@ -477,6 +477,7 @@ export default function HomeScreen() {
         />
 
         <BreakdownSection
+          collapsible
           mode={breakdownMode}
           onChange={setBreakdownMode}
           backgroundColor={colors.surface}
