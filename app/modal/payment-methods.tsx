@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
 import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
+import { SegmentedTabs } from '@/components/segmented-tabs';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -22,6 +24,7 @@ function showDefaultConfirmation(name: string) {
 export default function PaymentMethodsScreen() {
   const { paymentMethods, settings, setDefaultPaymentMethod } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const [methodSection, setMethodSection] = useState<'accounts' | 'prepaid' | 'credit'>('accounts');
   const guide = useFeatureGuide('payment-methods');
   const guideSlides = [
     {
@@ -56,7 +59,11 @@ export default function PaymentMethodsScreen() {
     prepaid: t('paymentMethods.prepaid'),
     credit: t('paymentMethods.credit'),
   };
-  const sections = groupPaymentMethodsByType(paymentMethods).map((section) => ({
+  const visiblePaymentMethods = paymentMethods.filter((method) => {
+    if (methodSection === 'accounts') return method.type === 'cash' || method.type === 'debit';
+    return method.type === methodSection;
+  });
+  const sections = groupPaymentMethodsByType(visiblePaymentMethods).map((section) => ({
     ...section,
     title: typeLabels[section.type],
   }));
@@ -68,12 +75,29 @@ export default function PaymentMethodsScreen() {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <View style={styles.guideHeader}>
-            <ThemedText style={styles.description}>
-              {t('paymentMethods.description')}
-            </ThemedText>
-            <FeatureGuideButton onPress={guide.open} />
+          <View style={styles.listHeader}>
+            <View style={styles.guideHeader}>
+              <ThemedText style={styles.description}>
+                {t('paymentMethods.description')}
+              </ThemedText>
+              <FeatureGuideButton onPress={guide.open} />
+            </View>
+            <SegmentedTabs
+              value={methodSection}
+              onChange={setMethodSection}
+              options={[
+                { value: 'accounts', label: t('paymentMethods.accountsTab') },
+                { value: 'prepaid', label: t('paymentMethods.prepaid') },
+                { value: 'credit', label: t('paymentMethods.credit') },
+              ]}
+            />
           </View>
+        }
+        ListEmptyComponent={
+          <ThemedView style={[styles.empty, { borderColor: colors.border }]}>
+            <Ionicons name="wallet-outline" size={32} color={colors.icon} />
+            <ThemedText style={styles.emptyText}>{t('paymentMethods.emptySection')}</ThemedText>
+          </ThemedView>
         }
         renderSectionHeader={({ section }) => (
           <ThemedText accessibilityRole="header" style={styles.sectionTitle} type="defaultSemiBold">
@@ -169,6 +193,7 @@ export default function PaymentMethodsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   list: { padding: 20, paddingBottom: 100 },
+  listHeader: { gap: 13 },
   guideHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 2 },
   description: { flex: 1, opacity: 0.7, lineHeight: 21 },
   sectionTitle: { fontSize: 18, marginTop: 14, marginBottom: 6, paddingHorizontal: 12 },
@@ -184,4 +209,6 @@ const styles = StyleSheet.create({
   star: { padding: 6 },
   statementButton: { padding: 6 },
   starDisabled: { opacity: 0.35 },
+  empty: { minHeight: 130, marginTop: 22, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20 },
+  emptyText: { textAlign: 'center', opacity: 0.68 },
 });

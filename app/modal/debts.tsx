@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { FloatingActionButton } from '@/components/floating-action-button';
 import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
+import { SegmentedTabs } from '@/components/segmented-tabs';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -61,6 +62,9 @@ export default function DebtsScreen() {
   const [plans, setPlans] = useState<DebtPlan[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [debtSection, setDebtSection] = useState<'cards' | 'other'>(() =>
+    paymentMethods.some((item) => item.type === 'credit') ? 'cards' : 'other'
+  );
   const guide = useFeatureGuide('debts');
   const guideSlides = [
     {
@@ -217,52 +221,67 @@ export default function DebtsScreen() {
               <ThemedText type="title">{formatCLP(totalDebtBalance)}</ThemedText>
               {totalReceivable > 0 && <ThemedText style={styles.receivable}>{t('debts.totalReceivable', { amount: formatCLP(totalReceivable) })}</ThemedText>}
             </ThemedView>
-            <View style={styles.sectionHeading}>
-              <View style={styles.copy}><ThemedText type="subtitle">{t('debts.creditCards')}</ThemedText><ThemedText style={styles.secondary}>{t('debts.creditCardsHint')}</ThemedText></View>
-            </View>
-            {creditCards.map((card) => {
-              const cardPlans = plans.filter((plan) => plan.paymentMethodId === card.id);
-              return (
-                <View key={`card-${card.id}`} style={styles.cardGroup}>
-                  <Pressable onPress={() => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(card.id) } })}>
-                    <ThemedView style={styles.card}>
-                      <View style={styles.header}>
-                        <View style={[styles.debtIcon, { backgroundColor: card.color }]}><Ionicons name="card-outline" size={18} color="#fff" /></View>
-                        <View style={styles.copy}><ThemedText type="defaultSemiBold">{card.name}</ThemedText><ThemedText style={styles.secondary}>{t('paymentMethods.availableCredit')}: {card.availableBalance == null ? '—' : formatCLP(card.availableBalance)}</ThemedText></View>
-                        <Ionicons name="chevron-forward" size={21} color={colors.icon} />
-                      </View>
-                      <View style={styles.row}><ThemedText>{t('paymentMethods.used')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(card.usedAmount ?? 0)}</ThemedText></View>
-                      <View style={styles.row}><ThemedText>{t('paymentMethods.billedToPay')}</ThemedText><ThemedText>{formatCLP(card.billedAmount)}</ThemedText></View>
-                    </ThemedView>
-                  </Pressable>
-                  {cardPlans.length > 0 && (
-                    <View style={[styles.cardPlans, { borderLeftColor: card.color }]}>
-                      <ThemedText style={styles.cardPlansTitle}>{t('debts.installmentPurchases')}</ThemedText>
-                      {renderPlanList(cardPlans)}
+            <SegmentedTabs
+              value={debtSection}
+              onChange={setDebtSection}
+              options={[
+                { value: 'cards', label: t('debts.cardsTab') },
+                { value: 'other', label: t('debts.otherDebtsTab') },
+              ]}
+            />
+            {debtSection === 'cards' ? (
+              <>
+                <ThemedText style={[styles.sectionHint, { color: colors.textSecondary }]}>{t('debts.creditCardsHint')}</ThemedText>
+                {creditCards.length === 0 && (
+                  <ThemedView style={styles.empty}>
+                    <Ionicons name="card-outline" size={34} color={colors.icon} />
+                    <ThemedText>{t('debts.noCreditCards')}</ThemedText>
+                    <ThemedText style={styles.secondary}>{t('debts.noCreditCardsHint')}</ThemedText>
+                  </ThemedView>
+                )}
+                {creditCards.map((card) => {
+                  const cardPlans = plans.filter((plan) => plan.paymentMethodId === card.id);
+                  return (
+                    <View key={`card-${card.id}`} style={styles.cardGroup}>
+                      <Pressable onPress={() => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(card.id) } })}>
+                        <ThemedView style={styles.card}>
+                          <View style={styles.header}>
+                            <View style={[styles.debtIcon, { backgroundColor: card.color }]}><Ionicons name="card-outline" size={18} color="#fff" /></View>
+                            <View style={styles.copy}><ThemedText type="defaultSemiBold">{card.name}</ThemedText><ThemedText style={styles.secondary}>{t('paymentMethods.availableCredit')}: {card.availableBalance == null ? '—' : formatCLP(card.availableBalance)}</ThemedText></View>
+                            <Ionicons name="chevron-forward" size={21} color={colors.icon} />
+                          </View>
+                          <View style={styles.row}><ThemedText>{t('paymentMethods.used')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(card.usedAmount ?? 0)}</ThemedText></View>
+                          <View style={styles.row}><ThemedText>{t('paymentMethods.billedToPay')}</ThemedText><ThemedText>{formatCLP(card.billedAmount)}</ThemedText></View>
+                        </ThemedView>
+                      </Pressable>
+                      {cardPlans.length > 0 && (
+                        <View style={[styles.cardPlans, { borderLeftColor: card.color }]}>
+                          <ThemedText style={styles.cardPlansTitle}>{t('debts.installmentPurchases')}</ThemedText>
+                          {renderPlanList(cardPlans)}
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
-              );
-            })}
-            <View style={styles.sectionHeading}>
-              <View style={styles.copy}>
-                <ThemedText type="subtitle">{t('debts.otherDebts')}</ThemedText>
-                <ThemedText style={styles.secondary}>{t('debts.otherDebtsHint')}</ThemedText>
-              </View>
-            </View>
-            {visibleDebts.length === 0 && (
-              <ThemedView style={styles.empty}>
-                <Ionicons name="document-text-outline" size={34} color={colors.icon} />
-                <ThemedText>{t('debts.empty')}</ThemedText>
-                <ThemedText style={styles.secondary}>{t('debts.emptyHint')}</ThemedText>
-              </ThemedView>
+                  );
+                })}
+              </>
+            ) : (
+              <>
+                <ThemedText style={[styles.sectionHint, { color: colors.textSecondary }]}>{t('debts.otherDebtsHint')}</ThemedText>
+                {visibleDebts.length === 0 && (
+                  <ThemedView style={styles.empty}>
+                    <Ionicons name="document-text-outline" size={34} color={colors.icon} />
+                    <ThemedText>{t('debts.empty')}</ThemedText>
+                    <ThemedText style={styles.secondary}>{t('debts.emptyHint')}</ThemedText>
+                  </ThemedView>
+                )}
+                {payableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.payableSection')}</ThemedText>}
+                {payableContactGroups.groups.map((group) => renderContactGroup(group, 'payable'))}
+                {payableContactGroups.remaining.map(renderDebt)}
+                {receivableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.receivableSection')}</ThemedText>}
+                {receivableContactGroups.groups.map((group) => renderContactGroup(group, 'receivable'))}
+                {receivableContactGroups.remaining.map(renderDebt)}
+              </>
             )}
-            {payableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.payableSection')}</ThemedText>}
-            {payableContactGroups.groups.map((group) => renderContactGroup(group, 'payable'))}
-            {payableContactGroups.remaining.map(renderDebt)}
-            {receivableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.receivableSection')}</ThemedText>}
-            {receivableContactGroups.groups.map((group) => renderContactGroup(group, 'receivable'))}
-            {receivableContactGroups.remaining.map(renderDebt)}
           </>
         )}
         {method?.type === 'credit' && (
@@ -338,6 +357,7 @@ const styles = StyleSheet.create({
   summaryCard: { borderRadius: 12, padding: 16, gap: 5 },
   receivable: { color: '#138F73', fontWeight: '700', marginTop: 4 },
   debtIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, archived: { opacity: 0.62 },
+  sectionHint: { fontSize: 13, lineHeight: 18 },
   sectionHeading: { marginTop: 4 }, methodSummary: { borderRadius: 12, padding: 16, gap: 10 }, methodActions: { flexDirection: 'row', gap: 10 }, methodButton: { flex: 1, minHeight: 45, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   contactGroup: { gap: 8 }, contactSummary: { borderWidth: 1, borderRadius: 12, padding: 15, gap: 12 }, contactAction: { minHeight: 44, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, groupedDebts: { paddingLeft: 12, gap: 8 },
   menuOverlay: { flex: 1 },

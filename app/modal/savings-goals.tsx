@@ -116,6 +116,7 @@ function GoalCard({ goal }: { goal: SavingsGoal }) {
 export default function SavingsGoalsScreen() {
   const { savingsGoals, savingsGroups } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const [selectedGroup, setSelectedGroup] = useState<'all' | 'ungrouped' | number>('all');
   const [showArchived, setShowArchived] = useState(false);
   const guide = useFeatureGuide('savings');
   const guideSlides = [
@@ -144,7 +145,13 @@ export default function SavingsGoalsScreen() {
     () => savingsGoals.filter((goal) => goal.status === 'archived'),
     [savingsGoals]
   );
-  const visibleGoals = showArchived ? savingsGoals : currentGoals;
+  const statusGoals = showArchived ? savingsGoals : currentGoals;
+  const visibleGoals = statusGoals.filter((goal) => {
+    if (selectedGroup === 'all') return true;
+    if (selectedGroup === 'ungrouped') return goal.groupId == null;
+    return goal.groupId === selectedGroup;
+  });
+  const hasUngroupedGoals = statusGoals.some((goal) => goal.groupId == null);
   const sections = useMemo(
     () => groupSavingsItems(visibleGoals, savingsGroups, (goal) => goal.groupId, t('common.notSpecified')),
     [visibleGoals, savingsGroups]
@@ -176,10 +183,8 @@ export default function SavingsGoalsScreen() {
           </View>
         </ThemedView>
 
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle">
-            {t(showArchived ? 'savings.allGoals' : 'savings.currentGoals')}
-          </ThemedText>
+        <View style={styles.filterHeader}>
+          <ThemedText type="defaultSemiBold">{t('savings.filterByGroup')}</ThemedText>
           {archivedGoals.length > 0 && (
             <Pressable
               accessibilityRole="button"
@@ -191,13 +196,44 @@ export default function SavingsGoalsScreen() {
             </Pressable>
           )}
         </View>
+        <ScrollView
+          horizontal
+          contentContainerStyle={styles.groupFilters}
+          showsHorizontalScrollIndicator={false}>
+          {[
+            { value: 'all' as const, label: t('savings.allGroups') },
+            ...savingsGroups.map((group) => ({ value: group.id, label: group.name })),
+            ...(hasUngroupedGoals ? [{ value: 'ungrouped' as const, label: t('common.notSpecified') }] : []),
+          ].map((option) => {
+            const selected = selectedGroup === option.value;
+            return (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                key={String(option.value)}
+                onPress={() => setSelectedGroup(option.value)}
+                style={({ pressed }) => [
+                  styles.groupFilter,
+                  { borderColor: selected ? colors.primary : colors.border },
+                  selected && { backgroundColor: colors.primary },
+                  pressed && styles.pressed,
+                ]}>
+                <ThemedText style={[styles.groupFilterText, selected && { color: colors.onPrimary }]}>
+                  {option.label}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
         {visibleGoals.length === 0 ? (
           <ThemedView style={styles.empty}>
             <Ionicons name="flag-outline" size={38} color={colors.icon} />
-            <ThemedText type="defaultSemiBold">{t('savings.noActiveGoals')}</ThemedText>
+            <ThemedText type="defaultSemiBold">
+              {t('savings.noGoalsInGroup')}
+            </ThemedText>
             <ThemedText style={styles.emptyCopy}>
-              {t('savings.emptyHint')}
+              {t(selectedGroup === 'all' ? 'savings.emptyHint' : 'savings.noGoalsInGroupHint')}
             </ThemedText>
           </ThemedView>
         ) : (
@@ -269,21 +305,12 @@ const styles = StyleSheet.create({
   savedAmount: {
     color: '#1FAF78',
   },
-  sectionHeader: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 4,
-  },
-  archiveToggle: {
-    paddingVertical: 7,
-  },
-  archiveToggleText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  filterHeader: { minHeight: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 2 },
+  archiveToggle: { paddingVertical: 7 },
+  archiveToggleText: { fontSize: 13, fontWeight: '700' },
+  groupFilters: { gap: 8, paddingRight: 4 },
+  groupFilter: { minHeight: 38, borderWidth: 1, borderRadius: 999, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
+  groupFilterText: { fontSize: 13, fontWeight: '700' },
   goals: {
     gap: 11,
   },
