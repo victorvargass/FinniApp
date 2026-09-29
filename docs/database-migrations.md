@@ -30,3 +30,10 @@ todo termina correctamente. Un fallo deja la actualización anterior activa.
 GitHub Quality ejecuta el mismo contrato contra el commit anterior del push o
 contra la base del pull request. Así el error aparece antes de Expo y queda
 registrado junto al commit que lo produjo.
+
+## Versión actual
+
+El esquema vigente es **v28**. Esta versión agrega la preferencia opcional de
+distribución de Inicio; las instalaciones existentes conservan el orden, la
+visibilidad y las métricas predeterminadas hasta que la persona guarde una
+configuración propia.

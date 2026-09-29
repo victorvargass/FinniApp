@@ -2,7 +2,7 @@
 
 Fecha de revisión: 29 de septiembre de 2026  
 Base revisada: Expo SDK 54, React Native 0.81, React 19, TypeScript, Expo Router y SQLite.  
-Versión declarada: 1.0.0. Esquema local: v27.
+Versión declarada: 1.0.0. Esquema local: v28.
 
 ## Resumen ejecutivo
 
@@ -19,7 +19,7 @@ Mi evaluación es **beta avanzada / candidata a una publicación controlada**, n
 | Cobertura funcional | Muy alta | Resuelve la mayoría de los flujos financieros personales previstos. |
 | Integridad financiera | Alta | Hay anclas temporales, conciliación, transacciones y casos de regresión específicos. |
 | Experiencia de uso | Media-alta | Clara y consistente; aún requiere una auditoría completa de accesibilidad y escalabilidad visual. |
-| Calidad automatizada | Alta para lógica, media para UI | 144 pruebas funcionales, 4 de migración y recorridos Maestro; falta ampliar dispositivos y plataformas. |
+| Calidad automatizada | Alta para lógica, media para UI | 147 pruebas funcionales, 5 de migración y recorridos Maestro; falta ampliar dispositivos y plataformas. |
 | Seguridad y privacidad | Media | Local-first y sin publicidad, pero SQLite y el respaldo no tienen cifrado extremo a extremo propio. |
 | Mantenibilidad | Media | El dominio está probado, pero `lib/db.ts` y `DatabaseContext` concentran demasiadas responsabilidades. |
 | Operación y soporte | Media-alta | Hay CI, EAS, OTA, diagnósticos y runbooks; falta monitoreo de fallos y una estrategia formal de soporte. |
@@ -30,7 +30,8 @@ Mi evaluación es **beta avanzada / candidata a una publicación controlada**, n
 
 - Período financiero configurable, navegación entre períodos y cierre con apertura ordenada del siguiente.
 - Configuración de saldos iniciales al comenzar un período.
-- Resumen de disponible, ingresos, gastos, pagos de tarjeta y ajustes.
+- Resúmenes separados de período y patrimonio global, con métricas configurables.
+- Administración de Inicio para mostrar, ocultar y reordenar sus secciones.
 - Secciones desplegables para Billetera, Cupos disponibles, Metas de ahorro, Deudas y pagos, y Desglose.
 - Selección individual de qué medios de pago, tarjetas, metas, deudas y compras en cuotas aparecen en Inicio.
 - Área “Requiere tu atención” para vencimientos de tarjeta, confirmaciones recurrentes, límites de categoría y saldos negativos.
@@ -93,9 +94,9 @@ Mi evaluación es **beta avanzada / candidata a una publicación controlada**, n
 
 ## Estado técnico comprobado
 
-- 45 pantallas/rutas TSX y 27 tablas SQLite.
-- Esquema v27 con registro determinista de migraciones.
-- 144 pruebas funcionales y 4 pruebas específicas de migración aprobadas.
+- 46 pantallas/rutas TSX y 27 tablas SQLite.
+- Esquema v28 con registro determinista de migraciones.
+- 147 pruebas funcionales y 5 pruebas específicas de migración aprobadas.
 - Lint, TypeScript y contrato de esquema aprobados al momento de este informe.
 - Matriz de regresión que asigna todas las rutas a recorridos y exige artefactos automatizados.
 - E2E Maestro para onboarding, flujo financiero, configuración/localización y frontera de Google Drive.
