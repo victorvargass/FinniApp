@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 
 const source = readFileSync(new URL('../../lib/db.ts', import.meta.url), 'utf8');
+const v24Fixture = readFileSync(new URL('../fixtures/database/v24.sql', import.meta.url), 'utf8');
 
 function tableDefinition(name) {
   const statement = source.match(
@@ -39,29 +40,7 @@ test('schema v25 creates a complete clean database', () => {
 test('schema v25 creates expense shares on a v24 database without losing existing expenses', () => {
   const database = new DatabaseSync(':memory:');
   try {
-    database.exec(`
-      PRAGMA foreign_keys = ON;
-      CREATE TABLE periods (id INTEGER PRIMARY KEY);
-      CREATE TABLE categories (id INTEGER PRIMARY KEY);
-      CREATE TABLE payment_methods (id INTEGER PRIMARY KEY);
-      CREATE TABLE expenses (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        amount INTEGER NOT NULL,
-        category_id INTEGER,
-        period_id INTEGER NOT NULL,
-        date TEXT NOT NULL,
-        time TEXT NOT NULL DEFAULT '12:00'
-      );
-      CREATE TABLE contact_relationships (id INTEGER PRIMARY KEY);
-      CREATE TABLE contacts (id INTEGER PRIMARY KEY);
-      CREATE TABLE manual_debts (id INTEGER PRIMARY KEY);
-      INSERT INTO periods VALUES (1);
-      INSERT INTO expenses (id, name, amount, period_id, date)
-      VALUES (7, 'Compra compartida', 120000, 1, '2026-09-24');
-      INSERT INTO contacts VALUES (3);
-      INSERT INTO manual_debts VALUES (9);
-    `);
+    database.exec(v24Fixture);
 
     database.exec(tableDefinition('expense_shares'));
     database.exec(`

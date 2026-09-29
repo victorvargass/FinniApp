@@ -1,4 +1,10 @@
 {
+  "v24": {
+    "file": "v24.sql",
+    "expected": {
+      "expenses": { "count": 1, "total": 120000 }
+    }
+  },
   "v27": {
     "file": "v27.sql",
     "expected": {

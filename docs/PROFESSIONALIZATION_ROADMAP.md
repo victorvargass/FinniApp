@@ -10,9 +10,10 @@ bloque acordado.
 - [x] Aviso visible sobre la protección real del respaldo de Google Drive.
 - [x] Actualizaciones transitivas compatibles y política automatizada para
   alertas críticas/altas de dependencias.
-- [ ] Checklist verificable de publicación y Data Safety.
-- [ ] Matriz versionada de datos ficticios para migración/restauración.
-- [ ] Matriz manual de notificaciones en dispositivo real.
+- [x] Checklist verificable de publicación y Data Safety.
+- [x] Matriz versionada de datos ficticios v24/v27 para migraciones.
+- [x] Matriz manual de notificaciones en dispositivo real (pendiente ejecutar
+  contra cada candidata).
 
 ## 2. Calidad de producto
 
