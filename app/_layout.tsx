@@ -200,6 +200,10 @@ function AppContent() {
                   options={{ presentation: 'fullScreenModal', title: t('homeSettings.title') }}
                 />
                 <Stack.Screen
+                  name="modal/period-csv-export"
+                  options={{ presentation: 'fullScreenModal', title: t('csv.title') }}
+                />
+                <Stack.Screen
                   name="modal/google-drive"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.googleDrive') }}
                 />

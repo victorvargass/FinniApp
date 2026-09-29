@@ -646,24 +646,40 @@ export default function HomeScreen() {
           .map(renderHomeSection)}
 
       {selectedPeriodReport && hasPeriodMovements && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.exportButton,
-            { backgroundColor: colors.primary },
-            (pressed || isExporting) && styles.buttonPressed,
-          ]}
-          disabled={isExporting}
-          onPress={handleExport}
-        >
-          {isExporting ? (
-            <View style={styles.exportingContent}>
-              <ActivityIndicator size="small" color="#fff" />
-              <ThemedText style={styles.actionButtonText}>{t('historicalPeriod.generatingPdf')}</ThemedText>
-            </View>
-          ) : (
-            <ThemedText style={styles.actionButtonText}>{t('historicalPeriod.exportPdf')}</ThemedText>
-          )}
-        </Pressable>
+        <View style={styles.exportActions}>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.exportButton,
+              { backgroundColor: colors.primary },
+              (pressed || isExporting) && styles.buttonPressed,
+            ]}
+            disabled={isExporting}
+            onPress={handleExport}>
+            {isExporting ? (
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+            ) : (
+              <ThemedText style={[styles.actionButtonText, { color: colors.onPrimary }]}>
+                {t('historicalPeriod.exportPdfShort')}
+              </ThemedText>
+            )}
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.exportButton,
+              { borderColor: colors.primary, borderWidth: 1 },
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={() => router.push({
+              pathname: '/modal/period-csv-export' as never,
+              params: { periodId: String(selectedPeriodReport.periodId) },
+            })}>
+            <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>
+              {t('historicalPeriod.exportCsvShort')}
+            </ThemedText>
+          </Pressable>
+        </View>
       )}
 
       {isCurrentPeriod && hasPeriodMovements && (
@@ -882,6 +898,7 @@ const styles = StyleSheet.create({
   },
   configurableSection: { gap: 8 },
   exportButton: {
+    flex: 1,
     minHeight: 48,
     marginTop: 8,
     borderRadius: 10,
@@ -889,6 +906,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
+  exportActions: { flexDirection: 'row', gap: 10 },
   exportingContent: {
     flexDirection: 'row',
     alignItems: 'center',
