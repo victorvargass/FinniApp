@@ -1,4 +1,5 @@
 import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Pressable,
@@ -181,6 +182,13 @@ export default function GoogleDriveScreen() {
           <FeatureGuideButton onPress={guide.open} />
         </View>
 
+        <ThemedView style={[styles.securityNotice, { borderColor: colors.border }]}>
+          <Ionicons name="shield-checkmark-outline" size={22} color={colors.warning} />
+          <ThemedText style={[styles.securityNoticeText, { color: colors.textSecondary }]}>
+            {t('settings.backupSecurityNotice')}
+          </ThemedText>
+        </ThemedView>
+
         <ThemedView style={styles.card}>
           {isLoading ? (
             <View style={styles.loading}>
@@ -299,6 +307,19 @@ const styles = StyleSheet.create({
     elevation: 2,
     gap: 18,
     marginTop: 3,
+  },
+  securityNotice: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 13,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  securityNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
   },
   loading: {
     minHeight: 88,
