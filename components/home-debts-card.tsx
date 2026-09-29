@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
+import { visibleHomeDebtPlans, visibleHomeDebts, visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
 import { getCardDueDate } from '@/lib/payment-method-calculations';
 import type { Debt, DebtPlan, PaymentMethod } from '@/lib/types';
@@ -69,11 +70,13 @@ export function HomeDebtsCard({
   onOpenPlan,
   onOpenPaymentMethod,
 }: HomeDebtsCardProps) {
-  const activeDebts = debts.filter((item) => item.status === 'active');
+  const activeDebts = visibleHomeDebts(debts).filter((item) => item.status === 'active');
   const payableDebts = activeDebts.filter((item) => item.direction === 'payable');
   const receivableDebts = activeDebts.filter((item) => item.direction === 'receivable');
-  const activePlans = plans.filter((item) => item.status === 'active' || item.status === 'projected');
-  const creditCards = paymentMethods.filter((item) =>
+  const activePlans = visibleHomeDebtPlans(plans, paymentMethods).filter(
+    (item) => item.status === 'active' || item.status === 'projected'
+  );
+  const creditCards = visibleHomePaymentMethods(paymentMethods).filter((item) =>
     item.active && item.type === 'credit' && (item.usedAmount ?? 0) > 0
   );
   if (activeDebts.length === 0 && activePlans.length === 0 && creditCards.length === 0) return null;

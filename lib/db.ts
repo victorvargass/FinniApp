@@ -706,6 +706,7 @@ async function initializeDatabase(): Promise<void> {
       billing_day INTEGER,
       color TEXT NOT NULL DEFAULT '#0a7ea4',
       active INTEGER NOT NULL DEFAULT 1,
+      show_on_home INTEGER NOT NULL DEFAULT 1,
       credit_limit INTEGER,
       reported_balance INTEGER,
       balance_updated_at TEXT,
@@ -815,6 +816,7 @@ async function initializeDatabase(): Promise<void> {
       first_due_date TEXT NOT NULL,
       total_installments INTEGER NOT NULL,
       installment_amount INTEGER NOT NULL,
+      show_on_home INTEGER NOT NULL DEFAULT 1,
       status TEXT NOT NULL DEFAULT 'projected'
         CHECK (status IN ('projected', 'active', 'completed', 'cancelled')),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -886,6 +888,7 @@ async function initializeDatabase(): Promise<void> {
       target_amount INTEGER NOT NULL CHECK (target_amount > 0),
       initial_amount INTEGER NOT NULL DEFAULT 0 CHECK (initial_amount >= 0),
       allow_withdrawals INTEGER NOT NULL DEFAULT 1,
+      show_on_home INTEGER NOT NULL DEFAULT 1,
       balance_updated_at TEXT,
       balance_updated_time TEXT,
       balance_movement_anchor_id INTEGER NOT NULL DEFAULT 0,
@@ -980,6 +983,7 @@ async function initializeDatabase(): Promise<void> {
       income_category_id INTEGER,
       payment_method_id INTEGER,
       notes TEXT,
+      show_on_home INTEGER NOT NULL DEFAULT 1,
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paid', 'archived')),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1049,6 +1053,12 @@ async function initializeDatabase(): Promise<void> {
   await ensureColumn(db, 'manual_debts', 'contact_id', 'INTEGER REFERENCES contacts(id) ON DELETE SET NULL');
   await ensureColumn(db, 'manual_debts', 'income_category_id', 'INTEGER REFERENCES income_categories(id) ON DELETE SET NULL');
   await ensureColumn(db, 'manual_debt_entries', 'income_id', 'INTEGER REFERENCES incomes(id) ON DELETE CASCADE');
+  if (previousSchemaVersion < 27) {
+    await ensureColumn(db, 'payment_methods', 'show_on_home', 'INTEGER NOT NULL DEFAULT 1');
+    await ensureColumn(db, 'savings_goals', 'show_on_home', 'INTEGER NOT NULL DEFAULT 1');
+    await ensureColumn(db, 'manual_debts', 'show_on_home', 'INTEGER NOT NULL DEFAULT 1');
+    await ensureColumn(db, 'debt_plans', 'show_on_home', 'INTEGER NOT NULL DEFAULT 1');
+  }
 
   const expenseColumns = await db.getAllAsync<{ name: string }>(
     'PRAGMA table_info(expenses)'
@@ -1445,6 +1455,7 @@ async function initializeDatabase(): Promise<void> {
         billing_day INTEGER,
         color TEXT NOT NULL DEFAULT '#0a7ea4',
         active INTEGER NOT NULL DEFAULT 1,
+        show_on_home INTEGER NOT NULL DEFAULT 1,
         credit_limit INTEGER,
         reported_balance INTEGER,
         balance_updated_at TEXT,
@@ -1459,13 +1470,13 @@ async function initializeDatabase(): Promise<void> {
         UNIQUE(name, type)
       );
       INSERT INTO payment_methods_new (
-        id, name, type, system_key, billing_day, color, active, credit_limit,
+        id, name, type, system_key, billing_day, color, active, show_on_home, credit_limit,
         reported_balance, balance_updated_at, balance_synced_at,
         balance_expense_anchor_id, balance_payment_anchor_id, balance_income_anchor_id,
         balance_adjustment_anchor_id, balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
       )
       SELECT
-        id, name, type, system_key, billing_day, color, active, credit_limit,
+        id, name, type, system_key, billing_day, color, active, show_on_home, credit_limit,
         reported_balance, balance_updated_at, balance_synced_at,
         balance_expense_anchor_id, balance_payment_anchor_id, balance_income_anchor_id,
         balance_adjustment_anchor_id, balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
@@ -2870,6 +2881,7 @@ function mapSavingsGoal(row: Record<string, unknown>): SavingsGoal {
     targetAmount: Number(row.target_amount),
     initialAmount: Number(row.initial_amount),
     allowWithdrawals: Number(row.allow_withdrawals) === 1,
+    showOnHome: Number(row.show_on_home ?? 1) === 1,
     creationDate: String(row.created_at).slice(0, 10),
     balanceDate: row.balance_updated_at == null ? String(row.created_at).slice(0, 10) : String(row.balance_updated_at),
     balanceTime: row.balance_updated_time == null ? undefined : String(row.balance_updated_time),
@@ -3147,13 +3159,14 @@ export async function createSavingsGoal(data: NewSavingsGoal): Promise<number> {
   await assertUniqueSavingsGoalName(db, data.name);
   const result = await db.runAsync(
     `INSERT INTO savings_goals
-      (name, target_amount, initial_amount, allow_withdrawals, balance_updated_at,
+      (name, target_amount, initial_amount, allow_withdrawals, show_on_home, balance_updated_at,
        balance_updated_time, balance_movement_anchor_id, created_at, deadline, color, group_id, status)
-     VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 'active')`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 'active')`,
     data.name.trim(),
     data.targetAmount,
     data.initialAmount,
     data.allowWithdrawals ? 1 : 0,
+    data.showOnHome ? 1 : 0,
     resolveBalanceTrackingStartDate(data.balanceDate),
     resolveEventTime(data.balanceTime),
     `${data.creationDate} 12:00:00`,
@@ -3200,12 +3213,12 @@ export async function updateSavingsGoal(id: number, data: NewSavingsGoal): Promi
       : Number(latestMovement?.id ?? 0);
     await transaction.runAsync(
       `UPDATE savings_goals SET
-         name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?,
+         name = ?, target_amount = ?, initial_amount = ?, allow_withdrawals = ?, show_on_home = ?,
          created_at = ?, deadline = ?, color = ?, group_id = ?, balance_updated_at = ?,
          balance_updated_time = ?, balance_movement_anchor_id = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       data.name.trim(), data.targetAmount, data.initialAmount,
-      data.allowWithdrawals ? 1 : 0, `${data.creationDate} 12:00:00`,
+      data.allowWithdrawals ? 1 : 0, data.showOnHome ? 1 : 0, `${data.creationDate} 12:00:00`,
       data.deadline, data.color.toLowerCase(), data.groupId ?? null, data.balanceDate,
       data.balanceTime ?? existing.balance_updated_time ?? resolveEventTime(undefined), anchor, id
     );
@@ -3404,6 +3417,7 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
     billingDay: row.billing_day == null ? null : Number(row.billing_day),
     color: row.color as string,
     active: Number(row.active) === 1,
+    showOnHome: Number(row.show_on_home ?? 1) === 1,
     creditLimit,
     reportedBalance,
     balanceUpdatedAt: row.balance_updated_at == null ? null : String(row.balance_updated_at),
@@ -4012,13 +4026,14 @@ export async function createPaymentMethod(data: NewPaymentMethod): Promise<void>
   await assertUniquePaymentMethodName(db, data);
   await db.runAsync(
     `INSERT INTO payment_methods (
-       name, type, billing_day, color, active, credit_limit, reported_balance,
+       name, type, billing_day, color, active, show_on_home, credit_limit, reported_balance,
        balance_updated_at, balance_updated_time, balance_synced_at, payment_due_day
-     ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
+     ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
     data.name.trim(),
     data.type,
     data.type === 'credit' ? data.billingDay : null,
     data.color.toLowerCase(),
+    data.showOnHome ? 1 : 0,
     data.type === 'credit' ? data.creditLimit : null,
     data.reportedBalance,
     data.balanceDate,
@@ -4040,13 +4055,14 @@ export async function updatePaymentMethod(id: number, data: NewPaymentMethod): P
   await assertUniquePaymentMethodName(db, immutableTypeData, id);
   await db.runAsync(
     `UPDATE payment_methods
-     SET name = ?, billing_day = ?, color = ?, credit_limit = ?, payment_due_day = ?
+     SET name = ?, billing_day = ?, color = ?, credit_limit = ?, payment_due_day = ?, show_on_home = ?
      WHERE id = ?`,
     data.name.trim(),
     current.type === 'credit' ? data.billingDay : null,
     data.color.toLowerCase(),
     current.type === 'credit' ? data.creditLimit : null,
     current.type === 'credit' ? data.paymentDueDay : null,
+    data.showOnHome ? 1 : 0,
     id
   );
 }
@@ -4649,6 +4665,7 @@ export async function getDebtPlans(paymentMethodId?: number): Promise<DebtPlan[]
     totalAmount: Number(row.total_amount), categoryId: row.category_id == null ? null : Number(row.category_id),
     paymentMethodId: Number(row.payment_method_id), purchaseDate: String(row.purchase_date),
     firstDueDate: String(row.first_due_date), totalInstallments: Number(row.total_installments),
+    showOnHome: Number(row.show_on_home ?? 1) === 1,
     installmentAmount: Number(row.installment_amount), status: row.status as DebtPlan['status'],
     paymentMethodName: String(row.payment_method_name), paymentMethodColor: String(row.payment_method_color),
     categoryName: row.category_name == null ? null : String(row.category_name),
@@ -4690,6 +4707,15 @@ export async function getRelationshipTypes(): Promise<RelationshipType[]> {
   const db = await getDb();
   return db.getAllAsync<RelationshipType>(
     'SELECT id, name, color FROM contact_relationships ORDER BY name COLLATE NOCASE'
+  );
+}
+
+export async function setDebtPlanShowOnHome(id: number, showOnHome: boolean): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'UPDATE debt_plans SET show_on_home = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    showOnHome ? 1 : 0,
+    id
   );
 }
 
@@ -4875,6 +4901,7 @@ function mapDebt(row: Record<string, unknown>): Debt {
     incomeCategoryId: row.income_category_id == null ? null : Number(row.income_category_id),
     paymentMethodId: row.payment_method_id == null ? null : Number(row.payment_method_id),
     notes: row.notes == null ? null : String(row.notes),
+    showOnHome: Number(row.show_on_home ?? 1) === 1,
     status,
     currentBalance,
     balanceUpdatedAt: row.balance_updated_at == null ? null : String(row.balance_updated_at),
@@ -4999,15 +5026,15 @@ export async function createDebt(data: NewDebt): Promise<number> {
   const result = await db.runAsync(
     `INSERT INTO manual_debts
       (type, direction, name, creditor, contact_id, initial_amount, balance_updated_at, balance_updated_time, balance_payment_anchor_id,
-       installment_amount, frequency, first_due_date, category_id, income_category_id, payment_method_id, notes, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       installment_amount, frequency, first_due_date, category_id, income_category_id, payment_method_id, notes, show_on_home, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     data.type, data.direction, data.name.trim(), data.creditor?.trim() || null, data.contactId, data.initialAmount,
     resolveBalanceTrackingStartDate(data.balanceDate),
     resolveEventTime(data.balanceTime),
     data.installmentAmount,
     data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
     data.installmentAmount != null ? data.firstDueDate : null,
-    data.categoryId, data.incomeCategoryId, data.paymentMethodId, data.notes?.trim() || null,
+    data.categoryId, data.incomeCategoryId, data.paymentMethodId, data.notes?.trim() || null, data.showOnHome ? 1 : 0,
     `${data.creationDate} 12:00:00`
   );
   return result.lastInsertRowId;
@@ -5062,14 +5089,14 @@ export async function updateDebt(id: number, data: NewDebt): Promise<void> {
       ? existing.balance_payment_anchor_id : Number(latestPayment?.id ?? 0);
     await transaction.runAsync(
       `UPDATE manual_debts SET direction = ?, name = ?, creditor = ?, contact_id = ?, initial_amount = ?, installment_amount = ?,
-        frequency = ?, first_due_date = ?, category_id = ?, income_category_id = ?, payment_method_id = ?, notes = ?, created_at = ?,
+        frequency = ?, first_due_date = ?, category_id = ?, income_category_id = ?, payment_method_id = ?, notes = ?, show_on_home = ?, created_at = ?,
         balance_updated_at = ?, balance_updated_time = ?, balance_payment_anchor_id = ?,
         updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       data.direction, data.name.trim(), data.creditor?.trim() || null, data.contactId, data.initialAmount,
       data.installmentAmount,
       data.type === 'fixed' ? data.frequency : data.installmentAmount != null ? 'monthly' : null,
       data.installmentAmount != null ? data.firstDueDate : null,
-      data.categoryId, data.incomeCategoryId, data.paymentMethodId, data.notes?.trim() || null,
+      data.categoryId, data.incomeCategoryId, data.paymentMethodId, data.notes?.trim() || null, data.showOnHome ? 1 : 0,
       `${data.creationDate} 12:00:00`,
       resolveBalanceTrackingStartDate(data.balanceDate),
       data.balanceTime ?? existing.balance_updated_time ?? resolveEventTime(undefined),

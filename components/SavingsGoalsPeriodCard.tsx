@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
+import { visibleHomeSavingsActivity } from '@/lib/home-visibility';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { groupSavingsItems } from '@/lib/savings-grouping';
 import type { SavingsGoal, SavingsGoalPeriodActivity, SavingsGroup } from '@/lib/types';
@@ -53,17 +54,19 @@ export function SavingsGoalsPeriodCard({
   onOpenGoal,
 }: SavingsGoalsPeriodCardProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
-  if (items.length === 0) return null;
-  const savedTotal = items.reduce((sum, item) => sum + item.closingAmount, 0);
-  const summaryKey = items.length === 1 ? 'savings.homeSummaryOne' : 'savings.homeSummaryOther';
-  const groupByGoalId = new Map(goals.map((goal) => [goal.id, goal.groupId]));
-  const sections = groupSavingsItems(items, groups,
+  const visibleGoals = goals.filter((goal) => goal.showOnHome !== false);
+  const visibleItems = visibleHomeSavingsActivity(items, goals);
+  if (visibleItems.length === 0) return null;
+  const savedTotal = visibleItems.reduce((sum, item) => sum + item.closingAmount, 0);
+  const summaryKey = visibleItems.length === 1 ? 'savings.homeSummaryOne' : 'savings.homeSummaryOther';
+  const groupByGoalId = new Map(visibleGoals.map((goal) => [goal.id, goal.groupId]));
+  const sections = groupSavingsItems(visibleItems, groups,
     (item) => groupByGoalId.get(item.goalId) ?? null, t('common.notSpecified'));
 
   return (
     <ExpandableFinanceCard
       title={t('savings.title')}
-      summary={t(summaryKey, { count: items.length, amount: formatCLP(savedTotal) })}
+      summary={t(summaryKey, { count: visibleItems.length, amount: formatCLP(savedTotal) })}
       backgroundColor={backgroundColor}
       manageAccessibilityLabel={t('savings.detailsAccessibility')}
       onManage={onManage}>

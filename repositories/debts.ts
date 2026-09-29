@@ -16,6 +16,7 @@ export {
   processProjectedInstallments,
   restoreRemovedInstallment,
   setDebtArchived,
+  setDebtPlanShowOnHome,
   settleInstallmentPlan,
   updateDebt,
   updateDebtPayment,

@@ -662,6 +662,10 @@ const es = {
     weeklyTopCategory: 'Tu mayor gasto fue %{category}: %{amount}.',
     savingsMilestone: 'La meta “%{name}” alcanzó el %{percent}%.',
   },
+  homeVisibility: {
+    title: 'Mostrar en Inicio',
+    hint: 'Incluye este elemento en los resúmenes de Inicio.',
+  },
   setup: {
     title: 'Configura FinniApp a tu ritmo',
     progress: '%{complete} de %{total} pasos completados',

@@ -149,6 +149,7 @@ type DatabaseContextValue = {
   addInstallmentPurchase: (data: NewInstallmentPurchase) => Promise<number>;
   activateInstallmentPlan: (id: number, periodId: number, actualAmount: number) => Promise<void>;
   settleInstallmentPlan: (id: number, periodId: number) => Promise<void>;
+  setDebtPlanShowOnHome: (id: number, showOnHome: boolean) => Promise<void>;
   restoreRemovedInstallment: (installmentId: number, periodId: number) => Promise<void>;
   removeInstallmentPlan: (id: number) => Promise<void>;
   getDebts: () => Promise<Debt[]>;
@@ -635,6 +636,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const setDebtPlanShowOnHome = useCallback(async (id: number, showOnHome: boolean) => {
+    await db.setDebtPlanShowOnHome(id, showOnHome);
+    await refresh();
+  }, [refresh]);
+
   const restoreRemovedInstallment = useCallback(async (installmentId: number, periodId: number) => {
     await db.restoreRemovedInstallment(installmentId, periodId);
     await refresh();
@@ -1112,6 +1118,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addInstallmentPurchase,
       activateInstallmentPlan,
       settleInstallmentPlan,
+      setDebtPlanShowOnHome,
       restoreRemovedInstallment,
       removeInstallmentPlan,
       getDebts,
@@ -1238,6 +1245,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       addInstallmentPurchase,
       activateInstallmentPlan,
       settleInstallmentPlan,
+      setDebtPlanShowOnHome,
       restoreRemovedInstallment,
       removeInstallmentPlan,
       getDebts,

@@ -6,6 +6,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ColorPicker } from '@/components/ColorPicker';
+import { HomeVisibilityPreference } from '@/components/home-visibility-preference';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
@@ -53,6 +54,7 @@ export default function PaymentMethodFormScreen() {
   const [showBalanceDate, setShowBalanceDate] = useState(false);
   const [showBalanceTime, setShowBalanceTime] = useState(false);
   const [color, setColor] = useState(method?.color ?? '#0B315B');
+  const [showOnHome, setShowOnHome] = useState(method?.showOnHome ?? true);
   const [saving, setSaving] = useState(false);
   const types: { value: PaymentMethodType; label: string }[] = [
     ...(method?.type === 'cash' ? [{ value: 'cash' as const, label: t('paymentMethods.cash') }] : []),
@@ -90,6 +92,7 @@ export default function PaymentMethodFormScreen() {
         balanceDate: reportedBalance == null ? null : balanceDate,
         balanceTime: reportedBalance == null ? null : balanceTime,
         paymentDueDay: type === 'credit' ? dueDay : null,
+        showOnHome,
       };
       if (method) await editPaymentMethod(method.id, data);
       else await addPaymentMethod(data);
@@ -212,6 +215,7 @@ export default function PaymentMethodFormScreen() {
       )}
       <ThemedText style={styles.label}>{t('categories.color')}</ThemedText>
       <ColorPicker value={color} onChange={setColor} />
+      <HomeVisibilityPreference value={showOnHome} onValueChange={setShowOnHome} />
       {type === 'credit' && (
         <>
           <ThemedText style={styles.label}>{t('paymentMethods.creditLimit')}</ThemedText>

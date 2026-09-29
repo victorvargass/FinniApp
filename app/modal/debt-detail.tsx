@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { HomeVisibilityPreference } from '@/components/home-visibility-preference';
 import { Colors, Fonts } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -27,7 +28,7 @@ function showResult(message: string) {
 export default function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const planId = Number(id);
-  const { periods, selectedPeriodId, getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, removeInstallmentPlan } = useDatabase();
+  const { periods, selectedPeriodId, getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, setDebtPlanShowOnHome, removeInstallmentPlan } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const { fontScale } = useWindowDimensions();
   const usesLargeText = fontScale >= 1.2;
@@ -101,6 +102,13 @@ export default function DebtDetailScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText type="title">{plan.name}</ThemedText>
         <ThemedText style={styles.secondary}>{t('installments.totalAgreed', { method: plan.paymentMethodName, amount: formatCLP(plan.totalAmount) })}</ThemedText>
+        <HomeVisibilityPreference
+          value={plan.showOnHome}
+          onValueChange={(showOnHome) => run(
+            () => setDebtPlanShowOnHome(plan.id, showOnHome),
+            t('errors.couldNotSave')
+          )}
+        />
 
         {plan.status === 'projected' && (
           <ThemedView style={styles.card}>

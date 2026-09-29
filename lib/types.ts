@@ -38,6 +38,7 @@ export type NewSavingsGoal = {
   targetAmount: number;
   initialAmount: number;
   allowWithdrawals: boolean;
+  showOnHome: boolean;
   creationDate: string;
   balanceDate: string;
   balanceTime?: string;
@@ -188,6 +189,7 @@ export type PaymentMethod = {
   billingDay: number | null;
   color: string;
   active: boolean;
+  showOnHome: boolean;
   creditLimit: number | null;
   reportedBalance: number | null;
   balanceUpdatedAt: string | null;
@@ -259,6 +261,7 @@ export type NewPaymentMethod = {
   balanceDate: string | null;
   balanceTime?: string | null;
   paymentDueDay: number | null;
+  showOnHome: boolean;
 };
 
 export type NewPaymentMethodBalance = {
@@ -360,6 +363,7 @@ export type DebtInstallment = {
 export type DebtPlan = NewInstallmentPurchase & {
   id: number;
   kind: 'credit_installment';
+  showOnHome: boolean;
   installmentAmount: number;
   status: DebtPlanStatus;
   paymentMethodName: string;
@@ -442,6 +446,7 @@ export type NewDebt = {
   incomeCategoryId: number | null;
   paymentMethodId: number | null;
   notes: string | null;
+  showOnHome: boolean;
 };
 
 export type DebtEntry = {

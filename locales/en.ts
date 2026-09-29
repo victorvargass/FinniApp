@@ -662,6 +662,10 @@ const en = {
     weeklyTopCategory: 'Your largest expense category was %{category}: %{amount}.',
     savingsMilestone: 'The “%{name}” goal reached %{percent}%.',
   },
+  homeVisibility: {
+    title: 'Show on Home',
+    hint: 'Include this item in the Home summaries.',
+  },
   setup: {
     title: 'Set up FinniApp at your pace',
     progress: '%{complete} of %{total} steps completed',

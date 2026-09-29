@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ColorPicker } from '@/components/ColorPicker';
 import { ColorSelect } from '@/components/forms/shared';
 import { SavingsGoalProgress } from '@/components/SavingsGoalProgress';
+import { HomeVisibilityPreference } from '@/components/home-visibility-preference';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
@@ -87,6 +88,7 @@ export default function SavingsGoalFormScreen() {
     goal ? formatCLPInput(goal.initialAmount) : formatCLPInput(0)
   );
   const [allowWithdrawals, setAllowWithdrawals] = useState(goal?.allowWithdrawals ?? true);
+  const [showOnHome, setShowOnHome] = useState(goal?.showOnHome ?? true);
   const [creationDate, setCreationDate] = useState(
     goal ? parseDate(goal.creationDate) : new Date()
   );
@@ -176,6 +178,7 @@ export default function SavingsGoalFormScreen() {
       targetAmount,
       initialAmount,
       allowWithdrawals,
+      showOnHome,
       creationDate: toDateString(creationDate),
       balanceDate: toDateString(balanceDate),
       balanceTime: toTimeString(balanceDate),
@@ -537,6 +540,8 @@ export default function SavingsGoalFormScreen() {
             value={allowWithdrawals}
           />
         </View>
+
+        <HomeVisibilityPreference value={showOnHome} onValueChange={setShowOnHome} />
 
         <ThemedText style={styles.label}>{t('common.creationDate')}</ThemedText>
         <Pressable

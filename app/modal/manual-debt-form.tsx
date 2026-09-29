@@ -5,6 +5,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SimpleSelect } from '@/components/simple-select';
+import { HomeVisibilityPreference } from '@/components/home-visibility-preference';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
@@ -49,6 +50,7 @@ export default function DebtFormScreen() {
   const [incomeCategoryId, setIncomeCategoryId] = useState<number | null>(defaultIncomeCategoryId);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
+  const [showOnHome, setShowOnHome] = useState(true);
   const [entryCount, setEntryCount] = useState(0);
   const [showDate, setShowDate] = useState(false);
   const [showCreationDate, setShowCreationDate] = useState(false);
@@ -70,6 +72,7 @@ export default function DebtFormScreen() {
       setBalanceTime(debt.balanceTime ?? debt.balanceUpdatedTime ?? toTimeString(new Date()));
       setFrequency(debt.frequency ?? 'monthly'); setFirstDueDate(debt.firstDueDate ?? toDateString(new Date()));
       setCategoryId(debt.categoryId); setIncomeCategoryId(debt.incomeCategoryId); setPaymentMethodId(debt.paymentMethodId); setNotes(debt.notes ?? ''); setEntryCount(debt.entryCount);
+      setShowOnHome(debt.showOnHome);
     }).catch(() => undefined);
   }, [debtId, getDebt]);
 
@@ -109,6 +112,7 @@ export default function DebtFormScreen() {
         categoryId: direction === 'payable' ? categoryId : null,
         incomeCategoryId: direction === 'receivable' ? incomeCategoryId : null,
         paymentMethodId, notes: notes.trim() || null,
+        showOnHome,
       };
       if (debtId != null) {
         await editDebt(debtId, data);
@@ -238,6 +242,7 @@ export default function DebtFormScreen() {
           <ThemedText style={styles.hint}>{t('debts.defaultCategoryHint')}</ThemedText>
           <SimpleSelect label={t('debts.defaultPaymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
           <Field label={t('debts.notes')} value={notes} onChangeText={setNotes} colors={colors} multiline placeholder={t('debts.notesPlaceholder')} />
+          <HomeVisibilityPreference value={showOnHome} onValueChange={setShowOnHome} />
         </ThemedView>
         <Pressable disabled={saving} onPress={() => { void save(); }} style={[styles.primary, saving && styles.disabled]}>
           <ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('common.save')}</ThemedText>

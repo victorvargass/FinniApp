@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
+import { visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
 import {
   getHomePaymentMethods,
@@ -30,7 +31,10 @@ export function HomePaymentBalancesCard({
   onOpenPaymentMethod,
 }: HomePaymentBalancesCardProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
-  const methods = getHomePaymentMethods(paymentMethods, kind);
+  const methods = getHomePaymentMethods(
+    visibleHomePaymentMethods(paymentMethods),
+    kind
+  );
   if (methods.length === 0) return null;
 
   const total = sumKnownAvailableBalances(methods);
