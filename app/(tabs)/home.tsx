@@ -22,6 +22,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { findMostUrgentCategoryLimit } from '@/lib/home-insights';
+import { dismissHomeAttention, getHomeAttentionDismissals } from '@/lib/home-attention-dismissals';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
@@ -93,6 +94,7 @@ export default function HomeScreen() {
   const [hasConfiguredPeriod, setHasConfiguredPeriod] = useState(false);
   const [homeDebts, setHomeDebts] = useState<Debt[]>([]);
   const [homeDebtPlans, setHomeDebtPlans] = useState<DebtPlan[]>([]);
+  const [dismissedAttentionIds, setDismissedAttentionIds] = useState<string[] | null>(null);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -105,6 +107,25 @@ export default function HomeScreen() {
       .catch(() => undefined);
     return () => { active = false; };
   }, [getDebtPlans, getDebts]));
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getHomeAttentionDismissals()
+      .then((ids) => { if (active) setDismissedAttentionIds(ids); })
+      .catch(() => { if (active) setDismissedAttentionIds([]); });
+    return () => { active = false; };
+  }, []));
+
+  const dismissAttention = useCallback((id: string) => {
+    setDismissedAttentionIds((current) => current == null || current.includes(id) ? current : [...current, id]);
+    dismissHomeAttention(id)
+      .then(setDismissedAttentionIds)
+      .then(() => showToast(t('home.attentionDismissed')))
+      .catch(() => {
+        setDismissedAttentionIds((current) => current?.filter((item) => item !== id) ?? []);
+        showToast(t('errors.couldNotSave'));
+      });
+  }, []);
 
   const withLimits = periodCategoryExpensesTotals.filter((item) => item.periodLimit != null && item.periodLimit > 0);
   const periodSavingsWithdrawals = periodSavingsGoalActivity.reduce((sum, item) => sum + item.withdrawals, 0);
@@ -166,8 +187,9 @@ export default function HomeScreen() {
 
   if (isCurrentPeriod && urgentCardPayment) {
     const isOverdue = urgentCardPayment.daysUntil < 0;
+    const attentionId = `card-due-${urgentCardPayment.method.id}-${toDateString(urgentCardPayment.dueDate)}-${urgentCardPayment.method.billedAmount}`;
     attentionItems.push({
-      key: `card-due-${urgentCardPayment.method.id}`,
+      key: attentionId,
       icon: isOverdue ? 'alert-circle-outline' : 'calendar-outline',
       title: t(isOverdue ? 'home.cardPaymentOverdueTitle' : 'home.cardPaymentDueTitle'),
       body: t(isOverdue ? 'home.cardPaymentOverdueBody' : 'home.cardPaymentDueBody', {
@@ -180,23 +202,31 @@ export default function HomeScreen() {
         pathname: '/modal/payment-method-detail',
         params: { id: String(urgentCardPayment.method.id) },
       }),
+      onDismiss: () => dismissAttention(attentionId),
     });
   }
 
   if (isCurrentPeriod && pendingConfirmationCount > 0) {
+    const attentionId = `recurrences-${recurringDecisions
+      .filter((item) => item.status === 'pending')
+      .map((item) => `${item.kind}-${item.recurringId}-${item.scheduledDate}`)
+      .sort()
+      .join('_')}`;
     attentionItems.push({
-      key: 'recurrences',
+      key: attentionId,
       icon: 'notifications-outline',
       title: t('home.pendingRecurringTitle'),
       body: t('home.pendingRecurringBody', { count: pendingConfirmationCount }),
       tone: 'warning',
       onPress: () => router.push('/modal/recurring-confirmations'),
+      onDismiss: () => dismissAttention(attentionId),
     });
   }
   if (isCurrentPeriod && urgentLimit?.periodLimit) {
     const exceeded = urgentLimit.ratio >= 1;
+    const attentionId = `limit-${selectedPeriod?.id ?? 'none'}-${urgentLimit.categoryId ?? 'none'}-${exceeded ? 'exceeded' : 'near'}-${urgentLimit.periodLimit}`;
     attentionItems.push({
-      key: `limit-${urgentLimit.categoryId ?? 'none'}`,
+      key: attentionId,
       icon: exceeded ? 'alert-circle-outline' : 'speedometer-outline',
       title: t(exceeded ? 'home.limitExceededTitle' : 'home.limitNearTitle'),
       body: t(exceeded ? 'home.limitExceededBody' : 'home.limitNearBody', {
@@ -214,11 +244,13 @@ export default function HomeScreen() {
           filterRequestId: String(Date.now()),
         },
       }),
+      onDismiss: () => dismissAttention(attentionId),
     });
   }
   if (isCurrentPeriod && negativePaymentMethod?.availableBalance != null) {
+    const attentionId = `payment-${selectedPeriod?.id ?? 'none'}-${negativePaymentMethod.id}`;
     attentionItems.push({
-      key: `payment-${negativePaymentMethod.id}`,
+      key: attentionId,
       icon: 'card-outline',
       title: t('home.negativeBalanceTitle'),
       body: t('home.negativeBalanceBody', {
@@ -230,8 +262,12 @@ export default function HomeScreen() {
         pathname: '/modal/payment-method-detail',
         params: { id: String(negativePaymentMethod.id) },
       }),
+      onDismiss: () => dismissAttention(attentionId),
     });
   }
+  const visibleAttentionItems = dismissedAttentionIds == null
+    ? []
+    : attentionItems.filter((item) => !dismissedAttentionIds.includes(item.key));
 
   async function saveStartDate(selected: Date) {
     const selectedDateStr = toDateString(selected);
@@ -399,8 +435,8 @@ export default function HomeScreen() {
           expenseTotal={periodOverviewExpensesTotal}
           cardPaymentsTotal={selectedPeriodReport?.cardPaymentsFromAccountsTotal ?? 0}
           cardAdjustmentsTotal={selectedPeriodReport?.cardInternalAdjustmentsTotal ?? 0}
-          attentionItems={attentionItems}
-          showAttention={Boolean(isCurrentPeriod)}
+          attentionItems={visibleAttentionItems}
+          showAttention={Boolean(isCurrentPeriod && dismissedAttentionIds != null)}
           onOpenNotifications={() => router.push('/modal/recurring-confirmations')}
         />
         {isCurrentPeriod && (

@@ -630,6 +630,8 @@ const es = {
     cardPaymentBalanceImpact: 'Abonos desde cuentas: -%{amount}',
     cardAdjustmentBalanceImpact: 'Devoluciones y ajustes: +%{amount}',
     attention: 'Requiere tu atención',
+    dismissAttention: 'Descartar aviso',
+    attentionDismissed: 'Aviso descartado',
     upToDate: 'Todo está al día',
     upToDateHint: 'No hay pendientes importantes en este momento.',
     viewNotifications: 'Ver notificaciones',

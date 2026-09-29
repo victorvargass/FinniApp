@@ -630,6 +630,8 @@ const en = {
     cardPaymentBalanceImpact: 'Payments from accounts: -%{amount}',
     cardAdjustmentBalanceImpact: 'Refunds and adjustments: +%{amount}',
     attention: 'Needs your attention',
+    dismissAttention: 'Dismiss alert',
+    attentionDismissed: 'Alert dismissed',
     upToDate: 'Everything is up to date',
     upToDateHint: 'There are no important pending items right now.',
     viewNotifications: 'View notifications',

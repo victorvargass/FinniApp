@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { resetHomeAttentionDismissals } from './home-attention-dismissals';
 
 export const DEFAULT_CATEGORY_COUNT = 12;
 
@@ -54,13 +55,16 @@ export async function confirmFirstPeriodDate(
 }
 
 export async function resetSetupProgress(): Promise<void> {
-  await AsyncStorage.multiRemove([
-    PERIOD_CONFIGURED_KEY,
-    PERIOD_START_CONFIRMED_KEY,
-    PERIOD_END_CONFIRMED_KEY,
-    SETUP_COMPLETE_KEY,
-    BACKUP_SKIPPED_KEY,
-    SAVINGS_SKIPPED_KEY,
-    ...LEGACY_SETUP_KEYS,
+  await Promise.all([
+    AsyncStorage.multiRemove([
+      PERIOD_CONFIGURED_KEY,
+      PERIOD_START_CONFIRMED_KEY,
+      PERIOD_END_CONFIRMED_KEY,
+      SETUP_COMPLETE_KEY,
+      BACKUP_SKIPPED_KEY,
+      SAVINGS_SKIPPED_KEY,
+      ...LEGACY_SETUP_KEYS,
+    ]),
+    resetHomeAttentionDismissals(),
   ]);
 }
