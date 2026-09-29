@@ -15,6 +15,7 @@
     "test": "node --no-warnings --experimental-strip-types --test tests/*.test.mjs",
     "test:database-migrations": "node --no-warnings --experimental-strip-types --test tests/schema-migrations/*.test.mjs",
     "check:database-schema": "node scripts/check-database-schema.mjs",
+    "audit:security": "node scripts/check-dependency-security.mjs",
     "check": "npm run check:database-schema && npm run lint && npx tsc --noEmit && npm test && npm run test:database-migrations",
     "export:android": "expo export --platform android",
     "e2e:android": "maestro test .maestro/onboarding-full.yml .maestro/smoke-financial.yml .maestro/settings-and-localization.yml .maestro/google-drive-boundary.yml",
