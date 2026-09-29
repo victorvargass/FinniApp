@@ -37,6 +37,8 @@ export function NameSuggestions({ suggestions, onSelect }: NameSuggestionsProps)
       <ThemedText style={styles.nameSuggestionsLabel}>{t('common.suggestions')}</ThemedText>
       {suggestions.map((suggestion) => (
         <Pressable
+          accessibilityLabel={suggestion}
+          accessibilityRole="button"
           key={suggestion}
           onPressIn={() => onSelect(suggestion)}
           style={styles.nameSuggestion}>
@@ -84,7 +86,8 @@ export function ColorSelect({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${selected.label}`}
-        accessibilityState={{ disabled }}
+        accessibilityHint={t('accessibility.openSelector')}
+        accessibilityState={{ disabled, expanded: visible }}
         disabled={disabled}
         onPress={() => setVisible(true)}
         style={({ pressed }) => [
@@ -105,9 +108,10 @@ export function ColorSelect({
         transparent
         visible={visible && !disabled}
         onRequestClose={closeSelect}>
-        <Pressable style={styles.selectOverlay} onPress={closeSelect}>
-          <Pressable style={styles.selectSheet} onPress={(event) => event.stopPropagation()}>
+        <Pressable accessible={false} style={styles.selectOverlay} onPress={closeSelect}>
+          <Pressable accessible={false} style={styles.selectSheet} onPress={(event) => event.stopPropagation()}>
             <ThemedView
+              accessibilityViewIsModal
               style={[
                 styles.selectContent,
                 {
@@ -134,6 +138,7 @@ export function ColorSelect({
                   {searchQuery.length > 0 && (
                     <Pressable
                       accessibilityLabel={t('common.clearSearch')}
+                      accessibilityRole="button"
                       hitSlop={10}
                       onPress={() => setSearchQuery('')}>
                       <Ionicons name="close-circle" size={20} color={colors.icon} />
@@ -149,6 +154,9 @@ export function ColorSelect({
                     <View key={option.value ?? 'none'}>
                       {showGroup && <ThemedText style={styles.selectGroup}>{option.group}</ThemedText>}
                       <Pressable
+                        accessibilityLabel={option.label}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: isSelected }}
                         onPress={() => {
                           onChange(option.value);
                           closeSelect();
@@ -174,6 +182,7 @@ export function ColorSelect({
                 )}
               </ScrollView>
               <Pressable
+                accessibilityRole="button"
                 onPress={closeSelect}
                 style={[styles.selectClose, { borderColor: colors.border }]}>
                 <ThemedText type="defaultSemiBold">{t('common.cancel')}</ThemedText>

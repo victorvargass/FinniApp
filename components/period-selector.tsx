@@ -33,6 +33,8 @@ export function PeriodSelector() {
       ]}>
       <Pressable
         accessibilityLabel={t('accessibility.previousPeriod')}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !previousPeriod }}
         disabled={!previousPeriod}
         hitSlop={8}
         onPress={() => previousPeriod && selectPeriod(previousPeriod.id)}
@@ -53,6 +55,8 @@ export function PeriodSelector() {
 
       <Pressable
         accessibilityLabel={t('accessibility.nextPeriod')}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !nextPeriod }}
         disabled={!nextPeriod}
         hitSlop={8}
         onPress={() => nextPeriod && selectPeriod(nextPeriod.id)}

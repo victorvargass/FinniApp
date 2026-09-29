@@ -52,7 +52,14 @@ export function SimpleSelect<T extends string | number | null>({
   return (
     <View style={styles.group}>
       <ThemedText style={styles.label}>{label}</ThemedText>
-      <Pressable disabled={disabled} onPress={() => setVisible(true)} style={[styles.field, { borderColor: colors.border }, disabled && styles.disabled]}>
+      <Pressable
+        accessibilityHint={t('accessibility.openSelector')}
+        accessibilityLabel={`${label}: ${selected?.label ?? ''}`}
+        accessibilityRole="button"
+        accessibilityState={{ disabled, expanded: visible }}
+        disabled={disabled}
+        onPress={() => setVisible(true)}
+        style={[styles.field, { borderColor: colors.border }, disabled && styles.disabled]}>
         <View style={styles.value}>
           {selected?.color && <View style={[styles.dot, { backgroundColor: selected.color }]} />}
           <ThemedText numberOfLines={1} style={styles.valueText}>{selected?.label}</ThemedText>
@@ -60,8 +67,8 @@ export function SimpleSelect<T extends string | number | null>({
         <Ionicons name="chevron-down" size={20} color={colors.icon} />
       </Pressable>
       <Modal transparent animationType="fade" visible={visible} onRequestClose={closeSelect}>
-        <Pressable style={styles.overlay} onPress={closeSelect}>
-          <Pressable style={styles.dialogPosition} onPress={(event) => event.stopPropagation()}>
+        <Pressable accessible={false} style={styles.overlay} onPress={closeSelect}>
+          <Pressable accessible={false} style={styles.dialogPosition} onPress={(event) => event.stopPropagation()}>
             <ThemedView style={[
               styles.sheet,
               {
@@ -71,7 +78,7 @@ export function SimpleSelect<T extends string | number | null>({
                   : Math.min(520, 100 + options.length * 56),
                 maxHeight: modalSize === 'large' ? '82%' : '72%',
               },
-            ]}>
+            ]} accessibilityViewIsModal>
               <ThemedText type="subtitle">{label}</ThemedText>
               {searchable && (
                 <View style={[styles.search, { borderColor: colors.border }]}>
@@ -88,7 +95,11 @@ export function SimpleSelect<T extends string | number | null>({
                     value={searchQuery}
                   />
                   {searchQuery.length > 0 && (
-                    <Pressable accessibilityLabel={t('common.clearSearch')} hitSlop={10} onPress={() => setSearchQuery('')}>
+                    <Pressable
+                      accessibilityLabel={t('common.clearSearch')}
+                      accessibilityRole="button"
+                      hitSlop={10}
+                      onPress={() => setSearchQuery('')}>
                       <Ionicons name="close-circle" size={20} color={colors.icon} />
                     </Pressable>
                   )}
@@ -102,6 +113,9 @@ export function SimpleSelect<T extends string | number | null>({
                     <View key={`${String(option.value)}-${index}`}>
                       {showGroup && <ThemedText style={styles.groupLabel}>{option.group}</ThemedText>}
                       <Pressable
+                        accessibilityLabel={option.label}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: active }}
                         onPress={() => { onChange(option.value); closeSelect(); }}
                         style={[styles.option, { borderColor: active ? colors.primary : colors.border }, active && { backgroundColor: colors.primary + '14' }]}>
                         <View style={styles.value}>

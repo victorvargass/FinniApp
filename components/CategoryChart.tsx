@@ -92,6 +92,10 @@ export function CategoryChart({
       <View style={styles.legend}>
         {pieData.map((item) => (
           <Pressable
+            accessibilityHint={t('accessibility.chartItemHint')}
+            accessibilityLabel={`${item.text}: ${formatCLP(item.value)}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: item.categoryKey === selectedCategoryKey }}
             key={item.categoryKey}
             style={styles.legendRow}
             onPress={() => {
@@ -162,6 +166,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   legendRow: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,

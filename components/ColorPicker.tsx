@@ -61,8 +61,15 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
 
       <Modal animationType="fade" transparent visible={isModalVisible} onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalVisible(false)} accessibilityLabel={t('accessibility.closeColorPicker')} />
-          <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
+          <Pressable
+            accessibilityLabel={t('accessibility.closeColorPicker')}
+            accessibilityRole="button"
+            onPress={() => setModalVisible(false)}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            accessibilityViewIsModal
+            style={[styles.modalContent, { backgroundColor: colors.background }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>{t('categories.pickerTitle')}</Text>
             <View style={[styles.modalPreview, { backgroundColor: isDraftValid ? draftColor : '#D8E1E8' }]} />
             <ReanimatedColorPicker
@@ -76,6 +83,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
             </ReanimatedColorPicker>
             <Text style={[styles.modalHint, { color: colors.icon }]}>{t('categories.colorHex')}</Text>
             <TextInput
+              accessibilityLabel={t('accessibility.colorHexInput')}
               autoCapitalize="none"
               autoCorrect={false}
               maxLength={7}
@@ -87,10 +95,15 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
             />
             {!isDraftValid && <Text style={styles.errorText}>{t('validation.invalidColorFormat')}</Text>}
             <View style={styles.modalActions}>
-              <Pressable onPress={() => setModalVisible(false)} style={[styles.button, styles.cancelButton, { borderColor: colors.icon }]}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setModalVisible(false)}
+                style={[styles.button, styles.cancelButton, { borderColor: colors.icon }]}>
                 <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !isDraftValid }}
                 disabled={!isDraftValid}
                 onPress={() => {
                   onChange(draftColor.toLowerCase());
@@ -207,6 +220,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   button: {
+    minHeight: 44,
     minWidth: 96,
     alignItems: 'center',
     borderRadius: 8,

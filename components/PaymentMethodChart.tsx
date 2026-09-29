@@ -88,7 +88,14 @@ export function PaymentMethodChart({
 
       <View style={styles.legend}>
         {pieData.map((item) => (
-          <Pressable key={item.key} style={styles.legendRow} onPress={() => handlePress(item)}>
+          <Pressable
+            accessibilityHint={t('accessibility.chartItemHint')}
+            accessibilityLabel={`${item.text}: ${formatCLP(item.value)}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: item.key === selectedKey }}
+            key={item.key}
+            onPress={() => handlePress(item)}
+            style={styles.legendRow}>
             <View
               style={[
                 styles.dot,
@@ -125,7 +132,7 @@ const styles = StyleSheet.create({
   centerAmount: { fontSize: 16, fontWeight: '700' },
   centerSub: { fontSize: 12, opacity: 0.6 },
   legend: { width: '100%', gap: 8 },
-  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  legendRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
   dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1 },
   legendName: { flex: 1, fontSize: 14 },
 });

@@ -17,11 +17,11 @@ bloque acordado.
 
 ## 2. Calidad de producto
 
-- [ ] Auditoría de accesibilidad esencial: etiquetas, orden de foco, tamaños
-  táctiles, texto grande, contraste y teclado.
+- [x] Auditoría de accesibilidad esencial y contrato para componentes
+  compartidos. La matriz TalkBack/VoiceOver se ejecuta por candidata.
 - [ ] E2E de pagos parciales, deudas por contacto, conciliación y cuotas.
 - [ ] Prueba automatizada de actualización desde una base anterior.
-- [ ] Exportación CSV con período y campos seleccionables.
+- [x] Exportación CSV con período y campos seleccionables.
 - [ ] Búsqueda global de movimientos, contactos, deudas, cuentas y metas.
 - [ ] Cobertura automatizada iOS y ronda documentada en dispositivo real.
 

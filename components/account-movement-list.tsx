@@ -97,14 +97,17 @@ function ChoiceModal({
   const insets = useSafeAreaInsets();
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheetPosition} onPress={(event) => event.stopPropagation()}>
-          <ThemedView style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+      <Pressable accessible={false} style={styles.overlay} onPress={onClose}>
+        <Pressable accessible={false} style={styles.sheetPosition} onPress={(event) => event.stopPropagation()}>
+          <ThemedView accessibilityViewIsModal style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
             <ThemedText type="subtitle">{title}</ThemedText>
             {options.map((option) => {
               const active = option.value === selected;
               return (
                 <Pressable
+                  accessibilityLabel={option.label}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: active }}
                   key={option.value}
                   onPress={() => onSelect(option.value)}
                   style={[
@@ -117,7 +120,7 @@ function ChoiceModal({
                 </Pressable>
               );
             })}
-            <Pressable onPress={onClose} style={[styles.close, { borderColor: colors.border }]}>
+            <Pressable accessibilityRole="button" onPress={onClose} style={[styles.close, { borderColor: colors.border }]}>
               <ThemedText type="defaultSemiBold">{t('common.close')}</ThemedText>
             </Pressable>
           </ThemedView>
@@ -222,6 +225,7 @@ export function AccountMovementList({
         <View style={[styles.search, { borderColor: colors.icon }]}>
           <Ionicons name="search" size={18} color={colors.icon} />
           <TextInput
+            accessibilityLabel={searchPlaceholder}
             autoCorrect={false}
             clearButtonMode="while-editing"
             onChangeText={setSearch}
@@ -231,7 +235,11 @@ export function AccountMovementList({
             value={search}
           />
           {search.length > 0 && (
-            <Pressable hitSlop={8} onPress={() => setSearch('')}>
+            <Pressable
+              accessibilityLabel={t('common.clearSearch')}
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => setSearch('')}>
               <Ionicons name="close-circle" size={18} color={colors.icon} />
             </Pressable>
           )}
@@ -243,6 +251,9 @@ export function AccountMovementList({
               const active = filterKey === option.value;
               return (
                 <Pressable
+                  accessibilityLabel={option.label}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: active }}
                   key={option.value}
                   onPress={() => setFilterKey(option.value)}
                   style={[
@@ -258,14 +269,22 @@ export function AccountMovementList({
         )}
 
         <View style={styles.toolbar}>
-          <Pressable onPress={() => setSortVisible(true)} style={[styles.toolbarButton, { borderColor: colors.icon }]}>
+          <Pressable
+            accessibilityLabel={`${t('filters.order')}: ${selectedSort}`}
+            accessibilityRole="button"
+            onPress={() => setSortVisible(true)}
+            style={[styles.toolbarButton, { borderColor: colors.icon }]}>
             <Ionicons name="swap-vertical" size={18} color={colors.icon} />
             <View style={styles.toolbarCopy}>
               <ThemedText type="defaultSemiBold">{t('filters.order')}</ThemedText>
               <ThemedText numberOfLines={1} style={styles.toolbarDetail}>{selectedSort}</ThemedText>
             </View>
           </Pressable>
-          <Pressable onPress={() => setGroupVisible(true)} style={[styles.toolbarButton, { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` }]}>
+          <Pressable
+            accessibilityLabel={`${t('filters.group')}: ${selectedGroup}`}
+            accessibilityRole="button"
+            onPress={() => setGroupVisible(true)}
+            style={[styles.toolbarButton, { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` }]}>
             <Ionicons name="layers-outline" size={18} color={colors.primary} />
             <View style={styles.toolbarCopy}>
               <ThemedText type="defaultSemiBold">{t('filters.group')}</ThemedText>
@@ -318,6 +337,7 @@ export function AccountMovementList({
           if (item.type === 'group') {
             return (
               <Pressable
+                accessibilityLabel={`${item.name}, ${formatCLP(item.total)}`}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: !item.collapsed }}
                 onPress={() => setCollapsedGroups((current) => current.includes(item.key)
@@ -337,7 +357,11 @@ export function AccountMovementList({
           }
           const movement = item.movement;
           return (
-            <Pressable onPress={movement.onPress} style={styles.movementPressable}>
+            <Pressable
+              accessibilityLabel={`${movement.title}, ${formatCLP(movement.amount)}, ${movement.description}, ${formatEventDateTime(movement.date, movement.time)}`}
+              accessibilityRole="button"
+              onPress={movement.onPress}
+              style={styles.movementPressable}>
               <ThemedView style={styles.movement}>
                 <View style={[styles.icon, { backgroundColor: `${movement.color}18` }]}>
                   <Ionicons name={movement.icon} size={20} color={movement.color} />
@@ -368,7 +392,7 @@ const styles = StyleSheet.create({
   search: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   searchInput: { flex: 1, padding: 0, fontSize: 16, fontFamily: Fonts.regular },
   chips: { gap: 8 },
-  chip: { minHeight: 36, borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  chip: { minHeight: 44, borderWidth: 1, borderRadius: 22, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   toolbar: { flexDirection: 'row', gap: 10 },
   toolbarButton: { flex: 1, minHeight: 60, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
   toolbarCopy: { flex: 1, gap: 1 },
