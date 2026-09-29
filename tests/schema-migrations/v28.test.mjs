@@ -6,6 +6,25 @@ import { DatabaseSync } from 'node:sqlite';
 const databaseSource = readFileSync(new URL('../../lib/db.ts', import.meta.url), 'utf8');
 const schemaSource = readFileSync(new URL('../../lib/database-schema.ts', import.meta.url), 'utf8');
 const registrySource = readFileSync(new URL('../../lib/schema-migrations.ts', import.meta.url), 'utf8');
+const fixtureSql = readFileSync(new URL('../fixtures/database/v27.sql', import.meta.url), 'utf8');
+const fixtureManifest = JSON.parse(
+  readFileSync(new URL('../fixtures/database/manifest.json', import.meta.url), 'utf8')
+).v27;
+
+function financialSnapshot(database) {
+  const aggregate = (table, column) => ({
+    count: database.prepare(`SELECT COUNT(*) AS value FROM ${table}`).get().value,
+    total: database.prepare(`SELECT COALESCE(SUM(${column}), 0) AS value FROM ${table}`).get().value,
+  });
+  return {
+    expenses: aggregate('expenses', 'amount'),
+    incomes: aggregate('incomes', 'amount'),
+    savingsGoals: aggregate('savings_goals', 'current_amount'),
+    manualDebts: aggregate('manual_debts', 'current_balance'),
+    debtPlans: aggregate('debt_plans', 'total_amount'),
+    recurringExpenses: aggregate('recurring_expenses', 'amount'),
+  };
+}
 
 test('schema v28 stores optional Home layout preferences without changing existing settings', () => {
   assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = 28/);
@@ -19,13 +38,17 @@ test('schema v28 stores optional Home layout preferences without changing existi
 
   const database = new DatabaseSync(':memory:');
   try {
-    database.exec(`
-      CREATE TABLE settings (id INTEGER PRIMARY KEY, current_period_id INTEGER);
-      INSERT INTO settings VALUES (1, 7);
-      ALTER TABLE settings ADD COLUMN home_preferences TEXT;
-    `);
+    database.exec(fixtureSql);
+    assert.deepEqual(financialSnapshot(database), fixtureManifest.expected);
+
+    database.exec('ALTER TABLE settings ADD COLUMN home_preferences TEXT;');
+    database.exec('PRAGMA user_version = 28;');
+
     const row = database.prepare('SELECT current_period_id, home_preferences FROM settings WHERE id = 1').get();
-    assert.deepEqual({ ...row }, { current_period_id: 7, home_preferences: null });
+    assert.deepEqual({ ...row }, { current_period_id: 1, home_preferences: null });
+    assert.deepEqual(financialSnapshot(database), fixtureManifest.expected);
+    assert.equal(database.prepare('PRAGMA user_version').get().user_version, 28);
+    assert.deepEqual(database.prepare('PRAGMA foreign_key_check').all(), []);
   } finally {
     database.close();
   }
