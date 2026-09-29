@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,7 +10,7 @@ import { Colors } from '@/constants/theme';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate, formatEventDateTime } from '@/lib/format';
-import { APP_LOCALE, t } from '@/lib/i18n';
+import { t } from '@/lib/i18n';
 import { getCardDueDate } from '@/lib/payment-method-calculations';
 import type { PaymentMethodMovement } from '@/lib/types';
 import { getPaymentMethodMovements } from '@/repositories/payment-methods';
@@ -24,13 +24,16 @@ export default function PaymentMethodDetailScreen() {
   const [movements, setMovements] = useState<PaymentMethodMovement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(true);
   const [movementsError, setMovementsError] = useState(false);
+  const [showAllMovements, setShowAllMovements] = useState(false);
+  const [showCalculation, setShowCalculation] = useState(false);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   useFocusEffect(useCallback(() => {
     if (!Number.isInteger(methodId)) return undefined;
     let active = true;
     setLoadingMovements(true);
     setMovementsError(false);
-    getPaymentMethodMovements(methodId, 6)
+    getPaymentMethodMovements(methodId, 200)
       .then((items) => {
         if (active) setMovements(items);
       })
@@ -42,6 +45,12 @@ export default function PaymentMethodDetailScreen() {
       });
     return () => { active = false; };
   }, [methodId]));
+
+  useEffect(() => {
+    if (method?.availableBalance != null && method.availableBalance < 0) {
+      setShowCalculation(true);
+    }
+  }, [method?.availableBalance]);
 
   if (!method) {
     return (
@@ -64,19 +73,8 @@ export default function PaymentMethodDetailScreen() {
     prepaid: t('paymentMethods.prepaid'),
     credit: t('paymentMethods.credit'),
   }[method.type];
-  const recentMovements = movements.slice(0, 5);
-  const hasMoreMovements = movements.length > recentMovements.length;
-  const openFilteredExpenses = () => {
-    router.dismissTo({
-      pathname: '/(tabs)/movements',
-      params: {
-        movementType: 'expenses',
-        categoryFilter: '',
-        paymentMethodFilter: String(method.id),
-        filterRequestId: String(Date.now()),
-      },
-    });
-  };
+  const recentMovements = showAllMovements ? movements : movements.slice(0, 3);
+  const hasMoreMovements = movements.length > 3;
   const action = (
     icon: keyof typeof Ionicons.glyphMap,
     label: string,
@@ -128,16 +126,6 @@ export default function PaymentMethodDetailScreen() {
               })}
             </ThemedText>
           )}
-          {method.balanceSyncedAt && (
-            <ThemedText style={styles.onCardSmall}>
-              {t('paymentMethods.balanceSyncedAt', {
-                date: new Date(method.balanceSyncedAt).toLocaleString(APP_LOCALE, {
-                  dateStyle: 'short',
-                  timeStyle: 'short',
-                }),
-              })}
-            </ThemedText>
-          )}
         </View>
 
         {method.availableBalance == null && (
@@ -162,69 +150,6 @@ export default function PaymentMethodDetailScreen() {
             </Pressable>
           </ThemedView>
         )}
-        {method.reportedBalance != null && method.availableBalance != null && (
-          <ThemedView style={styles.calculationCard}>
-            <ThemedText type="subtitle">{t(isCredit ? 'paymentMethods.calculationTitle' : 'paymentMethods.balanceCalculationTitle')}</ThemedText>
-            {method.balanceUpdatedAt && (
-              <ThemedText style={styles.hint}>
-                {t('paymentMethods.calculationSince', {
-                  date: formatDate(new Date(`${method.balanceUpdatedAt}T12:00:00`)),
-                })}
-              </ThemedText>
-            )}
-            <View style={styles.calculationRow}>
-              <ThemedText>{t('paymentMethods.reportedAvailable')}</ThemedText>
-              <ThemedText type="defaultSemiBold">{formatCLP(method.reportedBalance)}</ThemedText>
-            </View>
-            <View style={styles.calculationRow}>
-              <ThemedText>{t('paymentMethods.registeredExpenses')}</ThemedText>
-              <ThemedText style={{ color: colors.expense }}>−{formatCLP(method.registeredCharges)}</ThemedText>
-            </View>
-            {isCredit && (
-              <View style={styles.calculationRow}>
-                <ThemedText>{t('paymentMethods.installmentCommitments')}</ThemedText>
-                <ThemedText style={{ color: colors.expense }}>−{formatCLP(method.installmentCommitments)}</ThemedText>
-              </View>
-            )}
-            <View style={styles.calculationRow}>
-              <ThemedText>{t('paymentMethods.registeredPayments')}</ThemedText>
-              <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredPayments)}</ThemedText>
-            </View>
-            {method.registeredAdjustments > 0 && (
-              <View style={styles.calculationRow}>
-                <ThemedText>{t('paymentMethods.registeredAdjustments')}</ThemedText>
-                <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredAdjustments)}</ThemedText>
-              </View>
-            )}
-            <View style={styles.calculationRow}>
-              <ThemedText>{t('paymentMethods.registeredIncomes')}</ThemedText>
-              <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredIncomes)}</ThemedText>
-            </View>
-            {method.registeredTransfersOut > 0 && (
-              <View style={styles.calculationRow}>
-                <ThemedText>{t('transfers.sent')}</ThemedText>
-                <ThemedText style={{ color: colors.expense }}>−{formatCLP(method.registeredTransfersOut)}</ThemedText>
-              </View>
-            )}
-            {method.registeredTransfersIn > 0 && (
-              <View style={styles.calculationRow}>
-                <ThemedText>{t('transfers.received')}</ThemedText>
-                <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredTransfersIn)}</ThemedText>
-              </View>
-            )}
-            <View style={[styles.calculationRow, styles.calculationTotal, { borderTopColor: colors.border }]}>
-              <ThemedText type="defaultSemiBold">{t('paymentMethods.calculatedAvailable')}</ThemedText>
-              <ThemedText type="defaultSemiBold">{formatCLP(method.availableBalance)}</ThemedText>
-            </View>
-            {method.availableBalance < 0 && (
-              <ThemedText style={{ color: colors.danger }}>
-                {t('paymentMethods.overLimitAmount', {
-                  amount: formatCLP(Math.abs(method.availableBalance)),
-                })}
-              </ThemedText>
-            )}
-          </ThemedView>
-        )}
         {isCredit && (
           <ThemedView style={styles.statement}>
             <ThemedText type="subtitle">{t('paymentMethods.billedToPay')}</ThemedText>
@@ -240,7 +165,7 @@ export default function PaymentMethodDetailScreen() {
         )}
 
         <View style={styles.actions}>
-          {action(
+          {method.availableBalance != null && action(
             'refresh-outline',
             t('paymentMethods.updateBalance'),
             () => router.push({ pathname: '/modal/payment-method-balance', params: { id: String(method.id) } })
@@ -254,21 +179,6 @@ export default function PaymentMethodDetailScreen() {
             'swap-horizontal-outline',
             t('transfers.action'),
             () => router.push({ pathname: '/modal/account-transfer-form', params: { sourcePaymentMethodId: String(method.id) } } as never)
-          )}
-          {isCredit && action(
-            'wallet-outline',
-            t('paymentMethods.viewInDebts'),
-            () => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } })
-          )}
-          {isCredit && action(
-            'receipt-outline',
-            t('paymentMethods.cycles'),
-            () => router.push({ pathname: '/modal/card-cycles', params: { id: String(method.id) } })
-          )}
-          {action(
-            'settings-outline',
-            t('paymentMethods.editSettings'),
-            () => router.push({ pathname: '/modal/payment-method-form', params: { id: String(method.id) } })
           )}
         </View>
 
@@ -365,21 +275,147 @@ export default function PaymentMethodDetailScreen() {
           {hasMoreMovements && (
             <Pressable
               accessibilityRole="button"
-              testID="payment-method-view-more-expenses"
-              onPress={openFilteredExpenses}
+              testID="payment-method-view-all-movements"
+              onPress={() => setShowAllMovements((current) => !current)}
               style={({ pressed }) => [
                 styles.viewMoreButton,
                 { borderColor: colors.primary },
                 pressed && styles.pressed,
               ]}>
-              <Ionicons name="list-outline" size={20} color={colors.primary} />
+              <Ionicons name={showAllMovements ? 'chevron-up' : 'list-outline'} size={20} color={colors.primary} />
               <ThemedText type="defaultSemiBold" style={[styles.viewMoreText, { color: colors.primary }]}>
-                {t('paymentMethods.viewMoreExpenses')}
+                {t(showAllMovements ? 'paymentMethods.showFewerMovements' : 'paymentMethods.viewMoreExpenses')}
               </ThemedText>
-              <Ionicons name="chevron-forward" size={19} color={colors.primary} />
+              <Ionicons name={showAllMovements ? 'chevron-up' : 'chevron-down'} size={19} color={colors.primary} />
             </Pressable>
           )}
         </View>
+
+        {method.reportedBalance != null && method.availableBalance != null && (
+          <ThemedView style={styles.disclosureCard}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showCalculation }}
+              onPress={() => setShowCalculation((current) => !current)}
+              style={({ pressed }) => [styles.disclosureHeader, pressed && styles.pressed]}>
+              <View style={styles.disclosureCopy}>
+                <ThemedText type="subtitle">
+                  {t(isCredit ? 'paymentMethods.howCreditIsCalculated' : 'paymentMethods.howBalanceIsCalculated')}
+                </ThemedText>
+                <ThemedText style={styles.hint}>
+                  {t('paymentMethods.calculationSummary', {
+                    reported: formatCLP(method.reportedBalance),
+                    calculated: formatCLP(method.availableBalance),
+                  })}
+                </ThemedText>
+              </View>
+              <Ionicons name={showCalculation ? 'chevron-up' : 'chevron-down'} size={21} color={colors.icon} />
+            </Pressable>
+            {showCalculation && (
+              <View style={[styles.disclosureBody, { borderTopColor: colors.border }]}>
+                {method.balanceUpdatedAt && (
+                  <ThemedText style={styles.hint}>
+                    {t('paymentMethods.calculationSince', {
+                      date: formatDate(new Date(`${method.balanceUpdatedAt}T12:00:00`)),
+                    })}
+                  </ThemedText>
+                )}
+                <View style={styles.calculationRow}>
+                  <ThemedText>{t('paymentMethods.reportedAvailable')}</ThemedText>
+                  <ThemedText type="defaultSemiBold">{formatCLP(method.reportedBalance)}</ThemedText>
+                </View>
+                {method.registeredCharges > 0 && (
+                  <View style={styles.calculationRow}>
+                    <ThemedText>{t('paymentMethods.registeredExpenses')}</ThemedText>
+                    <ThemedText style={{ color: colors.expense }}>−{formatCLP(method.registeredCharges)}</ThemedText>
+                  </View>
+                )}
+                {isCredit && method.installmentCommitments > 0 && (
+                  <View style={styles.calculationRow}>
+                    <ThemedText>{t('paymentMethods.installmentCommitments')}</ThemedText>
+                    <ThemedText style={{ color: colors.expense }}>−{formatCLP(method.installmentCommitments)}</ThemedText>
+                  </View>
+                )}
+                {method.registeredPayments > 0 && (
+                  <View style={styles.calculationRow}>
+                    <ThemedText>{t('paymentMethods.registeredPayments')}</ThemedText>
+                    <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredPayments)}</ThemedText>
+                  </View>
+                )}
+                {method.registeredAdjustments > 0 && (
+                  <View style={styles.calculationRow}>
+                    <ThemedText>{t('paymentMethods.registeredAdjustments')}</ThemedText>
+                    <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredAdjustments)}</ThemedText>
+                  </View>
+                )}
+                {method.registeredIncomes > 0 && (
+                  <View style={styles.calculationRow}>
+                    <ThemedText>{t('paymentMethods.registeredIncomes')}</ThemedText>
+                    <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredIncomes)}</ThemedText>
+                  </View>
+                )}
+                {method.registeredTransfersOut > 0 && (
+                  <View style={styles.calculationRow}>
+                    <ThemedText>{t('transfers.sent')}</ThemedText>
+                    <ThemedText style={{ color: colors.expense }}>−{formatCLP(method.registeredTransfersOut)}</ThemedText>
+                  </View>
+                )}
+                {method.registeredTransfersIn > 0 && (
+                  <View style={styles.calculationRow}>
+                    <ThemedText>{t('transfers.received')}</ThemedText>
+                    <ThemedText style={{ color: colors.success }}>+{formatCLP(method.registeredTransfersIn)}</ThemedText>
+                  </View>
+                )}
+                <View style={[styles.calculationRow, styles.calculationTotal, { borderTopColor: colors.border }]}>
+                  <ThemedText type="defaultSemiBold">{t('paymentMethods.calculatedAvailable')}</ThemedText>
+                  <ThemedText type="defaultSemiBold">{formatCLP(method.availableBalance)}</ThemedText>
+                </View>
+                {method.availableBalance < 0 && (
+                  <ThemedText style={{ color: colors.danger }}>
+                    {t('paymentMethods.overLimitAmount', {
+                      amount: formatCLP(Math.abs(method.availableBalance)),
+                    })}
+                  </ThemedText>
+                )}
+              </View>
+            )}
+          </ThemedView>
+        )}
+
+        <ThemedView style={styles.disclosureCard}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showMoreOptions }}
+            onPress={() => setShowMoreOptions((current) => !current)}
+            style={({ pressed }) => [styles.disclosureHeader, pressed && styles.pressed]}>
+            <View style={styles.disclosureCopy}>
+              <ThemedText type="subtitle">{t('paymentMethods.moreOptions')}</ThemedText>
+              <ThemedText style={styles.hint}>
+                {t(isCredit ? 'paymentMethods.moreOptionsHint' : 'paymentMethods.moreOptionsAccountHint')}
+              </ThemedText>
+            </View>
+            <Ionicons name={showMoreOptions ? 'chevron-up' : 'chevron-down'} size={21} color={colors.icon} />
+          </Pressable>
+          {showMoreOptions && (
+            <View style={[styles.secondaryActions, { borderTopColor: colors.border }]}>
+              {isCredit && action(
+                'wallet-outline',
+                t('paymentMethods.installmentPurchases'),
+                () => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } })
+              )}
+              {isCredit && action(
+                'receipt-outline',
+                t('paymentMethods.cycles'),
+                () => router.push({ pathname: '/modal/card-cycles', params: { id: String(method.id) } })
+              )}
+              {action(
+                'settings-outline',
+                t('paymentMethods.editSettings'),
+                () => router.push({ pathname: '/modal/payment-method-form', params: { id: String(method.id) } })
+              )}
+            </View>
+          )}
+        </ThemedView>
       </ScrollView>
     </SafeAreaView>
   );
@@ -405,11 +441,15 @@ const styles = StyleSheet.create({
   setupCopy: { flex: 1, minWidth: 180, gap: 2 },
   setupButton: { minHeight: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   setupButtonText: { fontWeight: '700' },
-  calculationCard: { borderRadius: 14, padding: 17, gap: 10 },
+  disclosureCard: { borderRadius: 14, padding: 17, gap: 12 },
+  disclosureHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  disclosureCopy: { flex: 1, gap: 3 },
+  disclosureBody: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, gap: 8 },
   calculationRow: { minHeight: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, paddingTop: 4 },
   calculationTotal: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2, paddingTop: 10 },
   hint: { opacity: 0.68, lineHeight: 19 },
   actions: { gap: 10 },
+  secondaryActions: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, gap: 9 },
   action: { minHeight: 56, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
   actionText: { flex: 1 },
   movementsSection: { gap: 10, marginTop: 6 },
