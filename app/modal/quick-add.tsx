@@ -91,7 +91,7 @@ export default function QuickAddScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.heading}>
           <ThemedText type="title">{t('quickAdd.title')}</ThemedText>
           <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
@@ -108,11 +108,13 @@ export default function QuickAddScreen() {
               style={({ pressed }) => pressed && styles.pressed}>
               <ThemedView style={[styles.option, { borderColor: colors.border }]}>
                 <View style={[styles.icon, { backgroundColor: `${option.accent}1F` }]}>
-                  <Ionicons name={option.icon} size={30} color={option.accent} />
+                  <Ionicons name={option.icon} size={24} color={option.accent} />
                 </View>
                 <View style={styles.optionCopy}>
-                  <ThemedText type="subtitle">{option.title}</ThemedText>
-                  <ThemedText style={[styles.optionDescription, { color: colors.textSecondary }]}>
+                  <ThemedText type="defaultSemiBold" style={styles.optionTitle}>{option.title}</ThemedText>
+                  <ThemedText
+                    numberOfLines={2}
+                    style={[styles.optionDescription, { color: colors.textSecondary }]}>
                     {option.description}
                   </ThemedText>
                 </View>
@@ -128,21 +130,23 @@ export default function QuickAddScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: 20, paddingBottom: 36, gap: 26 },
-  heading: { gap: 8 },
-  description: { fontSize: 15, lineHeight: 22 },
-  options: { gap: 14 },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 18, gap: 16 },
+  heading: { gap: 4 },
+  description: { fontSize: 14, lineHeight: 19 },
+  options: { gap: 8 },
   option: {
-    minHeight: 104,
+    minHeight: 74,
     borderWidth: 1,
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 11,
   },
-  icon: { width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  optionCopy: { flex: 1, gap: 3 },
-  optionDescription: { fontSize: 13, lineHeight: 18 },
+  icon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  optionCopy: { flex: 1, gap: 1 },
+  optionTitle: { fontSize: 17 },
+  optionDescription: { fontSize: 12, lineHeight: 15 },
   pressed: { opacity: 0.7 },
 });
