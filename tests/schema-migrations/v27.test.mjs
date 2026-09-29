@@ -8,7 +8,6 @@ const schemaSource = readFileSync(new URL('../../lib/database-schema.ts', import
 const registrySource = readFileSync(new URL('../../lib/schema-migrations.ts', import.meta.url), 'utf8');
 
 test('schema v27 adds home visibility without hiding existing records', () => {
-  assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = 27/);
   assert.match(registrySource, /version: 27, name: 'home-item-visibility'/);
 
   const migrationStart = databaseSource.indexOf('if (previousSchemaVersion < 27)');

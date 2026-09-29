@@ -745,6 +745,7 @@ export type Settings = {
   movementReminderWeekday: number;
   movementReminderHour: number;
   movementReminderMinute: number;
+  homePreferences: import('./home-preferences').HomePreferences;
 };
 
 export type MovementReminderSettings = Pick<Settings,

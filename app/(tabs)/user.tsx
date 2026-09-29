@@ -417,6 +417,18 @@ export default function UserScreen() {
           {t('settings.preferences')}
         </ThemedText>
         <ThemedView style={[styles.card, styles.groupCard]}>
+          <Pressable
+            accessibilityLabel={t('homeSettings.title')}
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/home-settings' as never)}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('homeSettings.title')}</ThemedText>
+              <ThemedText style={styles.description}>{t('homeSettings.settingsHint')}</ThemedText>
+            </View>
+            <Ionicons name="options-outline" size={22} color={colors.icon} />
+          </Pressable>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>
               <ThemedText type="subtitle">{t('settings.pushNotifications')}</ThemedText>

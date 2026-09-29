@@ -20,6 +20,9 @@ import { PERIOD_CARD_ADJUSTMENTS_SQL, PERIOD_CARD_PAYMENTS_SQL } from './period-
 import { spendingExpenseSql } from './movement-classification';
 import { canUpdateExpenseAcrossCreditCycles } from './credit-cycle-edit';
 import { DEDUPLICATE_MOVEMENT_REMINDERS_SQL } from './notification-inbox';
+import { UNBILLED_CREDIT_CARD_TOTAL_SQL } from './home-summary';
+import { parseHomePreferences } from './home-preferences';
+import type { HomePreferences } from './home-preferences';
 import { DEFAULT_EVENT_TIME, isValidTimeString, resolveEventTime } from './event-time';
 import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate, isSinglePaymentDebt } from './debt-calculations';
 import {
@@ -625,6 +628,7 @@ async function initializeDatabase(): Promise<void> {
       movement_reminder_weekday INTEGER NOT NULL DEFAULT 1,
       movement_reminder_hour INTEGER NOT NULL DEFAULT 21,
       movement_reminder_minute INTEGER NOT NULL DEFAULT 0,
+      home_preferences TEXT,
       FOREIGN KEY (current_period_id) REFERENCES periods(id) ON DELETE SET NULL
     );
 
@@ -1058,6 +1062,9 @@ async function initializeDatabase(): Promise<void> {
     await ensureColumn(db, 'savings_goals', 'show_on_home', 'INTEGER NOT NULL DEFAULT 1');
     await ensureColumn(db, 'manual_debts', 'show_on_home', 'INTEGER NOT NULL DEFAULT 1');
     await ensureColumn(db, 'debt_plans', 'show_on_home', 'INTEGER NOT NULL DEFAULT 1');
+  }
+  if (previousSchemaVersion < 28) {
+    await ensureColumn(db, 'settings', 'home_preferences', 'TEXT');
   }
 
   const expenseColumns = await db.getAllAsync<{ name: string }>(
@@ -4710,6 +4717,14 @@ export async function getRelationshipTypes(): Promise<RelationshipType[]> {
   );
 }
 
+export async function getUnbilledCreditCardTotal(): Promise<number> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ total: number }>(
+    UNBILLED_CREDIT_CARD_TOTAL_SQL
+  );
+  return Number(row?.total ?? 0);
+}
+
 export async function setDebtPlanShowOnHome(id: number, showOnHome: boolean): Promise<void> {
   const db = await getDb();
   await db.runAsync(
@@ -7877,6 +7892,7 @@ export async function getSettings(): Promise<Settings> {
     movement_reminder_weekday: number;
     movement_reminder_hour: number;
     movement_reminder_minute: number;
+    home_preferences: string | null;
     period_id: number | null;
     start_date: string | null;
     end_date: string | null;
@@ -7892,6 +7908,7 @@ export async function getSettings(): Promise<Settings> {
       s.movement_reminder_weekday,
       s.movement_reminder_hour,
       s.movement_reminder_minute,
+      s.home_preferences,
 
       p.id AS period_id,
       p.start_date,
@@ -7915,6 +7932,7 @@ export async function getSettings(): Promise<Settings> {
     movementReminderWeekday: row?.movement_reminder_weekday ?? 1,
     movementReminderHour: row?.movement_reminder_hour ?? 21,
     movementReminderMinute: row?.movement_reminder_minute ?? 0,
+    homePreferences: parseHomePreferences(row?.home_preferences),
 
     currentPeriod: row?.period_id
       ? {
@@ -7934,6 +7952,14 @@ export async function updateMovementReminderSettings(data: import('./types').Mov
      WHERE id = 1`,
     data.movementReminderEnabled ? 1 : 0, data.movementReminderFrequency,
     data.movementReminderWeekday, data.movementReminderHour, data.movementReminderMinute
+  );
+}
+
+export async function updateHomePreferences(data: HomePreferences): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'UPDATE settings SET home_preferences = ? WHERE id = 1',
+    JSON.stringify(data)
   );
 }
 

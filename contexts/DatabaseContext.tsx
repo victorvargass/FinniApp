@@ -62,6 +62,8 @@ import type {
   Settings,
 } from '@/lib/types';
 import { addIsoDays, toIsoDate } from '@/lib/recurrence';
+import { DEFAULT_HOME_PREFERENCES } from '@/lib/home-preferences';
+import type { HomePreferences } from '@/lib/home-preferences';
 import {
   notifyGeneratedRecurringExpenses,
   syncRecurringNotifications,
@@ -103,6 +105,7 @@ type DatabaseContextValue = {
   periodIncomesTotal: number;
   periodHistory: PeriodHistory[];
   periodExpensesTotal: number;
+  unbilledCreditCardTotal: number;
   isReady: boolean;
   isPeriodChanging: boolean;
   periodRefreshFailed: boolean;
@@ -199,6 +202,7 @@ type DatabaseContextValue = {
   setPeriodDates: (startDate: string, endDate: string) => Promise<void>;
   setPushNotificationsEnabled: (enabled: boolean) => Promise<void>;
   setMovementReminder: (data: MovementReminderSettings) => Promise<void>;
+  setHomePreferences: (data: HomePreferences) => Promise<void>;
   resetLocalData: () => Promise<void>;
 };
 
@@ -223,6 +227,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     movementReminderWeekday: 1,
     movementReminderHour: 21,
     movementReminderMinute: 0,
+    homePreferences: DEFAULT_HOME_PREFERENCES,
     currentPeriod: null,
   });
   const [periods, setPeriods] = useState<Period[]>([]);
@@ -247,6 +252,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [periodSavingsGoalActivity, setPeriodSavingsGoalActivity] = useState<SavingsGoalPeriodActivity[]>([]);
   const [periodSavingsFundingTotal, setPeriodSavingsFundingTotal] = useState(0);
+  const [unbilledCreditCardTotal, setUnbilledCreditCardTotal] = useState(0);
   const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenseNames, setExpenseNames] = useState<string[]>([]);
@@ -339,7 +345,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           skipNextSelectedPeriodRefreshRef.current = true;
           setSelectedPeriodId(targetPeriodId);
         }
-        const [cats, contactRows, relationshipRows, incomeCats, groups, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
+        const [cats, contactRows, relationshipRows, incomeCats, groups, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, unbilledCreditTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
           refreshStep('REFRESH_CATEGORIES', db.getCategories()),
           refreshStep('REFRESH_CONTACTS', db.getContacts()),
           refreshStep('REFRESH_RELATIONSHIPS', db.getRelationshipTypes()),
@@ -355,6 +361,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           refreshStep('REFRESH_SAVINGS_GOALS', db.getSavingsGoals(true)),
           refreshStep('REFRESH_SAVINGS_ACTIVITY', db.getPeriodSavingsGoalActivity(targetPeriodId)),
           refreshStep('REFRESH_SAVINGS_TOTAL', db.getPeriodSavingsFundingTotal(targetPeriodId)),
+          refreshStep('REFRESH_UNBILLED_CREDIT_TOTAL', db.getUnbilledCreditCardTotal()),
           refreshStep('REFRESH_EXPENSES', db.getExpenses(targetPeriodId)),
           refreshStep('REFRESH_INCOMES', db.getIncomes(targetPeriodId)),
           refreshStep('REFRESH_EXPENSE_NAMES', db.getExpenseNames()),
@@ -389,6 +396,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         setSavingsGoals(goals);
         setPeriodSavingsGoalActivity(goalActivity);
         setPeriodSavingsFundingTotal(savingsFundingTotal);
+        setUnbilledCreditCardTotal(unbilledCreditTotal);
         setExpenses(exps);
         setIncomes(incs);
         setExpenseNames(allExpenseNames);
@@ -1021,6 +1029,11 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const setHomePreferences = useCallback(async (data: HomePreferences) => {
+    await db.updateHomePreferences(data);
+    await refresh();
+  }, [refresh]);
+
   const setAppNotificationRead = useCallback(async (id: number, read: boolean) => {
     await db.setAppNotificationRead(id, read);
     setAppNotifications(await db.getAppNotifications());
@@ -1072,6 +1085,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       periodIncomesTotal,
       periodHistory,
       periodExpensesTotal,
+      unbilledCreditCardTotal,
       isReady,
       isPeriodChanging,
       periodRefreshFailed,
@@ -1168,6 +1182,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setPeriodDates,
       setPushNotificationsEnabled,
       setMovementReminder,
+      setHomePreferences,
       resetLocalData,
     }),
     [
@@ -1187,6 +1202,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       savingsGoals,
       periodSavingsGoalActivity,
       periodSavingsFundingTotal,
+      unbilledCreditCardTotal,
       expenses,
       incomes,
       expenseNames,
@@ -1295,6 +1311,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       setPeriodDates,
       setPushNotificationsEnabled,
       setMovementReminder,
+      setHomePreferences,
       resetLocalData,
     ]
   );

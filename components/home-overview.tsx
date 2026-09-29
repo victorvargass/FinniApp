@@ -4,9 +4,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
 
 export type HomeAttentionItem = {
@@ -19,147 +18,78 @@ export type HomeAttentionItem = {
   onDismiss: () => void;
 };
 
-type HomeOverviewProps = {
-  balance: number;
-  incomeTotal: number;
-  expenseTotal: number;
-  cardPaymentsTotal: number;
-  cardAdjustmentsTotal: number;
-  attentionItems: HomeAttentionItem[];
-  showAttention: boolean;
+type HomeAttentionSectionProps = {
+  items: HomeAttentionItem[];
   onOpenNotifications: () => void;
 };
 
-export function HomeOverview({
-  balance,
-  incomeTotal,
-  expenseTotal,
-  cardPaymentsTotal,
-  cardAdjustmentsTotal,
-  attentionItems,
-  showAttention,
-  onOpenNotifications,
-}: HomeOverviewProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
-  const incomeAmountColor = colorScheme === 'dark' ? colors.onPrimary : colors.success;
+export function HomeAttentionSection({ items, onOpenNotifications }: HomeAttentionSectionProps) {
+  const colors = Colors[useColorScheme() ?? 'light'];
 
   return (
-    <View style={styles.container}>
-      <ThemedView style={[styles.hero, { backgroundColor: colors.primary }]}>
-        <ThemedText style={[styles.eyebrow, { color: colors.onPrimary }]}>
-          {t('home.availableThisPeriod')}
-        </ThemedText>
-        <ThemedText
-          accessibilityLabel={t('home.availableAmount', { amount: formatCLP(balance) })}
-          style={[styles.balance, { color: balance >= 0 ? colors.onPrimary : colors.danger }]}>
-          {formatCLP(balance)}
-        </ThemedText>
-        <View style={styles.totals}>
-          <View style={styles.totalItem}>
-            <ThemedText style={[styles.totalLabel, { color: colors.onPrimary }]}>{t('navigation.incomes')}</ThemedText>
-            <ThemedText style={[styles.totalValue, { color: incomeAmountColor }]}>+{formatCLP(incomeTotal)}</ThemedText>
+    <View style={styles.section}>
+      <ThemedText type="subtitle">{t('home.attention')}</ThemedText>
+      {items.length === 0 ? (
+        <ThemedView style={[styles.upToDate, { borderColor: colors.border }]}>
+          <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+          <View style={styles.attentionCopy}>
+            <ThemedText type="defaultSemiBold">{t('home.upToDate')}</ThemedText>
+            <ThemedText style={{ color: colors.textSecondary }}>{t('home.upToDateHint')}</ThemedText>
           </View>
-          <View style={[styles.totalDivider, { backgroundColor: `${colors.onPrimary}33` }]} />
-          <View style={styles.totalItem}>
-            <ThemedText style={[styles.totalLabel, { color: colors.onPrimary }]}>{t('navigation.expenses')}</ThemedText>
-            <ThemedText style={[styles.totalValue, { color: colors.expense }]}>-{formatCLP(expenseTotal)}</ThemedText>
-          </View>
-        </View>
-        {(cardPaymentsTotal > 0 || cardAdjustmentsTotal > 0) && (
-          <View style={styles.cardCashflow}>
-            {cardPaymentsTotal > 0 && (
-              <ThemedText style={[styles.cardCashflowText, { color: colors.onPrimary }]}>
-                {t('home.cardPaymentBalanceImpact', { amount: formatCLP(cardPaymentsTotal) })}
-              </ThemedText>
-            )}
-            {cardAdjustmentsTotal > 0 && (
-              <ThemedText style={[styles.cardCashflowText, { color: colors.onPrimary }]}>
-                {t('home.cardAdjustmentBalanceImpact', { amount: formatCLP(cardAdjustmentsTotal) })}
-              </ThemedText>
-            )}
-          </View>
-        )}
-      </ThemedView>
-
-      {showAttention && <View style={styles.section}>
-        <ThemedText type="subtitle">{t('home.attention')}</ThemedText>
-        {attentionItems.length === 0 ? (
-          <ThemedView style={[styles.upToDate, { borderColor: colors.border }]}>
-            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
-            <View style={styles.attentionCopy}>
-              <ThemedText type="defaultSemiBold">{t('home.upToDate')}</ThemedText>
-              <ThemedText style={{ color: colors.textSecondary }}>{t('home.upToDateHint')}</ThemedText>
+        </ThemedView>
+      ) : (
+        items.slice(0, 3).map((item) => {
+          const accent = item.tone === 'danger'
+            ? colors.danger
+            : item.tone === 'warning' ? colors.warning : colors.action;
+          return (
+            <View
+              key={item.key}
+              style={[styles.attention, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={item.onPress}
+                style={({ pressed }) => [styles.attentionAction, pressed && styles.pressed]}>
+                <View style={[styles.attentionIcon, { backgroundColor: `${accent}1F` }]}>
+                  <Ionicons name={item.icon} size={22} color={accent} />
+                </View>
+                <View style={styles.attentionCopy}>
+                  <ThemedText type="defaultSemiBold">{item.title}</ThemedText>
+                  <ThemedText style={[styles.attentionBody, { color: colors.textSecondary }]}>{item.body}</ThemedText>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.icon} />
+              </Pressable>
+              <Pressable
+                accessibilityLabel={t('home.dismissAttention')}
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={item.onDismiss}
+                style={({ pressed }) => [styles.dismissButton, pressed && styles.pressed]}>
+                <Ionicons name="close" size={20} color={colors.icon} />
+              </Pressable>
             </View>
-          </ThemedView>
-        ) : (
-          attentionItems.slice(0, 3).map((item) => {
-            const accent = item.tone === 'danger'
-              ? colors.danger
-              : item.tone === 'warning' ? colors.warning : colors.action;
-            return (
-              <View
-                key={item.key}
-                style={[
-                  styles.attention,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={item.onPress}
-                  style={({ pressed }) => [styles.attentionAction, pressed && styles.pressed]}>
-                  <View style={[styles.attentionIcon, { backgroundColor: `${accent}1F` }]}>
-                    <Ionicons name={item.icon} size={22} color={accent} />
-                  </View>
-                  <View style={styles.attentionCopy}>
-                    <ThemedText type="defaultSemiBold">{item.title}</ThemedText>
-                    <ThemedText style={[styles.attentionBody, { color: colors.textSecondary }]}>{item.body}</ThemedText>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.icon} />
-                </Pressable>
-                <Pressable
-                  accessibilityLabel={t('home.dismissAttention')}
-                  accessibilityRole="button"
-                  hitSlop={8}
-                  onPress={item.onDismiss}
-                  style={({ pressed }) => [styles.dismissButton, pressed && styles.pressed]}>
-                  <Ionicons name="close" size={20} color={colors.icon} />
-                </Pressable>
-              </View>
-            );
-          })
-        )}
-        <Pressable
-          accessibilityRole="button"
-          onPress={onOpenNotifications}
-          style={({ pressed }) => [
-            styles.notificationsButton,
-            { borderColor: colors.border, backgroundColor: colors.surface },
-            pressed && styles.pressed,
-          ]}>
-          <Ionicons name="notifications-outline" size={20} color={colors.primary} />
-          <ThemedText type="defaultSemiBold" style={styles.notificationsButtonLabel}>
-            {t('home.viewNotifications')}
-          </ThemedText>
-          <Ionicons name="chevron-forward" size={19} color={colors.icon} />
-        </Pressable>
-      </View>}
+          );
+        })
+      )}
+      <Pressable
+        accessibilityRole="button"
+        onPress={onOpenNotifications}
+        style={({ pressed }) => [
+          styles.notificationsButton,
+          { borderColor: colors.border, backgroundColor: colors.surface },
+          pressed && styles.pressed,
+        ]}>
+        <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+        <ThemedText type="defaultSemiBold" style={styles.notificationsButtonLabel}>
+          {t('home.viewNotifications')}
+        </ThemedText>
+        <Ionicons name="chevron-forward" size={19} color={colors.icon} />
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 20 },
-  hero: { borderRadius: 20, padding: 20, gap: 10, elevation: 3 },
-  eyebrow: { fontFamily: Fonts.medium, opacity: 0.78 },
-  balance: { fontFamily: Fonts.bold, fontSize: 34, lineHeight: 41 },
-  totals: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  totalItem: { flex: 1, gap: 2 },
-  totalDivider: { width: StyleSheet.hairlineWidth, height: 42, marginHorizontal: 16 },
-  totalLabel: { fontSize: 12, lineHeight: 17, opacity: 0.72 },
-  totalValue: { fontFamily: Fonts.bold, fontSize: 15, lineHeight: 21 },
-  cardCashflow: { marginTop: 4, gap: 2 },
-  cardCashflowText: { fontSize: 11, opacity: 0.78 },
   section: { gap: 10 },
   upToDate: { borderWidth: 1, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   attention: { borderWidth: 1, borderRadius: 14, padding: 7, flexDirection: 'row', alignItems: 'center', gap: 2 },

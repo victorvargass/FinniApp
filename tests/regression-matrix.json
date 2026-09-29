@@ -70,7 +70,7 @@
     {
       "id": "settings-localization-and-privacy",
       "priority": "critical",
-      "routes": ["app/(tabs)/user.tsx", "app/modal/privacy.tsx", "app/modal/movement-reminder.tsx"],
+      "routes": ["app/(tabs)/user.tsx", "app/modal/privacy.tsx", "app/modal/movement-reminder.tsx", "app/modal/home-settings.tsx"],
       "automatedArtifacts": [".maestro/settings-and-localization.yml", "tests/locales.test.mjs"]
     },
     {

@@ -196,6 +196,10 @@ function AppContent() {
                   options={{ presentation: 'modal', title: t('navigation.movementReminder') }}
                 />
                 <Stack.Screen
+                  name="modal/home-settings"
+                  options={{ presentation: 'fullScreenModal', title: t('homeSettings.title') }}
+                />
+                <Stack.Screen
                   name="modal/google-drive"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.googleDrive') }}
                 />

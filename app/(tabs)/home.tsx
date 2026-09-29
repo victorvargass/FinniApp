@@ -6,8 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CategoryChart } from '@/components/CategoryChart';
 import { BreakdownSection, type BreakdownMode } from '@/components/breakdown-section';
 import { HomeDebtsCard } from '@/components/home-debts-card';
-import { HomeOverview, type HomeAttentionItem } from '@/components/home-overview';
+import { HomeAttentionSection, type HomeAttentionItem } from '@/components/home-overview';
 import { HomePaymentBalancesCard } from '@/components/home-payment-balances-card';
+import { HomeSummaryCards } from '@/components/home-summary-cards';
 import { LimitProgressBar } from '@/components/LimitProgressBar';
 import { PaymentMethodChart } from '@/components/PaymentMethodChart';
 import { PeriodSelector } from '@/components/period-selector';
@@ -23,9 +24,12 @@ import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { findMostUrgentCategoryLimit } from '@/lib/home-insights';
 import { dismissHomeAttention, getHomeAttentionDismissals } from '@/lib/home-attention-dismissals';
+import type { HomeSectionId } from '@/lib/home-preferences';
+import { visibleHomeDebts, visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
+import { getHomePaymentMethods, sumKnownAvailableBalances } from '@/lib/payment-method-groups';
 import {
   calculatePeriodAvailable,
   calculatePeriodOverviewExpenses,
@@ -61,6 +65,7 @@ export default function HomeScreen() {
     periodHistory,
     periodSavingsGoalActivity,
     periodSavingsFundingTotal,
+    unbilledCreditCardTotal,
     paymentMethodTotals,
     paymentMethods,
     recurringDecisions,
@@ -268,6 +273,151 @@ export default function HomeScreen() {
   const visibleAttentionItems = dismissedAttentionIds == null
     ? []
     : attentionItems.filter((item) => !dismissedAttentionIds.includes(item.key));
+  const visiblePaymentMethods = visibleHomePaymentMethods(paymentMethods);
+  const walletTotal = sumKnownAvailableBalances(getHomePaymentMethods(visiblePaymentMethods, 'wallet'));
+  const availableCreditTotal = sumKnownAvailableBalances(getHomePaymentMethods(visiblePaymentMethods, 'credit'));
+  const savingsTotal = savingsGoals
+    .filter((goal) => goal.showOnHome !== false)
+    .reduce((sum, goal) => sum + goal.currentAmount, 0);
+  const payableDebtTotal = visibleHomeDebts(homeDebts)
+    .filter((debt) => debt.status === 'active' && debt.direction === 'payable')
+    .reduce((sum, debt) => sum + debt.currentBalance, 0)
+    + getHomePaymentMethods(visiblePaymentMethods, 'credit')
+      .reduce((sum, method) => sum + (method.usedAmount ?? 0), 0);
+
+  const renderHomeSection = (section: HomeSectionId) => {
+    if (section === 'attention') {
+      return isCurrentPeriod && dismissedAttentionIds != null ? (
+        <HomeAttentionSection
+          key={section}
+          items={visibleAttentionItems}
+          onOpenNotifications={() => router.push('/modal/recurring-confirmations')}
+        />
+      ) : null;
+    }
+    if (section === 'weekly') {
+      return isCurrentPeriod
+        ? <WeeklyInsightCard key={section} insight={weeklyInsight} savingsMilestone={savingsMilestone} />
+        : null;
+    }
+    if (section === 'wallet' || section === 'credit') {
+      return (
+        <HomePaymentBalancesCard
+          key={section}
+          kind={section}
+          paymentMethods={paymentMethods}
+          backgroundColor={colors.surface}
+          onManage={() => router.push('/modal/payment-methods')}
+          onOpenPaymentMethod={(id) => router.push({
+            pathname: '/modal/payment-method-detail',
+            params: { id: String(id) },
+          })}
+        />
+      );
+    }
+    if (section === 'savings') {
+      return selectedPeriod ? (
+        <View key={section} style={styles.configurableSection}>
+          {periodSavingsAvailable > 0 && (
+            <ThemedText style={styles.savingsBalanceNote}>
+              {t('savings.releasedInBalance', { amount: formatCLP(periodSavingsAvailable) })}
+            </ThemedText>
+          )}
+          <SavingsGoalsPeriodCard
+            items={periodSavingsGoalActivity}
+            goals={savingsGoals}
+            groups={savingsGroups}
+            backgroundColor={colors.surface}
+            asOfDate={selectedPeriod.endDate}
+            onManage={() => router.push('/modal/savings-goals')}
+            onOpenGoal={(id) => router.push({
+              pathname: '/modal/savings-goal-form',
+              params: { id: String(id) },
+            })}
+          />
+        </View>
+      ) : null;
+    }
+    if (section === 'debts') {
+      return (
+        <HomeDebtsCard
+          key={section}
+          debts={homeDebts}
+          plans={homeDebtPlans}
+          paymentMethods={paymentMethods}
+          backgroundColor={colors.surface}
+          onManage={() => router.push('/modal/debts')}
+          onOpenDebt={(id) => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(id) } })}
+          onOpenPlan={(id) => router.push({ pathname: '/modal/debt-detail', params: { id: String(id) } })}
+          onOpenPaymentMethod={(id) => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(id) } })}
+        />
+      );
+    }
+    return (
+      <BreakdownSection
+        key={section}
+        collapsible
+        mode={breakdownMode}
+        onChange={setBreakdownMode}
+        backgroundColor={colors.surface}
+        categoryContent={(
+          <>
+            <CategoryChart
+              periodCategoryExpensesTotals={periodCategoryExpensesTotals}
+              periodExpensesTotal={periodExpensesTotal}
+              selectionResetKey={`${selectedPeriod?.id ?? 'none'}-${categorySelectionReset}`}
+              onOpenCategory={(categoryId) => {
+                router.navigate({
+                  pathname: '/(tabs)/movements',
+                  params: {
+                    movementType: 'expenses',
+                    categoryFilter: categoryId === null ? 'none' : String(categoryId),
+                    paymentMethodFilter: '',
+                    filterRequestId: String(Date.now()),
+                  },
+                });
+              }}
+            />
+            {withLimits.length > 0 && (
+              <View style={[styles.limitsSection, { borderTopColor: colors.border }]}>
+                <ThemedText type="subtitle">{t('period.expenseLimits')}</ThemedText>
+                <View style={styles.limits}>
+                  {withLimits.map((item) => (
+                    <LimitProgressBar
+                      key={item.categoryId}
+                      name={item.categoryName}
+                      color={item.categoryColor}
+                      spent={item.total}
+                      limit={item.periodLimit}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+          </>
+        )}
+        paymentMethodContent={(
+          <PaymentMethodChart
+            items={paymentMethodTotals}
+            total={periodExpensesTotal}
+            selectionResetKey={selectedPeriod?.id ?? 'none'}
+            onSelectPaymentMethod={() => setCategorySelectionReset((value) => value + 1)}
+            onOpenPaymentMethod={(paymentMethodId) => {
+              router.navigate({
+                pathname: '/(tabs)/movements',
+                params: {
+                  movementType: 'expenses',
+                  categoryFilter: '',
+                  paymentMethodFilter: paymentMethodId == null ? 'none' : String(paymentMethodId),
+                  filterRequestId: String(Date.now()),
+                },
+              });
+            }}
+          />
+        )}
+      />
+    );
+  };
 
   async function saveStartDate(selected: Date) {
     const selectedDateStr = toDateString(selected);
@@ -429,15 +579,21 @@ export default function HomeScreen() {
           </View>
         </ThemedView>
 
-        <HomeOverview
-          balance={periodOverviewBalance}
-          incomeTotal={periodIncomesTotal}
-          expenseTotal={periodOverviewExpensesTotal}
-          cardPaymentsTotal={selectedPeriodReport?.cardPaymentsFromAccountsTotal ?? 0}
-          cardAdjustmentsTotal={selectedPeriodReport?.cardInternalAdjustmentsTotal ?? 0}
-          attentionItems={visibleAttentionItems}
-          showAttention={Boolean(isCurrentPeriod && dismissedAttentionIds != null)}
-          onOpenNotifications={() => router.push('/modal/recurring-confirmations')}
+        <HomeSummaryCards
+          periodMetrics={settings.homePreferences.periodMetrics}
+          globalMetrics={settings.homePreferences.globalMetrics}
+          periodValues={{
+            available: periodOverviewBalance,
+            income: periodIncomesTotal,
+            expenses: periodOverviewExpensesTotal,
+            unbilledCredit: unbilledCreditCardTotal,
+          }}
+          globalValues={{
+            wallet: walletTotal,
+            credit: availableCreditTotal,
+            savings: savingsTotal,
+            debt: payableDebtTotal,
+          }}
         />
         {isCurrentPeriod && (
           <ProgressiveSetup
@@ -454,126 +610,9 @@ export default function HomeScreen() {
             onOpenBackup={() => router.push('/modal/google-drive')}
           />
         )}
-        {isCurrentPeriod && (
-          <WeeklyInsightCard insight={weeklyInsight} savingsMilestone={savingsMilestone} />
-        )}
-
-        {periodSavingsAvailable > 0 && (
-          <ThemedText style={styles.savingsBalanceNote}>
-            {t('savings.releasedInBalance', { amount: formatCLP(periodSavingsAvailable) })}
-          </ThemedText>
-        )}
-
-        <HomePaymentBalancesCard
-          kind="wallet"
-          paymentMethods={paymentMethods}
-          backgroundColor={colors.surface}
-          onManage={() => router.push('/modal/payment-methods')}
-          onOpenPaymentMethod={(id) => router.push({
-            pathname: '/modal/payment-method-detail',
-            params: { id: String(id) },
-          })}
-        />
-
-        <HomePaymentBalancesCard
-          kind="credit"
-          paymentMethods={paymentMethods}
-          backgroundColor={colors.surface}
-          onManage={() => router.push('/modal/payment-methods')}
-          onOpenPaymentMethod={(id) => router.push({
-            pathname: '/modal/payment-method-detail',
-            params: { id: String(id) },
-          })}
-        />
-
-        {selectedPeriod && (
-          <SavingsGoalsPeriodCard
-            items={periodSavingsGoalActivity}
-            goals={savingsGoals}
-            groups={savingsGroups}
-            backgroundColor={colors.surface}
-            asOfDate={selectedPeriod.endDate}
-            onManage={() => router.push('/modal/savings-goals')}
-            onOpenGoal={(id) => router.push({
-              pathname: '/modal/savings-goal-form',
-              params: { id: String(id) },
-            })}
-          />
-        )}
-
-        <HomeDebtsCard
-          debts={homeDebts}
-          plans={homeDebtPlans}
-          paymentMethods={paymentMethods}
-          backgroundColor={colors.surface}
-          onManage={() => router.push('/modal/debts')}
-          onOpenDebt={(id) => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(id) } })}
-          onOpenPlan={(id) => router.push({ pathname: '/modal/debt-detail', params: { id: String(id) } })}
-          onOpenPaymentMethod={(id) => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(id) } })}
-        />
-
-        <BreakdownSection
-          collapsible
-          mode={breakdownMode}
-          onChange={setBreakdownMode}
-          backgroundColor={colors.surface}
-          categoryContent={(
-            <>
-              <CategoryChart
-                periodCategoryExpensesTotals={periodCategoryExpensesTotals}
-                periodExpensesTotal={periodExpensesTotal}
-                selectionResetKey={`${selectedPeriod?.id ?? 'none'}-${categorySelectionReset}`}
-                onOpenCategory={(categoryId) => {
-                  router.navigate({
-                    pathname: '/(tabs)/movements',
-                    params: {
-                      movementType: 'expenses',
-                      categoryFilter: categoryId === null ? 'none' : String(categoryId),
-                      paymentMethodFilter: '',
-                      filterRequestId: String(Date.now()),
-                    },
-                  });
-                }}
-              />
-
-              {withLimits.length > 0 && (
-                <View style={[styles.limitsSection, { borderTopColor: colors.border }]}>
-                  <ThemedText type="subtitle">{t('period.expenseLimits')}</ThemedText>
-                  <View style={styles.limits}>
-                    {withLimits.map((item) => (
-                      <LimitProgressBar
-                        key={item.categoryId}
-                        name={item.categoryName}
-                        color={item.categoryColor}
-                        spent={item.total}
-                        limit={item.periodLimit}
-                      />
-                    ))}
-                  </View>
-                </View>
-              )}
-            </>
-          )}
-          paymentMethodContent={(
-            <PaymentMethodChart
-              items={paymentMethodTotals}
-              total={periodExpensesTotal}
-              selectionResetKey={selectedPeriod?.id ?? 'none'}
-              onSelectPaymentMethod={() => setCategorySelectionReset((value) => value + 1)}
-              onOpenPaymentMethod={(paymentMethodId) => {
-                router.navigate({
-                  pathname: '/(tabs)/movements',
-                  params: {
-                    movementType: 'expenses',
-                    categoryFilter: '',
-                    paymentMethodFilter: paymentMethodId == null ? 'none' : String(paymentMethodId),
-                    filterRequestId: String(Date.now()),
-                  },
-                });
-              }}
-            />
-          )}
-        />
+        {settings.homePreferences.sectionOrder
+          .filter((section) => !settings.homePreferences.hiddenSections.includes(section))
+          .map(renderHomeSection)}
 
       {selectedPeriodReport && hasPeriodMovements && (
         <Pressable
@@ -810,6 +849,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.7,
   },
+  configurableSection: { gap: 8 },
   exportButton: {
     minHeight: 48,
     marginTop: 8,
