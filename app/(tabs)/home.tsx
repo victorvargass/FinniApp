@@ -23,7 +23,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { findMostUrgentCategoryLimit } from '@/lib/home-insights';
-import { dismissHomeAttention, getHomeAttentionDismissals } from '@/lib/home-attention-dismissals';
+import { dismissHomeAttention, getHomeAttentionDismissals, restoreHomeAttention } from '@/lib/home-attention-dismissals';
 import type { HomeSectionId } from '@/lib/home-preferences';
 import { visibleHomeDebts, visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
@@ -100,6 +100,12 @@ export default function HomeScreen() {
   const [homeDebts, setHomeDebts] = useState<Debt[]>([]);
   const [homeDebtPlans, setHomeDebtPlans] = useState<DebtPlan[]>([]);
   const [dismissedAttentionIds, setDismissedAttentionIds] = useState<string[] | null>(null);
+  const [lastDismissedAttentionId, setLastDismissedAttentionId] = useState<string | null>(null);
+  const undoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (undoDismissTimerRef.current) clearTimeout(undoDismissTimerRef.current);
+  }, []);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -122,15 +128,39 @@ export default function HomeScreen() {
   }, []));
 
   const dismissAttention = useCallback((id: string) => {
+    if (undoDismissTimerRef.current) clearTimeout(undoDismissTimerRef.current);
+    setLastDismissedAttentionId(id);
+    undoDismissTimerRef.current = setTimeout(() => {
+      setLastDismissedAttentionId(null);
+      undoDismissTimerRef.current = null;
+    }, 7000);
     setDismissedAttentionIds((current) => current == null || current.includes(id) ? current : [...current, id]);
     dismissHomeAttention(id)
       .then(setDismissedAttentionIds)
       .then(() => showToast(t('home.attentionDismissed')))
       .catch(() => {
+        if (undoDismissTimerRef.current) clearTimeout(undoDismissTimerRef.current);
+        undoDismissTimerRef.current = null;
+        setLastDismissedAttentionId(null);
         setDismissedAttentionIds((current) => current?.filter((item) => item !== id) ?? []);
         showToast(t('errors.couldNotSave'));
       });
   }, []);
+
+  const undoDismissAttention = useCallback(() => {
+    const id = lastDismissedAttentionId;
+    if (!id) return;
+    if (undoDismissTimerRef.current) clearTimeout(undoDismissTimerRef.current);
+    undoDismissTimerRef.current = null;
+    setLastDismissedAttentionId(null);
+    setDismissedAttentionIds((current) => current?.filter((item) => item !== id) ?? []);
+    restoreHomeAttention(id)
+      .then(setDismissedAttentionIds)
+      .catch(() => {
+        setDismissedAttentionIds((current) => current == null || current.includes(id) ? current : [...current, id]);
+        showToast(t('errors.couldNotSave'));
+      });
+  }, [lastDismissedAttentionId]);
 
   const withLimits = periodCategoryExpensesTotals.filter((item) => item.periodLimit != null && item.periodLimit > 0);
   const periodSavingsWithdrawals = periodSavingsGoalActivity.reduce((sum, item) => sum + item.withdrawals, 0);
@@ -292,6 +322,7 @@ export default function HomeScreen() {
           key={section}
           items={visibleAttentionItems}
           onOpenNotifications={() => router.push('/modal/recurring-confirmations')}
+          onUndoDismiss={lastDismissedAttentionId ? undoDismissAttention : undefined}
         />
       ) : null;
     }

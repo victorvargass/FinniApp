@@ -12,3 +12,7 @@ export function appendHomeAttentionDismissal(
 ): string[] {
   return [...current.filter((item) => item !== id), id].slice(-limit);
 }
+
+export function removeHomeAttentionDismissal(current: string[], id: string): string[] {
+  return current.filter((item) => item !== id);
+}

@@ -21,9 +21,10 @@ export type HomeAttentionItem = {
 type HomeAttentionSectionProps = {
   items: HomeAttentionItem[];
   onOpenNotifications: () => void;
+  onUndoDismiss?: () => void;
 };
 
-export function HomeAttentionSection({ items, onOpenNotifications }: HomeAttentionSectionProps) {
+export function HomeAttentionSection({ items, onOpenNotifications, onUndoDismiss }: HomeAttentionSectionProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
 
   return (
@@ -71,6 +72,21 @@ export function HomeAttentionSection({ items, onOpenNotifications }: HomeAttenti
           );
         })
       )}
+      {onUndoDismiss && (
+        <ThemedView style={[styles.undoNotice, { borderColor: colors.border }]}>
+          <ThemedText style={[styles.undoLabel, { color: colors.textSecondary }]}>
+            {t('home.attentionDismissed')}
+          </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onUndoDismiss}
+            style={({ pressed }) => [styles.undoButton, pressed && styles.pressed]}>
+            <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
+              {t('common.undo')}
+            </ThemedText>
+          </Pressable>
+        </ThemedView>
+      )}
       <Pressable
         accessibilityRole="button"
         onPress={onOpenNotifications}
@@ -98,6 +114,9 @@ const styles = StyleSheet.create({
   attentionCopy: { flex: 1, gap: 2 },
   attentionBody: { fontSize: 13, lineHeight: 18 },
   dismissButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  undoNotice: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  undoLabel: { flex: 1, fontSize: 13 },
+  undoButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 4 },
   notificationsButton: {
     minHeight: 48,
     borderWidth: 1,
