@@ -666,7 +666,7 @@ const es = {
     periodMetricUnbilledCredit: 'Crédito no facturado',
     globalMetricWallet: 'Saldo total de billetera',
     globalMetricCredit: 'Cupo disponible total',
-    globalMetricBilledCredit: 'Facturado por pagar',
+    globalMetricBilledCredit: 'Crédito facturado',
     globalMetricSavings: 'Ahorro total',
     globalMetricDebt: 'Deuda total',
     pendingRecurringTitle: 'Movimientos por confirmar',
@@ -732,7 +732,7 @@ const es = {
     globalMetrics: {
       wallet: 'Saldo total de billetera',
       credit: 'Cupo disponible total',
-      billedCredit: 'Facturado por pagar',
+      billedCredit: 'Crédito facturado',
       savings: 'Ahorro total',
       debt: 'Deuda total',
     },
