@@ -6,14 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 
 export default function MovementReminderScreen() {
-  const { settings, setMovementReminder } = useDatabase();
+  const { settings, setMovementReminder } = usePreferenceDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>(settings.movementReminderFrequency);
   const [weekday, setWeekday] = useState(settings.movementReminderWeekday);

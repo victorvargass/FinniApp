@@ -8,7 +8,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  useMovementDatabase,
+  useOrganizerDatabase,
+  usePaymentDatabase,
+  usePeriodDatabase,
+  usePreferenceDatabase,
+  useRecurrenceDatabase,
+  useSavingsDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
@@ -30,20 +38,13 @@ type IncomeFormProps = {
 };
 
 export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null, onSuccess }: IncomeFormProps) {
-  const {
-    incomeNames,
-    incomeCategories,
-    addIncome,
-    editIncome,
-    removeIncome,
-    addRecurringIncomeFromSource,
-    savingsGoals,
-    paymentMethods,
-    settings,
-    periods,
-    selectedPeriod,
-    setPeriodEndDate,
-  } = useDatabase();
+  const { incomeNames, addIncome, editIncome, removeIncome } = useMovementDatabase();
+  const { incomeCategories } = useOrganizerDatabase();
+  const { addRecurringIncomeFromSource } = useRecurrenceDatabase();
+  const { savingsGoals } = useSavingsDatabase();
+  const { paymentMethods } = usePaymentDatabase();
+  const { settings } = usePreferenceDatabase();
+  const { periods, selectedPeriod, setPeriodEndDate } = usePeriodDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const insets = useSafeAreaInsets();

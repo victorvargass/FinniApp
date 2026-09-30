@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
@@ -15,7 +15,7 @@ function formatPeriodDate(value: string) {
 export function PeriodSelector() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const { periods, selectedPeriod, settings, selectPeriod } = useDatabase();
+  const { periods, selectedPeriod, settings, selectPeriod } = usePeriodDatabase();
 
   if (!selectedPeriod) return null;
 

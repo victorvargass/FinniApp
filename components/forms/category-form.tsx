@@ -4,7 +4,7 @@ import { Pressable, ScrollView, TextInput } from 'react-native';
 import { ColorPicker } from '@/components/ColorPicker';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useOrganizerDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLPInput, parseAmount } from '@/lib/format';
@@ -20,7 +20,7 @@ type CategoryFormProps = {
 };
 
 export function CategoryForm({ category, onSuccess }: CategoryFormProps) {
-  const { addCategory, editCategory, getCategoryExpenseCount, removeCategory } = useDatabase();
+  const { addCategory, editCategory, getCategoryExpenseCount, removeCategory } = useOrganizerDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const isSavingsCategory = category?.purpose === 'savings';

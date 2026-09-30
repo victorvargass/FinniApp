@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate, formatEventDateTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
@@ -18,7 +18,7 @@ import { getPaymentMethodMovements } from '@/repositories/payment-methods';
 export default function PaymentMethodDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const methodId = Number(id);
-  const { paymentMethods } = useDatabase();
+  const { paymentMethods } = usePaymentDatabase();
   const method = paymentMethods.find((item) => item.id === methodId);
   const colors = Colors[useColorScheme() ?? 'light'];
   const [movements, setMovements] = useState<PaymentMethodMovement[]>([]);

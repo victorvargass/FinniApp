@@ -3,7 +3,7 @@ import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
@@ -31,7 +31,7 @@ function formatDayShortMonth(isoDate: string) {
 }
 
 export default function HistoricalSummaryScreen() {
-  const { periodHistory, selectPeriod } = useDatabase();
+  const { periodHistory, selectPeriod } = usePeriodDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 

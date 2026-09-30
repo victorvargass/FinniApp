@@ -8,7 +8,7 @@ import { SimpleSelect } from '@/components/simple-select';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useOrganizerDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
@@ -21,7 +21,7 @@ const emptyAccount = (): AccountDraft => ({ bankName: '', holderName: null, rut:
 export default function ContactFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const contactId = id ? Number(id) : null;
-  const { contacts, relationshipTypes, saveContact, removeContact } = useDatabase();
+  const { contacts, relationshipTypes, saveContact, removeContact } = useOrganizerDatabase();
   const contact = contacts.find((item) => item.id === contactId);
   const colors = Colors[useColorScheme() ?? 'light'];
   const [name, setName] = useState('');

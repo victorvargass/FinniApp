@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLPInput, formatDate, parseNonNegativeAmount, toDateString } from '@/lib/format';
@@ -31,7 +31,7 @@ export default function PeriodOpeningBalancesScreen() {
   const { start, end } = useLocalSearchParams<{ start?: string; end?: string }>();
   const insets = useSafeAreaInsets();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const { paymentMethods, updatePaymentMethodBalances } = useDatabase();
+  const { paymentMethods, updatePaymentMethodBalances } = usePaymentDatabase();
   const [balances, setBalances] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
   const balanceDate = toDateString(new Date());

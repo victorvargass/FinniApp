@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   DEFAULT_HOME_PREFERENCES,
@@ -133,7 +133,7 @@ function MetricSwitch<T extends string>({ id, selected, label, onToggle }: Metri
 }
 
 export default function HomeSettingsScreen() {
-  const { settings, setHomePreferences } = useDatabase();
+  const { settings, setHomePreferences } = usePreferenceDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const insets = useSafeAreaInsets();
   const [preferences, setPreferences] = useState<HomePreferences>(settings.homePreferences);

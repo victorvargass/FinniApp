@@ -10,7 +10,7 @@ import { SegmentedTabs } from '@/components/segmented-tabs';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useDebtDatabase, usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
@@ -55,7 +55,8 @@ function groupContactDebts(debts: Debt[]): { groups: ContactDebtGroup[]; remaini
 export default function DebtsScreen() {
   const { paymentMethodId } = useLocalSearchParams<{ paymentMethodId?: string }>();
   const methodId = paymentMethodId ? Number(paymentMethodId) : undefined;
-  const { getDebtPlans, getDebts, paymentMethods } = useDatabase();
+  const { getDebtPlans, getDebts } = useDebtDatabase();
+  const { paymentMethods } = usePaymentDatabase();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const colors = Colors[useColorScheme() ?? 'light'];

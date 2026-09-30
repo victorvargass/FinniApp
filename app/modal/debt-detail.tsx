@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { HomeVisibilityPreference } from '@/components/home-visibility-preference';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useDebtDatabase, usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseAmount } from '@/lib/format';
@@ -28,7 +28,8 @@ function showResult(message: string) {
 export default function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const planId = Number(id);
-  const { periods, selectedPeriodId, getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, setDebtPlanShowOnHome, removeInstallmentPlan } = useDatabase();
+  const { periods, selectedPeriodId } = usePeriodDatabase();
+  const { getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, setDebtPlanShowOnHome, removeInstallmentPlan } = useDebtDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const { fontScale } = useWindowDimensions();
   const usesLargeText = fontScale >= 1.2;

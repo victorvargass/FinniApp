@@ -8,7 +8,12 @@ import { SimpleSelect } from '@/components/simple-select';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  useDebtDatabase,
+  useOrganizerDatabase,
+  usePaymentDatabase,
+  usePeriodDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
@@ -35,7 +40,10 @@ export default function DebtPaymentScreen() {
   const entryId = entryIdParam ? Number(entryIdParam) : null;
   const requestedDirection: DebtDirection = directionParam === 'receivable' ? 'receivable' : 'payable';
   const navigation = useNavigation();
-  const { periods, selectedPeriod, selectedPeriodId, categories, incomeCategories, paymentMethods, getDebts, getDebt, addDebtPayment, addDebtPayments, editDebtPayment, removeDebtPayment } = useDatabase();
+  const { periods, selectedPeriod, selectedPeriodId } = usePeriodDatabase();
+  const { categories, incomeCategories } = useOrganizerDatabase();
+  const { paymentMethods } = usePaymentDatabase();
+  const { getDebts, getDebt, addDebtPayment, addDebtPayments, editDebtPayment, removeDebtPayment } = useDebtDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [availableDebts, setAvailableDebts] = useState<Debt[]>([]);
   const [selectedDebtId, setSelectedDebtId] = useState<number | null>(

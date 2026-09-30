@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseNonNegativeAmount, toDateString } from '@/lib/format';
@@ -183,7 +183,7 @@ function CycleCard({
 export default function CardCyclesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const methodId = Number(id);
-  const { paymentMethods, getCreditCardCycles, addCreditCardCycle, reconcileCreditCardCycle, unreconcileCreditCardCycle } = useDatabase();
+  const { paymentMethods, getCreditCardCycles, addCreditCardCycle, reconcileCreditCardCycle, unreconcileCreditCardCycle } = usePaymentDatabase();
   const method = paymentMethods.find((item) => item.id === methodId);
   const colors = Colors[useColorScheme() ?? 'light'];
   const [cycles, setCycles] = useState<CreditCardCycle[]>([]);

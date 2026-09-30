@@ -20,7 +20,11 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useBiometric } from '@/contexts/BiometricContext';
 import { useCrashMonitoring } from '@/contexts/CrashMonitoringContext';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  usePeriodDatabase,
+  usePreferenceDatabase,
+  useSavingsDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
@@ -161,13 +165,13 @@ export default function UserScreen() {
   const crashMonitoring = useCrashMonitoring();
   const {
     appNotifications,
-    savingsGoals,
     settings,
     setMovementReminder,
     setPushNotificationsEnabled,
     resetLocalData,
-    refresh,
-  } = useDatabase();
+  } = usePreferenceDatabase();
+  const { savingsGoals } = useSavingsDatabase();
+  const { refresh } = usePeriodDatabase();
   const [resetModalVisible, setResetModalVisible] = React.useState(false);
   const [resetConfirmation, setResetConfirmation] = React.useState('');
   const [isResetting, setIsResetting] = React.useState(false);

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabaseState } from '@/contexts/DatabaseContext';
+import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { toIsoDate } from '@/lib/recurrence';
@@ -31,7 +31,7 @@ function date(value: string): string {
 
 export default function BudgetForecastScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
-  const { selectedPeriodId } = useDatabaseState();
+  const { selectedPeriodId } = usePeriodDatabase();
   const [forecast, setForecast] = useState<BudgetForecast>(EMPTY);
   const [loading, setLoading] = useState(true);
 

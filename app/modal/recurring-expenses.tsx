@@ -10,7 +10,7 @@ import { FloatingActionButton } from '@/components/floating-action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useRecurrenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate } from '@/lib/format';
@@ -33,7 +33,7 @@ export default function RecurringExpensesScreen() {
     recurringIncomes,
     setRecurringIncomeActive,
     removeRecurringIncome,
-  } = useDatabase();
+  } = useRecurrenceDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [section, setSection] = useState<'expenses' | 'incomes' | 'savings'>('incomes');
   const isSavingsSection = section === 'savings';

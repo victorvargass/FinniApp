@@ -10,7 +10,7 @@ import { HomeVisibilityPreference } from '@/components/home-visibility-preferenc
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePaymentDatabase, usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
@@ -32,14 +32,14 @@ export default function PaymentMethodFormScreen() {
   const insets = useSafeAreaInsets();
   const {
     paymentMethods,
-    settings,
     addPaymentMethod,
     editPaymentMethod,
     setPaymentMethodActive,
     setDefaultPaymentMethod,
     getPaymentMethodDeletionInfo,
     removePaymentMethod,
-  } = useDatabase();
+  } = usePaymentDatabase();
+  const { settings } = usePreferenceDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const method = id ? paymentMethods.find((item) => item.id === Number(id)) : undefined;

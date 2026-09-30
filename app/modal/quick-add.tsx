@@ -6,13 +6,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabaseState } from '@/contexts/DatabaseContext';
+import { usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
 
 export default function QuickAddScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
-  const { paymentMethods } = useDatabaseState();
+  const { paymentMethods } = usePaymentDatabase();
   const hasActiveCreditCard = paymentMethods.some(
     (method) => method.active && method.type === 'credit'
   );

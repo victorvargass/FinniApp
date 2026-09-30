@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
@@ -18,7 +18,7 @@ import { showToast } from '@/lib/toast';
 export default function PaymentMethodBalanceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const methodId = Number(id);
-  const { paymentMethods, updatePaymentMethodBalance } = useDatabase();
+  const { paymentMethods, updatePaymentMethodBalance } = usePaymentDatabase();
   const method = paymentMethods.find((item) => item.id === methodId);
   const colors = Colors[useColorScheme() ?? 'light'];
   const [balance, setBalance] = useState(method?.availableBalance == null ? '' : formatCLPInput(method.availableBalance));

@@ -6,7 +6,7 @@ import { ColorPicker } from '@/components/ColorPicker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useOrganizerDatabase, useSavingsDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { t } from '@/lib/i18n';
@@ -18,10 +18,10 @@ export default function OrganizerFormScreen() {
   const relationship = kind === 'relationship';
   const recordId = id ? Number(id) : null;
   const {
-    incomeCategories, savingsGroups, relationshipTypes, saveIncomeCategory, removeIncomeCategory,
-    saveSavingsGroup, removeSavingsGroup,
+    incomeCategories, relationshipTypes, saveIncomeCategory, removeIncomeCategory,
     saveRelationshipType, removeRelationshipType,
-  } = useDatabase();
+  } = useOrganizerDatabase();
+  const { savingsGroups, saveSavingsGroup, removeSavingsGroup } = useSavingsDatabase();
   const navigation = useNavigation();
   const colors = Colors[useColorScheme() ?? 'light'];
   const record = (relationship ? relationshipTypes : savings ? savingsGroups : incomeCategories).find((item) => item.id === recordId);

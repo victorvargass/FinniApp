@@ -8,13 +8,13 @@ import { FloatingActionButton } from '@/components/floating-action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useOrganizerDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
 
 export default function CategoriesScreen() {
-  const { categories, incomeCategories } = useDatabase();
+  const { categories, incomeCategories } = useOrganizerDatabase();
   const { tab: requestedTab } = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<'expenses' | 'incomes'>(requestedTab === 'incomes' ? 'incomes' : 'expenses');
   const colors = Colors[useColorScheme() ?? 'light'];

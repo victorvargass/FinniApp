@@ -10,7 +10,7 @@ import { SegmentedTabs } from '@/components/segmented-tabs';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePaymentDatabase, usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { t } from '@/lib/i18n';
@@ -22,7 +22,8 @@ function showDefaultConfirmation(name: string) {
 }
 
 export default function PaymentMethodsScreen() {
-  const { paymentMethods, settings, setDefaultPaymentMethod } = useDatabase();
+  const { paymentMethods, setDefaultPaymentMethod } = usePaymentDatabase();
+  const { settings } = usePreferenceDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [methodSection, setMethodSection] = useState<'accounts' | 'prepaid' | 'credit'>('accounts');
   const guide = useFeatureGuide('payment-methods');

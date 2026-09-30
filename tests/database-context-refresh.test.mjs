@@ -3,6 +3,10 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
 const source = readFileSync(new URL('../contexts/DatabaseContext.tsx', import.meta.url), 'utf8');
+const domains = readFileSync(
+  new URL('../contexts/DatabaseDomainContexts.tsx', import.meta.url),
+  'utf8'
+);
 
 test('financial writes refresh their domain without rerunning global maintenance', () => {
   const start = source.indexOf('const refreshFinancialDomain');
@@ -26,11 +30,15 @@ test('financial writes refresh their domain without rerunning global maintenance
   }
 });
 
-test('database state and actions have independent context identities', () => {
-  assert.match(source, /DatabaseStateContext = createContext/);
-  assert.match(source, /DatabaseActionsContext = createContext/);
-  assert.match(source, /useShallowStableValue\(splitValue\.state\)/);
-  assert.match(source, /useShallowStableValue\(splitValue\.actions\)/);
-  assert.match(source, /export function useDatabaseState/);
-  assert.match(source, /export function useDatabaseActions/);
+test('financial domains have independent stable context identities', () => {
+  for (const name of [
+    'Period', 'Movement', 'Payment', 'Savings', 'Debt',
+    'Recurrence', 'Organizer', 'Preference',
+  ]) {
+    assert.match(domains, new RegExp(`const ${name}DatabaseContext = createContext`));
+    assert.match(domains, new RegExp(`use${name}Database`));
+  }
+  assert.match(domains, /useShallowStablePick/);
+  assert.match(source, /DatabaseDomainProviders value=\{value\}/);
+  assert.doesNotMatch(source, /const DatabaseContext = createContext/);
 });

@@ -2,7 +2,11 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  usePeriodDatabase,
+  usePreferenceDatabase,
+  useRecurrenceDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { Alert } from '@/lib/alert';
 import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
@@ -26,9 +30,9 @@ export function RecurringNotificationController() {
     approveRecurringOccurrence,
     skipRecurringOccurrence,
     markRecurringOccurrencePending,
-    markAppNotificationReadBySourceKey,
-    refresh,
-  } = useDatabase();
+  } = useRecurrenceDatabase();
+  const { markAppNotificationReadBySourceKey } = usePreferenceDatabase();
+  const { refresh } = usePeriodDatabase();
   const handledResponse = useRef<string | null>(null);
 
   useEffect(() => {

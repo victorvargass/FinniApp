@@ -7,12 +7,12 @@ import { FloatingActionButton } from '@/components/floating-action-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useSavingsDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
 
 export default function SavingsGroupsScreen() {
-  const { savingsGroups, savingsGoals } = useDatabase();
+  const { savingsGroups, savingsGoals } = useSavingsDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
 
   return (

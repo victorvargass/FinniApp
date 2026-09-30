@@ -8,7 +8,7 @@ import { SessionService } from '@/services/SessionService';
 import { BackupService, type BackupMetadata } from '@/services/BackupService';
 import { RestoreService } from '@/services/RestoreService';
 import { GoogleDriveService, type DriveBackup } from '@/services/GoogleDriveService';
-import { useDatabaseActions } from '@/contexts/DatabaseContext';
+import { usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { t } from '@/lib/i18n';
 import { BackupCredentialService } from '@/services/BackupCredentialService';
 
@@ -27,7 +27,7 @@ function toMessage(error: unknown): string {
 }
 
 export function useGoogle() {
-  const { runDatabaseMaintenance } = useDatabaseActions();
+  const { runDatabaseMaintenance } = usePreferenceDatabase();
 
   const [state, setState] = useState<GoogleState>({
     user: null,

@@ -18,7 +18,13 @@ import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  useMovementDatabase,
+  useOrganizerDatabase,
+  usePaymentDatabase,
+  usePeriodDatabase,
+  useRecurrenceDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatEventDateTime } from '@/lib/format';
@@ -241,14 +247,11 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
 }
 
 export default function ExpensesScreen({ embedded = false }: { embedded?: boolean }) {
-  const {
-    expenses,
-    categories,
-    paymentMethods,
-    recurringExpenses,
-    removeExpense,
-    selectedPeriodId,
-  } = useDatabase();
+  const { expenses, removeExpense } = useMovementDatabase();
+  const { categories } = useOrganizerDatabase();
+  const { paymentMethods } = usePaymentDatabase();
+  const { recurringExpenses } = useRecurrenceDatabase();
+  const { selectedPeriodId } = usePeriodDatabase();
   const {
     categoryFilter: requestedCategory,
     paymentMethodFilter: requestedPaymentMethod,

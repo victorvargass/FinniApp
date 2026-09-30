@@ -9,12 +9,12 @@ import { SegmentedTabs } from '@/components/segmented-tabs';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useOrganizerDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
 
 export default function ContactsScreen() {
-  const { contacts, relationshipTypes } = useDatabase();
+  const { contacts, relationshipTypes } = useOrganizerDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [contactSection, setContactSection] = useState<'contacts' | 'relationships'>('contacts');
 

@@ -6,7 +6,7 @@ import {
   type AccountMovementListItem,
 } from '@/components/account-movement-list';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePaymentDatabase, usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
 import type { CreditCardAdjustmentKind } from '@/lib/types';
@@ -26,7 +26,8 @@ function getAdjustmentLabel(kind: CreditCardAdjustmentKind | null) {
 
 export function CardPaymentMovements() {
   const colors = Colors[useColorScheme() ?? 'light'];
-  const { cardPaymentMovements, selectedPeriodId } = useDatabase();
+  const { cardPaymentMovements } = usePaymentDatabase();
+  const { selectedPeriodId } = usePeriodDatabase();
 
   const movements = useMemo<AccountMovementListItem[]>(() => (
     cardPaymentMovements.map((movement) => {

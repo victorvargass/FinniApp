@@ -20,7 +20,7 @@ import { HomeVisibilityPreference } from '@/components/home-visibility-preferenc
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useSavingsDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
@@ -73,7 +73,7 @@ export default function SavingsGoalFormScreen() {
     removeSavingsGoal,
     removeSavingsGoalBalanceAdjustment,
     getSavingsGoalMovements,
-  } = useDatabase();
+  } = useSavingsDatabase();
 
   const goalId = id ? Number(id) : null;
   const goal = goalId != null

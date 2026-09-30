@@ -9,7 +9,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecurringScheduleFields } from '@/components/recurring-schedule-fields';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  useDebtDatabase,
+  useMovementDatabase,
+  useOrganizerDatabase,
+  usePaymentDatabase,
+  usePeriodDatabase,
+  usePreferenceDatabase,
+  useSavingsDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
@@ -21,7 +29,7 @@ import { formatCLP, formatCLPInput, formatDate, formatTime, parseAmount, toDateS
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
-import * as database from '@/lib/db';
+import { getExpenseShares } from '@/repositories/movements';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
 import type {
   CreditCardAdjustment,
@@ -60,26 +68,19 @@ type ExpenseFormProps = {
 };
 
 export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, initialSavingsContribution = false, onSuccess }: ExpenseFormProps) {
+  const { categories, contacts } = useOrganizerDatabase();
+  const { expenseNames, addExpense, editExpense, removeExpense } = useMovementDatabase();
   const {
-    categories,
-    contacts,
     paymentMethods,
-    expenseNames,
-    addExpense,
     addCreditCardAdjustment,
-    addInstallmentPurchase,
-    editExpense,
-    removeExpense,
     editCreditCardAdjustment,
     removeCreditCardAdjustment,
-    savingsGoals,
-    periods,
-    selectedPeriod,
     getCreditCardCycles,
-    settings,
-    setPeriodEndDate,
-    setPushNotificationsEnabled,
-  } = useDatabase();
+  } = usePaymentDatabase();
+  const { addInstallmentPurchase } = useDebtDatabase();
+  const { savingsGoals } = useSavingsDatabase();
+  const { periods, selectedPeriod, setPeriodEndDate } = usePeriodDatabase();
+  const { settings, setPushNotificationsEnabled } = usePreferenceDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
@@ -357,7 +358,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     }
     let cancelled = false;
     setSharesLoading(true);
-    database.getExpenseShares(expense.id)
+    getExpenseShares(expense.id)
       .then((shares) => {
         if (cancelled) return;
         setReceivableShares(shares.map((share) => ({

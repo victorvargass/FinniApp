@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useSavingsDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
@@ -18,7 +18,7 @@ import { showToast } from '@/lib/toast';
 export default function SavingsGoalBalanceScreen() {
   const { savingsGoalId: savingsGoalIdParam } = useLocalSearchParams<{ savingsGoalId: string }>();
   const savingsGoalId = Number(savingsGoalIdParam);
-  const { savingsGoals, addSavingsGoalBalanceAdjustment } = useDatabase();
+  const { savingsGoals, addSavingsGoalBalanceAdjustment } = useSavingsDatabase();
   const goal = savingsGoals.find((item) => item.id === savingsGoalId);
   const colors = Colors[useColorScheme() ?? 'light'];
   const [balance, setBalance] = useState(goal ? formatCLPInput(goal.currentAmount) : '');

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useDebtDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
@@ -24,7 +24,7 @@ function parseIsoDate(value: string) {
 export default function DebtBalanceScreen() {
   const { debtId: debtIdParam } = useLocalSearchParams<{ debtId: string }>();
   const debtId = Number(debtIdParam);
-  const { getDebt, addDebtBalanceAdjustment } = useDatabase();
+  const { getDebt, addDebtBalanceAdjustment } = useDebtDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [debt, setDebt] = useState<Debt | null>(null);
   const [balance, setBalance] = useState('');

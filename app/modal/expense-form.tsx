@@ -6,8 +6,9 @@ import { ExpenseForm } from '@/components/forms';
 import { ThemedText } from '@/components/themed-text';
 import { t } from '@/lib/i18n';
 import { ThemedView } from '@/components/themed-view';
-import { useDatabaseState } from '@/contexts/DatabaseContext';
-import * as db from '@/lib/db';
+import { useMovementDatabase } from '@/contexts/DatabaseDomainContexts';
+import { getExpenseById } from '@/repositories/movements';
+import { getCreditCardAdjustment } from '@/repositories/payment-methods';
 import type { CreditCardAdjustment, ExpenseWithCategory } from '@/lib/types';
 
 export default function ExpenseFormModal() {
@@ -20,7 +21,7 @@ export default function ExpenseFormModal() {
     savingsGoalId?: string;
     savingsContribution?: string;
   }>();
-  const { expenses } = useDatabaseState();
+  const { expenses } = useMovementDatabase();
   const navigation = useNavigation();
   const sourceId = id ?? repeatId;
   const isRepeating = repeatId != null && id == null;
@@ -41,7 +42,7 @@ export default function ExpenseFormModal() {
     if (!sourceId || expenseFromSelectedPeriod || !Number.isInteger(expenseId)) return;
     let cancelled = false;
     setLoading(true);
-    db.getExpenseById(expenseId)
+    getExpenseById(expenseId)
       .then((result) => {
         if (!cancelled) setLoadedExpense(result);
       })
@@ -56,7 +57,7 @@ export default function ExpenseFormModal() {
     if (!adjustmentId || !Number.isInteger(parsedAdjustmentId)) return;
     let cancelled = false;
     setLoading(true);
-    db.getCreditCardAdjustment(parsedAdjustmentId)
+    getCreditCardAdjustment(parsedAdjustmentId)
       .then((result) => {
         if (!cancelled) setCreditAdjustment(result);
       })

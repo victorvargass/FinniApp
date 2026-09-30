@@ -19,7 +19,15 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WeeklyInsightCard } from '@/components/weekly-insight-card';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  useDebtDatabase,
+  useMovementDatabase,
+  useOrganizerDatabase,
+  usePaymentDatabase,
+  usePeriodDatabase,
+  useRecurrenceDatabase,
+  useSavingsDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
@@ -56,22 +64,13 @@ function parseDateString(value: string): Date {
 export default function HomeScreen() {
   const { scrollToTop } = useLocalSearchParams<{ scrollToTop?: string }>();
   const scrollRef = useRef<ScrollView>(null);
+  const { expenses, incomes } = useMovementDatabase();
+  const { categories } = useOrganizerDatabase();
   const {
-    expenses,
-    incomes,
-    categories,
     periodCategoryExpensesTotals,
     periodIncomesTotal,
     periodExpensesTotal,
     periodHistory,
-    periodSavingsGoalActivity,
-    periodSavingsFundingTotal,
-    unbilledCreditCardTotal,
-    paymentMethodTotals,
-    paymentMethods,
-    recurringDecisions,
-    savingsGoals,
-    savingsGroups,
     isPeriodChanging,
     periodRefreshFailed,
     refresh,
@@ -80,9 +79,16 @@ export default function HomeScreen() {
     closeCurrentPeriod,
     selectedPeriod,
     settings,
-    getDebts,
-    getDebtPlans,
-  } = useDatabase();
+  } = usePeriodDatabase();
+  const {
+    periodSavingsGoalActivity,
+    periodSavingsFundingTotal,
+    savingsGoals,
+    savingsGroups,
+  } = useSavingsDatabase();
+  const { unbilledCreditCardTotal, getDebts, getDebtPlans } = useDebtDatabase();
+  const { paymentMethodTotals, paymentMethods } = usePaymentDatabase();
+  const { recurringDecisions } = useRecurrenceDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const isCurrentPeriod = selectedPeriod?.id === settings.currentPeriodId;

@@ -17,7 +17,11 @@ import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  useMovementDatabase,
+  usePeriodDatabase,
+  useRecurrenceDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatEventDateTime } from '@/lib/format';
@@ -187,7 +191,9 @@ function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
 }
 
 export default function IncomesScreen({ embedded = false }: { embedded?: boolean }) {
-  const { incomes, recurringIncomes, removeIncome, selectedPeriodId } = useDatabase();
+  const { incomes, removeIncome } = useMovementDatabase();
+  const { recurringIncomes } = useRecurrenceDatabase();
+  const { selectedPeriodId } = usePeriodDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 

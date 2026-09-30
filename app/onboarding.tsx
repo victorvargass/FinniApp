@@ -11,7 +11,7 @@ import { GoogleLogo } from '@/components/google-logo';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -107,7 +107,7 @@ function parsePeriodDate(value?: string): Date {
 }
 
 function PeriodSetupOverview() {
-  const { selectedPeriod, setPeriodDates } = useDatabase();
+  const { selectedPeriod, setPeriodDates } = usePeriodDatabase();
   const [startDate, setStartDate] = useState(() => parsePeriodDate(selectedPeriod?.startDate));
   const [endDate, setEndDate] = useState(() => parsePeriodDate(selectedPeriod?.endDate));
   const [activePicker, setActivePicker] = useState<'start' | 'end' | null>(null);

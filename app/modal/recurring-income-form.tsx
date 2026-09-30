@@ -7,7 +7,12 @@ import { RecurringScheduleFields } from '@/components/recurring-schedule-fields'
 import { ColorSelect } from '@/components/forms/shared';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  useOrganizerDatabase,
+  usePaymentDatabase,
+  usePreferenceDatabase,
+  useRecurrenceDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLPInput, parseAmount, toDateString } from '@/lib/format';
@@ -27,11 +32,10 @@ export default function RecurringIncomeFormScreen() {
     addRecurringIncome,
     editRecurringIncome,
     removeRecurringIncome,
-    paymentMethods,
-    incomeCategories,
-    settings,
-    setPushNotificationsEnabled,
-  } = useDatabase();
+  } = useRecurrenceDatabase();
+  const { paymentMethods } = usePaymentDatabase();
+  const { incomeCategories } = useOrganizerDatabase();
+  const { settings, setPushNotificationsEnabled } = usePreferenceDatabase();
   const recurring = id ? recurringIncomes.find((item) => item.id === Number(id)) : undefined;
   const navigation = useNavigation();
   const colors = Colors[useColorScheme() ?? 'light'];

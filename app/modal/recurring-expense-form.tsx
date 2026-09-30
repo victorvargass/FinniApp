@@ -9,7 +9,14 @@ import { ColorSelect } from '@/components/forms/shared';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  useMovementDatabase,
+  useOrganizerDatabase,
+  usePaymentDatabase,
+  usePreferenceDatabase,
+  useRecurrenceDatabase,
+  useSavingsDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { resolveExpenseSplitMode } from '@/lib/expense-split-mode';
@@ -53,16 +60,15 @@ export default function RecurringExpenseFormScreen() {
   }>();
   const {
     recurringExpenses,
-    expenses,
-    categories,
-    paymentMethods,
-    savingsGoals,
-    settings,
     addRecurringExpense,
     editRecurringExpense,
     removeRecurringExpense,
-    setPushNotificationsEnabled,
-  } = useDatabase();
+  } = useRecurrenceDatabase();
+  const { expenses } = useMovementDatabase();
+  const { categories } = useOrganizerDatabase();
+  const { paymentMethods } = usePaymentDatabase();
+  const { savingsGoals } = useSavingsDatabase();
+  const { settings, setPushNotificationsEnabled } = usePreferenceDatabase();
   const navigation = useNavigation();
   const colors = Colors[useColorScheme() ?? 'light'];
   const recurring = id ? recurringExpenses.find((item) => item.id === Number(id)) : undefined;

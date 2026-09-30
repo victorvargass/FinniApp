@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useDebtDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
@@ -17,7 +17,7 @@ import { t } from '@/lib/i18n';
 import type { Debt } from '@/lib/types';
 
 export default function ArchivedDebtsScreen() {
-  const { getDebts, setDebtArchived } = useDatabase();
+  const { getDebts, setDebtArchived } = useDebtDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [debts, setDebts] = useState<Debt[]>([]);
   const [workingId, setWorkingId] = useState<number | null>(null);

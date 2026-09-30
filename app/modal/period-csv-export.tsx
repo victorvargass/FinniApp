@@ -7,7 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { PERIOD_CSV_FIELDS, type PeriodCsvField } from '@/lib/period-csv';
@@ -21,7 +21,7 @@ function displayDate(value: string): string {
 
 export default function PeriodCsvExportScreen() {
   const { periodId } = useLocalSearchParams<{ periodId?: string }>();
-  const { periodHistory } = useDatabase();
+  const { periodHistory } = usePeriodDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const insets = useSafeAreaInsets();
   const [fields, setFields] = useState<PeriodCsvField[]>([...PERIOD_CSV_FIELDS]);

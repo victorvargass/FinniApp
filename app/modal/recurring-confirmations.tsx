@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePreferenceDatabase, useRecurrenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
@@ -91,14 +91,16 @@ function groupNotificationsByDay(
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const {
-    appNotifications,
     recurringDecisions,
     approveRecurringOccurrence,
     skipRecurringOccurrence,
     retryRecurringOccurrence,
+  } = useRecurrenceDatabase();
+  const {
+    appNotifications,
     setAppNotificationRead,
     deleteAppNotification,
-  } = useDatabase();
+  } = usePreferenceDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [selectedNotificationId, setSelectedNotificationId] = useState<number | null>(null);
   const selectedNotification = appNotifications.find((item) => item.id === selectedNotificationId) ?? null;

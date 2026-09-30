@@ -5,11 +5,11 @@ import { StyleSheet } from 'react-native';
 import { CategoryForm } from '@/components/forms';
 import { t } from '@/lib/i18n';
 import { ThemedView } from '@/components/themed-view';
-import { useDatabaseState } from '@/contexts/DatabaseContext';
+import { useOrganizerDatabase } from '@/contexts/DatabaseDomainContexts';
 
 export default function CategoryFormModal() {
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { categories } = useDatabaseState();
+  const { categories } = useOrganizerDatabase();
   const navigation = useNavigation();
 
   const category = id ? categories.find((c) => c.id === Number(id)) : undefined;

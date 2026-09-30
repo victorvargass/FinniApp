@@ -10,7 +10,7 @@ import { SavingsGoalProgress } from '@/components/SavingsGoalProgress';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useSavingsDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
@@ -114,7 +114,7 @@ function GoalCard({ goal }: { goal: SavingsGoal }) {
 }
 
 export default function SavingsGoalsScreen() {
-  const { savingsGoals, savingsGroups } = useDatabase();
+  const { savingsGoals, savingsGroups } = useSavingsDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [selectedGroup, setSelectedGroup] = useState<'all' | 'ungrouped' | number>('all');
   const [showArchived, setShowArchived] = useState(false);

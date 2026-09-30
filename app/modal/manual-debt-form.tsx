@@ -9,7 +9,11 @@ import { HomeVisibilityPreference } from '@/components/home-visibility-preferenc
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import {
+  useDebtDatabase,
+  useOrganizerDatabase,
+  usePaymentDatabase,
+} from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
@@ -29,7 +33,9 @@ function parseIsoDate(value: string) {
 export default function DebtFormScreen() {
   const { id, type: requestedType, direction: requestedDirection } = useLocalSearchParams<{ id?: string; type?: DebtType; direction?: DebtDirection }>();
   const debtId = id ? Number(id) : null;
-  const { categories, incomeCategories, contacts, paymentMethods, getDebt, addDebt, editDebt } = useDatabase();
+  const { categories, incomeCategories, contacts } = useOrganizerDatabase();
+  const { paymentMethods } = usePaymentDatabase();
+  const { getDebt, addDebt, editDebt } = useDebtDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const debtPaymentCategoryName = t('database.defaultCategories.debtPayment');
   const defaultExpenseCategoryId = categories.find((item) => item.name.localeCompare(debtPaymentCategoryName, undefined, { sensitivity: 'base' }) === 0)?.id ?? null;

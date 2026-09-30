@@ -9,7 +9,7 @@ import { ColorSelect } from '@/components/forms/shared';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { usePaymentDatabase, usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { changeTransferSource, getProjectedSourceBalance, getTransferableSourceBalance } from '@/lib/account-transfer-calculations';
@@ -29,12 +29,12 @@ export default function AccountTransferFormScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
   const {
     paymentMethods,
-    settings,
     getAccountTransfer,
     addAccountTransfer,
     editAccountTransfer,
     removeAccountTransfer,
-  } = useDatabase();
+  } = usePaymentDatabase();
+  const { settings } = usePreferenceDatabase();
   const [existing, setExisting] = useState<AccountTransfer | null>(null);
   const [loading, setLoading] = useState(Number.isInteger(transferId));
   const [sourceId, setSourceId] = useState<number | null>(null);
