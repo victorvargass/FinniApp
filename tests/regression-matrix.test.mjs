@@ -48,7 +48,10 @@ test('all regression artifacts exist and critical journeys include an E2E flow',
 test('automated regression workflows execute every credential-free Maestro flow', () => {
   const workflows = [
     readFileSync(path.join(root, '.eas/workflows/e2e-test-android.yml'), 'utf8'),
-    readFileSync(path.join(root, '.github/workflows/e2e-android.yml'), 'utf8'),
+    [
+      readFileSync(path.join(root, '.github/workflows/e2e-android.yml'), 'utf8'),
+      readFileSync(path.join(root, 'scripts/run-android-e2e.sh'), 'utf8'),
+    ].join('\n'),
   ];
   const expected = new Set(
     matrix.journeys
@@ -66,7 +69,10 @@ test('automated regression workflows execute every credential-free Maestro flow'
 });
 
 test('GitHub executes platform-only upgrade journeys with a populated fixture', () => {
-  const workflow = readFileSync(path.join(root, '.github/workflows/e2e-android.yml'), 'utf8');
+  const workflow = [
+    readFileSync(path.join(root, '.github/workflows/e2e-android.yml'), 'utf8'),
+    readFileSync(path.join(root, 'scripts/run-android-e2e.sh'), 'utf8'),
+  ].join('\n');
   for (const journey of matrix.journeys.filter((item) => item.githubOnly)) {
     for (const artifact of journey.automatedArtifacts.filter((item) => item.startsWith('.maestro/'))) {
       assert.match(workflow, new RegExp(artifact.replaceAll('.', '\\.')));
@@ -84,14 +90,17 @@ test('the distributable GitHub workflow waits for Android E2E', () => {
 
 test('Android E2E distinguishes Maestro failures from emulator cleanup failures', () => {
   const workflow = readFileSync(path.join(root, '.github/workflows/e2e-android.yml'), 'utf8');
+  const runner = readFileSync(path.join(root, 'scripts/run-android-e2e.sh'), 'utf8');
   assert.match(workflow, /MODE="0666"/);
   assert.match(workflow, /disable-linux-hw-accel: false/);
   assert.match(workflow, /continue-on-error: true/);
-  assert.match(workflow, /expo start --dev-client --localhost/);
-  assert.match(workflow, /packager-status:running/);
-  assert.match(workflow, /adb reverse tcp:8081 tcp:8081/);
+  assert.match(workflow, /script: bash scripts\/run-android-e2e\.sh/);
   assert.match(workflow, /runner\.temp.*metro\.log/);
-  assert.match(workflow, /touch "\$RUNNER_TEMP\/finniapp-maestro-passed"/);
+  assert.match(runner, /set -euo pipefail/);
+  assert.match(runner, /expo start --dev-client --localhost/);
+  assert.match(runner, /packager-status:running/);
+  assert.match(runner, /adb reverse tcp:8081 tcp:8081/);
+  assert.match(runner, /touch "\$RUNNER_TEMP\/finniapp-maestro-passed"/);
   assert.match(workflow, /if \[\[ ! -f "\$RUNNER_TEMP\/finniapp-maestro-passed" \]\]/);
 });
 
