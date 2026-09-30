@@ -1,6 +1,6 @@
 # Inventario de datos y borrador para Google Play Data Safety
 
-Este documento describe el comportamiento observado en el código al 8 de septiembre de 2026. Debe revisarse nuevamente contra el binario final y todos sus SDK antes de responder el formulario de Play Console.
+Este documento describe el comportamiento observado en el código al 30 de septiembre de 2026. Debe revisarse nuevamente contra el binario final y todos sus SDK antes de responder el formulario de Play Console.
 
 ## Datos que permanecen en el dispositivo
 
@@ -18,11 +18,12 @@ El procesamiento exclusivamente local no se declara normalmente como recopilaci�
 | Archivo SQLite con información financiera y notas | Al respaldar/restaurar | Carpeta `appDataFolder` de Google Drive | Funcionalidad de respaldo solicitada por el usuario | No |
 | Reporte PDF | Al generarlo y abrirlo | Lector PDF elegido por el sistema; puede enviarse a otra aplicación por decisión posterior del usuario | Exportación iniciada por el usuario | No |
 | Códigos técnicos sin datos financieros | Al abrir soporte y enviar el correo preparado | Aplicación de correo y cuenta de soporte | Diagnóstico solicitado por el usuario | No |
+| Crash, bloqueo, stack sin variables, versión, sistema y modelo general | Solo después de aceptar “Ayudar a detectar fallos” | Sentry | Estabilidad y diagnóstico de la aplicación | No |
 
 ## Declaración preliminar
 
 - La app funciona sin cuenta; Google Drive es opcional.
-- No hay servidor propio, analítica, publicidad ni venta de datos detectados.
+- No hay servidor propio, analítica de uso, publicidad ni venta de datos. El monitoreo técnico opcional usa Sentry y debe declararse como datos de rendimiento/diagnóstico según el formulario vigente.
 - El respaldo usa HTTPS en tránsito, pero no tiene cifrado de extremo a extremo administrado por FinniApp.
 - Revisar en Play Console si la transferencia iniciada por el usuario hacia Google Drive califica para la excepción aplicable; la decisión final es responsabilidad del publicador.
 - Declarar los SDK realmente incluidos por el artefacto de producción, no solo las importaciones visibles.
@@ -32,7 +33,7 @@ El procesamiento exclusivamente local no se declara normalmente como recopilaci�
 1. Publicar `PRIVACY.md` en una URL HTTPS estable y sin restricciones.
 2. Enlazar esa URL dentro de la app y en Play Console.
 3. Revisar permisos del Android App Bundle final.
-4. Confirmar que no se añadió analítica, crash reporting o publicidad después de este inventario.
+4. Confirmar que Sentry sigue desactivado por defecto, sujeto a consentimiento y sin replay, capturas, PII ni datos financieros.
 5. Repetir `npm audit` y revisar el índice de SDK de Google Play.
 6. Probar eliminación local y documentar cómo borrar el respaldo de Drive.
 

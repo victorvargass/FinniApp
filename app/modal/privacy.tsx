@@ -12,6 +12,7 @@ const SECTIONS = [
   ['privacy.accountsTitle', 'privacy.accountsBody'],
   ['privacy.googleTitle', 'privacy.googleBody'],
   ['privacy.permissionsTitle', 'privacy.permissionsBody'],
+  ['privacy.crashMonitoringTitle', 'privacy.crashMonitoringBody'],
   ['privacy.reportsTitle', 'privacy.reportsBody'],
   ['privacy.deletionTitle', 'privacy.deletionBody'],
   ['privacy.securityTitle', 'privacy.securityBody'],

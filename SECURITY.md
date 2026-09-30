@@ -11,6 +11,9 @@ Para informar una vulnerabilidad, escribe a victorvargassandoval93@gmail.com. No
 - Copia de rollback antes de reemplazar la base activa.
 - Google Drive limitado a `drive.appdata`; no se usa acceso general al Drive.
 - Tokens OAuth solo en memoria y sin escritura intencional en logs.
+- Monitoreo de fallos desactivado por defecto y sujeto a consentimiento. Antes
+  del envío elimina mensajes, usuario, peticiones, breadcrumbs, extras,
+  variables locales, capturas y replay de sesión.
 - Archivos de entorno, llaves y configuración nativa sensible excluidos de Git.
 
 ## Riesgos conocidos y trabajo pendiente

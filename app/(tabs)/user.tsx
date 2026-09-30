@@ -19,6 +19,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useBiometric } from '@/contexts/BiometricContext';
+import { useCrashMonitoring } from '@/contexts/CrashMonitoringContext';
 import { useDatabase } from '@/contexts/DatabaseContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -157,6 +158,7 @@ export default function UserScreen() {
   const { language, setLanguage } = useLanguage();
   const { setPreference: setThemePreference } = useThemePreference();
   const { resetOnboarding } = useOnboarding();
+  const crashMonitoring = useCrashMonitoring();
   const {
     appNotifications,
     savingsGoals,
@@ -170,6 +172,7 @@ export default function UserScreen() {
   const [resetConfirmation, setResetConfirmation] = React.useState('');
   const [isResetting, setIsResetting] = React.useState(false);
   const [isUpdatingNotifications, setIsUpdatingNotifications] = React.useState(false);
+  const [isUpdatingCrashMonitoring, setIsUpdatingCrashMonitoring] = React.useState(false);
   const [publishedUpdate, setPublishedUpdate] = React.useState<PublishedUpdateStatus>({ kind: 'checking' });
   const activeUpdate = getActiveUpdate();
   const unreadNotifications = appNotifications.filter((item) => !item.isRead).length;
@@ -232,6 +235,7 @@ export default function UserScreen() {
     try {
       await resetLocalData();
       await clearAppDiagnostics();
+      await crashMonitoring.setEnabled(false);
       await resetSetupProgress();
       setResetModalVisible(false);
       setResetConfirmation('');
@@ -263,6 +267,35 @@ export default function UserScreen() {
     Alert.alert(
       t('errors.couldNotUpdate'),
       error instanceof Error ? error.message : t('common.tryAgain')
+    );
+  };
+
+  const updateCrashMonitoring = async (enabled: boolean) => {
+    setIsUpdatingCrashMonitoring(true);
+    try {
+      await crashMonitoring.setEnabled(enabled);
+      showToast(t(enabled
+        ? 'settings.crashMonitoringEnabledToast'
+        : 'settings.crashMonitoringDisabledToast'));
+    } catch {
+      Alert.alert(t('errors.couldNotUpdate'), t('common.tryAgain'));
+    } finally {
+      setIsUpdatingCrashMonitoring(false);
+    }
+  };
+
+  const requestCrashMonitoringChange = (enabled: boolean) => {
+    if (!enabled) {
+      void updateCrashMonitoring(false);
+      return;
+    }
+    Alert.alert(
+      t('settings.crashMonitoringConsentTitle'),
+      t('settings.crashMonitoringConsentBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.crashMonitoringConsentAction'), onPress: () => { void updateCrashMonitoring(true); } },
+      ]
     );
   };
 
@@ -439,6 +472,28 @@ export default function UserScreen() {
             </View>
             <Ionicons name="options-outline" size={22} color={colors.icon} />
           </Pressable>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.settingRow}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('settings.crashMonitoring')}</ThemedText>
+              <ThemedText style={styles.description}>
+                {t(!crashMonitoring.configured
+                  ? 'settings.crashMonitoringUnavailableHint'
+                  : crashMonitoring.enabled
+                    ? 'settings.crashMonitoringEnabledHint'
+                    : 'settings.crashMonitoringDisabledHint')}
+              </ThemedText>
+            </View>
+            <Switch
+              accessibilityLabel={t('accessibility.toggleCrashMonitoring')}
+              disabled={!crashMonitoring.isReady
+                || !crashMonitoring.configured
+                || isUpdatingCrashMonitoring}
+              value={crashMonitoring.enabled}
+              onValueChange={requestCrashMonitoringChange}
+              trackColor={{ true: colors.primary }}
+            />
+          </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.settingRow}>
             <View style={styles.settingCopy}>

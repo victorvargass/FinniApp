@@ -1,6 +1,6 @@
 # Política de privacidad de FinniApp
 
-Vigente desde el 12 de septiembre de 2026.
+Vigente desde el 30 de septiembre de 2026.
 
 FinniApp es una aplicación de finanzas personales que funciona principalmente en el dispositivo. No vende información personal, no incluye publicidad ni analítica de terceros y no opera un servidor propio para almacenar los movimientos financieros del usuario.
 
@@ -19,6 +19,7 @@ Si el usuario decide conectar Google Drive, FinniApp accede al nombre, correo el
 - Programar recordatorios locales elegidos por el usuario.
 - Crear y restaurar respaldos opcionales en Google Drive.
 - Permitir el bloqueo local de la interfaz mediante la autenticación biométrica del sistema operativo.
+- Detectar crashes y bloqueos técnicos, únicamente cuando el usuario da su consentimiento.
 
 ## Transferencias y terceros
 
@@ -30,9 +31,11 @@ Al elegir “Soporte y comentarios”, FinniApp prepara un correo en la aplicaci
 
 Las notificaciones son opcionales y se programan localmente en el dispositivo. Cuando se activa el bloqueo biométrico, el sistema operativo realiza la verificación; FinniApp no recibe ni almacena la huella, el rostro ni una plantilla biométrica.
 
+El monitoreo técnico de fallos también es opcional y está desactivado por defecto. Si el usuario lo activa en Preferencias, FinniApp utiliza Sentry para recibir el tipo de excepción, stack trace sin variables locales, versión de la aplicación, sistema operativo y modelo general del dispositivo. Antes del envío se eliminan mensajes, usuario, peticiones, navegación, datos adicionales y contextos personalizados. No se envían nombres, montos, notas, movimientos, cuentas, respaldos, capturas de pantalla ni grabaciones de sesión. El consentimiento se puede retirar en cualquier momento desde la misma preferencia.
+
 ## Conservación y eliminación
 
-La información local permanece hasta que el usuario la elimina, restablece los datos de FinniApp o desinstala la aplicación. Desde Configuración se pueden borrar los datos locales. Al crear un respaldo nuevo, la aplicación intenta eliminar los respaldos anteriores de su carpeta privada. Cerrar sesión no elimina automáticamente el respaldo ya almacenado en Google Drive; este permanece hasta ser reemplazado o eliminado desde la configuración de aplicaciones de Drive.
+La información local permanece hasta que el usuario la elimina, restablece los datos de FinniApp o desinstala la aplicación. Desde Configuración se pueden borrar los datos locales; esa acción también retira el consentimiento de monitoreo técnico. Al crear un respaldo nuevo, la aplicación intenta eliminar los respaldos anteriores de su carpeta privada. Cerrar sesión no elimina automáticamente el respaldo ya almacenado en Google Drive; este permanece hasta ser reemplazado o eliminado desde la configuración de aplicaciones de Drive. Los eventos técnicos ya enviados a Sentry se conservan según la retención configurada para ese proyecto.
 
 ## Seguridad
 

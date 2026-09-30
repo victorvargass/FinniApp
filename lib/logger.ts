@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { reportHandledError } from '@/services/CrashMonitoringService';
 import { t } from './i18n';
 
 export type LogContext =
@@ -107,6 +108,7 @@ function classifyError(context: LogContext, error: unknown): Pick<AppDiagnostic,
 
 /** Stores only an error category and code location; messages and user data are never serialized. */
 export function logAppError(context: LogContext, error: unknown, metadata: DiagnosticMetadata = {}): void {
+  reportHandledError(error, context);
   const classified = classifyError(context, error);
   const attached = getDiagnosticMetadata(error);
   const diagnostic: AppDiagnostic = {

@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as Sentry from '@sentry/react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -19,6 +20,7 @@ import { RecurringNotificationController } from '@/components/recurring-notifica
 import { t } from '@/lib/i18n';
 import { BiometricProvider } from '@/contexts/BiometricContext';
 import { DatabaseProvider } from '@/contexts/DatabaseContext';
+import { CrashMonitoringProvider } from '@/contexts/CrashMonitoringContext';
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext';
 import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext';
 import { ThemePreferenceProvider } from '@/contexts/ThemeContext';
@@ -236,7 +238,7 @@ function AppContent() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Quicksand_400Regular,
     Quicksand_500Medium,
@@ -245,12 +247,16 @@ export default function RootLayout() {
   });
 
   return (
-    <LanguageProvider>
-      <ThemePreferenceProvider>
-        <OnboardingProvider>
-          {!fontsLoaded && !fontError ? <AppLoadingScreen /> : <AppContent />}
-        </OnboardingProvider>
-      </ThemePreferenceProvider>
-    </LanguageProvider>
+    <CrashMonitoringProvider>
+      <LanguageProvider>
+        <ThemePreferenceProvider>
+          <OnboardingProvider>
+            {!fontsLoaded && !fontError ? <AppLoadingScreen /> : <AppContent />}
+          </OnboardingProvider>
+        </ThemePreferenceProvider>
+      </LanguageProvider>
+    </CrashMonitoringProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

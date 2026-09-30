@@ -37,8 +37,9 @@ bloque acordado.
 - [x] Respaldos automáticos diarios cuando Google Drive ya está conectado,
   cinco versiones remotas con retención y tres copias locales previas a
   migraciones de esquema.
-- [ ] Monitoreo de crashes/ANR con consentimiento, sin nombres, montos, notas o
-  respaldos.
+- [x] Monitoreo de crashes/ANR con consentimiento, sin nombres, montos, notas o
+  respaldos. La activación del proyecto Sentry y la prueba en dispositivos
+  reales se ejecutan por candidata con `docs/CRASH_MONITORING.md`.
 - [ ] Cifrado del respaldo antes de subirlo a Drive.
 - [ ] Evaluación y migración segura hacia cifrado local.
 
