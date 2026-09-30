@@ -1,9 +1,12 @@
 export {
-  getSettings,
   getUnbilledCreditCardTotal,
   initDatabase,
   resetLocalData,
+} from '@/lib/db';
+
+export {
+  getSettings,
   updateMovementReminderSettings,
   updateHomePreferences,
   updatePushNotificationsEnabled,
-} from '@/lib/db';
+} from '@/lib/database/settings';

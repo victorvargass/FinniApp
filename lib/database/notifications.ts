@@ -1,20 +1,12 @@
-import { getDatabase } from '@/lib/db';
-import { withDatabaseLock } from '@/lib/database-lock';
+import { getDatabase, withExclusiveDatabaseTransaction } from '@/lib/database/connection';
 import { DEDUPLICATE_MOVEMENT_REMINDERS_SQL } from '@/lib/notification-inbox';
 import type { AppNotification, NewAppNotification } from '@/lib/types';
-
-const DATABASE_BUSY_TIMEOUT_MS = 5000;
 
 async function withNotificationTransaction(
   task: (transaction: Awaited<ReturnType<typeof getDatabase>>) => Promise<void>
 ): Promise<void> {
   const database = await getDatabase();
-  await withDatabaseLock(async () => {
-    await database.withExclusiveTransactionAsync(async (transaction) => {
-      await transaction.execAsync(`PRAGMA busy_timeout = ${DATABASE_BUSY_TIMEOUT_MS}`);
-      await task(transaction);
-    });
-  });
+  await withExclusiveDatabaseTransaction(database, task);
 }
 
 async function upsertNotification(

@@ -2,12 +2,16 @@ import * as SQLite from 'expo-sqlite';
 import { Directory, File, Paths } from 'expo-file-system';
 import { t } from './i18n';
 
-import { withDatabaseLock } from './database-lock';
+import {
+  closeDatabaseConnection,
+  getDatabase,
+  resetDatabaseConnectionCache,
+  withExclusiveDatabaseTransaction,
+} from './database/connection';
 import { LOCAL_MIGRATION_BACKUP_RETENTION, migrationSnapshotTimestamp } from './backup-policy';
 import { repairRecoverableDatabaseRelations } from './database-relations';
 import {
   DATABASE_APPLICATION_ID,
-  DATABASE_NAME,
   DATABASE_SCHEMA_VERSION,
 } from './database-schema';
 import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financial-calculations';
@@ -23,8 +27,12 @@ import { PERIOD_CARD_ADJUSTMENTS_SQL, PERIOD_CARD_PAYMENTS_SQL } from './period-
 import { spendingExpenseSql } from './movement-classification';
 import { canUpdateExpenseAcrossCreditCycles } from './credit-cycle-edit';
 import { UNBILLED_CREDIT_CARD_TOTAL_SQL } from './home-summary';
-import { parseHomePreferences } from './home-preferences';
-import type { HomePreferences } from './home-preferences';
+import {
+  getSettings,
+  updateHomePreferences,
+  updateMovementReminderSettings,
+  updatePushNotificationsEnabled,
+} from './database/settings';
 import { DEFAULT_EVENT_TIME, isValidTimeString, resolveEventTime } from './event-time';
 import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate, isSinglePaymentDebt } from './debt-calculations';
 import {
@@ -104,7 +112,6 @@ import type {
   SavingsGroup,
   SavingsGoalMovement,
   SavingsGoalPeriodActivity,
-  Settings,
 } from './types';
 
 async function ensureColumn(
@@ -167,7 +174,6 @@ function isAtOrBeforeTimedBoundary(
   return id <= anchorId;
 }
 
-const DATABASE_BUSY_TIMEOUT_MS = 5000;
 
 const RESERVED_COLORS = [
   '#008000', // Verde estándar para ingresos
@@ -229,26 +235,10 @@ async function seedDefaultRelationships(database: SQLite.SQLiteDatabase): Promis
   }
 }
 
-let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 let initializationPromise: Promise<void> | null = null;
 let closePeriodPromise: Promise<Period> | null = null;
 
-export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbPromise) {
-    dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME).then(async (database) => {
-      await database.execAsync(`
-        PRAGMA journal_mode = WAL;
-        PRAGMA busy_timeout = ${DATABASE_BUSY_TIMEOUT_MS};
-        PRAGMA foreign_keys = ON;
-      `);
-      return database;
-    }).catch((error) => {
-      dbPromise = null;
-      throw error;
-    });
-  }
-  return dbPromise;
-}
+export { getDatabase } from './database/connection';
 
 async function getDb(): Promise<SQLite.SQLiteDatabase> {
   return getDatabase();
@@ -258,14 +248,7 @@ async function withExclusiveTransaction(
   database: SQLite.SQLiteDatabase,
   task: (transaction: SQLite.SQLiteDatabase) => Promise<void>
 ): Promise<void> {
-  await withDatabaseLock(async () => {
-    await database.withExclusiveTransactionAsync(async (transaction) => {
-      // Expo opens a separate connection for exclusive transactions, so the
-      // connection-level busy timeout must also be configured here.
-      await transaction.execAsync(`PRAGMA busy_timeout = ${DATABASE_BUSY_TIMEOUT_MS}`);
-      await task(transaction);
-    });
-  });
+  await withExclusiveDatabaseTransaction(database, task);
 }
 
 async function needsSchemaMigration(
@@ -8081,97 +8064,12 @@ export async function getExpenseCountByCategory(categoryId: number): Promise<num
   return row?.count ?? 0;
 }
 
-export async function getSettings(): Promise<Settings> {
-  const db = await getDb();
-
-  const row = await db.getFirstAsync<{
-    id: number;
-    current_period_id: number | null;
-    default_payment_method_id: number | null;
-    push_notifications_enabled: number;
-    movement_reminder_enabled: number;
-    movement_reminder_frequency: 'daily' | 'weekly';
-    movement_reminder_weekday: number;
-    movement_reminder_hour: number;
-    movement_reminder_minute: number;
-    home_preferences: string | null;
-    period_id: number | null;
-    start_date: string | null;
-    end_date: string | null;
-  }>(
-    `
-    SELECT
-      s.id,
-      s.current_period_id,
-      s.default_payment_method_id,
-      s.push_notifications_enabled,
-      s.movement_reminder_enabled,
-      s.movement_reminder_frequency,
-      s.movement_reminder_weekday,
-      s.movement_reminder_hour,
-      s.movement_reminder_minute,
-      s.home_preferences,
-
-      p.id AS period_id,
-      p.start_date,
-      p.end_date
-
-    FROM settings s
-    LEFT JOIN periods p
-      ON p.id = s.current_period_id
-
-    WHERE s.id = 1
-    `
-  );
-
-  return {
-    id: row?.id ?? 1,
-    currentPeriodId: row?.current_period_id ?? null,
-    defaultPaymentMethodId: row?.default_payment_method_id ?? null,
-    pushNotificationsEnabled: (row?.push_notifications_enabled ?? 0) === 1,
-    movementReminderEnabled: (row?.movement_reminder_enabled ?? 0) === 1,
-    movementReminderFrequency: row?.movement_reminder_frequency ?? 'daily',
-    movementReminderWeekday: row?.movement_reminder_weekday ?? 1,
-    movementReminderHour: row?.movement_reminder_hour ?? 21,
-    movementReminderMinute: row?.movement_reminder_minute ?? 0,
-    homePreferences: parseHomePreferences(row?.home_preferences),
-
-    currentPeriod: row?.period_id
-      ? {
-          id: row.period_id,
-          startDate: row.start_date!,
-          endDate: row.end_date!,
-        }
-      : null,
-  };
-}
-
-export async function updateMovementReminderSettings(data: import('./types').MovementReminderSettings): Promise<void> {
-  const db = await getDb();
-  await db.runAsync(
-    `UPDATE settings SET movement_reminder_enabled = ?, movement_reminder_frequency = ?,
-      movement_reminder_weekday = ?, movement_reminder_hour = ?, movement_reminder_minute = ?
-     WHERE id = 1`,
-    data.movementReminderEnabled ? 1 : 0, data.movementReminderFrequency,
-    data.movementReminderWeekday, data.movementReminderHour, data.movementReminderMinute
-  );
-}
-
-export async function updateHomePreferences(data: HomePreferences): Promise<void> {
-  const db = await getDb();
-  await db.runAsync(
-    'UPDATE settings SET home_preferences = ? WHERE id = 1',
-    JSON.stringify(data)
-  );
-}
-
-export async function updatePushNotificationsEnabled(enabled: boolean): Promise<void> {
-  const db = await getDb();
-  await db.runAsync(
-    'UPDATE settings SET push_notifications_enabled = ? WHERE id = 1',
-    enabled ? 1 : 0
-  );
-}
+export {
+  getSettings,
+  updateHomePreferences,
+  updateMovementReminderSettings,
+  updatePushNotificationsEnabled,
+} from './database/settings';
 
 async function getCurrentPeriodId(): Promise<number> {
   const settings = await getSettings();
@@ -8732,13 +8630,7 @@ export async function getPeriodFinancialDetails(periodId: number): Promise<Perio
  * replacing the database file.
  */
 export async function closeDatabase(): Promise<void> {
-  if (!dbPromise) {
-    initializationPromise = null;
-    return;
-  }
-  const db = await dbPromise;
-  await db.closeAsync();
-  dbPromise = null;
+  await closeDatabaseConnection();
   initializationPromise = null;
 }
 
@@ -8747,6 +8639,6 @@ export async function closeDatabase(): Promise<void> {
  * The next database access will open it again.
  */
 export function resetDatabaseConnection(): void {
-  dbPromise = null;
+  resetDatabaseConnectionCache();
   initializationPromise = null;
 }
