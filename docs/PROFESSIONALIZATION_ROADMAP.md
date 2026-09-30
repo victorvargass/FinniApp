@@ -50,7 +50,9 @@ bloque acordado.
 - [ ] Separación de `lib/db.ts` por movimientos, cuentas, tarjetas, ahorro,
   deudas, recurrencias y notificaciones.
 - [ ] División de `DatabaseContext` en contextos/consultas por dominio.
-- [ ] Presupuestos y proyección de flujo con recurrencias y vencimientos.
+- [x] Presupuestos por categoría y proyección del flujo restante del período
+  con recurrencias pendientes, cuotas de tarjeta y vencimientos de deudas, sin
+  duplicar movimientos ya registrados.
 
 ## Decisiones de producto posteriores
 

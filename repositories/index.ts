@@ -1,6 +1,7 @@
 export * from './categories';
 export * from './contacts';
 export * from './debts';
+export * from './forecast';
 export * from './movements';
 export * from './notifications';
 export * from './payment-methods';

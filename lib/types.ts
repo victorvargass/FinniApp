@@ -531,6 +531,30 @@ export type PeriodCategoryExpensesTotals = {
   total: number;
 };
 
+export type BudgetForecastCategory = {
+  categoryId: number;
+  name: string;
+  color: string;
+  limit: number;
+  spent: number;
+};
+
+export type FinancialForecastItem = {
+  id: string;
+  kind: 'expense' | 'income' | 'debt' | 'installment';
+  name: string;
+  amount: number;
+  date: string;
+};
+
+export type BudgetForecast = {
+  categories: BudgetForecastCategory[];
+  items: FinancialForecastItem[];
+  projectedIncome: number;
+  projectedOutflow: number;
+  projectedNet: number;
+};
+
 export type PeriodHistoryCategory = {
   categoryId: number | null;
   categoryName: string;

@@ -335,6 +335,17 @@ export default function UserScreen() {
         </ThemedText>
         <ThemedView style={[styles.card, styles.groupCard]}>
           <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/budget-forecast' as never)}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('budgetForecast.title')}</ThemedText>
+              <ThemedText style={styles.description}>{t('budgetForecast.menuHint')}</ThemedText>
+            </View>
+            <Ionicons name="trending-up-outline" size={22} color={colors.primary} />
+          </Pressable>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Pressable
             accessibilityLabel={t('navigation.groupings')}
             accessibilityRole="button"
             onPress={() => router.push('/modal/groupings')}

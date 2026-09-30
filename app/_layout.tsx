@@ -214,6 +214,10 @@ function AppContent() {
                   options={{ presentation: 'fullScreenModal', title: t('financialAudit.title') }}
                 />
                 <Stack.Screen
+                  name="modal/budget-forecast"
+                  options={{ presentation: 'fullScreenModal', title: t('budgetForecast.title') }}
+                />
+                <Stack.Screen
                   name="modal/google-drive"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.googleDrive') }}
                 />
