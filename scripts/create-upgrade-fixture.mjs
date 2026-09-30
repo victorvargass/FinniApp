@@ -29,6 +29,7 @@ const database = new DatabaseSync(outputPath);
 try {
   database.exec(schemaSql);
   database.exec(`
+    DROP TABLE financial_audit_log;
     ALTER TABLE settings DROP COLUMN home_preferences;
     PRAGMA user_version = 27;
     PRAGMA application_id = ${0x46494e4e};

@@ -600,6 +600,17 @@ export default function UserScreen() {
         </ThemedText>
         <ThemedView style={[styles.card, styles.groupCard]}>
           <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/modal/financial-audit' as never)}
+            style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+            <View style={styles.settingCopy}>
+              <ThemedText type="subtitle">{t('financialAudit.title')}</ThemedText>
+              <ThemedText style={styles.description}>{t('financialAudit.menuHint')}</ThemedText>
+            </View>
+            <Ionicons name="time-outline" size={22} color={colors.primary} />
+          </Pressable>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Pressable
             accessibilityLabel={t('accessibility.manageGoogleDrive')}
             accessibilityRole="button"
             onPress={() => router.push('/modal/google-drive')}

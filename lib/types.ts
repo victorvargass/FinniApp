@@ -168,6 +168,21 @@ export type Income = {
   debtEntryId: number | null;
 };
 
+export type FinancialAuditEntry = {
+  id: number;
+  entityType: 'expense' | 'income';
+  entityId: number;
+  action: 'deleted' | 'restored';
+  title: string;
+  amount: number;
+  eventDate: string;
+  eventTime: string;
+  restorable: boolean;
+  restrictionReason: string | null;
+  restoredAt: string | null;
+  createdAt: string;
+};
+
 export type ExpenseWithCategory = Expense & {
   categoryName: string | null;
   categoryColor: string | null;

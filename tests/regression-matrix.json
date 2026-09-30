@@ -70,7 +70,7 @@
     {
       "id": "settings-localization-and-privacy",
       "priority": "critical",
-      "routes": ["app/(tabs)/user.tsx", "app/modal/privacy.tsx", "app/modal/movement-reminder.tsx", "app/modal/home-settings.tsx", "app/modal/period-csv-export.tsx"],
+      "routes": ["app/(tabs)/user.tsx", "app/modal/privacy.tsx", "app/modal/movement-reminder.tsx", "app/modal/home-settings.tsx", "app/modal/period-csv-export.tsx", "app/modal/financial-audit.tsx"],
       "automatedArtifacts": [".maestro/settings-and-localization.yml", "tests/locales.test.mjs"]
     },
     {
@@ -90,7 +90,7 @@
       "id": "populated-database-upgrade",
       "priority": "platform",
       "routes": [],
-      "automatedArtifacts": [".maestro/upgrade-from-v27.yml", "scripts/create-upgrade-fixture.mjs", "tests/schema-migrations/v28.test.mjs"],
+      "automatedArtifacts": [".maestro/upgrade-from-v27.yml", "scripts/create-upgrade-fixture.mjs", "tests/schema-migrations/v28.test.mjs", "tests/schema-migrations/v29.test.mjs"],
       "githubOnly": true
     },
     {

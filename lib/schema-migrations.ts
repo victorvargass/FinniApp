@@ -33,6 +33,7 @@ export const SCHEMA_MIGRATIONS = [
   { version: 26, name: 'debt-payment-categories' },
   { version: 27, name: 'home-item-visibility' },
   { version: 28, name: 'home-layout-preferences' },
+  { version: 29, name: 'financial-audit-and-recovery' },
 ] as const;
 
 // Legacy version 16 tied the declared balance to the historical creation date.

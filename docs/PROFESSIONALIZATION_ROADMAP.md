@@ -31,8 +31,9 @@ bloque acordado.
 
 ## 3. Recuperación, operación y privacidad
 
-- [ ] Auditoría financiera de cambios críticos y recuperación temporal de
-  eliminaciones.
+- [x] Auditoría financiera de eliminaciones de gastos e ingresos y recuperación
+  durante 30 días para movimientos ordinarios. Los movimientos con relaciones
+  financieras quedan auditados, pero se protegen de una restauración parcial.
 - [ ] Respaldos automáticos versionados con retención y copia previa a una
   migración importante.
 - [ ] Monitoreo de crashes/ANR con consentimiento, sin nombres, montos, notas o

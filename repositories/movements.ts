@@ -7,9 +7,11 @@ export {
   deleteIncome,
   getExpenseNames,
   getExpenseShares,
+  getFinancialAuditLog,
   getExpenses,
   getIncomeNames,
   getIncomes,
+  restoreFinancialAuditEntry,
   updateExpense,
   updateIncome,
 } from '@/lib/db';
