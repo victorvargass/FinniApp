@@ -26,6 +26,7 @@ export function SimpleSelect<T extends string | number | null>({
   disabled = false,
   searchable = false,
   modalSize = 'content',
+  testID,
 }: {
   label: string;
   value: T;
@@ -34,6 +35,7 @@ export function SimpleSelect<T extends string | number | null>({
   disabled?: boolean;
   searchable?: boolean;
   modalSize?: 'content' | 'large';
+  testID?: string;
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const colors = Colors[useColorScheme() ?? 'light'];
@@ -59,6 +61,7 @@ export function SimpleSelect<T extends string | number | null>({
         accessibilityState={{ disabled, expanded: visible }}
         disabled={disabled}
         onPress={() => setVisible(true)}
+        testID={testID}
         style={[styles.field, { borderColor: colors.border }, disabled && styles.disabled]}>
         <View style={styles.value}>
           {selected?.color && <View style={[styles.dot, { backgroundColor: selected.color }]} />}

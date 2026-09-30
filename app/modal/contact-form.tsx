@@ -78,8 +78,8 @@ export default function ContactFormScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <ThemedText style={styles.intro}>{t('contacts.formHint')}</ThemedText>
         <ThemedView style={styles.card}>
-          <Field label={t('contacts.name')} value={name} onChangeText={setName} colors={colors} />
-          <Field label={t('contacts.nickname')} value={nickname} onChangeText={setNickname} colors={colors} />
+          <Field label={t('contacts.name')} testID="contact-name-input" value={name} onChangeText={setName} colors={colors} />
+          <Field label={t('contacts.nickname')} testID="contact-nickname-input" value={nickname} onChangeText={setNickname} colors={colors} />
           <SimpleSelect searchable label={t('contacts.relationship')} value={relationshipTypeId} onChange={setRelationshipTypeId} options={relationshipOptions} />
           <Field label={t('contacts.email')} value={email} onChangeText={setEmail} colors={colors} keyboardType="email-address" autoCapitalize="none" />
           <Field label={t('contacts.phone')} value={phone} onChangeText={setPhone} colors={colors} keyboardType="phone-pad" />
@@ -98,7 +98,7 @@ export default function ContactFormScreen() {
             <Field label={t('contacts.transferEmail')} value={account.email ?? ''} onChangeText={(value) => updateAccount(index, 'email', value)} colors={colors} keyboardType="email-address" autoCapitalize="none" />
           </ThemedView>
         ))}
-        <Pressable disabled={saving} onPress={() => void save()} style={[styles.primary, saving && styles.disabled]}><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('common.save')}</ThemedText></Pressable>
+        <Pressable accessibilityRole="button" disabled={saving} onPress={() => void save()} style={[styles.primary, saving && styles.disabled]} testID="contact-save"><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('common.save')}</ThemedText></Pressable>
         {contactId != null && <Pressable disabled={saving} onPress={confirmDelete} style={styles.danger}><ThemedText style={styles.dangerText}>{t('contacts.delete')}</ThemedText></Pressable>}
       </ScrollView>
     </SafeAreaView>

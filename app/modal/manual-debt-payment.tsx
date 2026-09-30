@@ -276,7 +276,7 @@ export default function DebtPaymentScreen() {
                 <ThemedText style={[styles.fullBalance, { color: colors.action }]}>{t('debts.useFullBalance')}</ThemedText>
               </Pressable>}
             </View>
-            <TextInput editable={selectedContactId == null} keyboardType="number-pad" value={amount} onChangeText={(value) => setAmount(formatCLPInput(value))} style={[styles.input, selectedContactId != null && styles.disabled, { borderColor: colors.border, color: colors.text }]} />
+            <TextInput editable={selectedContactId == null} keyboardType="number-pad" testID="debt-payment-amount-input" value={amount} onChangeText={(value) => setAmount(formatCLPInput(value))} style={[styles.input, selectedContactId != null && styles.disabled, { borderColor: colors.border, color: colors.text }]} />
           </View>
           <SimpleSelect label={t('common.period')} value={periodId} onChange={(nextPeriodId) => {
             setPeriodId(nextPeriodId);
@@ -297,7 +297,7 @@ export default function DebtPaymentScreen() {
           <SimpleSelect label={t(effectiveDirection === 'receivable' ? 'debts.collectionDestination' : 'debts.paymentMethod')} value={paymentMethodId} onChange={setPaymentMethodId} options={paymentOptions} />
           <View style={styles.group}><ThemedText style={styles.label}>{t('debts.paymentNote')}</ThemedText><TextInput multiline value={note} onChangeText={setNote} placeholder={t('debts.paymentNotePlaceholder')} placeholderTextColor={colors.icon} style={[styles.input, styles.multiline, { borderColor: colors.border, color: colors.text }]} /></View>
         </ThemedView>
-          <Pressable disabled={saving} onPress={() => { void save(); }} style={[styles.primary, saving && styles.disabled]}><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t(effectiveDirection === 'receivable' ? 'debts.saveCollection' : 'debts.savePayment')}</ThemedText></Pressable>
+          <Pressable accessibilityRole="button" disabled={saving} onPress={() => { void save(); }} style={[styles.primary, saving && styles.disabled]} testID="debt-payment-save"><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t(effectiveDirection === 'receivable' ? 'debts.saveCollection' : 'debts.savePayment')}</ThemedText></Pressable>
           {entryId != null && <Pressable disabled={saving} onPress={confirmDelete} style={styles.danger}><ThemedText style={styles.dangerText}>{t(effectiveDirection === 'receivable' ? 'debts.deleteCollection' : 'debts.deletePayment')}</ThemedText></Pressable>}
         </>}
       </ScrollView>

@@ -17,7 +17,7 @@
       "id": "expense-lifecycle",
       "priority": "critical",
       "routes": ["app/(tabs)/expenses.tsx", "app/modal/expense-form.tsx", "app/modal/quick-add.tsx"],
-      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/calculations.test.mjs"]
+      "automatedArtifacts": [".maestro/smoke-financial.yml", ".maestro/debt-partial-payment.yml", "tests/calculations.test.mjs", "tests/manual-debt-balance.test.mjs"]
     },
     {
       "id": "income-lifecycle",
@@ -85,6 +85,13 @@
       "routes": [],
       "automatedArtifacts": [".maestro/google-drive-authenticated.yml"],
       "manualReason": "Requires an isolated Google QA account already authenticated on the emulator."
+    },
+    {
+      "id": "populated-database-upgrade",
+      "priority": "platform",
+      "routes": [],
+      "automatedArtifacts": [".maestro/upgrade-from-v27.yml", "scripts/create-upgrade-fixture.mjs", "tests/schema-migrations/v28.test.mjs"],
+      "githubOnly": true
     },
     {
       "id": "router-entry",

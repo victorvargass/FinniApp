@@ -1,0 +1,51 @@
+appId: com.vitoco18.FinniApp
+name: FinniApp upgrades a populated v27 database
+---
+- launchApp
+- extendedWaitUntil:
+    visible: 'Bienvenido a FinniApp'
+    timeout: 30000
+- tapOn:
+    id: 'onboarding-skip'
+- extendedWaitUntil:
+    visible: 'Período actual'
+    timeout: 30000
+
+# Los movimientos anteriores sobreviven a la inicialización y migración real.
+- tapOn:
+    id: 'tab-movements'
+- assertVisible: 'Compra migrada QA'
+- assertVisible: 'Ingreso migrado QA'
+
+# También sobreviven datos de los dominios que suelen romper una migración.
+- tapOn:
+    id: 'tab-user'
+- scrollUntilVisible:
+    element:
+      text: 'Metas de ahorro'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Gestionar metas de ahorro'
+- assertVisible: 'Meta migrada QA'
+- back
+- scrollUntilVisible:
+    element:
+      text: 'Deudas y pagos'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Gestionar deudas y cuotas'
+- tapOn: 'Préstamos y otras deudas'
+- assertVisible: 'Deuda migrada QA'
+- back
+- scrollUntilVisible:
+    element:
+      text: 'Movimientos recurrentes'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Configurar movimientos recurrentes'
+- tapOn: 'Gastos'
+- assertVisible: 'Recurrencia migrada QA'
+- takeScreenshot: 'finniapp-upgrade-v27'

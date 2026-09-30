@@ -57,8 +57,23 @@ test('automated regression workflows execute every credential-free Maestro flow'
       .filter((artifact) => artifact.startsWith('.maestro/'))
   );
   for (const workflow of workflows) {
-    for (const flow of expected) assert.match(workflow, new RegExp(flow.replaceAll('.', '\\.')));
+    for (const flow of expected) {
+      const journey = matrix.journeys.find((item) => item.automatedArtifacts.includes(flow));
+      if (workflow === workflows[0] && journey?.githubOnly) continue;
+      assert.match(workflow, new RegExp(flow.replaceAll('.', '\\.')));
+    }
   }
+});
+
+test('GitHub executes platform-only upgrade journeys with a populated fixture', () => {
+  const workflow = readFileSync(path.join(root, '.github/workflows/e2e-android.yml'), 'utf8');
+  for (const journey of matrix.journeys.filter((item) => item.githubOnly)) {
+    for (const artifact of journey.automatedArtifacts.filter((item) => item.startsWith('.maestro/'))) {
+      assert.match(workflow, new RegExp(artifact.replaceAll('.', '\\.')));
+    }
+  }
+  assert.match(workflow, /create-upgrade-fixture\.mjs/);
+  assert.match(workflow, /run-as com\.vitoco18\.FinniApp cp/);
 });
 
 test('the distributable GitHub workflow waits for Android E2E', () => {

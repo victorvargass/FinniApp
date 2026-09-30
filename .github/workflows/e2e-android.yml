@@ -52,7 +52,13 @@ jobs:
           script: |
             set -e
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            $HOME/.maestro/bin/maestro test .maestro/onboarding-full.yml .maestro/smoke-financial.yml .maestro/settings-and-localization.yml .maestro/google-drive-boundary.yml
+            node scripts/create-upgrade-fixture.mjs "$RUNNER_TEMP/gastos-v27.db"
+            adb shell pm clear com.vitoco18.FinniApp
+            adb push "$RUNNER_TEMP/gastos-v27.db" /data/local/tmp/gastos.db
+            adb shell run-as com.vitoco18.FinniApp mkdir -p files/SQLite
+            adb shell run-as com.vitoco18.FinniApp cp /data/local/tmp/gastos.db files/SQLite/gastos.db
+            $HOME/.maestro/bin/maestro test .maestro/upgrade-from-v27.yml
+            $HOME/.maestro/bin/maestro test .maestro/onboarding-full.yml .maestro/smoke-financial.yml .maestro/debt-partial-payment.yml .maestro/settings-and-localization.yml .maestro/google-drive-boundary.yml
             touch "$RUNNER_TEMP/finniapp-maestro-passed"
       - name: Verify critical journeys completed
         if: always()

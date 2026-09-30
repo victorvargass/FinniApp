@@ -171,10 +171,10 @@ export default function DebtFormScreen() {
             { value: 'single', label: t('debts.singlePayment') },
           ]} />
           {debtId != null && <ThemedText style={styles.hint}>{t('debts.typeLockedHint')}</ThemedText>}
-          <Field label={t('debts.name')} value={name} onChangeText={setName} colors={colors} placeholder={t('debts.namePlaceholder')} />
-          <SimpleSelect searchable label={t(direction === 'payable' ? 'debts.creditorContact' : 'debts.debtorContact')} value={contactId} onChange={setContactId} options={contactOptions} />
+          <Field label={t('debts.name')} testID="debt-name-input" value={name} onChangeText={setName} colors={colors} placeholder={t('debts.namePlaceholder')} />
+          <SimpleSelect searchable label={t(direction === 'payable' ? 'debts.creditorContact' : 'debts.debtorContact')} value={contactId} onChange={setContactId} options={contactOptions} testID="debt-contact-select" />
           <Field label={t(direction === 'payable' ? 'debts.creditor' : 'debts.debtor')} value={creditor} onChangeText={setCreditor} colors={colors} placeholder={t(direction === 'payable' ? 'debts.creditorPlaceholder' : 'debts.debtorPlaceholder')} />
-          <Field label={t('debts.initialReportedBalance')} value={initialAmount} onChangeText={setInitialAmount} colors={colors} keyboardType="number-pad" editable={entryCount === 0} />
+          <Field label={t('debts.initialReportedBalance')} testID="debt-initial-amount-input" value={initialAmount} onChangeText={setInitialAmount} colors={colors} keyboardType="number-pad" editable={entryCount === 0} />
           {entryCount > 0 && <ThemedText style={styles.hint}>{t('debts.initialLockedHint')}</ThemedText>}
           <View style={styles.group}>
             <ThemedText style={styles.label}>{t('common.reportedBalanceDate')}</ThemedText>
@@ -201,7 +201,7 @@ export default function DebtFormScreen() {
           </View>
           {type === 'fixed' && (
             <>
-              <Field label={t('debts.installmentAmount')} value={installmentAmount} onChangeText={setInstallmentAmount} colors={colors} keyboardType="number-pad" />
+              <Field label={t('debts.installmentAmount')} testID="debt-installment-amount-input" value={installmentAmount} onChangeText={setInstallmentAmount} colors={colors} keyboardType="number-pad" />
               <SimpleSelect label={t('debts.frequency')} value={frequency} onChange={setFrequency} options={[
                 { value: 'weekly', label: t('debts.weekly') }, { value: 'monthly', label: t('debts.monthly') }, { value: 'annual', label: t('debts.annual') },
               ]} />
@@ -244,7 +244,7 @@ export default function DebtFormScreen() {
           <Field label={t('debts.notes')} value={notes} onChangeText={setNotes} colors={colors} multiline placeholder={t('debts.notesPlaceholder')} />
           <HomeVisibilityPreference value={showOnHome} onValueChange={setShowOnHome} />
         </ThemedView>
-        <Pressable disabled={saving} onPress={() => { void save(); }} style={[styles.primary, saving && styles.disabled]}>
+        <Pressable accessibilityRole="button" disabled={saving} onPress={() => { void save(); }} style={[styles.primary, saving && styles.disabled]} testID="debt-save">
           <ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('common.save')}</ThemedText>
         </Pressable>
       </ScrollView>

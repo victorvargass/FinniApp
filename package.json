@@ -18,7 +18,7 @@
     "audit:security": "node scripts/check-dependency-security.mjs",
     "check": "npm run check:database-schema && npm run lint && npx tsc --noEmit && npm test && npm run test:database-migrations",
     "export:android": "expo export --platform android",
-    "e2e:android": "maestro test .maestro/onboarding-full.yml .maestro/smoke-financial.yml .maestro/settings-and-localization.yml .maestro/google-drive-boundary.yml",
+    "e2e:android": "maestro test .maestro/onboarding-full.yml .maestro/smoke-financial.yml .maestro/debt-partial-payment.yml .maestro/settings-and-localization.yml .maestro/google-drive-boundary.yml",
     "e2e:google": "maestro test .maestro/google-drive-authenticated.yml",
     "e2e:eas:android": "eas workflow:run .eas/workflows/e2e-test-android.yml"
   },

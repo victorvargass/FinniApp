@@ -20,7 +20,8 @@ bloque acordado.
 - [x] Auditoría de accesibilidad esencial y contrato para componentes
   compartidos. La matriz TalkBack/VoiceOver se ejecuta por candidata.
 - [ ] E2E de pagos parciales, deudas por contacto, conciliación y cuotas.
-- [ ] Prueba automatizada de actualización desde una base anterior.
+- [x] Prueba Android automatizada de actualización real desde una base v27
+  poblada, instalada dentro del sandbox antes de abrir el binario candidato.
 - [x] Exportación CSV con período y campos seleccionables.
 - [ ] Búsqueda global de movimientos, contactos, deudas, cuentas y metas.
 - [ ] Cobertura automatizada iOS y ronda documentada en dispositivo real.
