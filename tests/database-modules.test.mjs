@@ -36,3 +36,14 @@ test('contacts repository owns contacts and relationship persistence', () => {
   assert.match(module, /withExclusiveDatabaseTransaction/);
   assert.doesNotMatch(monolith, /export async function saveContact/);
 });
+
+test('categories repository owns expense and income category persistence', () => {
+  const repository = readFileSync(new URL('../repositories/categories.ts', import.meta.url), 'utf8');
+  const module = readFileSync(new URL('../lib/database/categories.ts', import.meta.url), 'utf8');
+  const monolith = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+
+  assert.match(repository, /@\/lib\/database\/categories/);
+  assert.match(module, /export async function createCategory/);
+  assert.match(module, /export async function saveIncomeCategory/);
+  assert.doesNotMatch(monolith, /export async function createCategory/);
+});

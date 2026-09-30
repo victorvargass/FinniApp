@@ -7,4 +7,4 @@ export {
   deleteIncomeCategory,
   getExpenseCountByCategory,
   updateCategory,
-} from '@/lib/db';
+} from '@/lib/database/categories';
