@@ -441,6 +441,56 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const refreshFinancialDomain = useCallback(async () => {
+    const targetPeriodId = selectedPeriodIdRef.current;
+    if (targetPeriodId == null) return;
+    const [methods, methodTotals, cardPayments, transfers, goals, goalActivity,
+      savingsFundingTotal, unbilledCreditTotal, exps, incs, allExpenseNames,
+      allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
+      refreshStep('REFRESH_PAYMENT_METHODS', db.getPaymentMethods(true)),
+      refreshStep('REFRESH_PAYMENT_TOTALS', db.getPaymentMethodTotals(targetPeriodId)),
+      refreshStep('REFRESH_CARD_PAYMENTS', db.getCardPaymentMovementsForPeriod(targetPeriodId)),
+      refreshStep('REFRESH_TRANSFERS', db.getAccountTransfersForPeriod(targetPeriodId)),
+      refreshStep('REFRESH_SAVINGS_GOALS', db.getSavingsGoals(true)),
+      refreshStep('REFRESH_SAVINGS_ACTIVITY', db.getPeriodSavingsGoalActivity(targetPeriodId)),
+      refreshStep('REFRESH_SAVINGS_TOTAL', db.getPeriodSavingsFundingTotal(targetPeriodId)),
+      refreshStep('REFRESH_UNBILLED_CREDIT_TOTAL', db.getUnbilledCreditCardTotal()),
+      refreshStep('REFRESH_EXPENSES', db.getExpenses(targetPeriodId)),
+      refreshStep('REFRESH_INCOMES', db.getIncomes(targetPeriodId)),
+      refreshStep('REFRESH_EXPENSE_NAMES', db.getExpenseNames()),
+      refreshStep('REFRESH_INCOME_NAMES', db.getIncomeNames()),
+      refreshStep('REFRESH_CATEGORY_TOTALS', db.getPeriodCategoryExpensesTotals(targetPeriodId)),
+      refreshStep('REFRESH_INCOME_TOTAL', db.getPeriodIncomesTotal(targetPeriodId)),
+      refreshStep('REFRESH_HISTORY', db.getPeriodHistory()),
+      refreshStep('REFRESH_DEBTS', db.getDebts()),
+      refreshStep('REFRESH_DEBT_PLANS', db.getDebtPlans()),
+    ]);
+    await syncFinancialReminders({
+      paymentMethods: methods,
+      debts,
+      debtPlans,
+      currentPeriod: settings.currentPeriod ?? null,
+    }, settings.pushNotificationsEnabled).catch(() => undefined);
+    const notifications = await db.getAppNotifications();
+    setPaymentMethods(methods);
+    setPaymentMethodTotals(methodTotals);
+    setCardPaymentMovements(cardPayments);
+    setAccountTransfers(transfers);
+    setSavingsGoals(goals);
+    setPeriodSavingsGoalActivity(goalActivity);
+    setPeriodSavingsFundingTotal(savingsFundingTotal);
+    setUnbilledCreditCardTotal(unbilledCreditTotal);
+    setExpenses(exps);
+    setIncomes(incs);
+    setExpenseNames(allExpenseNames);
+    setIncomeNames(allIncomeNames);
+    setPeriodCategoryExpensesTotals(totals);
+    setPeriodIncomesTotal(incomesTotal);
+    setPeriodHistory(history);
+    setAppNotifications(notifications);
+    setLoadedPeriodId(targetPeriodId);
+  }, [settings.currentPeriod, settings.pushNotificationsEnabled]);
+
   useEffect(() => {
     if (!isReady || !hasRefreshed) return;
     const today = toIsoDate(new Date());
@@ -600,8 +650,8 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const addCreditCardCycle = useCallback(async (data: NewCreditCardCycle) => {
     await db.createCreditCardCycle(data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const editCreditCardCycle = useCallback(async (
     id: number,
@@ -609,109 +659,109 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     status: CreditCardCycle['status']
   ) => {
     await db.updateCreditCardCycle(id, statementAmount, status);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const reconcileCreditCardCycle = useCallback(async (
     id: number,
     data: ReconcileCreditCardCycle
   ) => {
     await db.reconcileCreditCardCycle(id, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const unreconcileCreditCardCycle = useCallback(async (id: number) => {
     await db.unreconcileCreditCardCycle(id);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const getDebtPlans = useCallback((paymentMethodId?: number) => db.getDebtPlans(paymentMethodId), []);
   const getDebtPlan = useCallback((id: number) => db.getDebtPlan(id), []);
 
   const addInstallmentPurchase = useCallback(async (data: NewInstallmentPurchase) => {
     const id = await db.createInstallmentPurchase(data);
-    await refresh();
+    await refreshFinancialDomain();
     return id;
-  }, [refresh]);
+  }, [refreshFinancialDomain]);
 
   const activateInstallmentPlan = useCallback(async (id: number, periodId: number, actualAmount: number) => {
     await db.activateInstallmentPlan(id, periodId, actualAmount);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const settleInstallmentPlan = useCallback(async (id: number, periodId: number) => {
     await db.settleInstallmentPlan(id, periodId);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const setDebtPlanShowOnHome = useCallback(async (id: number, showOnHome: boolean) => {
     await db.setDebtPlanShowOnHome(id, showOnHome);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const restoreRemovedInstallment = useCallback(async (installmentId: number, periodId: number) => {
     await db.restoreRemovedInstallment(installmentId, periodId);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const removeInstallmentPlan = useCallback(async (id: number) => {
     await db.deleteInstallmentPlan(id);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const getDebts = useCallback(() => db.getDebts(), []);
   const getDebt = useCallback((id: number) => db.getDebt(id), []);
   const addDebt = useCallback(async (data: NewDebt) => {
     const id = await db.createDebt(data);
-    await refresh();
+    await refreshFinancialDomain();
     return id;
-  }, [refresh]);
+  }, [refreshFinancialDomain]);
   const editDebt = useCallback(async (id: number, data: NewDebt) => {
     await db.updateDebt(id, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
   const addDebtPayment = useCallback(async (debtId: number, data: NewDebtPayment) => {
     await db.createDebtPayment(debtId, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
   const addDebtPayments = useCallback(async (data: NewDebtPaymentBatch) => {
     await db.createDebtPayments(data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
   const editDebtPayment = useCallback(async (entryId: number, data: NewDebtPayment) => {
     await db.updateDebtPayment(entryId, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
   const removeDebtPayment = useCallback(async (entryId: number) => {
     await db.deleteDebtPayment(entryId);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
   const addDebtBalanceAdjustment = useCallback(async (debtId: number, data: NewDebtBalance) => {
     await db.addDebtBalanceAdjustment(debtId, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
   const removeDebtBalanceAdjustment = useCallback(async (debtId: number, entryId: number) => {
     await db.deleteDebtBalanceAdjustment(debtId, entryId);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
   const setDebtArchived = useCallback(async (id: number, archived: boolean) => {
     await db.setDebtArchived(id, archived);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
   const removeDebt = useCallback(async (id: number) => {
     await db.deleteDebt(id);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const addSavingsGoal = useCallback(async (data: NewSavingsGoal) => {
     await db.createSavingsGoal(data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const editSavingsGoal = useCallback(async (id: number, data: NewSavingsGoal) => {
     await db.updateSavingsGoal(id, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const getCreditCardAdjustment = useCallback(
     (id: number) => db.getCreditCardAdjustment(id),
@@ -720,65 +770,65 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
 
   const addCreditCardAdjustment = useCallback(async (data: NewCreditCardAdjustment) => {
     const id = await db.createCreditCardAdjustment(data);
-    await refresh();
+    await refreshFinancialDomain();
     return id;
-  }, [refresh]);
+  }, [refreshFinancialDomain]);
 
   const editCreditCardAdjustment = useCallback(async (
     id: number,
     data: NewCreditCardAdjustment
   ) => {
     await db.updateCreditCardAdjustment(id, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const removeCreditCardAdjustment = useCallback(async (id: number) => {
     await db.deleteCreditCardAdjustment(id);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const getAccountTransfer = useCallback((id: number) => db.getAccountTransfer(id), []);
 
   const addAccountTransfer = useCallback(async (data: NewAccountTransfer) => {
     const id = await db.createAccountTransfer(data);
-    await refresh();
+    await refreshFinancialDomain();
     return id;
-  }, [refresh]);
+  }, [refreshFinancialDomain]);
 
   const editAccountTransfer = useCallback(async (id: number, data: NewAccountTransfer) => {
     await db.updateAccountTransfer(id, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const removeAccountTransfer = useCallback(async (id: number) => {
     await db.deleteAccountTransfer(id);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const updatePaymentMethodBalance = useCallback(async (id: number, data: NewPaymentMethodBalance) => {
     await db.updatePaymentMethodBalance(id, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const updatePaymentMethodBalances = useCallback(async (updates: PaymentMethodBalanceUpdate[]) => {
     await db.updatePaymentMethodBalances(updates);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const addSavingsGoalBalanceAdjustment = useCallback(async (id: number, data: NewSavingsGoalBalance) => {
     await db.addSavingsGoalBalanceAdjustment(id, data);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const removeSavingsGoalBalanceAdjustment = useCallback(async (goalId: number, adjustmentId: number) => {
     await db.deleteSavingsGoalBalanceAdjustment(goalId, adjustmentId);
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const setSavingsGoalStatus = useCallback(async (id: number, status: SavingsGoalStatus) => {
     await db.setSavingsGoalArchived(id, status === 'archived');
-    await refresh();
-  }, [refresh]);
+    await refreshFinancialDomain();
+  }, [refreshFinancialDomain]);
 
   const removeSavingsGoal = useCallback(async (id: number) => {
     await db.deleteSavingsGoal(id);
@@ -895,28 +945,29 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       if (selectedPeriodId == null) throw new Error(t('errors.noSelectedPeriod'));
       if (recurringSchedule) {
         await db.createExpenseWithRecurrence(data, recurringSchedule, selectedPeriodId);
+        await refresh();
       } else {
         await db.createExpense(data, selectedPeriodId);
+        await refreshFinancialDomain();
       }
-      await refresh();
     },
-    [refresh, selectedPeriodId]
+    [refresh, refreshFinancialDomain, selectedPeriodId]
   );
 
   const editExpense = useCallback(
     async (id: number, data: NewExpense) => {
       await db.updateExpense(id, data);
-      await refresh();
+      await refreshFinancialDomain();
     },
-    [refresh]
+    [refreshFinancialDomain]
   );
 
   const removeExpense = useCallback(
     async (id: number) => {
       await db.deleteExpense(id);
-      await refresh();
+      await refreshFinancialDomain();
     },
-    [refresh]
+    [refreshFinancialDomain]
   );
 
   const addIncome = useCallback(
@@ -924,28 +975,29 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       if (selectedPeriodId == null) throw new Error(t('errors.noSelectedPeriod'));
       if (recurringSchedule) {
         await db.createIncomeWithRecurrence(data, recurringSchedule, selectedPeriodId);
+        await refresh();
       } else {
         await db.createIncome(data, selectedPeriodId);
+        await refreshFinancialDomain();
       }
-      await refresh();
     },
-    [refresh, selectedPeriodId]
+    [refresh, refreshFinancialDomain, selectedPeriodId]
   );
 
   const editIncome = useCallback(
     async (id: number, data: NewIncome) => {
       await db.updateIncome(id, data);
-      await refresh();
+      await refreshFinancialDomain();
     },
-    [refresh]
+    [refreshFinancialDomain]
   );
 
   const removeIncome = useCallback(
     async (id: number) => {
       await db.deleteIncome(id);
-      await refresh();
+      await refreshFinancialDomain();
     },
-    [refresh]
+    [refreshFinancialDomain]
   );
 
   const setPeriodStartDate = useCallback(

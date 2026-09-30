@@ -44,7 +44,9 @@ bloque acordado.
 
 ## 4. Arquitectura y escala
 
-- [ ] Invalidación y recarga por dominio para evitar refrescos globales.
+- [x] Recarga financiera por dominio para movimientos, saldos, tarjetas,
+  ahorros y deudas; la inicialización, configuración y recurrencias conservan
+  la sincronización global cuando realmente la necesitan.
 - [ ] Separación de `lib/db.ts` por movimientos, cuentas, tarjetas, ahorro,
   deudas, recurrencias y notificaciones.
 - [ ] División de `DatabaseContext` en contextos/consultas por dominio.
