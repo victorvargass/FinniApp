@@ -5,14 +5,14 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 import { IncomeForm } from '@/components/forms';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useDatabaseState } from '@/contexts/DatabaseContext';
 import * as db from '@/lib/db';
 import { t } from '@/lib/i18n';
 import type { Income } from '@/lib/types';
 
 export default function IncomeFormModal() {
   const { id, repeatId, savingsGoalId } = useLocalSearchParams<{ id?: string; repeatId?: string; savingsGoalId?: string }>();
-  const { incomes } = useDatabase();
+  const { incomes } = useDatabaseState();
   const navigation = useNavigation();
   const sourceId = id ?? repeatId;
   const isRepeating = repeatId != null && id == null;

@@ -25,3 +25,12 @@ test('financial writes refresh their domain without rerunning global maintenance
     assert.match(source.slice(operationStart, operationStart + 300), /await refreshFinancialDomain\(\)/);
   }
 });
+
+test('database state and actions have independent context identities', () => {
+  assert.match(source, /DatabaseStateContext = createContext/);
+  assert.match(source, /DatabaseActionsContext = createContext/);
+  assert.match(source, /useShallowStableValue\(splitValue\.state\)/);
+  assert.match(source, /useShallowStableValue\(splitValue\.actions\)/);
+  assert.match(source, /export function useDatabaseState/);
+  assert.match(source, /export function useDatabaseActions/);
+});

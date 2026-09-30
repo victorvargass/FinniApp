@@ -206,7 +206,79 @@ type DatabaseContextValue = {
   resetLocalData: () => Promise<void>;
 };
 
+const DATABASE_STATE_KEYS = [
+  'categories',
+  'contacts',
+  'relationshipTypes',
+  'incomeCategories',
+  'savingsGroups',
+  'paymentMethods',
+  'paymentMethodTotals',
+  'cardPaymentMovements',
+  'accountTransfers',
+  'appNotifications',
+  'recurringExpenses',
+  'recurringDecisions',
+  'recurringIncomes',
+  'savingsGoals',
+  'periodSavingsGoalActivity',
+  'periodSavingsFundingTotal',
+  'expenses',
+  'incomes',
+  'expenseNames',
+  'incomeNames',
+  'settings',
+  'periods',
+  'selectedPeriod',
+  'selectedPeriodId',
+  'periodCategoryExpensesTotals',
+  'periodIncomesTotal',
+  'periodHistory',
+  'periodExpensesTotal',
+  'unbilledCreditCardTotal',
+  'isReady',
+  'isPeriodChanging',
+  'periodRefreshFailed',
+] as const satisfies readonly (keyof DatabaseContextValue)[];
+
+type DatabaseStateKey = (typeof DATABASE_STATE_KEYS)[number];
+export type DatabaseStateContextValue = Pick<DatabaseContextValue, DatabaseStateKey>;
+export type DatabaseActionsContextValue = Omit<DatabaseContextValue, DatabaseStateKey>;
+
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
+const DatabaseStateContext = createContext<DatabaseStateContextValue | null>(null);
+const DatabaseActionsContext = createContext<DatabaseActionsContextValue | null>(null);
+
+function splitDatabaseContextValue(value: DatabaseContextValue): {
+  state: DatabaseStateContextValue;
+  actions: DatabaseActionsContextValue;
+} {
+  const stateKeys = new Set<keyof DatabaseContextValue>(DATABASE_STATE_KEYS);
+  const state: Partial<DatabaseStateContextValue> = {};
+  const actions: Partial<DatabaseActionsContextValue> = {};
+  for (const key of Object.keys(value) as (keyof DatabaseContextValue)[]) {
+    if (stateKeys.has(key)) {
+      Object.assign(state, { [key]: value[key] });
+    } else {
+      Object.assign(actions, { [key]: value[key] });
+    }
+  }
+  return {
+    state: state as DatabaseStateContextValue,
+    actions: actions as DatabaseActionsContextValue,
+  };
+}
+
+function useShallowStableValue<T extends object>(nextValue: T): T {
+  const stableValue = useRef(nextValue);
+  const previous = stableValue.current;
+  const keys = Object.keys(nextValue) as (keyof T)[];
+  if (keys.length !== Object.keys(previous).length
+    || keys.some((key) => previous[key] !== nextValue[key])) {
+    stableValue.current = nextValue;
+  }
+  return stableValue.current;
+}
 
 async function refreshStep<T>(code: string, operation: Promise<T>): Promise<T> {
   try {
@@ -1368,15 +1440,41 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     ]
   );
 
+  const splitValue = useMemo(() => splitDatabaseContextValue(value), [value]);
+  const stateValue = useShallowStableValue(splitValue.state);
+  const actionsValue = useShallowStableValue(splitValue.actions);
+
   if (!isReady) {
     return <AppLoadingScreen />;
   }
 
-  return <DatabaseContext.Provider value={value}>{children}</DatabaseContext.Provider>;
+  return (
+    <DatabaseActionsContext.Provider value={actionsValue}>
+      <DatabaseStateContext.Provider value={stateValue}>
+        <DatabaseContext.Provider value={value}>{children}</DatabaseContext.Provider>
+      </DatabaseStateContext.Provider>
+    </DatabaseActionsContext.Provider>
+  );
 }
 
 export function useDatabase() {
   const context = useContext(DatabaseContext);
+  if (!context) {
+    throw new Error(t('errors.databaseProvider'));
+  }
+  return context;
+}
+
+export function useDatabaseState() {
+  const context = useContext(DatabaseStateContext);
+  if (!context) {
+    throw new Error(t('errors.databaseProvider'));
+  }
+  return context;
+}
+
+export function useDatabaseActions() {
+  const context = useContext(DatabaseActionsContext);
   if (!context) {
     throw new Error(t('errors.databaseProvider'));
   }

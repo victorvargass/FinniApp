@@ -6,4 +6,4 @@ export {
   replaceFutureAppNotifications,
   setAppNotificationRead,
   upsertAppNotifications,
-} from '@/lib/db';
+} from '@/lib/database/notifications';

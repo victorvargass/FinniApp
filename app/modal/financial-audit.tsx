@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useDatabaseActions } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
@@ -27,7 +27,7 @@ function formatAmount(value: number): string {
 
 export default function FinancialAuditScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
-  const { refresh } = useDatabase();
+  const { refresh } = useDatabaseActions();
   const [entries, setEntries] = useState<FinancialAuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoringId, setRestoringId] = useState<number | null>(null);

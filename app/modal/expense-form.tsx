@@ -6,7 +6,7 @@ import { ExpenseForm } from '@/components/forms';
 import { ThemedText } from '@/components/themed-text';
 import { t } from '@/lib/i18n';
 import { ThemedView } from '@/components/themed-view';
-import { useDatabase } from '@/contexts/DatabaseContext';
+import { useDatabaseState } from '@/contexts/DatabaseContext';
 import * as db from '@/lib/db';
 import type { CreditCardAdjustment, ExpenseWithCategory } from '@/lib/types';
 
@@ -20,7 +20,7 @@ export default function ExpenseFormModal() {
     savingsGoalId?: string;
     savingsContribution?: string;
   }>();
-  const { expenses } = useDatabase();
+  const { expenses } = useDatabaseState();
   const navigation = useNavigation();
   const sourceId = id ?? repeatId;
   const isRepeating = repeatId != null && id == null;
