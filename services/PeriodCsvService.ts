@@ -51,14 +51,15 @@ export async function exportPeriodCsv(
   const file = new File(Paths.cache, fileName);
   if (file.exists) file.delete();
   file.create();
-  file.write(csv);
+  // Excel on Android needs the BOM to recognize UTF-8 accents correctly.
+  file.write(`\uFEFF${csv}`);
 
   if (!await Sharing.isAvailableAsync()) {
     throw new Error(t('csv.sharingUnavailable'));
   }
   await Sharing.shareAsync(file.uri, {
     dialogTitle: t('csv.shareTitle'),
-    mimeType: 'text/csv',
+    mimeType: Platform.OS === 'android' ? 'application/vnd.ms-excel' : 'text/csv',
     UTI: 'public.comma-separated-values-text',
   });
 }

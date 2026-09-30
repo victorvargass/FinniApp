@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -23,6 +23,7 @@ export default function PeriodCsvExportScreen() {
   const { periodId } = useLocalSearchParams<{ periodId?: string }>();
   const { periodHistory } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const insets = useSafeAreaInsets();
   const [fields, setFields] = useState<PeriodCsvField[]>([...PERIOD_CSV_FIELDS]);
   const [exporting, setExporting] = useState(false);
   const period = useMemo(
@@ -51,8 +52,8 @@ export default function PeriodCsvExportScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={[]}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 100 + insets.bottom }]}>
         <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
           {t('csv.description')}
         </ThemedText>
@@ -114,7 +115,14 @@ export default function PeriodCsvExportScreen() {
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: colors.screen, borderTopColor: colors.border }]}>
+      <View style={[
+        styles.footer,
+        {
+          backgroundColor: colors.screen,
+          borderTopColor: colors.border,
+          paddingBottom: Math.max(insets.bottom, 14),
+        },
+      ]}>
         <Pressable
           accessibilityRole="button"
           disabled={!period || fields.length === 0 || exporting}
@@ -136,7 +144,7 @@ export default function PeriodCsvExportScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: 20, paddingBottom: 105, gap: 18 },
+  content: { padding: 20, gap: 18 },
   description: { fontSize: 16, lineHeight: 23 },
   periodCard: { borderWidth: 1, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   periodCopy: { flex: 1, gap: 2 },
@@ -145,7 +153,7 @@ const styles = StyleSheet.create({
   fieldRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 },
   fieldLabel: { flex: 1 },
   validation: { fontSize: 13 },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: StyleSheet.hairlineWidth, padding: 14 },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingTop: 14 },
   exportButton: { minHeight: 52, borderRadius: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
   exportLabel: { fontFamily: Fonts.bold, fontSize: 17 },
   pressed: { opacity: 0.7 },
