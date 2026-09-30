@@ -4,7 +4,7 @@ name: FinniApp upgrades a populated v27 database
 - launchApp
 - extendedWaitUntil:
     visible: 'Bienvenido a FinniApp'
-    timeout: 30000
+    timeout: 120000
 - tapOn:
     id: 'onboarding-skip'
 - extendedWaitUntil:

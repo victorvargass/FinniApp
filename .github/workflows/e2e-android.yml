@@ -51,7 +51,21 @@ jobs:
           disable-linux-hw-accel: false
           script: |
             set -e
+            CI=1 npx expo start --dev-client --localhost > "$RUNNER_TEMP/metro.log" 2>&1 &
+            METRO_PID=$!
+            trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
+            for attempt in {1..60}; do
+              if curl -fsS http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then
+                break
+              fi
+              if [[ "$attempt" -eq 60 ]]; then
+                cat "$RUNNER_TEMP/metro.log"
+                exit 1
+              fi
+              sleep 1
+            done
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb reverse tcp:8081 tcp:8081
             node scripts/create-upgrade-fixture.mjs "$RUNNER_TEMP/gastos-v27.db"
             adb shell pm clear com.vitoco18.FinniApp
             adb push "$RUNNER_TEMP/gastos-v27.db" /data/local/tmp/gastos.db
@@ -72,6 +86,8 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: maestro-android-${{ github.run_id }}
-          path: ~/.maestro/tests
+          path: |
+            ~/.maestro/tests
+            ${{ runner.temp }}/metro.log
           if-no-files-found: ignore
           retention-days: 14
