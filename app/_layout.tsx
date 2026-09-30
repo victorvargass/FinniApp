@@ -14,6 +14,7 @@ import 'react-native-reanimated';
 import { BiometricGate } from '@/components/biometric-gate';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppUpdateToastController } from '@/components/app-update-toast-controller';
+import { AutomaticBackupController } from '@/components/automatic-backup-controller';
 import { RecurringNotificationController } from '@/components/recurring-notification-controller';
 import { t } from '@/lib/i18n';
 import { BiometricProvider } from '@/contexts/BiometricContext';
@@ -61,6 +62,7 @@ function AppContent() {
         <BiometricGate>
           <DatabaseProvider>
             <AppUpdateToastController enabled={hasCompletedOnboarding} />
+            <AutomaticBackupController enabled={hasCompletedOnboarding} />
             <RecurringNotificationController />
             <ThemeProvider value={navigationTheme}>
               <Stack>

@@ -34,8 +34,9 @@ bloque acordado.
 - [x] Auditoría financiera de eliminaciones de gastos e ingresos y recuperación
   durante 30 días para movimientos ordinarios. Los movimientos con relaciones
   financieras quedan auditados, pero se protegen de una restauración parcial.
-- [ ] Respaldos automáticos versionados con retención y copia previa a una
-  migración importante.
+- [x] Respaldos automáticos diarios cuando Google Drive ya está conectado,
+  cinco versiones remotas con retención y tres copias locales previas a
+  migraciones de esquema.
 - [ ] Monitoreo de crashes/ANR con consentimiento, sin nombres, montos, notas o
   respaldos.
 - [ ] Cifrado del respaldo antes de subirlo a Drive.

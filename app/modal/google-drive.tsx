@@ -116,17 +116,16 @@ export default function GoogleDriveScreen() {
 
   const confirmBackup = () => {
     Alert.alert(
-      t(lastBackup ? 'settings.replaceBackupTitle' : 'settings.createBackupTitle'),
+      t(lastBackup ? 'settings.newBackupTitle' : 'settings.createBackupTitle'),
       lastBackup
-        ? t('settings.replaceBackupWarning', {
+        ? t('settings.newBackupMessage', {
             date: formatBackupDate(lastBackup.modifiedTime),
           })
         : t('settings.createBackupMessage'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: t(lastBackup ? 'settings.replaceBackup' : 'settings.backup'),
-          style: lastBackup ? 'destructive' : 'default',
+          text: t('settings.backup'),
           onPress: () => { void runBackup(); },
         },
       ]

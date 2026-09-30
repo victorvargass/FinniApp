@@ -1433,6 +1433,8 @@ const es = {
     openSettings: 'Abrir configuración',
     googleDriveHint: 'Conecta tu cuenta de Google para guardar y restaurar tu información de forma segura',
     backupSecurityNotice: 'El respaldo se guarda en la carpeta privada de FinniApp en tu Google Drive y depende de la seguridad de tu cuenta Google. FinniApp todavía no agrega un cifrado propio adicional al archivo.',
+    newBackupTitle: '¿Crear un nuevo respaldo?',
+    newBackupMessage: 'Se guardará una nueva versión. FinniApp conserva hasta 5 respaldos; el más reciente es del %{date}.',
     googleDriveMenuHint: 'Gestiona tu sesión de Google, respaldos y restauración de datos',
     welcomeGuide: 'Guía de bienvenida',
     welcomeGuideHint: 'Vuelve a ver el recorrido rápido por las funciones principales de FinniApp',

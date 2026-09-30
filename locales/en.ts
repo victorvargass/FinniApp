@@ -1433,6 +1433,8 @@ const en = {
     openSettings: 'Open settings',
     googleDriveHint: 'Connect your Google account to securely save and restore your information',
     backupSecurityNotice: 'The backup is stored in FinniApp\'s private folder in your Google Drive and relies on your Google Account security. FinniApp does not yet add its own extra encryption to the file.',
+    newBackupTitle: 'Create a new backup?',
+    newBackupMessage: 'A new version will be saved. FinniApp keeps up to 5 backups; the latest is from %{date}.',
     googleDriveMenuHint: 'Manage your Google session, backups and restore data',
     welcomeGuide: 'Welcome guide',
     welcomeGuideHint: 'Check out the quick tour of FinniApp\'s main features again',

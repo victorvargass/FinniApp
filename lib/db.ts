@@ -1,11 +1,14 @@
 import * as SQLite from 'expo-sqlite';
+import { Directory, File, Paths } from 'expo-file-system';
 import { t } from './i18n';
 
 import { withDatabaseLock } from './database-lock';
+import { LOCAL_MIGRATION_BACKUP_RETENTION, migrationSnapshotTimestamp } from './backup-policy';
 import { repairRecoverableDatabaseRelations } from './database-relations';
 import {
   DATABASE_APPLICATION_ID,
   DATABASE_NAME,
+  DATABASE_SCHEMA_VERSION,
 } from './database-schema';
 import { calculateInstallmentAmounts, calculateNextPeriodDates } from './financial-calculations';
 import { toDateString } from './format';
@@ -608,6 +611,28 @@ async function initializeDatabase(): Promise<void> {
   const db = await getDb();
   const schemaState = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   const previousSchemaVersion = Number(schemaState?.user_version ?? 0);
+
+  if (previousSchemaVersion > 0 && previousSchemaVersion < DATABASE_SCHEMA_VERSION) {
+    const directory = new Directory(Paths.document, 'migration-backups');
+    directory.create({ idempotent: true, intermediates: true });
+    const backupName = `pre-migration-v${previousSchemaVersion}-${Date.now()}.db`;
+    const destination = await SQLite.openDatabaseAsync(backupName, {}, directory.uri);
+    try {
+      await SQLite.backupDatabaseAsync({
+        sourceDatabase: db,
+        sourceDatabaseName: 'main',
+        destDatabase: destination,
+        destDatabaseName: 'main',
+      });
+      await destination.execAsync('PRAGMA journal_mode = DELETE');
+    } finally {
+      await destination.closeAsync();
+    }
+    const snapshots = directory.list()
+      .filter((item): item is File => item instanceof File && item.name.startsWith('pre-migration-v'))
+      .sort((first, second) => migrationSnapshotTimestamp(second.name) - migrationSnapshotTimestamp(first.name));
+    for (const obsolete of snapshots.slice(LOCAL_MIGRATION_BACKUP_RETENTION)) obsolete.delete();
+  }
 
   await db.execAsync(`
     PRAGMA application_id = ${DATABASE_APPLICATION_ID};

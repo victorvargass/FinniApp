@@ -2,10 +2,13 @@ import { File, Paths } from 'expo-file-system';
 import { fetch, type FetchRequestInit } from 'expo/fetch';
 
 import { t } from '@/lib/i18n';
+import { DATABASE_SCHEMA_VERSION } from '@/lib/database-schema';
+import { selectObsoleteBackups } from '@/lib/backup-policy';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3/files';
 const BACKUP_NAME = 'gastosapp-backup.db';
+const VERSIONED_BACKUP_PREFIX = 'gastosapp-backup-v';
 
 export type DriveBackup = {
   id: string;
@@ -42,7 +45,7 @@ export class GoogleDriveService {
 
   async listBackups(): Promise<DriveBackup[]> {
     const query = encodeURIComponent(
-      `name = '${BACKUP_NAME}' and trashed = false`
+      `(name = '${BACKUP_NAME}' or name contains '${VERSIONED_BACKUP_PREFIX}') and trashed = false`
     );
 
     const response = await this.request(
@@ -68,9 +71,10 @@ export class GoogleDriveService {
     const file = new File(uri);
 
     const backups = await this.listBackups();
+    const versionedName = `${VERSIONED_BACKUP_PREFIX}${DATABASE_SCHEMA_VERSION}-${Date.now()}.db`;
 
     const metadata = {
-      name: BACKUP_NAME,
+      name: versionedName,
       parents: ['appDataFolder'],
     };
 
@@ -95,9 +99,11 @@ export class GoogleDriveService {
     const uploaded = (await response.json()) as DriveBackup;
 
     // Upload before cleaning up: a failed upload must never leave the user
-    // without their last valid backup. Cleanup is best effort because any
-    // remaining older copy is harmless—the latest one is restored.
-    await Promise.allSettled(backups.map((backup) => this.deleteFile(backup.id)));
+    // without a valid backup. Keep several generations so a damaged-but-valid
+    // state does not immediately replace the only recovery point.
+    await Promise.allSettled(
+      selectObsoleteBackups([uploaded, ...backups]).map((backup) => this.deleteFile(backup.id))
+    );
 
     return uploaded;
   }

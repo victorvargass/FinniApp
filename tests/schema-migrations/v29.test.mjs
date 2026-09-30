@@ -46,3 +46,10 @@ test('movement deletion audits ordinary recovery and protects linked records', (
   assert.match(databaseSource, /30 \* 24 \* 60 \* 60 \* 1000/);
   assert.match(databaseSource, /assertCreditCardCycleIsEditable\([\s\S]*?snapshot\.payment_method_id/);
 });
+
+test('schema upgrades create a retained snapshot before mutating data', () => {
+  assert.match(databaseSource, /previousSchemaVersion > 0 && previousSchemaVersion < DATABASE_SCHEMA_VERSION/);
+  assert.match(databaseSource, /pre-migration-v\$\{previousSchemaVersion\}-\$\{Date\.now\(\)\}\.db/);
+  assert.match(databaseSource, /SQLite\.backupDatabaseAsync/);
+  assert.match(databaseSource, /LOCAL_MIGRATION_BACKUP_RETENTION/);
+});
