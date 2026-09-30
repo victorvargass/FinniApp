@@ -3773,7 +3773,6 @@ export async function createCreditCardAdjustment(data: NewCreditCardAdjustment):
       data.amount,
       data.date,
       resolveEventTime(data.time),
-      resolveEventTime(data.time),
       data.kind,
       data.note?.trim() || null
     );
