@@ -309,6 +309,22 @@ const en = {
     showIncomeGroup: 'Show income received in %{name}',
     hideIncomeGroup: 'Hide income received in %{name}',
   },
+  globalSearch: {
+    title: 'Search FinniApp',
+    placeholder: 'Search transactions, contacts, debts, and more',
+    inputLabel: 'Global search',
+    hint: 'Enter at least two characters to search across every period and financial record.',
+    empty: 'No results match this search.',
+    groups: {
+      expense: 'Expenses',
+      income: 'Income',
+      contact: 'Contacts',
+      debt: 'Debts and collections',
+      installment: 'Installment purchases',
+      'payment-method': 'Payment methods',
+      'savings-goal': 'Savings goals',
+    },
+  },
   validation: {
     invalidAmount: 'Enter a valid amount',
     invalidCategoryColor: 'The color must be a valid hex (ex: #0a7ea4)',

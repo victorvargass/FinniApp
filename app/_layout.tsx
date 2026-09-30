@@ -204,6 +204,10 @@ function AppContent() {
                   options={{ presentation: 'fullScreenModal', title: t('csv.title') }}
                 />
                 <Stack.Screen
+                  name="modal/global-search"
+                  options={{ presentation: 'fullScreenModal', title: t('globalSearch.title') }}
+                />
+                <Stack.Screen
                   name="modal/google-drive"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.googleDrive') }}
                 />

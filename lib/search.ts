@@ -3,6 +3,6 @@ export function matchesSearchQuery(label: string, query: string) {
   return normalizedQuery.length === 0 || normalizeSearchText(label).includes(normalizedQuery);
 }
 
-function normalizeSearchText(value: string) {
+export function normalizeSearchText(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
 }

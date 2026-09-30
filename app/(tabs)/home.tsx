@@ -1,4 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -527,6 +528,14 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top']}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/modal/global-search' as never)}
+          style={[styles.globalSearch, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          testID="home-global-search">
+          <Ionicons name="search-outline" size={20} color={colors.icon} />
+          <ThemedText style={[styles.globalSearchText, { color: colors.textSecondary }]}>{t('globalSearch.placeholder')}</ThemedText>
+        </Pressable>
         <PeriodSelector />
         <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
           <ThemedText type="subtitle">{t('home.periodDetails')}</ThemedText>
@@ -856,6 +865,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 12,
   },
+  globalSearch: {
+    minHeight: 46,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  globalSearchText: { flex: 1 },
   card: {
     borderRadius: 12,
     padding: 12,

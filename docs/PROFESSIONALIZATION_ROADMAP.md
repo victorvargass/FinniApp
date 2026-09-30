@@ -24,7 +24,8 @@ bloque acordado.
 - [x] Prueba Android automatizada de actualización real desde una base v27
   poblada, instalada dentro del sandbox antes de abrir el binario candidato.
 - [x] Exportación CSV con período y campos seleccionables.
-- [ ] Búsqueda global de movimientos, contactos, deudas, cuentas y metas.
+- [x] Búsqueda global de movimientos de todos los períodos, contactos, deudas,
+  compras en cuotas, medios de pago y metas, con navegación al detalle.
 - [ ] Cobertura automatizada iOS y ronda documentada en dispositivo real.
 
 ## 3. Recuperación, operación y privacidad

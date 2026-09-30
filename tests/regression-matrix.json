@@ -28,8 +28,8 @@
     {
       "id": "movement-list-and-filters",
       "priority": "critical",
-      "routes": ["app/(tabs)/movements.tsx", "app/(tabs)/add.tsx"],
-      "automatedArtifacts": [".maestro/smoke-financial.yml"]
+      "routes": ["app/(tabs)/movements.tsx", "app/(tabs)/add.tsx", "app/modal/global-search.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/global-search.test.mjs"]
     },
     {
       "id": "accounts-transfers-and-card-cycles",

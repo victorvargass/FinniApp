@@ -137,6 +137,20 @@ name: FinniApp financial smoke test
     visible: 'Movimiento para cierre'
     timeout: 15000
 
+# La búsqueda global encuentra movimientos fuera de la vista actual y vuelve a su detalle.
+- tapOn:
+    id: 'tab-home'
+- tapOn:
+    id: 'home-global-search'
+- tapOn:
+    id: 'global-search-input'
+- inputText: 'Movimiento para cierre'
+- hideKeyboard
+- assertVisible: 'Movimiento para cierre'
+- tapOn: 'Movimiento para cierre'
+- assertVisible: 'Editar gasto'
+- back
+
 # Con un solo gasto, cerrar período debe estar habilitado.
 - tapOn:
     id: 'tab-home'
