@@ -49,7 +49,13 @@ bloque acordado.
   la sincronización global cuando realmente la necesitan.
 - [ ] Separación de `lib/db.ts` por movimientos, cuentas, tarjetas, ahorro,
   deudas, recurrencias y notificaciones.
+  - Avance: conexión/transacciones, configuración, notificaciones, contactos y
+    proyección ya viven en módulos reales; continúan pendientes los dominios
+    financieros acoplados.
 - [ ] División de `DatabaseContext` en contextos/consultas por dominio.
+  - Avance: estado y acciones tienen identidades de contexto independientes y
+    las primeras pantallas de solo lectura/acción ya usan los hooks livianos.
+    Falta dividir el estado financiero por dominio y migrar el resto de vistas.
 - [x] Presupuestos por categoría y proyección del flujo restante del período
   con recurrencias pendientes, cuotas de tarjeta y vencimientos de deudas, sin
   duplicar movimientos ya registrados.
