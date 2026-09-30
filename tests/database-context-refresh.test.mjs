@@ -7,6 +7,21 @@ const domains = readFileSync(
   new URL('../contexts/DatabaseDomainContexts.tsx', import.meta.url),
   'utf8'
 );
+const actionModuleNames = [
+  'useOrganizerActions',
+  'usePaymentActions',
+  'useDebtActions',
+  'useSavingsActions',
+  'useRecurrenceActions',
+  'useMovementActions',
+  'usePeriodActions',
+  'usePreferenceActions',
+];
+const actionSources = actionModuleNames.map((name) => readFileSync(
+  new URL(`../contexts/database/${name}.ts`, import.meta.url),
+  'utf8'
+));
+const actions = actionSources.join('\n');
 
 test('financial writes refresh their domain without rerunning global maintenance', () => {
   const start = source.indexOf('const refreshFinancialDomain');
@@ -24,9 +39,9 @@ test('financial writes refresh their domain without rerunning global maintenance
     'createAccountTransfer', 'createCreditCardAdjustment', 'createDebtPayment',
     'updatePaymentMethodBalance', 'createInstallmentPurchase',
   ]) {
-    const operationStart = source.indexOf(`await db.${operation}`);
+    const operationStart = actions.indexOf(`await db.${operation}`);
     assert.notEqual(operationStart, -1, `${operation} should be wired in the context`);
-    assert.match(source.slice(operationStart, operationStart + 300), /await refreshFinancialDomain\(\)/);
+    assert.match(actions.slice(operationStart, operationStart + 300), /await refreshFinancialDomain\(\)/);
   }
 });
 
@@ -41,4 +56,14 @@ test('financial domains have independent stable context identities', () => {
   assert.match(domains, /useShallowStablePick/);
   assert.match(source, /DatabaseDomainProviders value=\{value\}/);
   assert.doesNotMatch(source, /const DatabaseContext = createContext/);
+});
+
+test('database mutations are organized in domain action modules', () => {
+  for (const name of actionModuleNames) {
+    assert.match(source, new RegExp(`${name}\\(`));
+  }
+  assert.ok(
+    source.split(/\r?\n/).length < 700,
+    'the provider should remain an orchestrator instead of owning every mutation'
+  );
 });

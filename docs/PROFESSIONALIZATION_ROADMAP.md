@@ -60,7 +60,9 @@ bloque acordado.
   el motor transaccional privado conserva las operaciones compuestas.
 - [x] Contextos y consultas divididos por período, movimientos, medios de pago,
   ahorro, deudas, recurrencias, organización y preferencias. Todas las vistas
-  consumen hooks de dominio con identidades estables independientes.
+  consumen hooks de dominio con identidades estables independientes y sus
+  mutaciones viven en módulos de acciones por dominio; el proveedor central
+  queda limitado a inicialización, coordinación y recarga compartida.
 - [x] Presupuestos por categoría y proyección del flujo restante del período
   con recurrencias pendientes, cuotas de tarjeta y vencimientos de deudas, sin
   duplicar movimientos ya registrados.
