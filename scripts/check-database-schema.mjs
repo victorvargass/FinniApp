@@ -99,7 +99,7 @@ function assertRegistry(version, migrationSource) {
 
 const currentSchema = readWorkspaceFile('lib/database-schema.ts');
 const currentMigrations = readWorkspaceFile('lib/schema-migrations.ts');
-const currentDb = readWorkspaceFile('lib/db.ts');
+const currentDb = readWorkspaceFile('lib/database/engine.ts');
 const currentVersion = schemaVersion(currentSchema);
 
 assertRegistry(currentVersion, currentMigrations);
@@ -108,7 +108,12 @@ const base = resolveBase(requestedBase);
 if (base) {
   const baseSchema = readGitFile(base, 'lib/database-schema.ts');
   const baseMigrations = readGitFile(base, 'lib/schema-migrations.ts');
-  const baseDb = readGitFile(base, 'lib/db.ts');
+  let baseDb;
+  try {
+    baseDb = readGitFile(base, 'lib/database/engine.ts');
+  } catch {
+    baseDb = readGitFile(base, 'lib/db.ts');
+  }
   const baseVersion = schemaVersion(baseSchema);
   const changed = initializationContract(currentDb, currentMigrations, currentSchema)
     !== initializationContract(baseDb, baseMigrations, baseSchema);

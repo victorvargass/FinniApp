@@ -5,13 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = resolve(process.argv[2] ?? resolve(root, 'tmp', 'gastos-v27.db'));
-const source = readFileSync(resolve(root, 'lib', 'db.ts'), 'utf8');
+const source = readFileSync(resolve(root, 'lib', 'database', 'engine.ts'), 'utf8');
 const initializeStart = source.indexOf('async function initializeDatabase()');
 const schemaStart = source.indexOf('await db.execAsync(`', initializeStart) + 'await db.execAsync(`'.length;
 const schemaEnd = source.indexOf('\n  `);', schemaStart);
 
 if (initializeStart < 0 || schemaStart < 0 || schemaEnd < 0) {
-  throw new Error('No se pudo encontrar el contrato de creación de la base en lib/db.ts.');
+  throw new Error('No se pudo encontrar el contrato de creación en lib/database/engine.ts.');
 }
 
 const schemaSql = source

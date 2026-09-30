@@ -19,7 +19,7 @@ function temporaryDatabase() {
 }
 
 test('deleting an installment restores its projection until its due date', () => {
-  const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
   const processing = source.slice(
     source.indexOf('export async function processProjectedInstallments'),
     source.indexOf('export async function restoreRemovedInstallment')
@@ -39,7 +39,7 @@ test('deleting an installment restores its projection until its due date', () =>
 });
 
 test('movement UNION projections include exactly one time column per branch', () => {
-  const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
   const methodMovements = source.slice(
     source.indexOf('export async function getPaymentMethodMovements'),
     source.indexOf('function mapCreditCardAdjustment')
@@ -63,7 +63,7 @@ test('movement UNION projections include exactly one time column per branch', ()
 test('deleting optional classifications preserves income and savings balances', () => {
   const database = temporaryDatabase();
   try {
-    const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
     database.exec('PRAGMA foreign_keys = ON;');
     for (const table of ['periods', 'income_categories', 'savings_groups', 'payment_methods', 'incomes', 'recurring_incomes', 'savings_goals']) {
       const statement = source.match(new RegExp(`CREATE TABLE IF NOT EXISTS ${table} \\([\\s\\S]*?\\n    \\);`))?.[0];
@@ -94,7 +94,7 @@ test('deleting optional classifications preserves income and savings balances', 
 test('older records migrate to unspecified categories and groups without changing amounts', () => {
   const database = temporaryDatabase();
   try {
-    const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
     database.exec(`
       CREATE TABLE income_categories (id INTEGER PRIMARY KEY, name TEXT);
       CREATE TABLE savings_groups (id INTEGER PRIMARY KEY, name TEXT);

@@ -10,7 +10,7 @@ const connection = readFileSync(
   new URL('../lib/database/connection.ts', import.meta.url),
   'utf8'
 );
-const database = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+const database = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
 const appConfig = readFileSync(new URL('../app.config.js', import.meta.url), 'utf8');
 const appJson = JSON.parse(readFileSync(new URL('../app.json', import.meta.url), 'utf8'));
 const provider = readFileSync(

@@ -2,7 +2,7 @@ import { File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
 
-import { getPeriodStatement } from '@/lib/db';
+import { getPeriodStatement } from '@/repositories/periods';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { buildPeriodCsv, type PeriodCsvField } from '@/lib/period-csv';
 import type { PeriodHistory } from '@/lib/types';

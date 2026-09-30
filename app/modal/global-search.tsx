@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import * as database from '@/lib/db';
+import * as database from '@/repositories';
 import { formatCLP, formatDate } from '@/lib/format';
 import { buildGlobalSearchResults, type GlobalSearchData, type GlobalSearchKind, type GlobalSearchResult } from '@/lib/global-search';
 import { t } from '@/lib/i18n';

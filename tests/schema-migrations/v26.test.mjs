@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
-const databaseSource = readFileSync(new URL('../../lib/db.ts', import.meta.url), 'utf8');
+const databaseSource = readFileSync(new URL('../../lib/database/engine.ts', import.meta.url), 'utf8');
 test('schema v26 seeds debt payment categories for expenses and incomes', () => {
   const migration = databaseSource.slice(
     databaseSource.indexOf('if (previousSchemaVersion < 26)'),

@@ -5,7 +5,12 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import * as Print from 'expo-print';
 import { Platform } from 'react-native';
 
-import { getAccountTransfersForPeriod, getPeriodFinancialDetails, getPeriodSavingsGoalActivity, getPeriodStatement } from '@/lib/db';
+import {
+  getAccountTransfersForPeriod,
+  getPeriodFinancialDetails,
+  getPeriodSavingsGoalActivity,
+  getPeriodStatement,
+} from '@/repositories';
 import { calculatePeriodAvailable } from '@/lib/period-card-cashflow';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';

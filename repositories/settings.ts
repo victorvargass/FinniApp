@@ -1,8 +1,7 @@
 export {
-  getUnbilledCreditCardTotal,
   initDatabase,
   resetLocalData,
-} from '@/lib/db';
+} from '@/lib/database/lifecycle';
 
 export {
   getSettings,

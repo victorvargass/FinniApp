@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 
-const source = readFileSync(new URL('../../lib/db.ts', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../../lib/database/engine.ts', import.meta.url), 'utf8');
 const v24Fixture = readFileSync(new URL('../fixtures/database/v24.sql', import.meta.url), 'utf8');
 
 function tableDefinition(name) {

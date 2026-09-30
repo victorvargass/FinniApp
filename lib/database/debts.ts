@@ -21,4 +21,4 @@ export {
   settleInstallmentPlan,
   updateDebt,
   updateDebtPayment,
-} from '@/lib/database/debts';
+} from './engine';

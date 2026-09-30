@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 
-const databaseSource = readFileSync(new URL('../../lib/db.ts', import.meta.url), 'utf8');
+const databaseSource = readFileSync(new URL('../../lib/database/engine.ts', import.meta.url), 'utf8');
 const schemaSource = readFileSync(new URL('../../lib/database-schema.ts', import.meta.url), 'utf8');
 const registrySource = readFileSync(new URL('../../lib/schema-migrations.ts', import.meta.url), 'utf8');
 const fixtureSql = readFileSync(new URL('../fixtures/database/v27.sql', import.meta.url), 'utf8');

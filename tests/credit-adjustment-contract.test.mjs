@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
-const source = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
 
 test('credit card adjustment insert binds one value per declared column', () => {
   const start = source.indexOf('export async function createCreditCardAdjustment');

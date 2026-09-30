@@ -1,4 +1,4 @@
-import { getDebts } from '@/lib/db';
+import { getDebts } from './debts';
 import { getDatabase } from '@/lib/database/connection';
 import { spendingExpenseSql } from '@/lib/movement-classification';
 import { summarizeFinancialForecast } from '@/lib/financial-forecast';

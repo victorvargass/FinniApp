@@ -1,12 +1,12 @@
 import * as SQLite from 'expo-sqlite';
 import { Directory, File, Paths } from 'expo-file-system';
 
+import { getDatabase } from '@/lib/database/connection';
 import {
   closeDatabase,
-  getDatabase,
   initDatabase,
   resetDatabaseConnection,
-} from '@/lib/db';
+} from '@/lib/database/lifecycle';
 import { withDatabaseLock } from '@/lib/database-lock';
 import { repairRecoverableDatabaseRelations } from '@/lib/database-relations';
 import {

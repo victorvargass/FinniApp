@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 test('notification repository uses its domain database module', () => {
   const repository = readFileSync(new URL('../repositories/notifications.ts', import.meta.url), 'utf8');
-  const monolith = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+  const monolith = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
   const module = readFileSync(new URL('../lib/database/notifications.ts', import.meta.url), 'utf8');
 
   assert.match(repository, /@\/lib\/database\/notifications/);
@@ -18,7 +18,7 @@ test('notification repository uses its domain database module', () => {
 test('settings repository reads preferences through its domain module', () => {
   const repository = readFileSync(new URL('../repositories/settings.ts', import.meta.url), 'utf8');
   const module = readFileSync(new URL('../lib/database/settings.ts', import.meta.url), 'utf8');
-  const monolith = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+  const monolith = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
 
   assert.match(repository, /@\/lib\/database\/settings/);
   assert.match(module, /export async function getSettings/);
@@ -29,7 +29,7 @@ test('settings repository reads preferences through its domain module', () => {
 test('contacts repository owns contacts and relationship persistence', () => {
   const repository = readFileSync(new URL('../repositories/contacts.ts', import.meta.url), 'utf8');
   const module = readFileSync(new URL('../lib/database/contacts.ts', import.meta.url), 'utf8');
-  const monolith = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+  const monolith = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
 
   assert.match(repository, /@\/lib\/database\/contacts/);
   assert.match(module, /export async function saveContact/);
@@ -40,10 +40,26 @@ test('contacts repository owns contacts and relationship persistence', () => {
 test('categories repository owns expense and income category persistence', () => {
   const repository = readFileSync(new URL('../repositories/categories.ts', import.meta.url), 'utf8');
   const module = readFileSync(new URL('../lib/database/categories.ts', import.meta.url), 'utf8');
-  const monolith = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+  const monolith = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
 
   assert.match(repository, /@\/lib\/database\/categories/);
   assert.match(module, /export async function createCategory/);
   assert.match(module, /export async function saveIncomeCategory/);
   assert.doesNotMatch(monolith, /export async function createCategory/);
+});
+
+test('financial repositories expose domain modules instead of the compatibility facade', () => {
+  for (const name of [
+    'movements', 'payment-methods', 'savings', 'debts', 'periods', 'recurrences',
+  ]) {
+    const repository = readFileSync(new URL(`../repositories/${name}.ts`, import.meta.url), 'utf8');
+    const module = readFileSync(new URL(`../lib/database/${name}.ts`, import.meta.url), 'utf8');
+    assert.match(repository, new RegExp(`@/lib/database/${name}`));
+    assert.doesNotMatch(repository, /@\/lib\/db/);
+    assert.match(module, /from '\.\/engine'/);
+  }
+
+  const facade = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+  assert.match(facade, /export \* from '\.\/database\/engine'/);
+  assert.ok(facade.split('\n').length < 12, 'compatibility facade must remain minimal');
 });
