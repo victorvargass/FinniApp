@@ -307,6 +307,9 @@ export default function HomeScreen() {
   const visiblePaymentMethods = visibleHomePaymentMethods(paymentMethods);
   const walletTotal = sumKnownAvailableBalances(getHomePaymentMethods(visiblePaymentMethods, 'wallet'));
   const availableCreditTotal = sumKnownAvailableBalances(getHomePaymentMethods(visiblePaymentMethods, 'credit'));
+  const billedCreditTotal = visiblePaymentMethods
+    .filter((method) => method.type === 'credit')
+    .reduce((sum, method) => sum + method.billedAmount, 0);
   const savingsTotal = savingsGoals
     .filter((goal) => goal.showOnHome !== false)
     .reduce((sum, goal) => sum + goal.currentAmount, 0);
@@ -631,6 +634,7 @@ export default function HomeScreen() {
           globalValues={{
             wallet: walletTotal,
             credit: availableCreditTotal,
+            billedCredit: billedCreditTotal,
             savings: savingsTotal,
             debt: payableDebtTotal,
           }}
@@ -655,7 +659,12 @@ export default function HomeScreen() {
           .map(renderHomeSection)}
 
       {selectedPeriodReport && hasPeriodMovements && (
-        <View style={styles.exportActions}>
+        <View style={styles.exportSection}>
+          <ThemedText type="subtitle">{t('historicalPeriod.exportTitle')}</ThemedText>
+          <ThemedText style={[styles.exportHint, { color: colors.textSecondary }]}>
+            {t('historicalPeriod.exportHint')}
+          </ThemedText>
+          <View style={styles.exportActions}>
           <Pressable
             accessibilityRole="button"
             style={({ pressed }) => [
@@ -688,6 +697,7 @@ export default function HomeScreen() {
               {t('historicalPeriod.exportCsvShort')}
             </ThemedText>
           </Pressable>
+          </View>
         </View>
       )}
 
@@ -926,6 +936,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   exportActions: { flexDirection: 'row', gap: 10 },
+  exportSection: { gap: 7, marginTop: 4 },
+  exportHint: { fontSize: 13, lineHeight: 18 },
   exportingContent: {
     flexDirection: 'row',
     alignItems: 'center',

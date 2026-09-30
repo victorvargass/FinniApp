@@ -18,15 +18,19 @@ export const HOME_PERIOD_METRIC_IDS = [
 export const HOME_GLOBAL_METRIC_IDS = [
   'wallet',
   'credit',
+  'billedCredit',
   'savings',
   'debt',
 ] as const;
+
+const HOME_PREFERENCES_VERSION = 2;
 
 export type HomeSectionId = typeof HOME_SECTION_IDS[number];
 export type HomePeriodMetricId = typeof HOME_PERIOD_METRIC_IDS[number];
 export type HomeGlobalMetricId = typeof HOME_GLOBAL_METRIC_IDS[number];
 
 export type HomePreferences = {
+  version: number;
   sectionOrder: HomeSectionId[];
   hiddenSections: HomeSectionId[];
   periodMetrics: HomePeriodMetricId[];
@@ -34,6 +38,7 @@ export type HomePreferences = {
 };
 
 export const DEFAULT_HOME_PREFERENCES: HomePreferences = {
+  version: HOME_PREFERENCES_VERSION,
   sectionOrder: [...HOME_SECTION_IDS],
   hiddenSections: [],
   periodMetrics: [...HOME_PERIOD_METRIC_IDS],
@@ -60,8 +65,19 @@ export function normalizeHomePreferences(value: unknown): HomePreferences {
     : {};
   const storedOrder = normalizeSelection(candidate.sectionOrder, HOME_SECTION_IDS, []);
   const missingSections = HOME_SECTION_IDS.filter((item) => !storedOrder.includes(item));
+  const storedGlobalMetrics = normalizeSelection(
+    candidate.globalMetrics,
+    HOME_GLOBAL_METRIC_IDS,
+    DEFAULT_HOME_PREFERENCES.globalMetrics,
+    true
+  );
+  const globalMetrics = (candidate.version ?? 0) < HOME_PREFERENCES_VERSION
+    && !storedGlobalMetrics.includes('billedCredit')
+    ? [...storedGlobalMetrics, 'billedCredit' as const]
+    : storedGlobalMetrics;
 
   return {
+    version: HOME_PREFERENCES_VERSION,
     sectionOrder: [...storedOrder, ...missingSections],
     hiddenSections: normalizeSelection(candidate.hiddenSections, HOME_SECTION_IDS, []),
     periodMetrics: normalizeSelection(
@@ -70,12 +86,7 @@ export function normalizeHomePreferences(value: unknown): HomePreferences {
       DEFAULT_HOME_PREFERENCES.periodMetrics,
       true
     ),
-    globalMetrics: normalizeSelection(
-      candidate.globalMetrics,
-      HOME_GLOBAL_METRIC_IDS,
-      DEFAULT_HOME_PREFERENCES.globalMetrics,
-      true
-    ),
+    globalMetrics,
   };
 }
 

@@ -10,7 +10,7 @@ import {
   Switch,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -135,6 +135,7 @@ function MetricSwitch<T extends string>({ id, selected, label, onToggle }: Metri
 export default function HomeSettingsScreen() {
   const { settings, setHomePreferences } = useDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const insets = useSafeAreaInsets();
   const [preferences, setPreferences] = useState<HomePreferences>(settings.homePreferences);
   const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -193,8 +194,10 @@ export default function HomeSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
-      <ScrollView scrollEnabled={!dragging} contentContainerStyle={styles.content}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={[]}>
+      <ScrollView
+        scrollEnabled={!dragging}
+        contentContainerStyle={[styles.content, { paddingBottom: 100 + insets.bottom }]}>
         <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
           {t('homeSettings.description')}
         </ThemedText>
@@ -253,6 +256,7 @@ export default function HomeSettingsScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() => setPreferences({
+            version: DEFAULT_HOME_PREFERENCES.version,
             sectionOrder: [...DEFAULT_HOME_PREFERENCES.sectionOrder],
             hiddenSections: [],
             periodMetrics: [...DEFAULT_HOME_PREFERENCES.periodMetrics],
@@ -264,8 +268,16 @@ export default function HomeSettingsScreen() {
         </Pressable>
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: colors.screen, borderTopColor: colors.border }]}>
+      <View style={[
+        styles.footer,
+        {
+          backgroundColor: colors.screen,
+          borderTopColor: colors.border,
+          paddingBottom: Math.max(insets.bottom, 14),
+        },
+      ]}>
         <Pressable
+          accessibilityRole="button"
           disabled={saving}
           onPress={() => { void save(); }}
           style={({ pressed }) => [styles.saveButton, { backgroundColor: colors.primary }, (pressed || saving) && styles.pressed]}>
@@ -280,7 +292,7 @@ export default function HomeSettingsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: 20, paddingBottom: 115, gap: 16 },
+  content: { padding: 20, gap: 16 },
   description: { fontSize: 16, lineHeight: 23 },
   heading: { gap: 3, marginTop: 4 },
   hint: { fontSize: 13, lineHeight: 18 },
@@ -293,7 +305,7 @@ const styles = StyleSheet.create({
   metricRow: { minHeight: 57, flexDirection: 'row', alignItems: 'center', gap: 12 },
   metricName: { flex: 1 },
   resetButton: { minHeight: 50, borderWidth: 1, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: StyleSheet.hairlineWidth, padding: 14 },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 14, paddingTop: 14 },
   saveButton: { minHeight: 52, borderRadius: 13, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   saveText: { fontFamily: Fonts.bold, fontSize: 17 },
   pressed: { opacity: 0.7 },

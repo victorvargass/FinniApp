@@ -51,6 +51,7 @@ export function HomeSummaryCards({
   const globalLabels: Record<HomeGlobalMetricId, string> = {
     wallet: t('home.globalMetricWallet'),
     credit: t('home.globalMetricCredit'),
+    billedCredit: t('home.globalMetricBilledCredit'),
     savings: t('home.globalMetricSavings'),
     debt: t('home.globalMetricDebt'),
   };
@@ -80,7 +81,9 @@ export function HomeSummaryCards({
               key={metric}
               label={globalLabels[metric]}
               value={globalValues[metric]}
-              color={metric === 'debt' ? colors.expense : metric === 'savings' ? colors.savings : undefined}
+              color={metric === 'debt' || metric === 'billedCredit'
+                ? colors.expense
+                : metric === 'savings' ? colors.savings : undefined}
             />
           ))}
         </View>

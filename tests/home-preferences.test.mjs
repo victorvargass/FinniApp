@@ -9,6 +9,7 @@ import {
 
 test('home preferences preserve a valid custom order and append future sections', () => {
   const preferences = normalizeHomePreferences({
+    version: DEFAULT_HOME_PREFERENCES.version,
     sectionOrder: ['debts', 'wallet'],
     hiddenSections: ['weekly', 'invalid'],
     periodMetrics: ['available', 'expenses'],
@@ -20,6 +21,19 @@ test('home preferences preserve a valid custom order and append future sections'
   assert.deepEqual(preferences.hiddenSections, ['weekly']);
   assert.deepEqual(preferences.periodMetrics, ['available', 'expenses']);
   assert.deepEqual(preferences.globalMetrics, ['savings']);
+});
+
+test('legacy preferences receive billed credit once and can later hide it', () => {
+  const migrated = normalizeHomePreferences({
+    sectionOrder: ['attention'],
+    periodMetrics: ['available'],
+    globalMetrics: ['wallet'],
+  });
+  assert.equal(migrated.version, DEFAULT_HOME_PREFERENCES.version);
+  assert.deepEqual(migrated.globalMetrics, ['wallet', 'billedCredit']);
+
+  const customized = normalizeHomePreferences({ ...migrated, globalMetrics: ['wallet'] });
+  assert.deepEqual(customized.globalMetrics, ['wallet']);
 });
 
 test('home preferences recover safely from corrupt or empty selections', () => {
