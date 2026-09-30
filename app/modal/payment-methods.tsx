@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,7 +14,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { t } from '@/lib/i18n';
-import { groupPaymentMethodsByType } from '@/lib/payment-method-groups';
+import { getAvailablePaymentMethodSections, groupPaymentMethodsByType } from '@/lib/payment-method-groups';
 import { showToast } from '@/lib/toast';
 
 function showDefaultConfirmation(name: string) {
@@ -59,6 +59,17 @@ export default function PaymentMethodsScreen() {
     prepaid: t('paymentMethods.prepaid'),
     credit: t('paymentMethods.credit'),
   };
+  const methodSections = useMemo(() => getAvailablePaymentMethodSections(paymentMethods).map((value) => ({
+    value,
+    label: value === 'accounts'
+      ? t('paymentMethods.accountsTab')
+      : t(`paymentMethods.${value}`),
+  })), [paymentMethods]);
+  useEffect(() => {
+    if (!methodSections.some((section) => section.value === methodSection)) {
+      setMethodSection(methodSections[0]?.value ?? 'accounts');
+    }
+  }, [methodSection, methodSections]);
   const visiblePaymentMethods = paymentMethods.filter((method) => {
     if (methodSection === 'accounts') return method.type === 'cash' || method.type === 'debit';
     return method.type === methodSection;
@@ -82,15 +93,13 @@ export default function PaymentMethodsScreen() {
               </ThemedText>
               <FeatureGuideButton onPress={guide.open} />
             </View>
-            <SegmentedTabs
-              value={methodSection}
-              onChange={setMethodSection}
-              options={[
-                { value: 'accounts', label: t('paymentMethods.accountsTab') },
-                { value: 'prepaid', label: t('paymentMethods.prepaid') },
-                { value: 'credit', label: t('paymentMethods.credit') },
-              ]}
-            />
+            {methodSections.length > 1 && (
+              <SegmentedTabs
+                value={methodSection}
+                onChange={setMethodSection}
+                options={methodSections}
+              />
+            )}
           </View>
         }
         ListEmptyComponent={

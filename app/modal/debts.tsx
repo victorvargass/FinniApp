@@ -159,35 +159,31 @@ export default function DebtsScreen() {
         pathname: '/modal/debt-detail',
         params: { id: String(plan.id) },
       })}>
-      <ThemedView style={styles.card}>
+      <ThemedView style={[styles.card, styles.planCard]}>
         <View style={styles.header}>
           <View style={[styles.dot, { backgroundColor: plan.paymentMethodColor }]} />
           <View style={styles.copy}>
             <ThemedText type="defaultSemiBold">{plan.name}</ThemedText>
-            <ThemedText style={styles.secondary}>{plan.paymentMethodName}</ThemedText>
+            {methodId != null && (
+              <ThemedText style={styles.secondary}>{plan.paymentMethodName}</ThemedText>
+            )}
           </View>
           <Ionicons name="chevron-forward" size={21} color={colors.icon} />
         </View>
-        <View style={styles.row}>
-          <ThemedText>{t('installments.progress')}</ThemedText>
-          <ThemedText type="defaultSemiBold">
+        <View style={styles.planMeta}>
+          <ThemedText style={styles.planMetaText} type="defaultSemiBold">
             {t('installments.progressValue', {
               posted: plan.postedInstallments,
               total: plan.totalInstallments,
             })}
           </ThemedText>
+          <ThemedText style={styles.planMetaText}>·</ThemedText>
+          <ThemedText style={styles.planMetaText}>{formatCLP(plan.remainingAmount)}</ThemedText>
+          <ThemedText
+            style={[styles.compactStatus, { color: plan.status === 'active' ? '#1FAF78' : colors.primary }]}>
+            {statusLabel(plan.status)}
+          </ThemedText>
         </View>
-        <View style={styles.row}>
-          <ThemedText>{t('installments.projectedBalance')}</ThemedText>
-          <ThemedText>{formatCLP(plan.remainingAmount)}</ThemedText>
-        </View>
-        <ThemedText
-          style={[
-            styles.status,
-            { color: plan.status === 'active' ? '#1FAF78' : colors.primary },
-          ]}>
-          {statusLabel(plan.status)}
-        </ThemedText>
       </ThemedView>
     </Pressable>
   );
@@ -351,6 +347,10 @@ const styles = StyleSheet.create({
   guideHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 }, guideTitle: { flex: 1 },
   intro: { opacity: 0.7, lineHeight: 20 }, empty: { borderRadius: 12, padding: 24, alignItems: 'center', gap: 8 },
   card: { borderRadius: 12, padding: 15, gap: 10 }, header: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  planCard: { paddingVertical: 11, gap: 6 },
+  planMeta: { paddingLeft: 25, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5 },
+  planMetaText: { fontSize: 12, opacity: 0.72 },
+  compactStatus: { marginLeft: 'auto', fontSize: 11, fontWeight: '700' },
   cardGroup: { gap: 9 }, cardPlans: { marginLeft: 16, paddingLeft: 12, borderLeftWidth: 2, gap: 8 }, cardPlansTitle: { fontSize: 12, fontWeight: '700', opacity: 0.68 },
   dot: { width: 16, height: 16, borderRadius: 6 }, copy: { flex: 1 }, secondary: { opacity: 0.62, fontSize: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 }, status: { fontSize: 12, fontWeight: '700' },

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { groupSavingsItems } from '../lib/savings-grouping.ts';
+import { getPopulatedSavingsGroups, groupSavingsItems } from '../lib/savings-grouping.ts';
 
 test('goals without a group remain visible and their amounts are unchanged', () => {
   const goals = [
@@ -17,4 +17,15 @@ test('goals without a group remain visible and their amounts are unchanged', () 
 test('a deleted group leaves its goals in the unassigned section', () => {
   const sections = groupSavingsItems([{ id: 1, groupId: 7 }], [], (goal) => goal.groupId, 'No especificado');
   assert.deepEqual(sections.map((section) => section.key), ['unassigned']);
+});
+
+test('savings filters omit groups without visible goals', () => {
+  const groups = [
+    { id: 1, name: 'Con metas', color: '#123456' },
+    { id: 2, name: 'Vacío', color: '#654321' },
+  ];
+  assert.deepEqual(
+    getPopulatedSavingsGroups([{ groupId: 1 }], groups, (goal) => goal.groupId).map((group) => group.id),
+    [1]
+  );
 });

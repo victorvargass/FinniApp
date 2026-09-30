@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,7 +14,7 @@ import { useDatabase } from '@/contexts/DatabaseContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
 import { t } from '@/lib/i18n';
-import { groupSavingsItems } from '@/lib/savings-grouping';
+import { getPopulatedSavingsGroups, groupSavingsItems } from '@/lib/savings-grouping';
 import type { SavingsGoal } from '@/lib/types';
 
 function parseDate(value: string): Date {
@@ -146,6 +146,16 @@ export default function SavingsGoalsScreen() {
     [savingsGoals]
   );
   const statusGoals = showArchived ? savingsGoals : currentGoals;
+  const populatedGroups = useMemo(
+    () => getPopulatedSavingsGroups(statusGoals, savingsGroups, (goal) => goal.groupId),
+    [savingsGroups, statusGoals]
+  );
+  useEffect(() => {
+    if (typeof selectedGroup === 'number'
+      && !populatedGroups.some((group) => group.id === selectedGroup)) {
+      setSelectedGroup('all');
+    }
+  }, [populatedGroups, selectedGroup]);
   const visibleGoals = statusGoals.filter((goal) => {
     if (selectedGroup === 'all') return true;
     if (selectedGroup === 'ungrouped') return goal.groupId == null;
@@ -202,7 +212,7 @@ export default function SavingsGoalsScreen() {
           showsHorizontalScrollIndicator={false}>
           {[
             { value: 'all' as const, label: t('savings.allGroups') },
-            ...savingsGroups.map((group) => ({ value: group.id, label: group.name })),
+            ...populatedGroups.map((group) => ({ value: group.id, label: group.name })),
             ...(hasUngroupedGoals ? [{ value: 'ungrouped' as const, label: t('common.notSpecified') }] : []),
           ].map((option) => {
             const selected = selectedGroup === option.value;

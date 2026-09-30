@@ -1,6 +1,7 @@
 import type { PaymentMethodType } from './types';
 
 export type HomePaymentBalanceKind = 'wallet' | 'credit';
+export type PaymentMethodSection = 'accounts' | 'prepaid' | 'credit';
 
 export const PAYMENT_METHOD_TYPE_ORDER: readonly PaymentMethodType[] = [
   'cash',
@@ -16,6 +17,16 @@ export function groupPaymentMethodsByType<T extends { type: PaymentMethodType }>
       data: methods.filter((method) => method.type === type),
     }))
     .filter((section) => section.data.length > 0);
+}
+
+export function getAvailablePaymentMethodSections<T extends { type: PaymentMethodType }>(
+  methods: readonly T[]
+): PaymentMethodSection[] {
+  return (['accounts', 'prepaid', 'credit'] as const).filter((section) => methods.some((method) => (
+    section === 'accounts'
+      ? method.type === 'cash' || method.type === 'debit'
+      : method.type === section
+  )));
 }
 
 export function getHomePaymentMethods<

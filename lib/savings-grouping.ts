@@ -31,3 +31,12 @@ export function groupSavingsItems<T>(
     a.key === 'unassigned' ? 1 : b.key === 'unassigned' ? -1 : a.name.localeCompare(b.name, 'es')
   );
 }
+
+export function getPopulatedSavingsGroups<T>(
+  items: readonly T[],
+  groups: readonly SavingsGroup[],
+  getGroupId: (item: T) => number | null
+): SavingsGroup[] {
+  const populatedIds = new Set(items.map(getGroupId));
+  return groups.filter((group) => populatedIds.has(group.id));
+}

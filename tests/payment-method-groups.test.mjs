@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   getHomePaymentMethods,
+  getAvailablePaymentMethodSections,
   groupPaymentMethodsByType,
   sumKnownAvailableBalances,
 } from '../lib/payment-method-groups.ts';
@@ -23,6 +24,12 @@ test('payment methods are grouped in a predictable account order', () => {
 test('empty payment method groups are omitted', () => {
   const groups = groupPaymentMethodsByType([{ id: 1, type: 'debit' }]);
   assert.deepEqual(groups.map((group) => group.type), ['debit']);
+});
+
+test('payment method selector hides sections without accounts', () => {
+  assert.deepEqual(getAvailablePaymentMethodSections([
+    { type: 'cash' }, { type: 'debit' }, { type: 'credit' },
+  ]), ['accounts', 'credit']);
 });
 
 test('home separates active wallet balances from available credit', () => {
