@@ -19,5 +19,6 @@ test('forecast query only projects unregistered future commitments', () => {
   assert.match(source, /occurrence\.status IN \('scheduled', 'pending'\)/);
   assert.match(source, /installment\.status = 'projected'/);
   assert.match(source, /occurrence\.scheduled_date > \?/);
+  assert.match(source, /recurring_incomes[\s\S]*?UNION ALL\s+SELECT 'installment-'/);
   assert.doesNotMatch(source, /occurrence\.status[^\n]*generated/);
 });

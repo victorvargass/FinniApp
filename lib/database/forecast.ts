@@ -45,6 +45,7 @@ export async function getBudgetForecast(periodId: number, referenceDate: string)
        INNER JOIN recurring_incomes recurring ON recurring.id = occurrence.recurring_income_id
        WHERE occurrence.status IN ('scheduled', 'pending')
          AND occurrence.scheduled_date > ? AND occurrence.scheduled_date <= ?
+       UNION ALL
        SELECT 'installment-' || installment.id, 'installment', plan.name,
               installment.projected_amount, installment.due_date
        FROM debt_installments installment
