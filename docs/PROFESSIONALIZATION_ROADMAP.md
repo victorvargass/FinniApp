@@ -26,7 +26,8 @@ bloque acordado.
 - [x] Exportación CSV con período y campos seleccionables.
 - [x] Búsqueda global de movimientos de todos los períodos, contactos, deudas,
   compras en cuotas, medios de pago y metas, con navegación al detalle.
-- [ ] Cobertura automatizada iOS y ronda documentada en dispositivo real.
+- [x] Cobertura automatizada en simulador iOS y matriz de ronda periódica en
+  dispositivo real (la ejecución se registra por candidata).
 
 ## 3. Recuperación, operación y privacidad
 

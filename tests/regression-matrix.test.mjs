@@ -97,3 +97,16 @@ test('the preview update workflow uses the Node version required by the test sui
   assert.equal(packageJson.engines.node, '>=22.14.0');
   assert.match(workflow, /defaults:\s*\n\s*tools:\s*\n\s*node: ['"]22\.14\.0['"]/);
 });
+
+test('iOS simulator workflow builds a simulator app and runs critical journeys', () => {
+  const workflow = readFileSync(path.join(root, '.eas/workflows/e2e-test-ios.yml'), 'utf8');
+  assert.match(workflow, /platform: ios/);
+  assert.match(workflow, /profile: e2e-test/);
+  for (const flow of [
+    '.maestro/onboarding-full.yml',
+    '.maestro/smoke-financial.yml',
+    '.maestro/debt-partial-payment.yml',
+    '.maestro/credit-installment-reconciliation.yml',
+    '.maestro/settings-and-localization.yml',
+  ]) assert.match(workflow, new RegExp(flow.replaceAll('.', '\\.')));
+});

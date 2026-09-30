@@ -20,7 +20,8 @@
     "export:android": "expo export --platform android",
     "e2e:android": "maestro test .maestro/onboarding-full.yml .maestro/smoke-financial.yml .maestro/debt-partial-payment.yml .maestro/credit-installment-reconciliation.yml .maestro/settings-and-localization.yml .maestro/google-drive-boundary.yml",
     "e2e:google": "maestro test .maestro/google-drive-authenticated.yml",
-    "e2e:eas:android": "eas workflow:run .eas/workflows/e2e-test-android.yml"
+    "e2e:eas:android": "eas workflow:run .eas/workflows/e2e-test-android.yml",
+    "e2e:eas:ios": "eas workflow:run .eas/workflows/e2e-test-ios.yml"
   },
   "dependencies": {
     "@expo-google-fonts/quicksand": "^0.4.1",
