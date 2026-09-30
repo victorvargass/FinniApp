@@ -25,3 +25,14 @@ test('settings repository reads preferences through its domain module', () => {
   assert.doesNotMatch(module, /@\/lib\/db/);
   assert.doesNotMatch(monolith, /export async function getSettings/);
 });
+
+test('contacts repository owns contacts and relationship persistence', () => {
+  const repository = readFileSync(new URL('../repositories/contacts.ts', import.meta.url), 'utf8');
+  const module = readFileSync(new URL('../lib/database/contacts.ts', import.meta.url), 'utf8');
+  const monolith = readFileSync(new URL('../lib/db.ts', import.meta.url), 'utf8');
+
+  assert.match(repository, /@\/lib\/database\/contacts/);
+  assert.match(module, /export async function saveContact/);
+  assert.match(module, /withExclusiveDatabaseTransaction/);
+  assert.doesNotMatch(monolith, /export async function saveContact/);
+});

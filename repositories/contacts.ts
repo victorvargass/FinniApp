@@ -6,4 +6,4 @@ export {
   getRelationshipTypes,
   saveContact,
   saveRelationshipType,
-} from '@/lib/db';
+} from '@/lib/database/contacts';
