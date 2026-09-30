@@ -6,7 +6,7 @@ FinniApp es una aplicación de finanzas personales que funciona principalmente e
 
 ## Información tratada
 
-La aplicación permite registrar períodos, ingresos, gastos, categorías, límites, cuentas y tarjetas, saldos de referencia, transferencias, abonos, cuotas, deudas, metas de ahorro, recurrencias, notas y preferencias. Esta información se guarda localmente en una base SQLite del dispositivo. También conserva localmente hasta 20 códigos de diagnóstico técnico con fecha, zona del código y tipo de error; no incluyen mensajes de error, nombres, notas ni montos.
+La aplicación permite registrar períodos, ingresos, gastos, categorías, límites, cuentas y tarjetas, saldos de referencia, transferencias, abonos, cuotas, deudas, metas de ahorro, recurrencias, notas y preferencias. Esta información se guarda localmente en una base SQLite cifrada en el dispositivo. También conserva localmente hasta 20 códigos de diagnóstico técnico con fecha, zona del código y tipo de error; no incluyen mensajes de error, nombres, notas ni montos.
 
 FinniApp no se conecta a bancos ni consulta datos de instituciones financieras. El usuario ingresa manualmente un saldo o cupo de referencia y su fecha. La aplicación calcula su evolución a partir de los movimientos registrados y permite conciliar el valor nuevamente.
 
@@ -39,7 +39,7 @@ La información local permanece hasta que el usuario la elimina, restablece los 
 
 ## Seguridad
 
-FinniApp cifra los respaldos nuevos con una contraseña elegida por el usuario antes de subirlos a Drive y verifica su autenticidad antes de descifrarlos. La contraseña se guarda cifrada por el sistema operativo en este dispositivo para permitir respaldos automáticos y debe ingresarse nuevamente al restaurar en otro teléfono; FinniApp no puede recuperarla. Además valida formato, tamaño, compatibilidad e integridad SQLite antes de reemplazar datos y conserva una copia temporal de recuperación durante la restauración. Los respaldos SQLite antiguos siguen siendo compatibles. La protección biométrica restringe la interfaz, pero no cifra la base de datos local.
+FinniApp cifra la base local con SQLCipher y una clave aleatoria de 256 bits guardada mediante el almacén seguro del sistema operativo. Al actualizar desde una versión anterior, convierte la base existente sin borrar los movimientos y valida el resultado antes de reemplazar el archivo original. También cifra los respaldos nuevos con una contraseña elegida por el usuario antes de subirlos a Drive y verifica su autenticidad antes de descifrarlos. La contraseña se guarda cifrada por el sistema operativo en este dispositivo para permitir respaldos automáticos y debe ingresarse nuevamente al restaurar en otro teléfono; FinniApp no puede recuperarla. Además valida formato, tamaño, compatibilidad e integridad SQLite antes de reemplazar datos y conserva una copia temporal de recuperación durante la restauración. Los respaldos SQLite antiguos siguen siendo compatibles. La protección biométrica restringe la interfaz y complementa, pero no reemplaza, el cifrado del archivo.
 
 ## Menores
 

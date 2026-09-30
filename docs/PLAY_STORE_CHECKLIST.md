@@ -38,6 +38,8 @@ la release.
 - [ ] Instalación limpia y onboarding en Android real.
 - [ ] Actualización desde la versión pública anterior conservando datos.
 - [ ] Cambio de esquema probado con datos ficticios representativos.
+- [ ] Actualización desde una base local sin cifrar, segundo arranque y pérdida
+  controlada de clave probados según `docs/LOCAL_DATABASE_ENCRYPTION.md`.
 - [ ] Notificaciones probadas con permiso aceptado/denegado, reinicio, cambio
   horario y ejecución atrasada.
 - [ ] Biometría, PDF, respaldo y restauración probados.

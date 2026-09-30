@@ -5,6 +5,7 @@ import * as db from '@/repositories';
 import { t } from '@/lib/i18n';
 import { attachDiagnosticMetadata, logAppError } from '@/lib/logger';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
+import { DatabaseInitializationError } from '@/components/database-initialization-error';
 import type {
   AccountTransfer,
   AppNotification,
@@ -306,6 +307,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
   const [loadedPeriodId, setLoadedPeriodId] = useState<number | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [initializationFailed, setInitializationFailed] = useState(false);
   const [hasRefreshed, setHasRefreshed] = useState(false);
   const [periodRefreshFailed, setPeriodRefreshFailed] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -580,19 +582,19 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     recurringSyncPromiseRef.current = syncPromise;
   }, [hasRefreshed, isReady, recurringNotificationKey, settings.pushNotificationsEnabled]);
 
-  useEffect(() => {
-    let active = true;
-    db.initDatabase()
-      .then(() => {
-        if (active) setIsReady(true);
-      })
+  const initializeDatabase = useCallback(() => {
+    setInitializationFailed(false);
+    void db.initDatabase()
+      .then(() => setIsReady(true))
       .catch((error) => {
         logAppError('database.initialize', error);
+        setInitializationFailed(true);
       });
-    return () => {
-      active = false;
-    };
   }, []);
+
+  useEffect(() => {
+    initializeDatabase();
+  }, [initializeDatabase]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -1443,6 +1445,14 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const splitValue = useMemo(() => splitDatabaseContextValue(value), [value]);
   const stateValue = useShallowStableValue(splitValue.state);
   const actionsValue = useShallowStableValue(splitValue.actions);
+
+  if (initializationFailed) {
+    return (
+      <DatabaseInitializationError
+        onRetry={initializeDatabase}
+      />
+    );
+  }
 
   if (!isReady) {
     return <AppLoadingScreen />;

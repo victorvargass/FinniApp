@@ -26,6 +26,7 @@
       }
     },
     "android": {
+      "allowBackup": false,
       "permissions": [
         "android.permission.SCHEDULE_EXACT_ALARM"
       ],

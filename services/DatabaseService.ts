@@ -19,6 +19,10 @@ import {
 } from '@/lib/database-schema';
 import { t } from '@/lib/i18n';
 import { attachDiagnosticMetadata } from '@/lib/logger';
+import {
+  exportEncryptedDatabaseCopy,
+  openEncryptedDatabaseAsync,
+} from '@/lib/database/encryption';
 
 export class DatabaseService {
   private static async deserializeBackupFile(file: File): Promise<SQLite.SQLiteDatabase> {
@@ -118,21 +122,13 @@ export class DatabaseService {
       SQLite.defaultDatabaseDirectory
     );
 
-    let destination: SQLite.SQLiteDatabase | null = null;
     try {
-      destination = await SQLite.openDatabaseAsync(
+      await exportEncryptedDatabaseCopy(
+        source,
         DATABASE_NAME,
-        {},
         SQLite.defaultDatabaseDirectory
       );
-      await SQLite.backupDatabaseAsync({
-        sourceDatabase: source,
-        sourceDatabaseName: 'main',
-        destDatabase: destination,
-        destDatabaseName: 'main',
-      });
     } finally {
-      if (destination) await destination.closeAsync();
       resetDatabaseConnection();
     }
   }
@@ -212,12 +208,6 @@ export class DatabaseService {
     const rollbackName = 'rollback.db';
     const source = await this.deserializeBackupFile(file);
 
-    const rollback = await SQLite.openDatabaseAsync(
-      rollbackName,
-      {},
-      tempDirectory.uri
-    );
-
     try {
       try {
         // Legacy FinniApp backups may contain optional references left behind
@@ -228,45 +218,50 @@ export class DatabaseService {
         throw attachDiagnosticMetadata(error, { stage: 'validation' });
       }
 
-      await withDatabaseLock(async () => {
+      const rollback = await withDatabaseLock(async () => {
         // Keep a local rollback copy so a failed restore does not leave the
         // application without its previous database.
         const current = await getDatabase();
-        await SQLite.backupDatabaseAsync({
-          sourceDatabase: current,
-          sourceDatabaseName: 'main',
-          destDatabase: rollback,
-          destDatabaseName: 'main',
-        });
+        await exportEncryptedDatabaseCopy(current, rollbackName, tempDirectory.uri);
+        const rollbackDatabase = await openEncryptedDatabaseAsync(
+          rollbackName,
+          tempDirectory.uri
+        );
 
         try {
           await this.replaceDatabaseFrom(source);
         } catch (restoreError) {
-          await this.replaceDatabaseFrom(rollback);
+          await this.replaceDatabaseFrom(rollbackDatabase);
+          await rollbackDatabase.closeAsync();
           throw attachDiagnosticMetadata(restoreError, {
             stage: 'replacement',
             code: 'DATABASE_REPLACE_FAILED',
           });
         }
+
+        return rollbackDatabase;
       });
 
-      // Apply additive migrations while DatabaseContext still has all reads
-      // paused. If migration fails, restore the pre-operation snapshot too.
       try {
-        await initDatabase();
-      } catch (migrationError) {
-        await withDatabaseLock(async () => {
-          await this.replaceDatabaseFrom(rollback);
-        });
-        await initDatabase();
-        throw attachDiagnosticMetadata(migrationError, {
-          stage: 'migration',
-          code: 'DATABASE_MIGRATION_FAILED',
-        });
+        // Apply additive migrations while DatabaseContext still has all reads
+        // paused. If migration fails, restore the pre-operation snapshot too.
+        try {
+          await initDatabase();
+        } catch (migrationError) {
+          await withDatabaseLock(async () => {
+            await this.replaceDatabaseFrom(rollback);
+          });
+          await initDatabase();
+          throw attachDiagnosticMetadata(migrationError, {
+            stage: 'migration',
+            code: 'DATABASE_MIGRATION_FAILED',
+          });
+        }
+      } finally {
+        await rollback.closeAsync();
       }
     } finally {
       await source.closeAsync();
-      await rollback.closeAsync();
       if (tempDirectory.exists) tempDirectory.delete();
     }
   }

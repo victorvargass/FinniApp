@@ -50,6 +50,6 @@ test('movement deletion audits ordinary recovery and protects linked records', (
 test('schema upgrades create a retained snapshot before mutating data', () => {
   assert.match(databaseSource, /previousSchemaVersion > 0 && previousSchemaVersion < DATABASE_SCHEMA_VERSION/);
   assert.match(databaseSource, /pre-migration-v\$\{previousSchemaVersion\}-\$\{Date\.now\(\)\}\.db/);
-  assert.match(databaseSource, /SQLite\.backupDatabaseAsync/);
+  assert.match(databaseSource, /exportEncryptedDatabaseCopy\(db, backupName, directory\.uri\)/);
   assert.match(databaseSource, /LOCAL_MIGRATION_BACKUP_RETENTION/);
 });

@@ -6,7 +6,9 @@ Para informar una vulnerabilidad, escribe a victorvargassandoval93@gmail.com. No
 
 ## Controles actuales
 
-- SQLite en modo WAL, claves foráneas activas, espera ante bloqueos y serialización de operaciones compuestas.
+- SQLite cifrado con SQLCipher, journal `DELETE`, claves foráneas activas,
+  espera ante bloqueos y serialización de operaciones compuestas. La clave
+  aleatoria de 256 bits se conserva mediante el almacén seguro del sistema.
 - Restauración con validación de cabecera, integridad, claves foráneas, tablas mínimas, versión y aplicación de origen.
 - Copia de rollback antes de reemplazar la base activa.
 - Google Drive limitado a `drive.appdata`; no se usa acceso general al Drive.
@@ -21,10 +23,10 @@ Para informar una vulnerabilidad, escribe a victorvargassandoval93@gmail.com. No
 
 ## Riesgos conocidos y trabajo pendiente
 
-- El archivo SQLite local todavía no tiene cifrado propio en reposo. Los
-  respaldos nuevos sí se cifran, pero la pérdida de su contraseña impide
-  recuperarlos en otro dispositivo.
-- La biometría protege la interfaz, no cifra los datos en reposo.
+- La pérdida de la clave local impide abrir la base del dispositivo. La ruta de
+  recuperación es un respaldo cifrado de Google Drive y su contraseña.
+- La biometría protege la interfaz; el cifrado local protege el archivo en
+  reposo. Son controles distintos y complementarios.
 - `npm audit --omit=dev` informa vulnerabilidades transitivas asociadas principalmente a Expo/Metro y React Navigation. Las correcciones propuestas requieren saltar de Expo SDK 54 a versiones mayores incompatibles, por lo que deben resolverse mediante una actualización planificada y probada del SDK, no con `npm audit fix --force`.
 - Los E2E de Google Drive requieren una cuenta de prueba aislada y no deben usar datos personales.
 

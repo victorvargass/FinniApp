@@ -44,7 +44,10 @@ bloque acordado.
   portable entre dispositivos, almacenamiento local en SecureStore y lectura
   compatible con respaldos SQLite anteriores. La matriz por candidata está en
   `docs/ENCRYPTED_BACKUPS.md`.
-- [ ] Evaluación y migración segura hacia cifrado local.
+- [x] Cifrado local con SQLCipher, clave aleatoria en SecureStore, conversión
+  transaccional de bases anteriores, copias de migración cifradas y pantalla
+  recuperable ante fallos de apertura. La matriz está en
+  `docs/LOCAL_DATABASE_ENCRYPTION.md`.
 
 ## 4. Arquitectura y escala
 

@@ -9,6 +9,7 @@ import {
   withExclusiveDatabaseTransaction,
 } from './database/connection';
 import { LOCAL_MIGRATION_BACKUP_RETENTION, migrationSnapshotTimestamp } from './backup-policy';
+import { exportEncryptedDatabaseCopy } from './database/encryption';
 import { repairRecoverableDatabaseRelations } from './database-relations';
 import {
   DATABASE_APPLICATION_ID,
@@ -561,18 +562,7 @@ async function initializeDatabase(): Promise<void> {
     const directory = new Directory(Paths.document, 'migration-backups');
     directory.create({ idempotent: true, intermediates: true });
     const backupName = `pre-migration-v${previousSchemaVersion}-${Date.now()}.db`;
-    const destination = await SQLite.openDatabaseAsync(backupName, {}, directory.uri);
-    try {
-      await SQLite.backupDatabaseAsync({
-        sourceDatabase: db,
-        sourceDatabaseName: 'main',
-        destDatabase: destination,
-        destDatabaseName: 'main',
-      });
-      await destination.execAsync('PRAGMA journal_mode = DELETE');
-    } finally {
-      await destination.closeAsync();
-    }
+    await exportEncryptedDatabaseCopy(db, backupName, directory.uri);
     const snapshots = directory.list()
       .filter((item): item is File => item instanceof File && item.name.startsWith('pre-migration-v'))
       .sort((first, second) => migrationSnapshotTimestamp(second.name) - migrationSnapshotTimestamp(first.name));

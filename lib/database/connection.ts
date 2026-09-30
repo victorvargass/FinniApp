@@ -2,6 +2,10 @@ import * as SQLite from 'expo-sqlite';
 
 import { withDatabaseLock } from '@/lib/database-lock';
 import { DATABASE_NAME } from '@/lib/database-schema';
+import {
+  openEncryptedDatabaseAsync,
+  resetDatabaseEncryptionPreparation,
+} from '@/lib/database/encryption';
 
 const DATABASE_BUSY_TIMEOUT_MS = 5000;
 
@@ -9,12 +13,14 @@ let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!databasePromise) {
-    databasePromise = SQLite.openDatabaseAsync(DATABASE_NAME).then(async (database) => {
-      await database.execAsync(`
-        PRAGMA journal_mode = WAL;
-        PRAGMA busy_timeout = ${DATABASE_BUSY_TIMEOUT_MS};
-        PRAGMA foreign_keys = ON;
-      `);
+    databasePromise = openEncryptedDatabaseAsync(DATABASE_NAME).then(async (database) => {
+      // SQLCipher keeps the database header encrypted. DELETE journaling avoids
+      // plaintext-header/WAL compatibility requirements and all writes are
+      // already serialized by the database lock below.
+      await database.execAsync('PRAGMA journal_mode = DELETE');
+      await database.execAsync(`PRAGMA busy_timeout = ${DATABASE_BUSY_TIMEOUT_MS}`);
+      await database.execAsync('PRAGMA foreign_keys = ON');
+      await database.getFirstAsync('SELECT count(*) AS count FROM sqlite_master');
       return database;
     }).catch((error) => {
       databasePromise = null;
@@ -45,4 +51,5 @@ export async function closeDatabaseConnection(): Promise<void> {
 
 export function resetDatabaseConnectionCache(): void {
   databasePromise = null;
+  resetDatabaseEncryptionPreparation();
 }

@@ -5,6 +5,7 @@ const ASSET_PLUGIN = 'expo-asset';
 const MAIL_COMPOSER_PLUGIN = 'expo-mail-composer';
 const SENTRY_PLUGIN = '@sentry/react-native';
 const SECURE_STORE_PLUGIN = 'expo-secure-store';
+const SQLITE_PLUGIN = 'expo-sqlite';
 const nativeSpanish = require('./locales/native-es.json');
 
 function getGoogleIosUrlScheme(clientId) {
@@ -28,13 +29,15 @@ module.exports = ({ config }) => {
       && name !== ASSET_PLUGIN
       && name !== MAIL_COMPOSER_PLUGIN
       && name !== SENTRY_PLUGIN
-      && name !== SECURE_STORE_PLUGIN;
+      && name !== SECURE_STORE_PLUGIN
+      && name !== SQLITE_PLUGIN;
   });
 
   plugins.push(ASSET_PLUGIN);
   plugins.push(MAIL_COMPOSER_PLUGIN);
   plugins.push(SENTRY_PLUGIN);
   plugins.push(SECURE_STORE_PLUGIN);
+  plugins.push([SQLITE_PLUGIN, { useSQLCipher: true }]);
 
   plugins.push([
     LOCALIZATION_PLUGIN,

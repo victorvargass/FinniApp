@@ -8,6 +8,10 @@ Este documento describe el comportamiento observado en el código al 30 de septi
 - Contenido generado por el usuario: nombres, acreedores y notas.
 - Preferencias: tema, biometría, onboarding y recordatorios.
 
+La base financiera local y las copias previas a una migración de esquema se
+cifran con SQLCipher. La clave local se guarda mediante el almacén seguro del
+sistema y no se incluye en el archivo de base de datos.
+
 El procesamiento exclusivamente local no se declara normalmente como recopilación. No se almacenan números completos de tarjetas ni credenciales bancarias.
 
 ## Datos que pueden salir del dispositivo
@@ -37,6 +41,7 @@ El procesamiento exclusivamente local no se declara normalmente como recopilaci�
 5. Repetir `npm audit` y revisar el índice de SDK de Google Play.
 6. Probar eliminación local y documentar cómo borrar el respaldo de Drive.
 7. Ejecutar la matriz de cifrado y restauración de `docs/ENCRYPTED_BACKUPS.md`.
+8. Ejecutar la migración y segundo arranque de `docs/LOCAL_DATABASE_ENCRYPTION.md`.
 
 ## Permisos Android revisados
 
