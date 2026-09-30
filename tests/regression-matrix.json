@@ -35,7 +35,7 @@
       "id": "accounts-transfers-and-card-cycles",
       "priority": "critical",
       "routes": ["app/modal/payment-methods.tsx", "app/modal/payment-method-form.tsx", "app/modal/payment-method-detail.tsx", "app/modal/payment-method-balance.tsx", "app/modal/account-transfer-form.tsx", "app/modal/card-cycles.tsx"],
-      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/payment-method-calculations.test.mjs"]
+      "automatedArtifacts": [".maestro/smoke-financial.yml", ".maestro/credit-installment-reconciliation.yml", "tests/payment-method-calculations.test.mjs", "tests/credit-cycle-edit.test.mjs"]
     },
     {
       "id": "savings-lifecycle",

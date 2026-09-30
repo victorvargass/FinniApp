@@ -148,6 +148,7 @@ function CycleCard({
       <ThemedText style={styles.label}>{t('cardCycles.actualAmount')}</ThemedText>
       <TextInput
         keyboardType="number-pad"
+        testID="card-cycle-statement-input"
         placeholder={t('cardCycles.exampleAmount', { amount: cycle.recordedTotal })}
         placeholderTextColor={colors.icon}
         value={amountText}
@@ -171,7 +172,7 @@ function CycleCard({
           </ThemedText>
         </View>
       )}
-      <Pressable disabled={saving} onPress={consolidate} style={[styles.primary, saving && { opacity: 0.6 }]}>
+      <Pressable accessibilityRole="button" disabled={saving} onPress={consolidate} style={[styles.primary, saving && { opacity: 0.6 }]} testID="card-cycle-consolidate">
         <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
         <ThemedText style={styles.primaryText}>{saving ? t('cardCycles.consolidating') : t('cardCycles.consolidateTitle')}</ThemedText>
       </Pressable>
@@ -237,7 +238,7 @@ export default function CardCyclesScreen() {
               }}
             />
           )}
-          <Pressable disabled={saving} onPress={addCycle} style={[styles.primary, saving && { opacity: 0.6 }]}>
+          <Pressable accessibilityRole="button" disabled={saving} onPress={addCycle} style={[styles.primary, saving && { opacity: 0.6 }]} testID="card-cycle-create">
             <ThemedText style={styles.primaryText}>{t('cardCycles.createEstimated')}</ThemedText>
           </Pressable>
         </ThemedView>

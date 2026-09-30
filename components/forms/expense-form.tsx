@@ -1383,6 +1383,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           label={isCardPayment ? t('paymentMethods.sourcePaymentMethod') : t('expenses.paymentMethodOptional')}
           disabled={receivablesLocked}
           value={paymentMethodId}
+          testID="expense-payment-method-select"
           onChange={(value) => {
             if (value === VIRTUAL_SAVINGS_PAYMENT_METHOD_ID) {
               setPaymentMethodId(null);
@@ -1478,6 +1479,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: showAdvancedOptions }}
+        testID="expense-more-options"
         onPress={toggleAdvancedOptions}
         style={[styles.advancedOptions, { borderColor: colors.border, backgroundColor: colors.surface }]}>
         <View style={styles.advancedOptionsCopy}>
@@ -1503,6 +1505,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
             </View>
             <Switch
               accessibilityLabel={t('installments.registerPurchase')}
+              testID="expense-installment-toggle"
               value={isInstallmentPurchase}
               onValueChange={(value) => {
                 setIsInstallmentPurchase(value);

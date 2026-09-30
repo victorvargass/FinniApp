@@ -175,6 +175,7 @@ export default function PaymentMethodFormScreen() {
       <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
       <TextInput
         autoFocus={!method}
+        testID="payment-method-name-input"
         placeholder={t('paymentMethods.namePlaceholder')}
         placeholderTextColor={colors.icon}
         value={name}
@@ -199,8 +200,11 @@ export default function PaymentMethodFormScreen() {
         <View style={styles.types}>
           {types.map((item) => (
             <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ selected: type === item.value }}
               key={item.value}
               onPress={() => setType(item.value)}
+              testID={`payment-method-type-${item.value}`}
               style={[
                 styles.type,
                 { borderColor: colors.border },
@@ -221,6 +225,7 @@ export default function PaymentMethodFormScreen() {
           <ThemedText style={styles.label}>{t('paymentMethods.creditLimit')}</ThemedText>
           <TextInput
             keyboardType="number-pad"
+            testID="payment-method-credit-limit-input"
             value={creditLimitText}
             onChangeText={(value) => setCreditLimitText(formatCLPInput(value))}
             placeholder="$0"
@@ -232,6 +237,7 @@ export default function PaymentMethodFormScreen() {
           <TextInput
             keyboardType="number-pad"
             maxLength={2}
+            testID="payment-method-billing-day-input"
             value={billingDay}
             onChangeText={setBillingDay}
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
@@ -243,6 +249,7 @@ export default function PaymentMethodFormScreen() {
           <TextInput
             keyboardType="number-pad"
             maxLength={2}
+            testID="payment-method-due-day-input"
             value={paymentDueDay}
             onChangeText={setPaymentDueDay}
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
@@ -264,6 +271,7 @@ export default function PaymentMethodFormScreen() {
           </ThemedText>
           <TextInput
             keyboardType="number-pad"
+            testID="payment-method-reported-balance-input"
             value={reportedBalanceText}
             onChangeText={(value) => setReportedBalanceText(formatCLPInput(value))}
             placeholder="$0"
@@ -371,7 +379,7 @@ export default function PaymentMethodFormScreen() {
             paddingBottom: Math.max(insets.bottom, LayoutTokens.formFooterBottom),
           },
         ]}>
-        <Pressable disabled={saving} onPress={save} style={[styles.save, saving && { opacity: 0.6 }]}>
+        <Pressable accessibilityRole="button" disabled={saving} onPress={save} style={[styles.save, saving && { opacity: 0.6 }]} testID="payment-method-save">
           <ThemedText style={styles.saveText}>{method ? t('common.saveChanges') : t('paymentMethods.add')}</ThemedText>
         </Pressable>
         {method && method.systemKey !== 'cash' && settings.defaultPaymentMethodId !== method.id && (

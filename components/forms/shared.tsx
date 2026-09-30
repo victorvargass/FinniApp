@@ -56,6 +56,7 @@ export function ColorSelect({
   showColor = true,
   disabled = false,
   searchable = false,
+  testID,
 }: {
   label: string;
   value: number | null;
@@ -64,6 +65,7 @@ export function ColorSelect({
   showColor?: boolean;
   disabled?: boolean;
   searchable?: boolean;
+  testID?: string;
 }) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
@@ -90,6 +92,7 @@ export function ColorSelect({
         accessibilityState={{ disabled, expanded: visible }}
         disabled={disabled}
         onPress={() => setVisible(true)}
+        testID={testID}
         style={({ pressed }) => [
           styles.selectButton,
           { borderColor: colors.border },

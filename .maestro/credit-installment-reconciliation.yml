@@ -1,0 +1,141 @@
+appId: com.vitoco18.FinniApp
+name: FinniApp credit installment and reconciliation
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: 'Bienvenido a FinniApp'
+    timeout: 20000
+- tapOn:
+    id: 'onboarding-skip'
+- extendedWaitUntil:
+    visible: 'Período actual'
+    timeout: 20000
+
+# Configura una tarjeta con cupo informado.
+- tapOn:
+    id: 'tab-user'
+- scrollUntilVisible:
+    element:
+      text: 'Medios de pago'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Configurar medios de pago'
+- tapOn: 'Agregar medio de pago'
+- tapOn:
+    id: 'payment-method-name-input'
+- inputText: 'Tarjeta E2E'
+- tapOn:
+    id: 'payment-method-type-credit'
+- tapOn:
+    id: 'payment-method-credit-limit-input'
+- inputText: '500000'
+- tapOn:
+    id: 'payment-method-billing-day-input'
+- eraseText: 4
+- inputText: '28'
+- tapOn:
+    id: 'payment-method-due-day-input'
+- eraseText: 4
+- inputText: '10'
+- tapOn:
+    id: 'payment-method-reported-balance-input'
+- inputText: '500000'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'payment-method-save'
+    direction: DOWN
+    visibilityPercentage: 80
+    timeout: 30000
+- tapOn:
+    id: 'payment-method-save'
+- tapOn: 'Crédito'
+- extendedWaitUntil:
+    visible: 'Tarjeta E2E'
+    timeout: 15000
+
+# Registra una compra proyectada en tres cuotas.
+- tapOn:
+    id: 'tab-add-movement'
+- tapOn: 'Nuevo gasto'
+- tapOn:
+    id: 'expense-name-input'
+- inputText: 'Compra cuotas E2E'
+- tapOn:
+    id: 'expense-amount-input'
+- inputText: '90000'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'expense-payment-method-select'
+    direction: DOWN
+    visibilityPercentage: 60
+    timeout: 30000
+- tapOn:
+    id: 'expense-payment-method-select'
+- tapOn: 'Tarjeta E2E · Crédito'
+- tapOn:
+    id: 'expense-more-options'
+- scrollUntilVisible:
+    element:
+      id: 'expense-installment-toggle'
+    direction: DOWN
+    visibilityPercentage: 60
+    timeout: 30000
+- tapOn:
+    id: 'expense-installment-toggle'
+- assertVisible: '3 cuotas'
+- tapOn:
+    id: 'expense-save'
+- extendedWaitUntil:
+    visible: 'Compra cuotas E2E'
+    timeout: 15000
+
+# La compra debe aparecer como plan y mantener el total exacto.
+- tapOn:
+    id: 'tab-user'
+- scrollUntilVisible:
+    element:
+      text: 'Deudas y pagos'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Gestionar deudas y cuotas'
+- assertVisible: 'Tarjeta E2E'
+- assertVisible: 'Compra cuotas E2E'
+- tapOn: 'Compra cuotas E2E'
+- assertVisible: 'Cuota 1 de 3'
+- assertVisible: '$30.000'
+- back
+- back
+
+# Crea un cierre real y concilia el estado de cuenta.
+- scrollUntilVisible:
+    element:
+      text: 'Medios de pago'
+    direction: UP
+    visibilityPercentage: 50
+    timeout: 30000
+- tapOn: 'Configurar medios de pago'
+- tapOn: 'Crédito'
+- tapOn: 'Ver estados de cuenta de Tarjeta E2E'
+- tapOn:
+    id: 'card-cycle-create'
+- scrollUntilVisible:
+    element:
+      id: 'card-cycle-statement-input'
+    direction: DOWN
+    visibilityPercentage: 60
+    timeout: 30000
+- tapOn:
+    id: 'card-cycle-statement-input'
+- inputText: '0'
+- hideKeyboard
+- tapOn:
+    id: 'card-cycle-consolidate'
+- extendedWaitUntil:
+    visible: 'Consolidado · historial protegido'
+    timeout: 15000
+- takeScreenshot: 'finniapp-credit-installment-reconciliation'
