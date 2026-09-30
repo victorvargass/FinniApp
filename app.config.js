@@ -4,6 +4,7 @@ const LOCAL_AUTHENTICATION_PLUGIN = 'expo-local-authentication';
 const ASSET_PLUGIN = 'expo-asset';
 const MAIL_COMPOSER_PLUGIN = 'expo-mail-composer';
 const SENTRY_PLUGIN = '@sentry/react-native';
+const SECURE_STORE_PLUGIN = 'expo-secure-store';
 const nativeSpanish = require('./locales/native-es.json');
 
 function getGoogleIosUrlScheme(clientId) {
@@ -26,12 +27,14 @@ module.exports = ({ config }) => {
       && name !== LOCAL_AUTHENTICATION_PLUGIN
       && name !== ASSET_PLUGIN
       && name !== MAIL_COMPOSER_PLUGIN
-      && name !== SENTRY_PLUGIN;
+      && name !== SENTRY_PLUGIN
+      && name !== SECURE_STORE_PLUGIN;
   });
 
   plugins.push(ASSET_PLUGIN);
   plugins.push(MAIL_COMPOSER_PLUGIN);
   plugins.push(SENTRY_PLUGIN);
+  plugins.push(SECURE_STORE_PLUGIN);
 
   plugins.push([
     LOCALIZATION_PLUGIN,

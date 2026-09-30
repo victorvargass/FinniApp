@@ -1,5 +1,6 @@
 import { DatabaseService } from './DatabaseService';
 import { GoogleDriveService } from './GoogleDriveService';
+import { BackupEncryptionService } from './BackupEncryptionService';
 
 export type BackupMetadata = {
   id: string;
@@ -9,12 +10,15 @@ export type BackupMetadata = {
 
 export class BackupService {
   static async backup(
-    drive: GoogleDriveService
+    drive: GoogleDriveService,
+    passphrase: string
   ): Promise<BackupMetadata> {
     const file = await DatabaseService.createBackupFile();
+    let encryptedFile: Awaited<ReturnType<typeof BackupEncryptionService.encrypt>> | null = null;
 
     try {
-      const uploaded = await drive.uploadDatabase(file.uri);
+      encryptedFile = await BackupEncryptionService.encrypt(file, passphrase);
+      const uploaded = await drive.uploadDatabase(encryptedFile.uri);
       return {
         id: uploaded.id,
         name: uploaded.name,
@@ -24,6 +28,7 @@ export class BackupService {
       if (file.exists) {
         file.delete();
       }
+      if (encryptedFile?.exists) encryptedFile.delete();
     }
   }
 }

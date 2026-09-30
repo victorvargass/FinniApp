@@ -71,7 +71,8 @@ export class GoogleDriveService {
     const file = new File(uri);
 
     const backups = await this.listBackups();
-    const versionedName = `${VERSIONED_BACKUP_PREFIX}${DATABASE_SCHEMA_VERSION}-${Date.now()}.db`;
+    const extension = file.name.endsWith('.finni') ? 'finni' : 'db';
+    const versionedName = `${VERSIONED_BACKUP_PREFIX}${DATABASE_SCHEMA_VERSION}-${Date.now()}.${extension}`;
 
     const metadata = {
       name: versionedName,
@@ -116,10 +117,8 @@ export class GoogleDriveService {
       `${DRIVE_API}/${backup.id}?alt=media`
     );
 
-    const file = new File(
-      Paths.cache,
-      `gastos-restore-${Date.now()}.db`
-    );
+    const extension = backup.name.endsWith('.finni') ? 'finni' : 'db';
+    const file = new File(Paths.cache, `gastos-restore-${Date.now()}.${extension}`);
     file.write(await response.bytes());
     return file;
   }

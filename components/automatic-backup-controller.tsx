@@ -5,6 +5,7 @@ import { isAutomaticBackupDue } from '@/lib/backup-policy';
 import { BackupService } from '@/services/BackupService';
 import { GoogleDriveService } from '@/services/GoogleDriveService';
 import { SessionService } from '@/services/SessionService';
+import { BackupCredentialService } from '@/services/BackupCredentialService';
 
 const LAST_AUTOMATIC_BACKUP_KEY = '@finniapp/last-automatic-backup';
 export function AutomaticBackupController({ enabled }: { enabled: boolean }) {
@@ -18,8 +19,10 @@ export function AutomaticBackupController({ enabled }: { enabled: boolean }) {
         if (!isAutomaticBackupDue(previous)) return;
         const user = await SessionService.restore();
         if (!active || !user) return;
+        const passphrase = await BackupCredentialService.getPassphrase(user.id);
+        if (!passphrase) return;
         const drive = new GoogleDriveService(() => SessionService.getAccessToken());
-        await BackupService.backup(drive);
+        await BackupService.backup(drive, passphrase);
         if (active) await AsyncStorage.setItem(LAST_AUTOMATIC_BACKUP_KEY, String(Date.now()));
       } catch {
         // Automatic backups are best effort. The manual Drive screen keeps the

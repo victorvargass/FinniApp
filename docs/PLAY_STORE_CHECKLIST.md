@@ -41,6 +41,8 @@ la release.
 - [ ] Notificaciones probadas con permiso aceptado/denegado, reinicio, cambio
   horario y ejecución atrasada.
 - [ ] Biometría, PDF, respaldo y restauración probados.
+- [ ] Respaldo cifrado, contraseña incorrecta, archivo alterado y respaldo
+  legado probados según `docs/ENCRYPTED_BACKUPS.md`.
 - [ ] Monitoreo técnico probado apagado/encendido/apagado con datos ficticios y
   evento inspeccionado en Sentry según `docs/CRASH_MONITORING.md`.
 - [ ] Tema claro/oscuro, español/inglés y tamaño de fuente grande revisados.

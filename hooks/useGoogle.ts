@@ -10,6 +10,7 @@ import { RestoreService } from '@/services/RestoreService';
 import { GoogleDriveService, type DriveBackup } from '@/services/GoogleDriveService';
 import { useDatabaseActions } from '@/contexts/DatabaseContext';
 import { t } from '@/lib/i18n';
+import { BackupCredentialService } from '@/services/BackupCredentialService';
 
 type GoogleState = {
   user: GoogleUser | null;
@@ -17,6 +18,7 @@ type GoogleState = {
   isWorking: boolean;
   error: string | null;
   lastBackup: DriveBackup | null;
+  hasBackupPassphrase: boolean;
 };
 
 function toMessage(error: unknown): string {
@@ -33,6 +35,7 @@ export function useGoogle() {
     isWorking: false,
     error: null,
     lastBackup: null,
+    hasBackupPassphrase: false,
   });
 
   const getDrive = useCallback(
@@ -63,9 +66,12 @@ export function useGoogle() {
           ...current,
           user,
           isLoading: false,
+          hasBackupPassphrase: false,
         }));
 
         if (user) {
+          const passphrase = await BackupCredentialService.getPassphrase(user.id);
+          if (active) setState((current) => ({ ...current, hasBackupPassphrase: !!passphrase }));
           await refreshBackupInfo();
         }
       } catch (error) {
@@ -92,7 +98,8 @@ export function useGoogle() {
 
     try {
       const user = await SessionService.signIn();
-      setState((current) => ({ ...current, user }));
+      const passphrase = await BackupCredentialService.getPassphrase(user.id);
+      setState((current) => ({ ...current, user, hasBackupPassphrase: !!passphrase }));
       await refreshBackupInfo();
     } catch (error) {
       setState((current) => ({
@@ -113,7 +120,12 @@ export function useGoogle() {
     }));
 
     try {
-      const result: BackupMetadata = await BackupService.backup(getDrive());
+      const accountId = state.user?.id;
+      const passphrase = accountId
+        ? await BackupCredentialService.getPassphrase(accountId)
+        : null;
+      if (!passphrase) throw new Error(t('errors.backupPassphraseRequired'));
+      const result: BackupMetadata = await BackupService.backup(getDrive(), passphrase);
       setState((current) => ({
         ...current,
         lastBackup: {
@@ -131,7 +143,7 @@ export function useGoogle() {
     } finally {
       setState((current) => ({ ...current, isWorking: false }));
     }
-  }, [getDrive]);
+  }, [getDrive, state.user?.id]);
 
   const restore = useCallback(async () => {
     setState((current) => ({
@@ -141,7 +153,11 @@ export function useGoogle() {
     }));
 
     try {
-      await runDatabaseMaintenance(() => RestoreService.restore(getDrive()));
+      const accountId = state.user?.id;
+      const passphrase = accountId
+        ? await BackupCredentialService.getPassphrase(accountId)
+        : null;
+      await runDatabaseMaintenance(() => RestoreService.restore(getDrive(), passphrase));
       await refreshBackupInfo();
     } catch (error) {
       setState((current) => ({
@@ -152,7 +168,14 @@ export function useGoogle() {
     } finally {
       setState((current) => ({ ...current, isWorking: false }));
     }
-  }, [getDrive, runDatabaseMaintenance, refreshBackupInfo]);
+  }, [getDrive, runDatabaseMaintenance, refreshBackupInfo, state.user?.id]);
+
+  const saveBackupPassphrase = useCallback(async (passphrase: string) => {
+    const accountId = state.user?.id;
+    if (!accountId) throw new Error(t('errors.googleAuthRequired'));
+    await BackupCredentialService.setPassphrase(accountId, passphrase);
+    setState((current) => ({ ...current, hasBackupPassphrase: true, error: null }));
+  }, [state.user?.id]);
 
   const logout = useCallback(async () => {
     setState((current) => ({
@@ -169,6 +192,7 @@ export function useGoogle() {
         isWorking: false,
         error: null,
         lastBackup: null,
+        hasBackupPassphrase: false,
       });
     } catch (error) {
       setState((current) => ({
@@ -189,7 +213,8 @@ export function useGoogle() {
       restore,
       logout,
       refreshBackupInfo,
+      saveBackupPassphrase,
     }),
-    [state, login, backup, restore, logout, refreshBackupInfo]
+    [state, login, backup, restore, logout, refreshBackupInfo, saveBackupPassphrase]
   );
 }

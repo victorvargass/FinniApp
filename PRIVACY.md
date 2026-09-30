@@ -23,7 +23,7 @@ Si el usuario decide conectar Google Drive, FinniApp accede al nombre, correo el
 
 ## Transferencias y terceros
 
-Cuando se usa el respaldo, la información viaja mediante HTTPS directamente entre el dispositivo y Google Drive. El archivo se almacena en el espacio privado de la aplicación dentro de la cuenta del usuario. Se aplican las condiciones y la política de privacidad de Google. FinniApp no envía esta información a un servidor del desarrollador.
+Cuando se usa el respaldo, la información se cifra en el dispositivo y viaja mediante HTTPS directamente a Google Drive. El archivo cifrado se almacena en el espacio privado de la aplicación dentro de la cuenta del usuario. Se aplican las condiciones y la política de privacidad de Google. FinniApp no envía esta información ni la contraseña a un servidor del desarrollador.
 
 Los reportes PDF se generan localmente. Al generarlos, FinniApp solicita al sistema abrirlos en un lector PDF compatible. Solo salen del dispositivo si el usuario decide compartirlos, imprimirlos o guardarlos mediante el lector o el sistema.
 
@@ -39,7 +39,7 @@ La información local permanece hasta que el usuario la elimina, restablece los 
 
 ## Seguridad
 
-FinniApp valida la integridad, el formato, el tamaño y la compatibilidad de los respaldos antes de restaurarlos. Mantiene una copia temporal de recuperación durante la restauración y utiliza conexiones HTTPS para Google Drive. La copia de la base de datos no incorpora cifrado adicional administrado por FinniApp. La protección biométrica, cuando se activa, restringe el acceso a la interfaz; no debe interpretarse como cifrado de la base de datos local.
+FinniApp cifra los respaldos nuevos con una contraseña elegida por el usuario antes de subirlos a Drive y verifica su autenticidad antes de descifrarlos. La contraseña se guarda cifrada por el sistema operativo en este dispositivo para permitir respaldos automáticos y debe ingresarse nuevamente al restaurar en otro teléfono; FinniApp no puede recuperarla. Además valida formato, tamaño, compatibilidad e integridad SQLite antes de reemplazar datos y conserva una copia temporal de recuperación durante la restauración. Los respaldos SQLite antiguos siguen siendo compatibles. La protección biométrica restringe la interfaz, pero no cifra la base de datos local.
 
 ## Menores
 

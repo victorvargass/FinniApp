@@ -40,7 +40,10 @@ bloque acordado.
 - [x] Monitoreo de crashes/ANR con consentimiento, sin nombres, montos, notas o
   respaldos. La activación del proyecto Sentry y la prueba en dispositivos
   reales se ejecutan por candidata con `docs/CRASH_MONITORING.md`.
-- [ ] Cifrado del respaldo antes de subirlo a Drive.
+- [x] Cifrado autenticado del respaldo antes de subirlo a Drive, con contraseña
+  portable entre dispositivos, almacenamiento local en SecureStore y lectura
+  compatible con respaldos SQLite anteriores. La matriz por candidata está en
+  `docs/ENCRYPTED_BACKUPS.md`.
 - [ ] Evaluación y migración segura hacia cifrado local.
 
 ## 4. Arquitectura y escala

@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import { useGoogle } from '@/hooks/useGoogle';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
+import { BACKUP_PASSPHRASE_MIN_LENGTH } from '@/lib/backup-encryption';
 
 function formatBackupDate(date: string | undefined): string {
   if (!date) return t('settings.never');
@@ -87,6 +89,8 @@ export default function GoogleDriveScreen() {
       body: t('featureGuides.googleDrive.restoreBody'),
     },
   ];
+  const [passphrase, setPassphrase] = React.useState('');
+  const [passphraseConfirmation, setPassphraseConfirmation] = React.useState('');
   const {
     user,
     isLoading,
@@ -94,11 +98,35 @@ export default function GoogleDriveScreen() {
     isConnected,
     lastBackup,
     error,
+    hasBackupPassphrase,
     login,
     backup,
     restore,
     logout,
+    saveBackupPassphrase,
   } = useGoogle();
+
+  const saveEncryptionPassword = async () => {
+    if (passphrase.length < BACKUP_PASSPHRASE_MIN_LENGTH) {
+      Alert.alert(t('common.error'), t('settings.backupPassphraseTooShort'));
+      return;
+    }
+    if (passphrase !== passphraseConfirmation) {
+      Alert.alert(t('common.error'), t('settings.backupPassphraseMismatch'));
+      return;
+    }
+    try {
+      await saveBackupPassphrase(passphrase);
+      setPassphrase('');
+      setPassphraseConfirmation('');
+      showToast(t('settings.backupPassphraseSaved'));
+    } catch (saveError) {
+      Alert.alert(
+        t('common.error'),
+        saveError instanceof Error ? saveError.message : t('errors.unexpected')
+      );
+    }
+  };
 
   React.useEffect(() => {
     if (!error) return;
@@ -244,10 +272,57 @@ export default function GoogleDriveScreen() {
                 </ThemedText>
               </View>
 
+              <ThemedView style={[styles.encryptionCard, { borderColor: colors.border }]}>
+                <View style={styles.encryptionHeading}>
+                  <Ionicons name="lock-closed-outline" size={21} color={colors.success} />
+                  <ThemedText type="defaultSemiBold">{t('settings.backupEncryptionTitle')}</ThemedText>
+                </View>
+                <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
+                  {t(hasBackupPassphrase
+                    ? 'settings.backupEncryptionReady'
+                    : 'settings.backupEncryptionSetup')}
+                </ThemedText>
+                {!hasBackupPassphrase && (
+                  <View style={styles.passphraseFields}>
+                    <TextInput
+                      testID="backup-passphrase"
+                      accessibilityLabel={t('settings.backupPassphrase')}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry
+                      placeholder={t('settings.backupPassphrasePlaceholder')}
+                      placeholderTextColor={colors.textSecondary}
+                      value={passphrase}
+                      onChangeText={setPassphrase}
+                      style={[styles.passphraseInput, { borderColor: colors.border, color: colors.text }]}
+                    />
+                    <TextInput
+                      testID="backup-passphrase-confirmation"
+                      accessibilityLabel={t('settings.backupPassphraseConfirm')}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry
+                      placeholder={t('settings.backupPassphraseConfirm')}
+                      placeholderTextColor={colors.textSecondary}
+                      value={passphraseConfirmation}
+                      onChangeText={setPassphraseConfirmation}
+                      style={[styles.passphraseInput, { borderColor: colors.border, color: colors.text }]}
+                    />
+                    <ActionButton
+                      title={t('settings.saveBackupPassphrase')}
+                      disabled={isWorking}
+                      onPress={() => { void saveEncryptionPassword(); }}
+                      style={[styles.encryptionButton, { backgroundColor: colors.primary }]}
+                      textStyle={{ color: colors.onPrimary }}
+                    />
+                  </View>
+                )}
+              </ThemedView>
+
               <View style={styles.actions}>
                 <ActionButton
                   title={isWorking ? t('settings.backingUp') : t('settings.backup')}
-                  disabled={isWorking}
+                  disabled={isWorking || !hasBackupPassphrase}
                   onPress={confirmBackup}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
                   textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
@@ -321,6 +396,30 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
+  },
+  encryptionCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+  },
+  encryptionHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  passphraseFields: {
+    gap: 10,
+  },
+  passphraseInput: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    fontSize: 16,
+  },
+  encryptionButton: {
+    marginTop: 2,
   },
   loading: {
     minHeight: 88,

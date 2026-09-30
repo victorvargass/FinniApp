@@ -15,7 +15,7 @@ El procesamiento exclusivamente local no se declara normalmente como recopilaci�
 | Dato | Cuándo | Destino | Finalidad | Obligatorio |
 | --- | --- | --- | --- | --- |
 | Nombre, correo e identificador de Google | Al conectar Google | Google Sign-In | Autenticación y visualización de sesión | No |
-| Archivo SQLite con información financiera y notas | Al respaldar/restaurar | Carpeta `appDataFolder` de Google Drive | Funcionalidad de respaldo solicitada por el usuario | No |
+| Archivo financiero cifrado en el dispositivo | Al respaldar/restaurar | Carpeta `appDataFolder` de Google Drive | Funcionalidad de respaldo solicitada por el usuario | No |
 | Reporte PDF | Al generarlo y abrirlo | Lector PDF elegido por el sistema; puede enviarse a otra aplicación por decisión posterior del usuario | Exportación iniciada por el usuario | No |
 | Códigos técnicos sin datos financieros | Al abrir soporte y enviar el correo preparado | Aplicación de correo y cuenta de soporte | Diagnóstico solicitado por el usuario | No |
 | Crash, bloqueo, stack sin variables, versión, sistema y modelo general | Solo después de aceptar “Ayudar a detectar fallos” | Sentry | Estabilidad y diagnóstico de la aplicación | No |
@@ -24,7 +24,7 @@ El procesamiento exclusivamente local no se declara normalmente como recopilaci�
 
 - La app funciona sin cuenta; Google Drive es opcional.
 - No hay servidor propio, analítica de uso, publicidad ni venta de datos. El monitoreo técnico opcional usa Sentry y debe declararse como datos de rendimiento/diagnóstico según el formulario vigente.
-- El respaldo usa HTTPS en tránsito, pero no tiene cifrado de extremo a extremo administrado por FinniApp.
+- Los respaldos nuevos usan HTTPS y cifrado autenticado antes de salir del dispositivo. La contraseña no se transfiere a Google ni al desarrollador.
 - Revisar en Play Console si la transferencia iniciada por el usuario hacia Google Drive califica para la excepción aplicable; la decisión final es responsabilidad del publicador.
 - Declarar los SDK realmente incluidos por el artefacto de producción, no solo las importaciones visibles.
 
@@ -36,6 +36,7 @@ El procesamiento exclusivamente local no se declara normalmente como recopilaci�
 4. Confirmar que Sentry sigue desactivado por defecto, sujeto a consentimiento y sin replay, capturas, PII ni datos financieros.
 5. Repetir `npm audit` y revisar el índice de SDK de Google Play.
 6. Probar eliminación local y documentar cómo borrar el respaldo de Drive.
+7. Ejecutar la matriz de cifrado y restauración de `docs/ENCRYPTED_BACKUPS.md`.
 
 ## Permisos Android revisados
 

@@ -18,6 +18,21 @@ tags:
     visible: 'Conectado con Google'
     timeout: 20000
 
+# La cuenta QA usa una contraseña ficticia exclusiva. En dispositivos donde
+# ya fue guardada en SecureStore, esta sección no vuelve a aparecer.
+- runFlow:
+    when:
+      visible: 'Guardar contraseña'
+    commands:
+      - tapOn:
+          id: 'backup-passphrase'
+      - inputText: 'FinniQA-Backup-2026'
+      - tapOn:
+          id: 'backup-passphrase-confirmation'
+      - inputText: 'FinniQA-Backup-2026'
+      - tapOn: 'Guardar contraseña'
+      - assertVisible: 'Protección activa.*'
+
 # Respalda el escenario QA y comprueba su confirmación de sobreescritura.
 - tapOn: 'Respaldar'
 - assertVisible: '.*respaldo.*'
