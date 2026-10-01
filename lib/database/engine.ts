@@ -8135,6 +8135,7 @@ export async function getPeriodStatement(
         e.category_id AS categoryId,
         e.period_id AS periodId,
         e.date,
+        e.time,
         e.original_amount AS originalAmount,
         e.split_percentage AS splitPercentage,
         e.split_mode AS splitMode,
@@ -8170,13 +8171,23 @@ export async function getPeriodStatement(
         income.id,
         income.name,
         income.amount,
+        income.category_id AS categoryId,
+        incomeCategory.name AS categoryName,
+        incomeCategory.color AS categoryColor,
         income.period_id AS periodId,
         income.date,
+        income.time,
         income.recurring_income_id AS recurringIncomeId,
+        paymentMethod.id AS paymentMethodId,
+        paymentMethod.name AS paymentMethodName,
+        paymentMethod.type AS paymentMethodType,
+        paymentMethod.color AS paymentMethodColor,
         savingsGoal.id AS savingsGoalId,
         savingsGoal.name AS savingsGoalName,
         savingsGoal.color AS savingsGoalColor
       FROM incomes income
+      LEFT JOIN income_categories incomeCategory ON incomeCategory.id = income.category_id
+      LEFT JOIN payment_methods paymentMethod ON paymentMethod.id = income.payment_method_id
       LEFT JOIN savings_goal_movements savingsMovement ON savingsMovement.income_id = income.id
       LEFT JOIN savings_goals savingsGoal ON savingsGoal.id = savingsMovement.goal_id
       WHERE income.period_id = ?

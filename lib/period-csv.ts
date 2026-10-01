@@ -36,7 +36,7 @@ export function buildPeriodCsv(
     ...statement.expenses.map((item) => ({
       id: item.id,
       date: item.date,
-      time: item.time,
+      time: item.time || '12:00',
       type: labels.expense,
       name: item.name,
       category: item.categoryName ?? labels.uncategorized,
@@ -46,7 +46,7 @@ export function buildPeriodCsv(
     ...statement.incomes.map((item) => ({
       id: item.id,
       date: item.date,
-      time: item.time,
+      time: item.time || '12:00',
       type: labels.income,
       name: item.name,
       category: item.categoryName ?? labels.uncategorized,

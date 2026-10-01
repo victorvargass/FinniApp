@@ -11,6 +11,7 @@ import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { PERIOD_CSV_FIELDS, type PeriodCsvField } from '@/lib/period-csv';
+import { logAppError } from '@/lib/logger';
 import { showToast } from '@/lib/toast';
 import { exportPeriodCsv } from '@/services/PeriodCsvService';
 
@@ -44,7 +45,8 @@ export default function PeriodCsvExportScreen() {
       await exportPeriodCsv(period, fields);
       showToast(t('csv.generated'));
       router.back();
-    } catch {
+    } catch (error) {
+      logAppError('csv.export', error);
       showToast(t('csv.exportError'));
     } finally {
       setExporting(false);

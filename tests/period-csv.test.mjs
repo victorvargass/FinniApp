@@ -36,3 +36,13 @@ test('period CSV falls back to every field when selection is empty', () => {
   const csv = buildPeriodCsv({ expenses: [], incomes: [] }, [], labels);
   assert.match(csv, /^\uFEFFFecha;Hora;Tipo;Nombre;Categoría;Medio de pago;Monto/);
 });
+
+test('period CSV remains exportable when a legacy movement has no time', () => {
+  const csv = buildPeriodCsv({
+    expenses: [{ id: 1, date: '2026-09-05', name: 'Compra', amount: 1000 }],
+    incomes: [{ id: 2, date: '2026-09-06', name: 'Ingreso', amount: 2000 }],
+  }, ['date', 'time', 'name'], labels);
+
+  assert.match(csv, /2026-09-05;12:00;Compra/);
+  assert.match(csv, /2026-09-06;12:00;Ingreso/);
+});

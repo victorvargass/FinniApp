@@ -7,6 +7,7 @@ export type LogContext =
   | 'database.refresh'
   | 'database.restore'
   | 'report.export'
+  | 'csv.export'
   | 'updates.currentToast';
 
 export type AppDiagnostic = {
@@ -84,7 +85,7 @@ function stageForContext(context: string): DiagnosticStage {
   if (context === 'database.restore') return 'opening';
   if (context === 'database.initialize') return 'migration';
   if (context === 'database.refresh') return 'refresh';
-  if (context === 'report.export') return 'export';
+  if (context === 'report.export' || context === 'csv.export') return 'export';
   return 'unknown';
 }
 

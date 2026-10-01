@@ -51,8 +51,8 @@ export async function exportPeriodCsv(
   const file = new File(Paths.cache, fileName);
   if (file.exists) file.delete();
   file.create();
-  // Excel on Android needs the BOM to recognize UTF-8 accents correctly.
-  file.write(`\uFEFF${csv}`);
+  // buildPeriodCsv already includes the BOM Excel uses to detect UTF-8.
+  file.write(csv);
 
   if (!await Sharing.isAvailableAsync()) {
     throw new Error(t('csv.sharingUnavailable'));
