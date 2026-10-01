@@ -2,6 +2,7 @@ import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useGoogle } from '@/hooks/useGoogle';
+import { useBiometric } from '@/contexts/BiometricContext';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
@@ -72,6 +74,7 @@ export default function GoogleDriveScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const guide = useFeatureGuide('google-drive');
+  const biometric = useBiometric();
   const guideSlides = [
     {
       icon: 'cloud-outline' as const,
@@ -91,6 +94,7 @@ export default function GoogleDriveScreen() {
   ];
   const [passphrase, setPassphrase] = React.useState('');
   const [passphraseConfirmation, setPassphraseConfirmation] = React.useState('');
+  const [revealedPassphrase, setRevealedPassphrase] = React.useState<string | null>(null);
   const {
     user,
     isLoading,
@@ -104,7 +108,44 @@ export default function GoogleDriveScreen() {
     restore,
     logout,
     saveBackupPassphrase,
+    revealBackupPassphrase,
   } = useGoogle();
+
+  React.useEffect(() => {
+    if (!revealedPassphrase) return;
+    const timeout = setTimeout(() => setRevealedPassphrase(null), 30_000);
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') setRevealedPassphrase(null);
+    });
+    return () => {
+      clearTimeout(timeout);
+      subscription.remove();
+    };
+  }, [revealedPassphrase]);
+
+  const recoverEncryptionPassword = async () => {
+    if (revealedPassphrase) {
+      setRevealedPassphrase(null);
+      return;
+    }
+    if (!biometric.isAvailable) {
+      Alert.alert(t('common.error'), t('settings.backupPassphraseAuthenticationRequired'));
+      return;
+    }
+    const authenticated = await biometric.authenticate({
+      promptMessage: t('settings.backupPassphraseRevealPrompt'),
+      promptSubtitle: t('settings.backupPassphraseRevealSubtitle'),
+    });
+    if (!authenticated) return;
+    try {
+      setRevealedPassphrase(await revealBackupPassphrase());
+    } catch (revealError) {
+      Alert.alert(
+        t('common.error'),
+        revealError instanceof Error ? revealError.message : t('errors.unexpected')
+      );
+    }
+  };
 
   const saveEncryptionPassword = async () => {
     if (passphrase.length < BACKUP_PASSPHRASE_MIN_LENGTH) {
@@ -282,6 +323,31 @@ export default function GoogleDriveScreen() {
                     ? 'settings.backupEncryptionReady'
                     : 'settings.backupEncryptionSetup')}
                 </ThemedText>
+                {hasBackupPassphrase && (
+                  <View style={styles.passphraseRecovery}>
+                    {revealedPassphrase && (
+                      <View
+                        accessibilityLabel={t('settings.backupPassphraseRevealed')}
+                        style={[styles.revealedPassphrase, { borderColor: colors.border }]}
+                      >
+                        <ThemedText selectable style={styles.revealedPassphraseText}>
+                          {revealedPassphrase}
+                        </ThemedText>
+                        <ThemedText style={[styles.revealTimeout, { color: colors.textSecondary }]}>
+                          {t('settings.backupPassphraseRevealTimeout')}
+                        </ThemedText>
+                      </View>
+                    )}
+                    <ActionButton
+                      title={t(revealedPassphrase
+                        ? 'settings.hideBackupPassphrase'
+                        : 'settings.revealBackupPassphrase')}
+                      disabled={isWorking || biometric.isChecking}
+                      onPress={() => { void recoverEncryptionPassword(); }}
+                      style={styles.recoveryButton}
+                    />
+                  </View>
+                )}
                 {!hasBackupPassphrase && (
                   <View style={styles.passphraseFields}>
                     <TextInput
@@ -410,6 +476,25 @@ const styles = StyleSheet.create({
   },
   passphraseFields: {
     gap: 10,
+  },
+  passphraseRecovery: {
+    gap: 10,
+  },
+  revealedPassphrase: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
+  },
+  revealedPassphraseText: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  revealTimeout: {
+    fontSize: 12,
+  },
+  recoveryButton: {
+    marginTop: 2,
   },
   passphraseInput: {
     minHeight: 48,

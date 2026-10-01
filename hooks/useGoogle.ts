@@ -177,6 +177,14 @@ export function useGoogle() {
     setState((current) => ({ ...current, hasBackupPassphrase: true, error: null }));
   }, [state.user?.id]);
 
+  const revealBackupPassphrase = useCallback(async () => {
+    const accountId = state.user?.id;
+    if (!accountId) throw new Error(t('errors.googleAuthRequired'));
+    const passphrase = await BackupCredentialService.getPassphrase(accountId);
+    if (!passphrase) throw new Error(t('errors.backupPassphraseRequired'));
+    return passphrase;
+  }, [state.user?.id]);
+
   const logout = useCallback(async () => {
     setState((current) => ({
       ...current,
@@ -214,7 +222,17 @@ export function useGoogle() {
       logout,
       refreshBackupInfo,
       saveBackupPassphrase,
+      revealBackupPassphrase,
     }),
-    [state, login, backup, restore, logout, refreshBackupInfo, saveBackupPassphrase]
+    [
+      state,
+      login,
+      backup,
+      restore,
+      logout,
+      refreshBackupInfo,
+      saveBackupPassphrase,
+      revealBackupPassphrase,
+    ]
   );
 }

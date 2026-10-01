@@ -16,13 +16,19 @@ import { t } from '@/lib/i18n';
 const BIOMETRIC_ENABLED_KEY = '@finniapp/biometric-lock-enabled';
 const BACKGROUND_GRACE_PERIOD_MS = 60_000;
 
+type AuthenticationOptions = {
+  automatic?: boolean;
+  promptMessage?: string;
+  promptSubtitle?: string;
+};
+
 type BiometricContextValue = {
   enabled: boolean;
   isAvailable: boolean;
   isChecking: boolean;
   isLocked: boolean;
   authenticationType: string;
-  authenticate: (options?: { automatic?: boolean }) => Promise<boolean>;
+  authenticate: (options?: AuthenticationOptions) => Promise<boolean>;
   setEnabled: (enabled: boolean) => Promise<boolean>;
 };
 
@@ -55,7 +61,7 @@ export function BiometricProvider({ children }: PropsWithChildren) {
   const automaticAttemptedRef = useRef(false);
   const backgroundStartedAtRef = useRef<number | null>(null);
 
-  const authenticate = useCallback(async (options?: { automatic?: boolean }) => {
+  const authenticate = useCallback(async (options?: AuthenticationOptions) => {
     const automatic = options?.automatic === true;
     if (
       Platform.OS === 'web' ||
@@ -70,8 +76,8 @@ export function BiometricProvider({ children }: PropsWithChildren) {
     authenticatingRef.current = true;
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: t('biometric.prompt'),
-        promptSubtitle: t('biometric.subtitle'),
+        promptMessage: options?.promptMessage ?? t('biometric.prompt'),
+        promptSubtitle: options?.promptSubtitle ?? t('biometric.subtitle'),
         cancelLabel: t('biometric.cancel'),
         fallbackLabel: t('biometric.fallback'),
         biometricsSecurityLevel: 'strong',
