@@ -316,7 +316,7 @@ const en = {
   },
   globalSearch: {
     title: 'Search FinniApp',
-    placeholder: 'Search transactions, contacts, debts, and more',
+    placeholder: 'Search transactions, contacts, and more',
     inputLabel: 'Global search',
     hint: 'Enter at least two characters to search across every period and financial record.',
     empty: 'No results match this search.',
@@ -1538,7 +1538,6 @@ const en = {
     backupStageReplacing: 'Restoring your data…',
     backupStageFinalizing: 'Finishing…',
     backupProgressHint: 'You can follow the progress here. Do not close the app during this process.',
-    lastBackupOperationDuration: 'Last operation: %{duration}',
     googleDriveMenuHint: 'Manage your Google session, backups and restore data',
     welcomeGuide: 'Welcome guide',
     welcomeGuideHint: 'Check out the quick tour of FinniApp\'s main features again',

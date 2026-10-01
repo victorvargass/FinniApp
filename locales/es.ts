@@ -316,7 +316,7 @@ const es = {
   },
   globalSearch: {
     title: 'Buscar en FinniApp',
-    placeholder: 'Buscar movimientos, contactos, deudas y más',
+    placeholder: 'Buscar movimientos, contactos y más',
     inputLabel: 'Búsqueda global',
     hint: 'Escribe al menos dos caracteres para buscar en todos tus períodos y datos financieros.',
     empty: 'No encontramos resultados para esta búsqueda.',
@@ -1538,7 +1538,6 @@ const es = {
     backupStageReplacing: 'Restaurando tus datos…',
     backupStageFinalizing: 'Finalizando…',
     backupProgressHint: 'Puedes seguir el avance aquí. No cierres la aplicación durante el proceso.',
-    lastBackupOperationDuration: 'Última operación: %{duration}',
     googleDriveMenuHint: 'Gestiona tu sesión de Google, respaldos y restauración de datos',
     welcomeGuide: 'Guía de bienvenida',
     welcomeGuideHint: 'Vuelve a ver el recorrido rápido por las funciones principales de FinniApp',

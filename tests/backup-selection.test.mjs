@@ -32,3 +32,7 @@ test('legacy backups without a local credential are visible but disabled', () =>
   assert.match(screen, /disabled=\{!available\}/);
   assert.match(screen, /legacyBackupUnavailableShort/);
 });
+
+test('technical operation duration is not exposed in the user interface', () => {
+  assert.doesNotMatch(screen, /lastOperationMetrics|lastBackupOperationDuration|lastDuration/);
+});

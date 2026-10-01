@@ -120,7 +120,6 @@ export default function GoogleDriveScreen() {
     isWorking,
     operation,
     progress,
-    lastOperationMetrics,
     isConnected,
     lastBackup,
     backups,
@@ -438,13 +437,6 @@ export default function GoogleDriveScreen() {
                 {t('settings.backupProgressHint')}
               </ThemedText>
             </View>
-          )}
-          {!isWorking && lastOperationMetrics && (
-            <ThemedText style={[styles.lastDuration, { color: colors.textSecondary }]}>
-              {t('settings.lastBackupOperationDuration', {
-                duration: formatElapsed(lastOperationMetrics.totalDurationMs),
-              })}
-            </ThemedText>
           )}
         </ThemedView>
       </ScrollView>
@@ -765,9 +757,5 @@ const styles = StyleSheet.create({
   unavailableBackup: {
     fontSize: 12,
     lineHeight: 16,
-  },
-  lastDuration: {
-    textAlign: 'center',
-    fontSize: 12,
   },
 });

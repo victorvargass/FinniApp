@@ -74,12 +74,15 @@ export default function GlobalSearchScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           autoFocus
+          multiline={false}
+          numberOfLines={1}
           onChangeText={setQuery}
           placeholder={t('globalSearch.placeholder')}
           placeholderTextColor={colors.icon}
           returnKeyType="search"
           style={[styles.input, { color: colors.text }]}
           testID="global-search-input"
+          textAlignVertical="center"
           value={query}
         />
         {query.length > 0 && (
@@ -127,7 +130,7 @@ export default function GlobalSearchScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   search: { minHeight: 52, margin: 16, marginBottom: 4, borderWidth: 1, borderRadius: 13, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  input: { flex: 1, fontSize: 16, fontFamily: Fonts.regular, paddingVertical: 10 },
+  input: { flex: 1, height: 50, fontSize: 16, fontFamily: Fonts.regular, paddingVertical: 0 },
   content: { flexGrow: 1, padding: 16, paddingBottom: 40, gap: 18 },
   state: { flex: 1, minHeight: 320, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 30 },
   stateText: { textAlign: 'center', opacity: 0.68 },

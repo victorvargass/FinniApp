@@ -551,7 +551,12 @@ export default function HomeScreen() {
           style={[styles.globalSearch, { backgroundColor: colors.surface, borderColor: colors.border }]}
           testID="home-global-search">
           <Ionicons name="search-outline" size={20} color={colors.icon} />
-          <ThemedText style={[styles.globalSearchText, { color: colors.textSecondary }]}>{t('globalSearch.placeholder')}</ThemedText>
+          <ThemedText
+            ellipsizeMode="tail"
+            numberOfLines={1}
+            style={[styles.globalSearchText, { color: colors.textSecondary }]}>
+            {t('globalSearch.placeholder')}
+          </ThemedText>
         </Pressable>
         <PeriodSelector />
         <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
