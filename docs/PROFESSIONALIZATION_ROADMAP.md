@@ -9,7 +9,8 @@ bloque acordado.
 - [x] Acción temporal **Deshacer** al descartar un aviso de Inicio.
 - [x] Aviso visible sobre la protección real del respaldo de Google Drive.
 - [x] Actualizaciones transitivas compatibles y política automatizada para
-  alertas críticas/altas de dependencias.
+  alertas críticas/altas de dependencias. Metro conserva Expo SDK 54 mediante
+  un parche reproducible y el audit actual queda sin alertas altas ni críticas.
 - [x] Checklist verificable de publicación y Data Safety.
 - [x] Matriz versionada de datos ficticios v24/v27 para migraciones.
 - [x] Matriz manual de notificaciones en dispositivo real (pendiente ejecutar
@@ -23,6 +24,8 @@ bloque acordado.
   cuotas, con datos y saldos verificados en la interfaz.
 - [x] Prueba Android automatizada de actualización real desde una base v27
   poblada, instalada dentro del sandbox antes de abrir el binario candidato.
+- [x] Concurrencia E2E aislada por workflow: un push puede reemplazar otro push
+  obsoleto, pero no cancela la validación de una candidata manual de EAS Build.
 - [x] Exportación CSV con período y campos seleccionables.
 - [x] Búsqueda global de movimientos de todos los períodos, contactos, deudas,
   compras en cuotas, medios de pago y metas, con navegación al detalle.
