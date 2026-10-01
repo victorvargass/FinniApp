@@ -100,16 +100,18 @@ export function HomeDebtsCard({
         )}
         {creditCards.map((card) => {
           const dueDate = getCardDueDate(card);
+          const billedDetail = `${t('paymentMethods.billedToPay')}: ${formatCLP(card.billedAmount)}`;
+          const dueDetail = dueDate
+            ? t(dueDate.estimated ? 'debts.homeCardEstimatedDue' : 'debts.homeCardDue', {
+                date: formatDate(dueDate.date),
+              })
+            : null;
           return (
             <DebtRow
               key={`card-${card.id}`}
               color={card.color}
               name={card.name}
-              detail={dueDate
-                ? t(dueDate.estimated ? 'debts.homeCardEstimatedDue' : 'debts.homeCardDue', {
-                    date: formatDate(dueDate.date),
-                  })
-                : t('paymentMethods.credit')}
+              detail={dueDetail ? `${billedDetail} · ${dueDetail}` : billedDetail}
               amount={card.usedAmount ?? 0}
               total={card.creditLimit}
               onPress={() => onOpenPaymentMethod(card.id)}

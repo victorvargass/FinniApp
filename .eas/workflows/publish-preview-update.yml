@@ -24,6 +24,7 @@ jobs:
     name: Publish Preview OTA
     needs: [verify_database_and_app]
     type: update
+    environment: preview
     params:
       channel: preview
       platform: android

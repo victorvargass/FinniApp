@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  AUTOMATIC_BACKUP_INTERVALS,
   AUTOMATIC_BACKUP_INTERVAL_MS,
   isAutomaticBackupDue,
   migrationSnapshotTimestamp,
@@ -14,6 +15,16 @@ test('automatic backup runs at most once per 24 hours', () => {
   assert.equal(isAutomaticBackupDue(String(now - AUTOMATIC_BACKUP_INTERVAL_MS + 1), now), false);
   assert.equal(isAutomaticBackupDue(String(now - AUTOMATIC_BACKUP_INTERVAL_MS), now), true);
   assert.equal(isAutomaticBackupDue('invalid', now), true);
+});
+
+test('automatic backup respects daily, weekly, monthly, and manual choices', () => {
+  const now = Date.UTC(2026, 9, 1, 12);
+  for (const frequency of ['daily', 'weekly', 'monthly']) {
+    const interval = AUTOMATIC_BACKUP_INTERVALS[frequency];
+    assert.equal(isAutomaticBackupDue(String(now - interval + 1), now, frequency), false);
+    assert.equal(isAutomaticBackupDue(String(now - interval), now, frequency), true);
+  }
+  assert.equal(isAutomaticBackupDue(null, now, 'manual'), false);
 });
 
 test('Drive retention removes only versions beyond the newest five', () => {

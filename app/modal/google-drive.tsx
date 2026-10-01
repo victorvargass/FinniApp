@@ -15,6 +15,7 @@ import { GoogleLogo } from '@/components/google-logo';
 import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { SimpleSelect } from '@/components/simple-select';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useGoogle } from '@/hooks/useGoogle';
@@ -23,6 +24,28 @@ import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import { BACKUP_PASSPHRASE_MIN_LENGTH } from '@/lib/backup-encryption';
+import type { BackupStage } from '@/lib/backup-operation';
+
+function formatElapsed(milliseconds: number): string {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return minutes > 0 ? `${minutes}:${String(remainingSeconds).padStart(2, '0')}` : `${seconds} s`;
+}
+
+function backupStageLabel(stage: BackupStage): string {
+  const keys: Record<BackupStage, Parameters<typeof t>[0]> = {
+    preparing: 'settings.backupStagePreparing',
+    encrypting: 'settings.backupStageEncrypting',
+    uploading: 'settings.backupStageUploading',
+    downloading: 'settings.backupStageDownloading',
+    decrypting: 'settings.backupStageDecrypting',
+    validating: 'settings.backupStageValidating',
+    replacing: 'settings.backupStageReplacing',
+    finalizing: 'settings.backupStageFinalizing',
+  };
+  return t(keys[stage]);
+}
 
 function formatBackupDate(date: string | undefined): string {
   if (!date) return t('settings.never');
@@ -95,21 +118,34 @@ export default function GoogleDriveScreen() {
   const [passphrase, setPassphrase] = React.useState('');
   const [passphraseConfirmation, setPassphraseConfirmation] = React.useState('');
   const [revealedPassphrase, setRevealedPassphrase] = React.useState<string | null>(null);
+  const [progressNow, setProgressNow] = React.useState(Date.now());
   const {
     user,
     isLoading,
     isWorking,
+    operation,
+    progress,
+    lastOperationMetrics,
     isConnected,
     lastBackup,
     error,
     hasBackupPassphrase,
+    backupFrequency,
     login,
     backup,
     restore,
     logout,
     saveBackupPassphrase,
+    setBackupFrequency,
     revealBackupPassphrase,
   } = useGoogle();
+
+  React.useEffect(() => {
+    if (!progress) return;
+    setProgressNow(Date.now());
+    const interval = setInterval(() => setProgressNow(Date.now()), 500);
+    return () => clearInterval(interval);
+  }, [progress]);
 
   React.useEffect(() => {
     if (!revealedPassphrase) return;
@@ -186,11 +222,11 @@ export default function GoogleDriveScreen() {
   const confirmBackup = () => {
     Alert.alert(
       t(lastBackup ? 'settings.newBackupTitle' : 'settings.createBackupTitle'),
-      lastBackup
+      `${lastBackup
         ? t('settings.newBackupMessage', {
             date: formatBackupDate(lastBackup.modifiedTime),
           })
-        : t('settings.createBackupMessage'),
+        : t('settings.createBackupMessage')}\n\n${t('settings.manualBackupDurationWarning')}`,
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -313,6 +349,34 @@ export default function GoogleDriveScreen() {
                 </ThemedText>
               </View>
 
+              <ThemedView style={[styles.frequencyCard, { borderColor: colors.border }]}>
+                <SimpleSelect
+                  label={t('settings.automaticBackupFrequency')}
+                  value={backupFrequency}
+                  disabled={isWorking}
+                  options={[
+                    { value: 'daily', label: t('settings.backupFrequencyDaily') },
+                    { value: 'weekly', label: t('settings.backupFrequencyWeekly') },
+                    { value: 'monthly', label: t('settings.backupFrequencyMonthly') },
+                    { value: 'manual', label: t('settings.backupFrequencyManual') },
+                  ]}
+                  onChange={(frequency) => {
+                    void setBackupFrequency(frequency).catch((frequencyError) => {
+                      Alert.alert(
+                        t('common.error'),
+                        frequencyError instanceof Error
+                          ? frequencyError.message
+                          : t('errors.unexpected')
+                      );
+                    });
+                  }}
+                  testID="automatic-backup-frequency"
+                />
+                <ThemedText style={[styles.frequencyHint, { color: colors.textSecondary }]}>
+                  {t('settings.automaticBackupFrequencyHint')}
+                </ThemedText>
+              </ThemedView>
+
               <ThemedView style={[styles.encryptionCard, { borderColor: colors.border }]}>
                 <View style={styles.encryptionHeading}>
                   <Ionicons name="lock-closed-outline" size={21} color={colors.success} />
@@ -387,14 +451,14 @@ export default function GoogleDriveScreen() {
 
               <View style={styles.actions}>
                 <ActionButton
-                  title={isWorking ? t('settings.backingUp') : t('settings.backup')}
+                  title={operation === 'backup' ? t('settings.backingUp') : t('settings.backup')}
                   disabled={isWorking || !hasBackupPassphrase}
                   onPress={confirmBackup}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
                   textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
                 <ActionButton
-                  title={isWorking ? t('settings.restoring') : t('settings.restore')}
+                  title={operation === 'restore' ? t('settings.restoring') : t('settings.restore')}
                   disabled={isWorking || !lastBackup}
                   onPress={confirmRestore}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
@@ -411,11 +475,33 @@ export default function GoogleDriveScreen() {
             </>
           )}
 
-          {isWorking && (
-            <View style={styles.progress}>
-              <ActivityIndicator size="small" />
-              <ThemedText>{t('common.processing')}</ThemedText>
+          {progress && (
+            <View style={styles.progressPanel}>
+              <View style={styles.progressHeading}>
+                <ThemedText type="defaultSemiBold">{backupStageLabel(progress.stage)}</ThemedText>
+                <ThemedText style={{ color: colors.textSecondary }}>
+                  {formatElapsed(progressNow - progress.startedAt)}
+                </ThemedText>
+              </View>
+              <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { backgroundColor: colors.primary, width: `${progress.progress * 100}%` },
+                  ]}
+                />
+              </View>
+              <ThemedText style={[styles.progressHint, { color: colors.textSecondary }]}>
+                {t('settings.backupProgressHint')}
+              </ThemedText>
             </View>
+          )}
+          {!isWorking && lastOperationMetrics && (
+            <ThemedText style={[styles.lastDuration, { color: colors.textSecondary }]}>
+              {t('settings.lastBackupOperationDuration', {
+                duration: formatElapsed(lastOperationMetrics.totalDurationMs),
+              })}
+            </ThemedText>
           )}
         </ThemedView>
       </ScrollView>
@@ -558,6 +644,16 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     opacity: 0.8,
   },
+  frequencyCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+  },
+  frequencyHint: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
   connected: {
     fontWeight: '700',
   },
@@ -602,10 +698,29 @@ const styles = StyleSheet.create({
   darkActionButtonText: {
     color: '#0B315B',
   },
-  progress: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  progressPanel: {
     gap: 8,
+  },
+  progressHeading: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressHint: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  lastDuration: {
+    textAlign: 'center',
+    fontSize: 12,
   },
 });

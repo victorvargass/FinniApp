@@ -8,6 +8,7 @@ import {
 } from '@/lib/backup-encryption';
 import { t } from '@/lib/i18n';
 import { MAX_BACKUP_SIZE_BYTES } from '@/lib/database-schema';
+import { deriveBackupKeyNative } from './NativeBackupKdf';
 
 export class BackupEncryptionService {
   static async encrypt(file: File, passphrase: string): Promise<File> {
@@ -18,7 +19,13 @@ export class BackupEncryptionService {
       file.bytes(),
     ]);
     try {
-      destination.write(await encryptBackupBytes(plaintext, passphrase, salt, nonce));
+      destination.write(await encryptBackupBytes(
+        plaintext,
+        passphrase,
+        salt,
+        nonce,
+        deriveBackupKeyNative
+      ));
       return destination;
     } catch (error) {
       if (destination.exists) destination.delete();
@@ -38,7 +45,7 @@ export class BackupEncryptionService {
 
     const destination = new File(Paths.cache, `gastos-restore-${Date.now()}.db`);
     try {
-      destination.write(await decryptBackupBytes(bytes, passphrase));
+      destination.write(await decryptBackupBytes(bytes, passphrase, deriveBackupKeyNative));
       return destination;
     } catch (error) {
       if (destination.exists) destination.delete();

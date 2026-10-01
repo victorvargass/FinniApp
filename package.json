@@ -1,7 +1,7 @@
 {
   "name": "finniapp",
   "main": "expo-router/entry",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "engines": {
     "node": ">=22.14.0"
   },
@@ -69,6 +69,7 @@
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-gifted-charts": "^1.4.77",
+    "react-native-quick-crypto": "^1.1.7",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",

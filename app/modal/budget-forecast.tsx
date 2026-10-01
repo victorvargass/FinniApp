@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingBottom: 44, gap: 12 }, intro: { fontSize: 16, lineHeight: 23 },
   summary: { borderRadius: 18, padding: 20, gap: 5 }, summaryLabel: { opacity: 0.86 },
-  summaryAmount: { fontFamily: Fonts.bold, fontSize: 34 }, summaryColumns: { flexDirection: 'row', gap: 20, marginTop: 10 },
+  summaryAmount: { fontFamily: Fonts.bold, fontSize: 30 }, summaryColumns: { flexDirection: 'row', gap: 20, marginTop: 10 },
   summaryColumn: { flex: 1, gap: 2 }, summaryMeta: { fontSize: 12, opacity: 0.82 }, summaryValue: { fontFamily: Fonts.semiBold },
   section: { gap: 3, marginTop: 12 }, emptyCard: { borderWidth: 1, borderRadius: 14, padding: 16 },
   budgetCard: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 9 }, rowBetween: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },

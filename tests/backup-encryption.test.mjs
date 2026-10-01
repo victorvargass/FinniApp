@@ -19,6 +19,24 @@ test('backup encryption round-trips bytes without exposing the SQLite header', a
   assert.deepEqual(await decryptBackupBytes(encrypted, 'correct horse battery staple'), plaintext);
 });
 
+test('a native key derivation can keep the encrypted backup format compatible', async () => {
+  const nativeKeyDeriver = async (_passphrase, _salt, _iterations, keyLength) =>
+    new Uint8Array(keyLength).fill(37);
+  const plaintext = new TextEncoder().encode('SQLite format 3\0native KDF fixture');
+  const encrypted = await encryptBackupBytes(
+    plaintext,
+    'correct horse battery staple',
+    salt,
+    nonce,
+    nativeKeyDeriver
+  );
+
+  assert.deepEqual(
+    await decryptBackupBytes(encrypted, 'correct horse battery staple', nativeKeyDeriver),
+    plaintext
+  );
+});
+
 test('backup authentication rejects an incorrect password and modified ciphertext', async () => {
   const encrypted = await encryptBackupBytes(
     new Uint8Array([1, 2, 3, 4]),

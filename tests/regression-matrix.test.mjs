@@ -119,6 +119,7 @@ test('the preview update workflow uses the Node version required by the test sui
   const workflow = readFileSync(path.join(root, '.eas/workflows/publish-preview-update.yml'), 'utf8');
   assert.equal(packageJson.engines.node, '>=22.14.0');
   assert.match(workflow, /defaults:\s*\n\s*tools:\s*\n\s*node: ['"]22\.14\.0['"]/);
+  assert.match(workflow, /update_preview:[\s\S]*?environment: preview[\s\S]*?channel: preview/);
 });
 
 test('iOS simulator workflow builds a simulator app and runs critical journeys', () => {

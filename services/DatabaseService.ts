@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { getDatabase } from '@/lib/database/connection';
@@ -135,7 +136,7 @@ export class DatabaseService {
   }
 
   /** Creates a standalone plaintext SQLite copy for the encrypted envelope. */
-  static async createBackupFile(): Promise<File> {
+  static async createBackupFile(): Promise<{ file: File; fingerprint: string }> {
     const backupName = `gastos-backup-${Date.now()}.db`;
     const backup = new File(
       Paths.cache,
@@ -155,7 +156,20 @@ export class DatabaseService {
       // Never replace the last valid Drive copy with a file the restore path
       // would reject.
       await this.validateBackupFile(backup);
-      return backup;
+      const bytes = await backup.bytes();
+      try {
+        const digest = new Uint8Array(await Crypto.digest(
+          Crypto.CryptoDigestAlgorithm.SHA256,
+          bytes
+        ));
+        const fingerprint = Array.from(
+          digest,
+          (value) => value.toString(16).padStart(2, '0')
+        ).join('');
+        return { file: backup, fingerprint };
+      } finally {
+        bytes.fill(0);
+      }
     } catch (error) {
       if (backup.exists) backup.delete();
       throw error;
@@ -183,7 +197,10 @@ export class DatabaseService {
    * SQLite builds reject a backup whose destination is an open WAL database.
    * DatabaseContext keeps reads paused for the complete operation.
    */
-  static async restoreFromFile(file: File): Promise<void> {
+  static async restoreFromFile(
+    file: File,
+    onStage?: (stage: 'validating' | 'replacing' | 'finalizing') => void
+  ): Promise<void> {
     const tempDirectory = new Directory(
       Paths.cache,
       `restore-${Date.now()}`
@@ -195,6 +212,7 @@ export class DatabaseService {
 
     try {
       try {
+        onStage?.('validating');
         // Legacy FinniApp backups may contain optional references left behind
         // by older deletion flows. Repair only those safe links in the
         // in-memory source, then require every remaining foreign key to pass.
@@ -204,6 +222,7 @@ export class DatabaseService {
       }
 
       const rollback = await withDatabaseLock(async () => {
+        onStage?.('replacing');
         // Keep a local rollback copy so a failed restore does not leave the
         // application without its previous database.
         const current = await getDatabase();
@@ -228,6 +247,7 @@ export class DatabaseService {
       });
 
       try {
+        onStage?.('finalizing');
         // Apply additive migrations while DatabaseContext still has all reads
         // paused. If migration fails, restore the pre-operation snapshot too.
         try {

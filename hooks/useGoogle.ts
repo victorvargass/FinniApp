@@ -5,20 +5,31 @@ import {
   type GoogleUser,
 } from '@/services/GoogleAuthService';
 import { SessionService } from '@/services/SessionService';
-import { BackupService, type BackupMetadata } from '@/services/BackupService';
+import { BackupService } from '@/services/BackupService';
 import { RestoreService } from '@/services/RestoreService';
 import { GoogleDriveService, type DriveBackup } from '@/services/GoogleDriveService';
 import { usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { t } from '@/lib/i18n';
 import { BackupCredentialService } from '@/services/BackupCredentialService';
+import { BackupPreferencesService } from '@/services/BackupPreferencesService';
+import type { BackupFrequency } from '@/lib/backup-policy';
+import type {
+  BackupOperation,
+  BackupOperationMetrics,
+  BackupProgress,
+} from '@/lib/backup-operation';
 
 type GoogleState = {
   user: GoogleUser | null;
   isLoading: boolean;
   isWorking: boolean;
+  operation: BackupOperation | 'session' | null;
+  progress: BackupProgress | null;
+  lastOperationMetrics: BackupOperationMetrics | null;
   error: string | null;
   lastBackup: DriveBackup | null;
   hasBackupPassphrase: boolean;
+  backupFrequency: BackupFrequency;
 };
 
 function toMessage(error: unknown): string {
@@ -33,9 +44,13 @@ export function useGoogle() {
     user: null,
     isLoading: true,
     isWorking: false,
+    operation: null,
+    progress: null,
+    lastOperationMetrics: null,
     error: null,
     lastBackup: null,
     hasBackupPassphrase: false,
+    backupFrequency: 'daily',
   });
 
   const getDrive = useCallback(
@@ -58,7 +73,10 @@ export function useGoogle() {
 
     (async () => {
       try {
-        const user = await SessionService.restore();
+        const [user, backupFrequency] = await Promise.all([
+          SessionService.restore(),
+          BackupPreferencesService.getFrequency(),
+        ]);
 
         if (!active) return;
 
@@ -67,6 +85,7 @@ export function useGoogle() {
           user,
           isLoading: false,
           hasBackupPassphrase: false,
+          backupFrequency,
         }));
 
         if (user) {
@@ -93,6 +112,7 @@ export function useGoogle() {
     setState((current) => ({
       ...current,
       isWorking: true,
+      operation: 'session',
       error: null,
     }));
 
@@ -108,7 +128,7 @@ export function useGoogle() {
       }));
       throw error;
     } finally {
-      setState((current) => ({ ...current, isWorking: false }));
+      setState((current) => ({ ...current, isWorking: false, operation: null }));
     }
   }, [refreshBackupInfo]);
 
@@ -116,6 +136,8 @@ export function useGoogle() {
     setState((current) => ({
       ...current,
       isWorking: true,
+      operation: 'backup',
+      progress: null,
       error: null,
     }));
 
@@ -125,14 +147,17 @@ export function useGoogle() {
         ? await BackupCredentialService.getPassphrase(accountId)
         : null;
       if (!passphrase) throw new Error(t('errors.backupPassphraseRequired'));
-      const result: BackupMetadata = await BackupService.backup(getDrive(), passphrase);
+      const result = await BackupService.backup(getDrive(), passphrase, {
+        onProgress: (progress) => setState((current) => ({ ...current, progress })),
+      });
+      await Promise.all([
+        BackupPreferencesService.recordSuccessfulBackup(accountId!, result.fingerprint),
+        BackupPreferencesService.recordOperationMetrics(result.metrics),
+      ]).catch(() => undefined);
       setState((current) => ({
         ...current,
-        lastBackup: {
-          id: result.id,
-          name: result.name,
-          modifiedTime: result.modifiedTime,
-        },
+        lastBackup: result.metadata ?? current.lastBackup,
+        lastOperationMetrics: result.metrics,
       }));
     } catch (error) {
       setState((current) => ({
@@ -141,7 +166,12 @@ export function useGoogle() {
       }));
       throw error;
     } finally {
-      setState((current) => ({ ...current, isWorking: false }));
+      setState((current) => ({
+        ...current,
+        isWorking: false,
+        operation: null,
+        progress: null,
+      }));
     }
   }, [getDrive, state.user?.id]);
 
@@ -149,6 +179,8 @@ export function useGoogle() {
     setState((current) => ({
       ...current,
       isWorking: true,
+      operation: 'restore',
+      progress: null,
       error: null,
     }));
 
@@ -157,8 +189,19 @@ export function useGoogle() {
       const passphrase = accountId
         ? await BackupCredentialService.getPassphrase(accountId)
         : null;
-      await runDatabaseMaintenance(() => RestoreService.restore(getDrive(), passphrase));
+      let metrics: BackupOperationMetrics | null = null;
+      await runDatabaseMaintenance(async () => {
+        metrics = await RestoreService.restore(
+          getDrive(),
+          passphrase,
+          (progress) => setState((current) => ({ ...current, progress }))
+        );
+      });
       await refreshBackupInfo();
+      if (metrics) {
+        await BackupPreferencesService.recordOperationMetrics(metrics).catch(() => undefined);
+      }
+      setState((current) => ({ ...current, lastOperationMetrics: metrics }));
     } catch (error) {
       setState((current) => ({
         ...current,
@@ -166,7 +209,12 @@ export function useGoogle() {
       }));
       throw error;
     } finally {
-      setState((current) => ({ ...current, isWorking: false }));
+      setState((current) => ({
+        ...current,
+        isWorking: false,
+        operation: null,
+        progress: null,
+      }));
     }
   }, [getDrive, runDatabaseMaintenance, refreshBackupInfo, state.user?.id]);
 
@@ -176,6 +224,11 @@ export function useGoogle() {
     await BackupCredentialService.setPassphrase(accountId, passphrase);
     setState((current) => ({ ...current, hasBackupPassphrase: true, error: null }));
   }, [state.user?.id]);
+
+  const setBackupFrequency = useCallback(async (frequency: BackupFrequency) => {
+    await BackupPreferencesService.setFrequency(frequency);
+    setState((current) => ({ ...current, backupFrequency: frequency }));
+  }, []);
 
   const revealBackupPassphrase = useCallback(async () => {
     const accountId = state.user?.id;
@@ -189,6 +242,7 @@ export function useGoogle() {
     setState((current) => ({
       ...current,
       isWorking: true,
+      operation: 'session',
       error: null,
     }));
 
@@ -198,15 +252,20 @@ export function useGoogle() {
         user: null,
         isLoading: false,
         isWorking: false,
+        operation: null,
+        progress: null,
+        lastOperationMetrics: null,
         error: null,
         lastBackup: null,
         hasBackupPassphrase: false,
+        backupFrequency: await BackupPreferencesService.getFrequency(),
       });
     } catch (error) {
       setState((current) => ({
         ...current,
         error: toMessage(error),
         isWorking: false,
+        operation: null,
       }));
       throw error;
     }
@@ -222,6 +281,7 @@ export function useGoogle() {
       logout,
       refreshBackupInfo,
       saveBackupPassphrase,
+      setBackupFrequency,
       revealBackupPassphrase,
     }),
     [
@@ -232,6 +292,7 @@ export function useGoogle() {
       logout,
       refreshBackupInfo,
       saveBackupPassphrase,
+      setBackupFrequency,
       revealBackupPassphrase,
     ]
   );

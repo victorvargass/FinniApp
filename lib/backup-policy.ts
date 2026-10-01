@@ -2,10 +2,23 @@ export const DRIVE_BACKUP_RETENTION = 5;
 export const LOCAL_MIGRATION_BACKUP_RETENTION = 3;
 export const AUTOMATIC_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-export function isAutomaticBackupDue(previous: string | null, now = Date.now()): boolean {
+export type BackupFrequency = 'daily' | 'weekly' | 'monthly' | 'manual';
+
+export const AUTOMATIC_BACKUP_INTERVALS: Record<Exclude<BackupFrequency, 'manual'>, number> = {
+  daily: AUTOMATIC_BACKUP_INTERVAL_MS,
+  weekly: 7 * AUTOMATIC_BACKUP_INTERVAL_MS,
+  monthly: 30 * AUTOMATIC_BACKUP_INTERVAL_MS,
+};
+
+export function isAutomaticBackupDue(
+  previous: string | null,
+  now = Date.now(),
+  frequency: BackupFrequency = 'daily'
+): boolean {
+  if (frequency === 'manual') return false;
   if (previous == null) return true;
   const timestamp = Number(previous);
-  return !Number.isFinite(timestamp) || now - timestamp >= AUTOMATIC_BACKUP_INTERVAL_MS;
+  return !Number.isFinite(timestamp) || now - timestamp >= AUTOMATIC_BACKUP_INTERVALS[frequency];
 }
 
 export function selectObsoleteBackups<T extends { modifiedTime: string }>(

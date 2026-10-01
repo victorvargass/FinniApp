@@ -44,10 +44,17 @@ function equalPrefix(bytes: Uint8Array, prefix: Uint8Array): boolean {
   return bytes.length >= prefix.length && prefix.every((value, index) => bytes[index] === value);
 }
 
-function deriveKey(passphrase: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+export type BackupKeyDeriver = (
+  passphrase: string,
+  salt: Uint8Array,
+  iterations: number,
+  keyLength: number
+) => Promise<Uint8Array>;
+
+const deriveKey: BackupKeyDeriver = (passphrase, salt, iterations, keyLength) => {
   return pbkdf2Async(sha256, passphrase.normalize('NFKC'), salt, {
     c: iterations,
-    dkLen: KEY_LENGTH,
+    dkLen: keyLength,
   });
 }
 
@@ -59,7 +66,8 @@ export async function encryptBackupBytes(
   plaintext: Uint8Array,
   passphrase: string,
   salt: Uint8Array,
-  nonce: Uint8Array
+  nonce: Uint8Array,
+  keyDeriver: BackupKeyDeriver = deriveKey
 ): Promise<Uint8Array> {
   if (passphrase.normalize('NFKC').length < BACKUP_PASSPHRASE_MIN_LENGTH) {
     throw new Error('INVALID_BACKUP_PASSPHRASE_POLICY');
@@ -79,7 +87,7 @@ export async function encryptBackupBytes(
   const headerLength = new Uint8Array(4);
   new DataView(headerLength.buffer).setUint32(0, headerBytes.length, false);
   const authenticatedHeader = concatBytes(MAGIC, headerLength, headerBytes);
-  const key = await deriveKey(passphrase, salt, PBKDF2_ITERATIONS);
+  const key = await keyDeriver(passphrase, salt, PBKDF2_ITERATIONS, KEY_LENGTH);
   try {
     const ciphertext = xchacha20poly1305(key, nonce, authenticatedHeader).encrypt(plaintext);
     return concatBytes(authenticatedHeader, ciphertext);
@@ -90,7 +98,8 @@ export async function encryptBackupBytes(
 
 export async function decryptBackupBytes(
   envelope: Uint8Array,
-  passphrase: string
+  passphrase: string,
+  keyDeriver: BackupKeyDeriver = deriveKey
 ): Promise<Uint8Array> {
   if (!isEncryptedBackupBytes(envelope) || envelope.length < MAGIC.length + 4) {
     throw new Error('INVALID_BACKUP_ENVELOPE');
@@ -126,7 +135,7 @@ export async function decryptBackupBytes(
   }
   const salt = hexToBytes(header.salt, SALT_LENGTH);
   const nonce = hexToBytes(header.nonce, NONCE_LENGTH);
-  const key = await deriveKey(passphrase, salt, header.iterations);
+  const key = await keyDeriver(passphrase, salt, header.iterations, KEY_LENGTH);
   try {
     return xchacha20poly1305(key, nonce, envelope.slice(0, ciphertextOffset))
       .decrypt(envelope.slice(ciphertextOffset));
