@@ -36,5 +36,13 @@ test('legacy encrypted backups remain restorable only when the old device creden
 });
 
 test('sign-in offers a recoverable Google backup immediately', () => {
+  assert.match(screen, /offerRestoreAfterLoginRef\.current = true[\s\S]*await login\(\)/);
+  assert.match(screen, /!offerRestoreAfterLoginRef\.current[\s\S]*offerRestoreAfterLoginRef\.current = false/);
   assert.match(screen, /backupFoundTitle[\s\S]*backupFoundReady[\s\S]*restoreNow/);
+});
+
+test('creating a backup does not offer to restore the backup that was just created', () => {
+  const runBackup = screen.match(/const runBackup = React\.useCallback\([\s\S]*?\}, \[backup\]\);/)?.[0];
+  assert.ok(runBackup);
+  assert.doesNotMatch(runBackup, /offerRestoreAfterLoginRef\.current = true/);
 });

@@ -131,7 +131,7 @@ export default function GoogleDriveScreen() {
   } = useGoogle();
   const isLegacyEncryptedBackup = Boolean(lastBackup?.name.endsWith('.finni'));
   const canRestoreBackup = !isLegacyEncryptedBackup || hasBackupPassphrase;
-  const restoreOfferRef = React.useRef<string | null>(null);
+  const offerRestoreAfterLoginRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!progress) return;
@@ -181,6 +181,17 @@ export default function GoogleDriveScreen() {
     }
   }, [restore]);
 
+  const connectGoogle = React.useCallback(async () => {
+    offerRestoreAfterLoginRef.current = true;
+    try {
+      await login();
+      showToast(t('settings.signInCompleted'));
+    } catch {
+      offerRestoreAfterLoginRef.current = false;
+      // El hook muestra el error mediante su estado.
+    }
+  }, [login]);
+
   const confirmRestore = () => {
     Alert.alert(
       t('settings.restoreData'),
@@ -197,9 +208,9 @@ export default function GoogleDriveScreen() {
   };
 
   React.useEffect(() => {
-    if (!isConnected || !lastBackup || isWorking) return;
-    if (restoreOfferRef.current === lastBackup.id) return;
-    restoreOfferRef.current = lastBackup.id;
+    if (!isConnected || isWorking || !offerRestoreAfterLoginRef.current) return;
+    offerRestoreAfterLoginRef.current = false;
+    if (!lastBackup) return;
 
     if (isLegacyEncryptedBackup) {
       if (hasBackupPassphrase) {
@@ -292,11 +303,7 @@ export default function GoogleDriveScreen() {
               <ActionButton
                 title={isWorking ? t('settings.connecting') : t('settings.connectGoogle')}
                 disabled={isWorking}
-                onPress={() => {
-                  login()
-                    .then(() => showToast(t('settings.signInCompleted')))
-                    .catch(() => undefined);
-                }}
+                onPress={() => { void connectGoogle(); }}
                 style={styles.googleButton}
                 textStyle={styles.googleButtonText}
                 icon={<GoogleLogo />}
