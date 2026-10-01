@@ -49,6 +49,7 @@ import {
   DEFAULT_CATEGORY_COUNT,
   confirmFirstPeriodDate,
   hasConfiguredFirstPeriod,
+  markFirstPeriodConfigured,
 } from '@/lib/setup-progress';
 import { showToast } from '@/lib/toast';
 import { buildWeeklyInsight, findSavingsMilestone } from '@/lib/weekly-insights';
@@ -518,11 +519,16 @@ export default function HomeScreen() {
   // Sync the editable range with the period being viewed.
   useEffect(() => {
     let active = true;
-    void hasConfiguredFirstPeriod().then((configured) => {
-      if (active) setHasConfiguredPeriod(configured);
-    });
+    if (periodHistory.length > 1) {
+      setHasConfiguredPeriod(true);
+      void markFirstPeriodConfigured();
+    } else {
+      void hasConfiguredFirstPeriod().then((configured) => {
+        if (active) setHasConfiguredPeriod(configured);
+      });
+    }
     return () => { active = false; };
-  }, []);
+  }, [periodHistory.length]);
 
   useEffect(() => {
     if (!selectedPeriod) return;
