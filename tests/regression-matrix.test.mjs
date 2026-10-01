@@ -97,11 +97,19 @@ test('Android E2E distinguishes Maestro failures from emulator cleanup failures'
   assert.match(workflow, /script: bash scripts\/run-android-e2e\.sh/);
   assert.match(workflow, /runner\.temp.*metro\.log/);
   assert.match(runner, /set -euo pipefail/);
+  assert.match(runner, /EXPO_PUBLIC_E2E_LANGUAGE=es/);
   assert.match(runner, /expo start --dev-client --localhost/);
   assert.match(runner, /packager-status:running/);
   assert.match(runner, /adb reverse tcp:8081 tcp:8081/);
   assert.match(runner, /touch "\$RUNNER_TEMP\/finniapp-maestro-passed"/);
   assert.match(workflow, /if \[\[ ! -f "\$RUNNER_TEMP\/finniapp-maestro-passed" \]\]/);
+});
+
+test('Android E2E language override is isolated from normal device language detection', () => {
+  const i18n = readFileSync(path.join(root, 'lib/i18n.ts'), 'utf8');
+  assert.match(i18n, /process\.env\.EXPO_PUBLIC_E2E_LANGUAGE/);
+  assert.match(i18n, /e2eLanguage === 'es' \|\| e2eLanguage === 'en'/);
+  assert.match(i18n, /getLocales\(\)\[0\]\?\.languageCode/);
 });
 
 test('the preview update workflow uses the Node version required by the test suite', () => {

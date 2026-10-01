@@ -25,6 +25,8 @@ i18n.defaultLocale = DEFAULT_LANGUAGE;
 i18n.enableFallback = true;
 
 export function getDeviceLanguage(): AppLanguage {
+  const e2eLanguage = process.env.EXPO_PUBLIC_E2E_LANGUAGE;
+  if (e2eLanguage === 'es' || e2eLanguage === 'en') return e2eLanguage;
   return getLocales()[0]?.languageCode === 'en' ? 'en' : DEFAULT_LANGUAGE;
 }
 
