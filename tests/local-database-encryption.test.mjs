@@ -33,6 +33,7 @@ test('local database key is random, device-protected, and applied before reads',
   assert.match(encryption, /PRAGMA key = "x'/);
   assert.match(encryption, /SELECT count\(\*\) AS count FROM sqlite_master/);
   assert.match(connection, /openEncryptedDatabaseAsync\(DATABASE_NAME\)/);
+  assert.match(connection, /withExclusiveTransactionAsync[\s\S]*applyDatabaseEncryptionKey\(transaction, key\)/);
   assert.doesNotMatch(connection, /journal_mode = WAL/);
 });
 

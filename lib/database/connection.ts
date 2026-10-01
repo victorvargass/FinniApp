@@ -3,7 +3,9 @@ import * as SQLite from 'expo-sqlite';
 import { withDatabaseLock } from '@/lib/database-lock';
 import { DATABASE_NAME } from '@/lib/database-schema';
 import {
+  applyDatabaseEncryptionKey,
   openEncryptedDatabaseAsync,
+  prepareDatabaseEncryption,
   resetDatabaseEncryptionPreparation,
 } from '@/lib/database/encryption';
 
@@ -34,8 +36,12 @@ export async function withExclusiveDatabaseTransaction(
   database: SQLite.SQLiteDatabase,
   task: (transaction: SQLite.SQLiteDatabase) => Promise<void>
 ): Promise<void> {
+  const key = await prepareDatabaseEncryption();
   await withDatabaseLock(async () => {
     await database.withExclusiveTransactionAsync(async (transaction) => {
+      // Expo creates a dedicated connection for an exclusive transaction.
+      // SQLCipher keys are connection-local, so key it before the first read.
+      await applyDatabaseEncryptionKey(transaction, key);
       await transaction.execAsync(`PRAGMA busy_timeout = ${DATABASE_BUSY_TIMEOUT_MS}`);
       await task(transaction);
     });
