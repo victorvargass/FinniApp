@@ -8,7 +8,6 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
 import { visibleHomeDebtPlans, visibleHomeDebts, visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
-import { getCardDueDate } from '@/lib/payment-method-calculations';
 import type { Debt, DebtPlan, PaymentMethod } from '@/lib/types';
 
 type HomeDebtsCardProps = {
@@ -27,11 +26,22 @@ type DebtRowProps = {
   name: string;
   detail: string;
   amount: number;
+  amountDetail?: string;
+  amountDetailColor?: string;
   total: number | null;
   onPress: () => void;
 };
 
-function DebtRow({ color, name, detail, amount, total, onPress }: DebtRowProps) {
+function DebtRow({
+  color,
+  name,
+  detail,
+  amount,
+  amountDetail,
+  amountDetailColor,
+  total,
+  onPress,
+}: DebtRowProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const progress = total && total > 0
     ? Math.min(1, Math.max(0, 1 - amount / total))
@@ -48,7 +58,14 @@ function DebtRow({ color, name, detail, amount, total, onPress }: DebtRowProps) 
           <ThemedText type="defaultSemiBold" numberOfLines={1}>{name}</ThemedText>
           <ThemedText style={[styles.detail, { color: colors.textSecondary }]}>{detail}</ThemedText>
         </View>
-        <ThemedText type="defaultSemiBold">{formatCLP(amount)}</ThemedText>
+        <View style={styles.amountCopy}>
+          <ThemedText type="defaultSemiBold">{formatCLP(amount)}</ThemedText>
+          {amountDetail && (
+            <ThemedText style={[styles.amountDetail, { color: amountDetailColor ?? colors.textSecondary }]}>
+              {amountDetail}
+            </ThemedText>
+          )}
+        </View>
         <Ionicons name="chevron-forward" size={18} color={colors.icon} />
       </View>
       {total != null && total > 0 && (
@@ -70,6 +87,7 @@ export function HomeDebtsCard({
   onOpenPlan,
   onOpenPaymentMethod,
 }: HomeDebtsCardProps) {
+  const colors = Colors[useColorScheme() ?? 'light'];
   const activeDebts = visibleHomeDebts(debts).filter((item) => item.status === 'active');
   const payableDebts = activeDebts.filter((item) => item.direction === 'payable');
   const receivableDebts = activeDebts.filter((item) => item.direction === 'receivable');
@@ -99,20 +117,15 @@ export function HomeDebtsCard({
           <ThemedText style={styles.sectionLabel}>{t('debts.creditCards')}</ThemedText>
         )}
         {creditCards.map((card) => {
-          const dueDate = getCardDueDate(card);
-          const billedDetail = `${t('paymentMethods.billedToPay')}: ${formatCLP(card.billedAmount)}`;
-          const dueDetail = dueDate
-            ? t(dueDate.estimated ? 'debts.homeCardEstimatedDue' : 'debts.homeCardDue', {
-                date: formatDate(dueDate.date),
-              })
-            : null;
           return (
             <DebtRow
               key={`card-${card.id}`}
               color={card.color}
               name={card.name}
-              detail={dueDetail ? `${billedDetail} · ${dueDetail}` : billedDetail}
+              detail={t('paymentMethods.credit')}
               amount={card.usedAmount ?? 0}
+              amountDetail={`${t('paymentMethods.billedToPay')}: ${formatCLP(card.billedAmount)}`}
+              amountDetailColor={card.billedAmount > 0 ? colors.expense : colors.textSecondary}
               total={card.creditLimit}
               onPress={() => onOpenPaymentMethod(card.id)}
             />
@@ -190,6 +203,8 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5 },
   itemCopy: { minWidth: 0, flex: 1, gap: 1 },
   detail: { fontSize: 11, lineHeight: 15 },
+  amountCopy: { maxWidth: '55%', alignItems: 'flex-end' },
+  amountDetail: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   track: { height: 7, borderRadius: 4, overflow: 'hidden', marginLeft: 18 },
   fill: { height: '100%', borderRadius: 4 },
   pressed: { opacity: 0.7 },
