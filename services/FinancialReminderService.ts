@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getEstimatedPaymentDueDate } from '@/lib/payment-method-calculations';
+import { getLocalCalendarDaysUntil } from '@/lib/relative-due-date';
 import type { Debt, DebtPlan, PaymentMethod, Period } from '@/lib/types';
 import { replaceFutureAppNotifications } from '@/repositories/notifications';
 
@@ -25,6 +26,7 @@ type Reminder = {
   date: Date;
   title: string;
   body: string;
+  deliveryBody?: string;
   url: string;
 };
 
@@ -75,6 +77,13 @@ function reminderDateKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function dueLabel(date: Date, now: Date): string {
+  const days = getLocalCalendarDaysUntil(date, now);
+  if (days <= 0) return t('notifications.dueToday');
+  if (days === 1) return t('notifications.dueTomorrow');
+  return t('notifications.dueInDays', { days });
+}
+
 export function buildFinancialReminders(
   data: FinancialReminderData,
   now = new Date()
@@ -103,14 +112,22 @@ export function buildFinancialReminders(
         9
       );
       if (dueDate.getTime() > now.getTime()) {
+        const bodyOptions = {
+          name: method.name,
+          amount: formatCLP(method.billedAmount),
+        };
         reminders.push({
           sourceKey: `card-payment-due:${method.id}:${reminderDateKey(dueDate)}`,
           kind: 'card-payment-due',
           date: dueDate,
           title: t('notifications.cardDueTitle', { name: method.name }),
           body: t('notifications.cardDueBody', {
-            name: method.name,
-            amount: formatCLP(method.billedAmount),
+            ...bodyOptions,
+            due: dueLabel(dueDate, now),
+          }),
+          deliveryBody: t('notifications.cardDueBody', {
+            ...bodyOptions,
+            due: t('notifications.dueToday'),
           }),
           url: detailUrl,
         });
@@ -121,14 +138,25 @@ export function buildFinancialReminders(
   for (const debt of data.debts) {
     const date = debt.status === 'active' ? futureDate(debt.nextDueDate, now, 9, debt.dueTime) : null;
     if (!date || debt.installmentAmount == null) continue;
+    const bodyKey = debt.direction === 'receivable'
+      ? 'notifications.debtCollectionBody' as const
+      : 'notifications.debtPaymentBody' as const;
+    const bodyOptions = {
+      name: debt.name,
+      amount: formatCLP(Math.min(debt.installmentAmount, debt.currentBalance)),
+    };
     reminders.push({
       sourceKey: `debt-payment-due:${debt.id}:${reminderDateKey(date)}`,
       kind: 'debt-payment-due',
       date,
       title: t(debt.direction === 'receivable' ? 'notifications.debtCollectionTitle' : 'notifications.debtPaymentTitle', { name: debt.name }),
-      body: t(debt.direction === 'receivable' ? 'notifications.debtCollectionBody' : 'notifications.debtPaymentBody', {
-        name: debt.name,
-        amount: formatCLP(Math.min(debt.installmentAmount, debt.currentBalance)),
+      body: t(bodyKey, {
+        ...bodyOptions,
+        due: dueLabel(date, now),
+      }),
+      deliveryBody: t(bodyKey, {
+        ...bodyOptions,
+        due: t('notifications.dueToday'),
       }),
       url: `/modal/manual-debt-detail?id=${debt.id}`,
     });
@@ -139,16 +167,24 @@ export function buildFinancialReminders(
       ? futureDate(plan.nextInstallmentDueDate, now)
       : null;
     if (!date || plan.nextInstallmentNumber == null || plan.nextInstallmentAmount == null) continue;
+    const bodyOptions = {
+      number: plan.nextInstallmentNumber,
+      total: plan.totalInstallments,
+      amount: formatCLP(plan.nextInstallmentAmount),
+      card: plan.paymentMethodName,
+    };
     reminders.push({
       sourceKey: `installment-payment-due:${plan.id}:${reminderDateKey(date)}`,
       kind: 'installment-payment-due',
       date,
       title: t('notifications.installmentDueTitle', { name: plan.name }),
       body: t('notifications.installmentDueBody', {
-        number: plan.nextInstallmentNumber,
-        total: plan.totalInstallments,
-        amount: formatCLP(plan.nextInstallmentAmount),
-        card: plan.paymentMethodName,
+        ...bodyOptions,
+        due: dueLabel(date, now),
+      }),
+      deliveryBody: t('notifications.installmentDueBody', {
+        ...bodyOptions,
+        due: t('notifications.dueToday'),
       }),
       url: `/modal/debt-detail?id=${plan.id}`,
     });
@@ -229,7 +265,7 @@ export async function syncFinancialReminders(
     await Notifications.scheduleNotificationAsync({
       content: {
         title: reminder.title,
-        body: reminder.body,
+        body: reminder.deliveryBody ?? reminder.body,
         sound: 'default',
         data: { kind: reminder.kind, url: reminder.url, inboxKey: reminder.sourceKey },
       },
