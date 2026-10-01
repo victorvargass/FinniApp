@@ -4,11 +4,6 @@ defaults:
   tools:
     node: '22.14.0'
 
-on:
-  push:
-    branches:
-      - master
-
 jobs:
   verify_database_and_app:
     name: Verify database migrations and app
