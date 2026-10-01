@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { t } from '@/lib/i18n';
@@ -11,6 +12,7 @@ const wordmark = require('@/assets/images/splash-icon-dark.png');
 
 export function AppLoadingScreen() {
   const pulse = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -38,7 +40,13 @@ export function AppLoadingScreen() {
     <View
       accessibilityLabel={t('startup.loading')}
       accessibilityRole="progressbar"
-      style={styles.container}
+      style={[
+        styles.container,
+        {
+          paddingTop: Math.max(insets.top, 24),
+          paddingBottom: Math.max(insets.bottom, 24),
+        },
+      ]}
     >
       <View style={styles.brandBlock}>
         <Animated.View
@@ -53,10 +61,24 @@ export function AppLoadingScreen() {
         </Animated.View>
 
         <Image contentFit="contain" source={wordmark} style={styles.wordmark} />
-        <ThemedText style={styles.tagline}>{t('startup.tagline')}</ThemedText>
+        <ThemedText
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}
+          numberOfLines={1}
+          style={styles.tagline}
+        >
+          {t('startup.tagline')}
+        </ThemedText>
 
         <View style={styles.loadingDetails}>
-          <ThemedText style={styles.message}>{t('startup.loading')}</ThemedText>
+          <ThemedText
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+            numberOfLines={1}
+            style={styles.message}
+          >
+            {t('startup.loading')}
+          </ThemedText>
           <View style={styles.track}>
             <Animated.View
               style={[
@@ -73,7 +95,12 @@ export function AppLoadingScreen() {
         </View>
       </View>
 
-      <ThemedText style={styles.slogan}>“{t('startup.slogan')}”</ThemedText>
+      <ThemedText
+        numberOfLines={2}
+        style={[styles.slogan, { bottom: Math.max(insets.bottom, 16) }]}
+      >
+        “{t('startup.slogan')}”
+      </ThemedText>
     </View>
   );
 }
@@ -87,6 +114,8 @@ const styles = StyleSheet.create({
     backgroundColor: BrandColors.navy,
   },
   brandBlock: {
+    width: '100%',
+    maxWidth: 360,
     alignItems: 'center',
     transform: [{ translateY: -28 }],
   },
@@ -100,18 +129,27 @@ const styles = StyleSheet.create({
     marginTop: -44,
   },
   tagline: {
+    width: '100%',
+    flexShrink: 0,
     marginTop: 8,
     color: BrandColors.turquoise,
     fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600',
+    textAlign: 'center',
   },
   loadingDetails: {
+    width: '100%',
     alignItems: 'center',
     marginTop: 30,
   },
   message: {
+    width: '100%',
+    flexShrink: 0,
     color: BrandColors.warmWhite,
     fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   track: {
     width: 112,
@@ -129,9 +167,12 @@ const styles = StyleSheet.create({
   },
   slogan: {
     position: 'absolute',
-    bottom: 44,
+    left: 24,
+    right: 24,
+    flexShrink: 0,
     color: BrandColors.turquoiseLight,
     fontSize: 12,
+    lineHeight: 18,
     textAlign: 'center',
   },
 });

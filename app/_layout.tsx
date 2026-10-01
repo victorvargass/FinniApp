@@ -9,6 +9,7 @@ import {
   Quicksand_700Bold,
   useFonts,
 } from '@expo-google-fonts/quicksand';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -239,6 +240,7 @@ function AppContent() {
 }
 
 function RootLayout() {
+  const [minimumLoadingElapsed, setMinimumLoadingElapsed] = useState(false);
   const [fontsLoaded, fontError] = useFonts({
     Quicksand_400Regular,
     Quicksand_500Medium,
@@ -246,12 +248,19 @@ function RootLayout() {
     Quicksand_700Bold,
   });
 
+  useEffect(() => {
+    const timer = setTimeout(() => setMinimumLoadingElapsed(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <CrashMonitoringProvider>
       <LanguageProvider>
         <ThemePreferenceProvider>
           <OnboardingProvider>
-            {!fontsLoaded && !fontError ? <AppLoadingScreen /> : <AppContent />}
+            {!minimumLoadingElapsed || (!fontsLoaded && !fontError)
+              ? <AppLoadingScreen />
+              : <AppContent />}
           </OnboardingProvider>
         </ThemePreferenceProvider>
       </LanguageProvider>

@@ -1,8 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resetHomeAttentionDismissals } from './home-attention-dismissals';
 
-export const DEFAULT_CATEGORY_COUNT = 12;
-
 const PERIOD_CONFIGURED_KEY = '@finniapp/progressive-setup-v4/period-configured';
 const PERIOD_START_CONFIRMED_KEY = '@finniapp/progressive-setup-v4/period-start-confirmed';
 const PERIOD_END_CONFIRMED_KEY = '@finniapp/progressive-setup-v4/period-end-confirmed';

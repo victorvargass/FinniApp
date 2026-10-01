@@ -45,8 +45,8 @@ import {
 } from '@/lib/period-card-cashflow';
 import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
 import type { Debt, DebtPlan } from '@/lib/types';
+import { hasUserCreatedCategory } from '@/lib/setup-progress-state';
 import {
-  DEFAULT_CATEGORY_COUNT,
   confirmFirstPeriodDate,
   hasConfiguredFirstPeriod,
   markFirstPeriodConfigured,
@@ -657,7 +657,7 @@ export default function HomeScreen() {
           <ProgressiveSetup
             hasConfiguredPeriod={hasConfiguredPeriod}
             hasAdditionalPaymentMethod={paymentMethods.some((method) => method.systemKey !== 'cash')}
-            hasAdditionalCategory={categories.length > DEFAULT_CATEGORY_COUNT}
+            hasAdditionalCategory={hasUserCreatedCategory(categories)}
             hasSavingsGoal={savingsGoals.length > 0}
             hasMovements={hasPeriodMovements}
             onOpenPeriod={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}

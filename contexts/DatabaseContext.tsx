@@ -273,8 +273,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const maintenanceGateRef = useRef<Promise<void> | null>(null);
   const recurringSyncPromiseRef = useRef<Promise<void> | null>(null);
   const skipNextSelectedPeriodRefreshRef = useRef(false);
+  const hasRefreshedRef = useRef(hasRefreshed);
 
   selectedPeriodIdRef.current = selectedPeriodId;
+  hasRefreshedRef.current = hasRefreshed;
 
   const periodExpensesTotal = useMemo(
     () => periodCategoryExpensesTotals.reduce((sum, item) => sum + item.total, 0),
@@ -313,12 +315,15 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       return refreshPromiseRef.current;
     }
     const runRefreshes = async () => {
-      try {
-        setPeriodRefreshFailed(false);
-        do {
-          refreshRequestedRef.current = false;
+      let canRetryInitialLoad = !hasRefreshedRef.current;
 
-        const nextSettings = await refreshStep('REFRESH_SETTINGS', db.getSettings());
+      while (true) {
+        try {
+          setPeriodRefreshFailed(false);
+          do {
+            refreshRequestedRef.current = false;
+
+            const nextSettings = await refreshStep('REFRESH_SETTINGS', db.getSettings());
         if (nextSettings.pushNotificationsEnabled) {
           await syncMovementReminder(nextSettings, true, false).catch(() => undefined);
         } else {
@@ -412,11 +417,18 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         setPeriodIncomesTotal(incomesTotal);
         setPeriodHistory(history);
         setLoadedPeriodId(targetPeriodId);
-        setHasRefreshed(true);
-        } while (refreshRequestedRef.current);
-      } catch (error) {
-        setPeriodRefreshFailed(true);
-        throw error;
+            setHasRefreshed(true);
+          } while (refreshRequestedRef.current);
+          return;
+        } catch (error) {
+          if (canRetryInitialLoad) {
+            canRetryInitialLoad = false;
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            continue;
+          }
+          setPeriodRefreshFailed(true);
+          throw error;
+        }
       }
     };
 

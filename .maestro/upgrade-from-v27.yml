@@ -14,8 +14,23 @@ name: FinniApp upgrades a populated v27 database
 # Los movimientos anteriores sobreviven a la inicialización y migración real.
 - tapOn:
     id: 'tab-movements'
+- tapOn: 'Buscar por nombre...'
+- inputText: 'Compra migrada QA'
+- extendedWaitUntil:
+    visible: 'Compra migrada QA'
+    timeout: 30000
 - assertVisible: 'Compra migrada QA'
+- hideKeyboard
+
+# Gastos e ingresos viven en pestañas distintas dentro de Movimientos.
+- tapOn: 'Ingresos'
+- tapOn: 'Buscar por nombre...'
+- inputText: 'Ingreso migrado QA'
+- extendedWaitUntil:
+    visible: 'Ingreso migrado QA'
+    timeout: 30000
 - assertVisible: 'Ingreso migrado QA'
+- hideKeyboard
 
 # También sobreviven datos de los dominios que suelen romper una migración.
 - tapOn:
