@@ -84,8 +84,10 @@ test('GitHub executes platform-only upgrade journeys with a populated fixture', 
 
 test('the distributable GitHub workflow waits for Android E2E', () => {
   const workflow = readFileSync(path.join(root, '.github/workflows/build.yml'), 'utf8');
+  const e2eWorkflow = readFileSync(path.join(root, '.github/workflows/e2e-android.yml'), 'utf8');
   assert.match(workflow, /e2e:\s*\n\s*uses: \.\/\.github\/workflows\/e2e-android\.yml/);
   assert.match(workflow, /needs: e2e/);
+  assert.match(e2eWorkflow, /group: android-e2e-\$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}/);
 });
 
 test('Android E2E distinguishes Maestro failures from emulator cleanup failures', () => {

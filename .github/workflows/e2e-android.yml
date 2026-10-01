@@ -7,7 +7,9 @@ on:
     branches: [master]
 
 concurrency:
-  group: android-e2e-${{ github.ref }}
+  # A reusable workflow inherits its caller's github.workflow name. Including
+  # it prevents a normal push E2E from cancelling a manually requested build.
+  group: android-e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
