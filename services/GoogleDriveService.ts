@@ -67,6 +67,16 @@ export class GoogleDriveService {
     });
   }
 
+  async enforceRetention(backups?: DriveBackup[]): Promise<DriveBackup[]> {
+    const current = backups ?? await this.listBackups();
+    const obsolete = selectObsoleteBackups(current);
+    if (obsolete.length === 0) return current;
+
+    await Promise.allSettled(obsolete.map((backup) => this.deleteFile(backup.id)));
+    const obsoleteIds = new Set(obsolete.map((backup) => backup.id));
+    return current.filter((backup) => !obsoleteIds.has(backup.id));
+  }
+
   async uploadDatabase(uri: string): Promise<DriveBackup> {
     const file = new File(uri);
 
@@ -102,15 +112,13 @@ export class GoogleDriveService {
     // Upload before cleaning up: a failed upload must never leave the user
     // without a valid backup. Keep several generations so a damaged-but-valid
     // state does not immediately replace the only recovery point.
-    await Promise.allSettled(
-      selectObsoleteBackups([uploaded, ...backups]).map((backup) => this.deleteFile(backup.id))
-    );
+    await this.enforceRetention([uploaded, ...backups]);
 
     return uploaded;
   }
 
-  async downloadDatabase(): Promise<File | null> {
-    const backup = await this.getLatestBackup();
+  async downloadDatabase(selectedBackup?: DriveBackup | null): Promise<File | null> {
+    const backup = selectedBackup ?? await this.getLatestBackup();
     if (!backup) return null;
 
     const response = await this.request(

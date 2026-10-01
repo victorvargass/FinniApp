@@ -12,7 +12,7 @@ import { usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { t } from '@/lib/i18n';
 import { BackupCredentialService } from '@/services/BackupCredentialService';
 import { BackupPreferencesService } from '@/services/BackupPreferencesService';
-import type { BackupFrequency } from '@/lib/backup-policy';
+import { DRIVE_BACKUP_RETENTION, type BackupFrequency } from '@/lib/backup-policy';
 import type {
   BackupOperation,
   BackupOperationMetrics,
@@ -28,6 +28,7 @@ type GoogleState = {
   lastOperationMetrics: BackupOperationMetrics | null;
   error: string | null;
   lastBackup: DriveBackup | null;
+  backups: DriveBackup[];
   hasBackupPassphrase: boolean;
   backupFrequency: BackupFrequency;
 };
@@ -49,6 +50,7 @@ export function useGoogle() {
     lastOperationMetrics: null,
     error: null,
     lastBackup: null,
+    backups: [],
     hasBackupPassphrase: false,
     backupFrequency: 'daily',
   });
@@ -60,12 +62,14 @@ export function useGoogle() {
 
   const refreshBackupInfo = useCallback(async () => {
     if (!GoogleAuthService.getCurrentUser()) {
-      setState((current) => ({ ...current, lastBackup: null }));
-      return;
+      setState((current) => ({ ...current, lastBackup: null, backups: [] }));
+      return [];
     }
 
-    const backup = await getDrive().getLatestBackup();
-    setState((current) => ({ ...current, lastBackup: backup }));
+    const drive = getDrive();
+    const backups = await drive.enforceRetention(await drive.listBackups());
+    setState((current) => ({ ...current, lastBackup: backups[0] ?? null, backups }));
+    return backups;
   }, [getDrive]);
 
   useEffect(() => {
@@ -154,6 +158,10 @@ export function useGoogle() {
       setState((current) => ({
         ...current,
         lastBackup: result.metadata ?? current.lastBackup,
+        backups: result.metadata
+          ? [result.metadata, ...current.backups.filter((item) => item.id !== result.metadata?.id)]
+              .slice(0, DRIVE_BACKUP_RETENTION)
+          : current.backups,
         lastOperationMetrics: result.metrics,
       }));
     } catch (error) {
@@ -172,7 +180,7 @@ export function useGoogle() {
     }
   }, [getDrive, state.user?.id]);
 
-  const restore = useCallback(async () => {
+  const restore = useCallback(async (selectedBackup?: DriveBackup) => {
     setState((current) => ({
       ...current,
       isWorking: true,
@@ -190,8 +198,11 @@ export function useGoogle() {
       await runDatabaseMaintenance(async () => {
         metrics = await RestoreService.restore(
           getDrive(),
-          passphrase,
-          (progress) => setState((current) => ({ ...current, progress }))
+          {
+            backup: selectedBackup,
+            passphrase,
+            onProgress: (progress) => setState((current) => ({ ...current, progress })),
+          }
         );
       });
       await refreshBackupInfo();
@@ -249,6 +260,7 @@ export function useGoogle() {
         lastOperationMetrics: null,
         error: null,
         lastBackup: null,
+        backups: [],
         hasBackupPassphrase: false,
         backupFrequency: await BackupPreferencesService.getFrequency(),
       });

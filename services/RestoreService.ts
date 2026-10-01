@@ -1,5 +1,5 @@
 import { DatabaseService } from './DatabaseService';
-import { GoogleDriveService } from './GoogleDriveService';
+import { GoogleDriveService, type DriveBackup } from './GoogleDriveService';
 import { t } from '@/lib/i18n';
 import { getDiagnosticMetadata, logAppError } from '@/lib/logger';
 import { BackupEncryptionService } from './BackupEncryptionService';
@@ -25,12 +25,15 @@ function isExpectedRestoreError(error: unknown): boolean {
 export class RestoreService {
   static async restore(
     drive: GoogleDriveService,
-    passphrase?: string | null,
-    onProgress?: BackupProgressListener
+    options: {
+      backup?: DriveBackup | null;
+      passphrase?: string | null;
+      onProgress?: BackupProgressListener;
+    } = {}
   ): Promise<BackupOperationMetrics> {
-    const tracker = createBackupOperationTracker('restore', onProgress);
+    const tracker = createBackupOperationTracker('restore', options.onProgress);
     tracker.start('downloading', 0.08);
-    const file = await drive.downloadDatabase();
+    const file = await drive.downloadDatabase(options.backup);
 
     if (!file) {
       throw new Error(t('errors.noDriveBackup'));
@@ -39,7 +42,7 @@ export class RestoreService {
     let databaseFile = file;
     try {
       tracker.start('decrypting', 0.3);
-      databaseFile = await BackupEncryptionService.decryptIfNeeded(file, passphrase);
+      databaseFile = await BackupEncryptionService.decryptIfNeeded(file, options.passphrase);
       try {
         await DatabaseService.restoreFromFile(databaseFile, (stage) => {
           tracker.start(stage, stage === 'validating' ? 0.5 : stage === 'replacing' ? 0.7 : 0.9);

@@ -2,6 +2,7 @@ import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,7 @@ import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import type { BackupStage } from '@/lib/backup-operation';
+import type { DriveBackup } from '@/services/GoogleDriveService';
 
 function formatElapsed(milliseconds: number): string {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -111,6 +113,7 @@ export default function GoogleDriveScreen() {
     },
   ];
   const [progressNow, setProgressNow] = React.useState(Date.now());
+  const [showBackupPicker, setShowBackupPicker] = React.useState(false);
   const {
     user,
     isLoading,
@@ -120,6 +123,7 @@ export default function GoogleDriveScreen() {
     lastOperationMetrics,
     isConnected,
     lastBackup,
+    backups,
     error,
     hasBackupPassphrase,
     backupFrequency,
@@ -130,7 +134,10 @@ export default function GoogleDriveScreen() {
     setBackupFrequency,
   } = useGoogle();
   const isLegacyEncryptedBackup = Boolean(lastBackup?.name.endsWith('.finni'));
-  const canRestoreBackup = !isLegacyEncryptedBackup || hasBackupPassphrase;
+  const canRestoreBackup = (candidate: DriveBackup) => (
+    !candidate.name.endsWith('.finni') || hasBackupPassphrase
+  );
+  const hasRestorableBackup = backups.some(canRestoreBackup);
   const offerRestoreAfterLoginRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -172,9 +179,9 @@ export default function GoogleDriveScreen() {
     );
   };
 
-  const runRestore = React.useCallback(async () => {
+  const runRestore = React.useCallback(async (selectedBackup: DriveBackup) => {
     try {
-      await restore();
+      await restore(selectedBackup);
       showToast(t('settings.restoreCompletedMessage'));
     } catch {
       // El hook muestra el error mediante su estado.
@@ -192,16 +199,18 @@ export default function GoogleDriveScreen() {
     }
   }, [login]);
 
-  const confirmRestore = () => {
+  const confirmRestore = (selectedBackup: DriveBackup) => {
     Alert.alert(
       t('settings.restoreData'),
-      t('settings.restoreWarning'),
+      t('settings.restoreSelectedWarning', {
+        date: formatBackupDate(selectedBackup.modifiedTime),
+      }),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('settings.restore'),
           style: 'destructive',
-          onPress: () => { void runRestore(); },
+          onPress: () => { void runRestore(selectedBackup); },
         },
       ]
     );
@@ -248,7 +257,7 @@ export default function GoogleDriveScreen() {
         { text: t('settings.restoreLater'), style: 'cancel' },
         {
           text: t('settings.restoreNow'),
-          onPress: () => { void runRestore(); },
+          onPress: () => { void runRestore(lastBackup); },
         },
       ]
     );
@@ -393,8 +402,8 @@ export default function GoogleDriveScreen() {
                 />
                 <ActionButton
                   title={operation === 'restore' ? t('settings.restoring') : t('settings.restore')}
-                  disabled={isWorking || !lastBackup || !canRestoreBackup}
-                  onPress={() => confirmRestore()}
+                  disabled={isWorking || !hasRestorableBackup}
+                  onPress={() => setShowBackupPicker(true)}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
                   textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
@@ -439,6 +448,82 @@ export default function GoogleDriveScreen() {
           )}
         </ThemedView>
       </ScrollView>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={showBackupPicker}
+        onRequestClose={() => setShowBackupPicker(false)}>
+        <Pressable
+          accessible={false}
+          style={styles.pickerOverlay}
+          onPress={() => setShowBackupPicker(false)}>
+          <Pressable
+            accessible={false}
+            style={styles.pickerPosition}
+            onPress={(event) => event.stopPropagation()}>
+            <ThemedView
+              accessibilityViewIsModal
+              style={[styles.pickerSheet, { backgroundColor: colors.surfaceRaised }]}>
+              <ThemedText type="subtitle">{t('settings.chooseBackupTitle')}</ThemedText>
+              <ThemedText style={[styles.pickerHint, { color: colors.textSecondary }]}>
+                {t('settings.chooseBackupHint')}
+              </ThemedText>
+              <View style={styles.pickerList}>
+                {backups.map((candidate, index) => {
+                  const available = canRestoreBackup(candidate);
+                  return (
+                    <Pressable
+                      key={candidate.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: !available }}
+                      disabled={!available}
+                      onPress={() => {
+                        setShowBackupPicker(false);
+                        confirmRestore(candidate);
+                      }}
+                      style={({ pressed }) => [
+                        styles.pickerOption,
+                        { borderColor: colors.border },
+                        !available && styles.buttonDisabled,
+                        pressed && available && styles.buttonPressed,
+                      ]}>
+                      <Ionicons
+                        name={available ? 'cloud-download-outline' : 'alert-circle-outline'}
+                        size={23}
+                        color={available ? colors.primary : colors.warning}
+                      />
+                      <View style={styles.pickerOptionCopy}>
+                        <View style={styles.pickerOptionHeading}>
+                          <ThemedText type="defaultSemiBold">
+                            {formatBackupDate(candidate.modifiedTime)}
+                          </ThemedText>
+                          {index === 0 && (
+                            <View style={[styles.latestBadge, { backgroundColor: colors.primary + '18' }]}>
+                              <ThemedText style={[styles.latestBadgeText, { color: colors.primary }]}>
+                                {t('settings.latestBackupLabel')}
+                              </ThemedText>
+                            </View>
+                          )}
+                        </View>
+                        {!available && (
+                          <ThemedText style={[styles.unavailableBackup, { color: colors.warning }]}>
+                            {t('settings.legacyBackupUnavailableShort')}
+                          </ThemedText>
+                        )}
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={colors.icon} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <ActionButton
+                title={t('common.cancel')}
+                onPress={() => setShowBackupPicker(false)}
+              />
+            </ThemedView>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
     </SafeAreaView>
   );
@@ -624,6 +709,62 @@ const styles = StyleSheet.create({
   progressHint: {
     fontSize: 12,
     lineHeight: 17,
+  },
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  pickerPosition: {
+    width: '100%',
+  },
+  pickerSheet: {
+    borderRadius: 18,
+    padding: 20,
+    gap: 14,
+  },
+  pickerHint: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  pickerList: {
+    gap: 9,
+  },
+  pickerOption: {
+    minHeight: 64,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pickerOptionCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  pickerOptionHeading: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 7,
+  },
+  latestBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  latestBadgeText: {
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '700',
+  },
+  unavailableBackup: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   lastDuration: {
     textAlign: 'center',

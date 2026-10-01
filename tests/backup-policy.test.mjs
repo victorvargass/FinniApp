@@ -27,11 +27,11 @@ test('automatic backup respects daily, weekly, monthly, and manual choices', () 
   assert.equal(isAutomaticBackupDue(null, now, 'manual'), false);
 });
 
-test('Drive retention removes only versions beyond the newest five', () => {
+test('Drive retention removes only versions beyond the newest three', () => {
   const backups = Array.from({ length: 7 }, (_, index) => ({
     id: String(index), modifiedTime: `2026-09-${String(index + 1).padStart(2, '0')}T10:00:00Z`,
   }));
-  assert.deepEqual(selectObsoleteBackups(backups).map((item) => item.id), ['1', '0']);
+  assert.deepEqual(selectObsoleteBackups(backups).map((item) => item.id), ['3', '2', '1', '0']);
 });
 
 test('migration snapshots sort by their timestamp across schema versions', () => {

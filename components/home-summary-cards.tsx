@@ -42,6 +42,17 @@ export function HomeSummaryCards({
 }: HomeSummaryCardsProps) {
   const scheme = useColorScheme() ?? 'light';
   const colors = Colors[scheme];
+  const periodColors = scheme === 'dark'
+    ? {
+        positive: '#087052',
+        negative: '#8F2632',
+        credit: '#704500',
+      }
+    : {
+        positive: colors.success,
+        negative: colors.expense,
+        credit: colors.warning,
+      };
   const periodLabels: Record<HomePeriodMetricId, string> = {
     available: t('home.periodMetricAvailable'),
     income: t('home.periodMetricIncome'),
@@ -67,7 +78,15 @@ export function HomeSummaryCards({
               label={periodLabels[metric]}
               value={periodValues[metric]}
               labelColor={colors.onPrimary}
-              color={colors.onPrimary}
+              color={metric === 'income'
+                ? periodColors.positive
+                : metric === 'expenses'
+                  ? periodColors.negative
+                  : metric === 'unbilledCredit'
+                    ? periodColors.credit
+                    : periodValues[metric] < 0
+                      ? periodColors.negative
+                      : periodColors.positive}
             />
           ))}
         </View>

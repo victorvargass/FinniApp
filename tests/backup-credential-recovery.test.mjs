@@ -13,6 +13,8 @@ const automaticBackup = readFileSync(
   'utf8'
 );
 const restoreService = readFileSync(new URL('../services/RestoreService.ts', import.meta.url), 'utf8');
+const es = readFileSync(new URL('../locales/es.ts', import.meta.url), 'utf8');
+const en = readFileSync(new URL('../locales/en.ts', import.meta.url), 'utf8');
 
 test('new Drive backups rely on Google access without a FinniApp password', () => {
   assert.doesNotMatch(backupService, /BackupEncryptionService|passphrase/);
@@ -28,8 +30,15 @@ test('the Drive screen does not ask users to create or recover a backup password
   assert.match(screen, /disabled=\{isWorking\}[\s\S]*onPress=\{confirmBackup\}/);
 });
 
+test('current Google backup explanations do not mention a separate password', () => {
+  const spanishCopy = es.match(/backupSecurityNotice:[^\n]+[\s\S]*?backupAccessGoogle:[^\n]+/)?.[0] ?? '';
+  const englishCopy = en.match(/backupSecurityNotice:[^\n]+[\s\S]*?backupAccessGoogle:[^\n]+/)?.[0] ?? '';
+  assert.doesNotMatch(spanishCopy, /contraseña/i);
+  assert.doesNotMatch(englishCopy, /password/i);
+});
+
 test('legacy encrypted backups remain restorable only when the old device credential exists', () => {
-  assert.match(restoreService, /BackupEncryptionService\.decryptIfNeeded\(file, passphrase\)/);
+  assert.match(restoreService, /BackupEncryptionService\.decryptIfNeeded\(file, options\.passphrase\)/);
   assert.match(hook, /BackupCredentialService\.getPassphrase\(accountId\)/);
   assert.match(screen, /isLegacyEncryptedBackup[\s\S]*legacyBackupCanMigrate/);
   assert.match(screen, /canRestoreBackup[\s\S]*legacyBackupUnavailable/);
