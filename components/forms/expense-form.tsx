@@ -25,7 +25,7 @@ import {
   getPercentageSelectionAfterModeChange,
   resolveExpenseSplitMode,
 } from '@/lib/expense-split-mode';
-import { formatCLP, formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
+import { formatCLP, formatCLPInput, formatDate, formatMoney, formatTime, formatUSDInput, parseAmount, parseUSDAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
@@ -34,6 +34,7 @@ import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
 import type {
   CreditCardAdjustment,
   CreditCardAdjustmentKind,
+  CurrencyCode,
   Expense,
   ExpenseShareStatus,
   NewExpenseShare,
@@ -85,6 +86,9 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const colors = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   const initialExpense = expense ?? templateExpense;
+  const [currency, setCurrency] = useState<CurrencyCode>(
+    creditAdjustment?.currency ?? initialExpense?.currency ?? 'CLP'
+  );
 
   const [name, setName] = useState(creditAdjustment?.note ?? initialExpense?.name ?? '');
   const [isNameFocused, setIsNameFocused] = useState(false);
@@ -96,9 +100,11 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   );
   const [amountText, setAmountText] = useState<string>(
     creditAdjustment
-      ? formatCLPInput(creditAdjustment.amount)
+      ? (creditAdjustment.currency === 'USD' ? formatUSDInput(creditAdjustment.amount) : formatCLPInput(creditAdjustment.amount))
       : initialExpense
-        ? formatCLPInput(initialExpense.originalAmount ?? initialExpense.amount)
+        ? (initialExpense.currency === 'USD'
+          ? formatUSDInput(initialExpense.originalAmount ?? initialExpense.amount)
+          : formatCLPInput(initialExpense.originalAmount ?? initialExpense.amount))
         : ''
   );
   const [isSplitAmount, setIsSplitAmount] = useState(expenseWasSplit);
@@ -176,7 +182,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const [receivablesLocked, setReceivablesLocked] = useState(false);
   const [activeShareDateId, setActiveShareDateId] = useState<number | null>(null);
   const [activeShareTimeId, setActiveShareTimeId] = useState<number | null>(null);
-  const totalAmount = parseAmount(amountText as string);
+  const totalAmount = currency === 'USD' ? parseUSDAmount(amountText) : parseAmount(amountText);
   const percentage = Number(percentageText.replace(',', '.'));
   const hasValidPercentage =
     Number.isFinite(percentage) && percentage > 0 && percentage <= 100;
@@ -231,6 +237,10 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const isCardAdjustment = isCardPayment && cardPaymentOrigin === 'adjustment';
   const selectedPaymentMethod = paymentMethods.find((method) => method.id === paymentMethodId);
   const targetCreditCard = paymentMethods.find((method) => method.id === creditPaymentTargetId);
+  const currencyCard = isCardPayment ? targetCreditCard : selectedPaymentMethod;
+  const canUseUsd = currencyCard?.type === 'credit'
+    && currencyCard.usdCreditLimitCents != null
+    && initialExpense?.recurringExpenseId == null;
   const canUseCreditPayment = paymentMethods.some((method) => method.active && method.type === 'credit')
     || targetCreditCard?.type === 'credit';
   const isCreditPaymentTargetLocked = expense == null && creditAdjustment == null
@@ -244,7 +254,9 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   );
   const trackedAvailableBalance = selectedPaymentMethod?.type === 'cash'
     ? null
-    : selectedPaymentMethod?.availableBalance ?? null;
+    : currency === 'USD'
+      ? selectedPaymentMethod?.usdAvailableCreditCents ?? null
+      : selectedPaymentMethod?.availableBalance ?? null;
   const isBeforeSelectedBalanceSnapshot = selectedPaymentMethod?.balanceUpdatedAt != null
     && toDateString(date) < selectedPaymentMethod.balanceUpdatedAt;
   const exceedsAvailableBalance = !expense
@@ -411,6 +423,24 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   }, [isCreditPurchase]);
 
   useEffect(() => {
+    if (currency === 'USD' && currencyCard != null && !canUseUsd) {
+      setCurrency('CLP');
+      setAmountText('');
+    }
+  }, [canUseUsd, currency, currencyCard]);
+
+  useEffect(() => {
+    if (currency !== 'USD') return;
+    setIsSplitAmount(false);
+    setReceivableShares([]);
+    setMakeRecurring(false);
+    setIsInstallmentPurchase(false);
+    setSavingsGoalId(null);
+    setSavingsKind(null);
+    if (isCardPayment) setPaymentMethodId(null);
+  }, [currency, isCardPayment]);
+
+  useEffect(() => {
     if ((!initialCreditPaymentTargetId && !initialCardPayment) || expense || !creditPaymentCategory) return;
     setCategoryId(creditPaymentCategory.id);
   }, [creditPaymentCategory, expense, initialCardPayment, initialCreditPaymentTargetId]);
@@ -536,7 +566,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       Alert.alert(t('common.error'), t('database.creditPaymentTargetRequired'));
       return;
     }
-    if (isCardPayment && !isCardAdjustment && paymentMethodId == null) {
+    if (isCardPayment && !isCardAdjustment && currency === 'CLP' && paymentMethodId == null) {
       Alert.alert(t('common.error'), t('database.creditPaymentSourceRequired'));
       return;
     }
@@ -632,6 +662,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           time: toTimeString(date),
           kind: creditAdjustmentKind,
           note: name.trim() || null,
+          currency,
         };
         if (creditAdjustment) {
           await editCreditCardAdjustment(creditAdjustment.id, adjustmentData);
@@ -668,6 +699,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
             : null,
           paymentMethodId: share.status === 'paid' ? share.paymentMethodId : null,
         })),
+        currency,
       };
       if (expense) {
         await editExpense(expense.id, data);
@@ -809,12 +841,38 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         editable={!receivablesLocked}
         style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
-        onChangeText={(value) => setAmountText(formatCLPInput(value))}
-        placeholder={t('forms.amountPlaceholder')}
+        onChangeText={(value) => setAmountText(currency === 'USD' ? formatUSDInput(value) : formatCLPInput(value))}
+        placeholder={currency === 'USD' ? 'US$0,00' : t('forms.amountPlaceholder')}
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />
-      {showAdvancedOptions && !isInstallmentPurchase && !isCardPayment && <View style={styles.shareSection}>
+      {canUseUsd && (
+        <>
+          <ThemedText style={styles.label}>{t('paymentMethods.purchaseCurrency')}</ThemedText>
+          <View style={styles.shareOptions}>
+            {(['CLP', 'USD'] as const).map((value) => (
+              <Pressable
+                key={value}
+                onPress={() => {
+                  if (value === currency) return;
+                  setCurrency(value);
+                  setAmountText('');
+                }}
+                style={[
+                  styles.shareButton,
+                  { borderColor: colors.icon },
+                  currency === value && { borderColor: colors.primary, backgroundColor: `${colors.tint}1F` },
+                ]}>
+                <ThemedText style={currency === value ? [styles.shareButtonTextSelected, { color: colors.primary }] : undefined}>
+                  {value === 'CLP' ? t('paymentMethods.chileanPesos') : t('paymentMethods.usDollars')}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </View>
+          {currency === 'USD' && <ThemedText style={styles.paymentHint}>{t('paymentMethods.usdSeparateHint')}</ThemedText>}
+        </>
+      )}
+      {showAdvancedOptions && currency === 'CLP' && !isInstallmentPurchase && !isCardPayment && <View style={styles.shareSection}>
         <View style={styles.shareToggleRow}>
           <View style={styles.shareToggleCopy}>
             <ThemedText style={styles.shareLabel}>{t('forms.splitAmount')}</ThemedText>
@@ -1379,7 +1437,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
             <Ionicons name="lock-closed-outline" size={18} color={colors.icon} />
           </View>
         </>
-      ) : !isCardAdjustment ? (
+      ) : !isCardAdjustment && !(isCardPayment && currency === 'USD') ? (
         <ColorSelect
           label={isCardPayment ? t('paymentMethods.sourcePaymentMethod') : t('expenses.paymentMethodOptional')}
           disabled={receivablesLocked}
@@ -1414,7 +1472,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         />
       ) : null}
       {savingsKind !== 'funded_expense' && selectedPaymentMethod && selectedPaymentMethod.type !== 'cash' && (
-        selectedPaymentMethod.availableBalance == null ? (
+        trackedAvailableBalance == null ? (
           <ThemedText style={[styles.paymentHint, { color: colors.textSecondary }]}>
             {t('paymentMethods.balanceNotConfigured')}
           </ThemedText>
@@ -1425,13 +1483,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                 label: t(selectedPaymentMethod.type === 'credit'
                   ? 'paymentMethods.availableCredit'
                   : 'paymentMethods.availableBalance'),
-                amount: formatCLP(selectedPaymentMethod.availableBalance),
+                amount: formatMoney(trackedAvailableBalance, currency),
               })}
             </ThemedText>
             {exceedsAvailableBalance && amountToSave != null && (
               <ThemedText style={[styles.paymentHint, { color: colors.expense }]}>
                 {t('expenses.exceedsAvailableHint', {
-                  difference: formatCLP(amountToSave - selectedPaymentMethod.availableBalance),
+                  difference: formatMoney(amountToSave - trackedAvailableBalance!, currency),
                 })}
               </ThemedText>
             )}
@@ -1497,7 +1555,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         />
       </Pressable>
 
-      {showAdvancedOptions && !expense && isCreditPurchase && (
+      {showAdvancedOptions && !expense && isCreditPurchase && currency === 'CLP' && (
         <View style={[styles.installmentBox, { borderColor: colors.border }]}> 
           <View style={styles.installmentHeader}>
             <View style={styles.shareToggleCopy}>

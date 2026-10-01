@@ -15,6 +15,7 @@ test('the home overview excludes credit purchases but keeps every other expense'
     { amount: 20_000, paymentMethodType: 'debit' },
     { amount: 10_000, paymentMethodType: 'cash' },
     { amount: 5_000, paymentMethodType: null },
+    { amount: 999_900, paymentMethodType: 'debit', currency: 'USD' },
   ]), 35_000);
 });
 
@@ -54,18 +55,20 @@ test('card payment and internal adjustment totals follow the movement date and p
       CREATE TABLE periods (id INTEGER PRIMARY KEY, start_date TEXT, end_date TEXT);
       CREATE TABLE expenses (
         id INTEGER PRIMARY KEY, period_id INTEGER, amount INTEGER,
-        credit_payment_target_id INTEGER
+        credit_payment_target_id INTEGER, currency TEXT NOT NULL DEFAULT 'CLP'
       );
       CREATE TABLE credit_card_adjustments (
-        id INTEGER PRIMARY KEY, amount INTEGER, date TEXT
+        id INTEGER PRIMARY KEY, amount INTEGER, date TEXT, currency TEXT NOT NULL DEFAULT 'CLP'
       );
       INSERT INTO periods VALUES (1, '2026-09-01', '2026-09-30');
       INSERT INTO periods VALUES (2, '2026-10-01', '2026-10-31');
-      INSERT INTO expenses VALUES (1, 1, 30000, NULL);
-      INSERT INTO expenses VALUES (2, 1, 20000, 7);
-      INSERT INTO expenses VALUES (3, 2, 5000, 7);
-      INSERT INTO credit_card_adjustments VALUES (1, 10000, '2026-09-30');
-      INSERT INTO credit_card_adjustments VALUES (2, 2000, '2026-10-01');
+      INSERT INTO expenses VALUES (1, 1, 30000, NULL, 'CLP');
+      INSERT INTO expenses VALUES (2, 1, 20000, 7, 'CLP');
+      INSERT INTO expenses VALUES (3, 2, 5000, 7, 'CLP');
+      INSERT INTO credit_card_adjustments VALUES (1, 10000, '2026-09-30', 'CLP');
+      INSERT INTO credit_card_adjustments VALUES (2, 2000, '2026-10-01', 'CLP');
+      INSERT INTO expenses VALUES (4, 1, 999900, 7, 'USD');
+      INSERT INTO credit_card_adjustments VALUES (3, 999900, '2026-09-30', 'USD');
     `);
 
     const payments = database.prepare(PERIOD_CARD_PAYMENTS_SQL).all();

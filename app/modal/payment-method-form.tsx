@@ -14,7 +14,7 @@ import { usePaymentDatabase, usePreferenceDatabase } from '@/contexts/DatabaseDo
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
-import { formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
+import { formatCLPInput, formatDate, formatTime, formatUSDInput, parseAmount, parseUSDAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import type { PaymentMethodType } from '@/lib/types';
@@ -48,6 +48,10 @@ export default function PaymentMethodFormScreen() {
   const [billingDay, setBillingDay] = useState(method?.billingDay ? String(method.billingDay) : '25');
   const [paymentDueDay, setPaymentDueDay] = useState(method?.paymentDueDay ? String(method.paymentDueDay) : '5');
   const [creditLimitText, setCreditLimitText] = useState(method?.creditLimit != null ? formatCLPInput(method.creditLimit) : '');
+  const [usdCreditEnabled, setUsdCreditEnabled] = useState(method?.usdCreditLimitCents != null);
+  const [usdCreditLimitText, setUsdCreditLimitText] = useState(
+    method?.usdCreditLimitCents != null ? formatUSDInput(method.usdCreditLimitCents) : ''
+  );
   const [reportedBalanceText, setReportedBalanceText] = useState('');
   const [balanceDate, setBalanceDate] = useState(toDateString(new Date()));
   const [balanceTime, setBalanceTime] = useState(toTimeString(new Date()));
@@ -67,6 +71,9 @@ export default function PaymentMethodFormScreen() {
     const day = Number(billingDay);
     const dueDay = Number(paymentDueDay);
     const creditLimit = type === 'credit' ? parseAmount(creditLimitText) : null;
+    const usdCreditLimitCents = type === 'credit' && usdCreditEnabled
+      ? parseUSDAmount(usdCreditLimitText)
+      : null;
     const reportedBalance = !method && type !== 'cash' && reportedBalanceText.trim()
       ? parseAmount(reportedBalanceText)
       : null;
@@ -76,6 +83,9 @@ export default function PaymentMethodFormScreen() {
     }
     if (type === 'credit' && (creditLimit == null || creditLimit <= 0)) {
       return Alert.alert(t('common.error'), t('paymentMethods.invalidCreditLimit'));
+    }
+    if (type === 'credit' && usdCreditEnabled && usdCreditLimitCents == null) {
+      return Alert.alert(t('common.error'), t('paymentMethods.invalidUsdCreditLimit'));
     }
     if (type === 'credit' && (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)) {
       return Alert.alert(t('paymentMethods.invalidDueDay'), t('paymentMethods.invalidDueDayHint'));
@@ -93,6 +103,7 @@ export default function PaymentMethodFormScreen() {
         balanceTime: reportedBalance == null ? null : balanceTime,
         paymentDueDay: type === 'credit' ? dueDay : null,
         showOnHome,
+        usdCreditLimitCents,
       };
       if (method) await editPaymentMethod(method.id, data);
       else await addPaymentMethod(data);
@@ -233,6 +244,34 @@ export default function PaymentMethodFormScreen() {
             style={[styles.input, { borderColor: colors.border, color: colors.text }]}
           />
           <ThemedText style={styles.hint}>{t('paymentMethods.creditLimitHint')}</ThemedText>
+          <View style={[styles.preferenceCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <View style={styles.preferenceCopy}>
+              <ThemedText type="defaultSemiBold">{t('paymentMethods.usdCredit')}</ThemedText>
+              <ThemedText style={styles.hint}>{t('paymentMethods.usdCreditHint')}</ThemedText>
+            </View>
+            <Switch
+              value={usdCreditEnabled}
+              onValueChange={(enabled) => {
+                setUsdCreditEnabled(enabled);
+                if (!enabled) setUsdCreditLimitText('');
+              }}
+              trackColor={{ true: colors.primary }}
+            />
+          </View>
+          {usdCreditEnabled && (
+            <>
+              <ThemedText style={styles.label}>{t('paymentMethods.usdCreditLimit')}</ThemedText>
+              <TextInput
+                keyboardType="decimal-pad"
+                testID="payment-method-usd-credit-limit-input"
+                value={usdCreditLimitText}
+                onChangeText={(value) => setUsdCreditLimitText(formatUSDInput(value))}
+                placeholder="US$0,00"
+                placeholderTextColor={colors.icon}
+                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+              />
+            </>
+          )}
           <ThemedText style={styles.label}>{t('paymentMethods.billingDay')}</ThemedText>
           <TextInput
             keyboardType="number-pad"

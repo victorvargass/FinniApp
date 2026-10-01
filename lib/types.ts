@@ -144,6 +144,7 @@ export type Expense = {
   savingsGoalId: number | null;
   savingsKind: SavingsExpenseKind | null;
   creditPaymentTargetId: number | null;
+  currency: CurrencyCode;
 };
 
 export type Income = {
@@ -181,6 +182,7 @@ export type FinancialAuditEntry = {
   restrictionReason: string | null;
   restoredAt: string | null;
   createdAt: string;
+  currency: CurrencyCode;
 };
 
 export type ExpenseWithCategory = Expense & {
@@ -195,6 +197,7 @@ export type ExpenseWithCategory = Expense & {
 
 export type PaymentMethodType = 'cash' | 'debit' | 'prepaid' | 'credit';
 export type PaymentMethodSystemKey = 'cash';
+export type CurrencyCode = 'CLP' | 'USD';
 
 export type PaymentMethod = {
   id: number;
@@ -222,6 +225,12 @@ export type PaymentMethod = {
   paymentDueDay: number | null;
   billedAmount: number;
   statementDate: string | null;
+  usdCreditLimitCents: number | null;
+  usdAvailableCreditCents: number | null;
+  usdUsedAmountCents: number | null;
+  usdRegisteredChargesCents: number;
+  usdRegisteredPaymentsCents: number;
+  usdRegisteredAdjustmentsCents: number;
 };
 
 export type PaymentMethodMovement = {
@@ -233,6 +242,7 @@ export type PaymentMethodMovement = {
   kind: 'expense' | 'credit_payment' | 'credit_adjustment' | 'installment_purchase' | 'income' | 'savings_withdrawal' | 'transfer_in' | 'transfer_out';
   categoryName: string | null;
   relatedPaymentMethodName: string | null;
+  currency: CurrencyCode;
 };
 
 export type CreditCardAdjustmentKind = 'refund' | 'cancelled_purchase' | 'discount' | 'other';
@@ -244,6 +254,7 @@ export type NewCreditCardAdjustment = {
   time?: string;
   kind: CreditCardAdjustmentKind;
   note: string | null;
+  currency?: CurrencyCode;
 };
 
 export type CreditCardAdjustment = NewCreditCardAdjustment & {
@@ -264,6 +275,7 @@ export type CardPaymentMovement = {
   targetPaymentMethodName: string;
   targetPaymentMethodColor: string;
   adjustmentKind: CreditCardAdjustmentKind | null;
+  currency: CurrencyCode;
 };
 
 export type NewPaymentMethod = {
@@ -277,6 +289,7 @@ export type NewPaymentMethod = {
   balanceTime?: string | null;
   paymentDueDay: number | null;
   showOnHome: boolean;
+  usdCreditLimitCents?: number | null;
 };
 
 export type NewPaymentMethodBalance = {
@@ -670,6 +683,7 @@ export type NewExpense = {
   savingsKind?: SavingsExpenseKind | null;
   creditPaymentTargetId?: number | null;
   receivableShares?: NewExpenseShare[];
+  currency?: CurrencyCode;
 };
 
 export type RecurringFrequency = 'weekly' | 'monthly' | 'annual' | 'custom';

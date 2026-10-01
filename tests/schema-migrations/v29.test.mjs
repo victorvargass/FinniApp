@@ -13,7 +13,7 @@ const auditTableSql = databaseSource.match(
 )?.[0];
 
 test('schema v29 adds a persistent financial audit without changing existing movements', () => {
-  assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = 29/);
+  assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = (?:29|30)/);
   assert.match(registrySource, /version: 29, name: 'financial-audit-and-recovery'/);
   assert.ok(auditTableSql, 'financial audit table must be part of the creation and upgrade contract');
 

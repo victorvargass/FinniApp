@@ -19,7 +19,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatCLP, formatEventDateTime } from '@/lib/format';
+import { formatCLP, formatEventDateTime, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { matchesSearchQuery } from '@/lib/search';
 
@@ -30,6 +30,7 @@ export type AccountMovementListItem = {
   key: string;
   title: string;
   amount: number;
+  currency?: 'CLP' | 'USD';
   date: string;
   time: string;
   description: string;
@@ -59,6 +60,7 @@ type ListItem =
       name: string;
       color: string;
       total: number;
+      usdTotal: number;
       collapsed: boolean;
     };
 
@@ -204,7 +206,8 @@ export function AccountMovementList({
             key,
             name: group.name,
             color: group.color,
-            total: group.movements.reduce((sum, movement) => sum + movement.amount, 0),
+            total: group.movements.reduce((sum, movement) => sum + (movement.currency === 'USD' ? 0 : movement.amount), 0),
+            usdTotal: group.movements.reduce((sum, movement) => sum + (movement.currency === 'USD' ? movement.amount : 0), 0),
             collapsed,
           },
           ...(collapsed ? [] : group.movements.map((movement) => ({ type: 'movement' as const, movement }))),
@@ -337,7 +340,7 @@ export function AccountMovementList({
           if (item.type === 'group') {
             return (
               <Pressable
-                accessibilityLabel={`${item.name}, ${formatCLP(item.total)}`}
+                accessibilityLabel={`${item.name}, ${formatCLP(item.total)}${item.usdTotal > 0 ? `, ${formatMoney(item.usdTotal, 'USD')}` : ''}`}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: !item.collapsed }}
                 onPress={() => setCollapsedGroups((current) => current.includes(item.key)
@@ -349,7 +352,10 @@ export function AccountMovementList({
                   <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
                 </View>
                 <View style={styles.groupTotal}>
-                  <ThemedText type="defaultSemiBold">{formatCLP(item.total)}</ThemedText>
+                  <View>
+                    <ThemedText type="defaultSemiBold">{formatCLP(item.total)}</ThemedText>
+                    {item.usdTotal > 0 && <ThemedText type="defaultSemiBold">{formatMoney(item.usdTotal, 'USD')}</ThemedText>}
+                  </View>
                   <Ionicons name={item.collapsed ? 'chevron-down' : 'chevron-up'} size={19} color={item.color} />
                 </View>
               </Pressable>
@@ -358,7 +364,7 @@ export function AccountMovementList({
           const movement = item.movement;
           return (
             <Pressable
-              accessibilityLabel={`${movement.title}, ${formatCLP(movement.amount)}, ${movement.description}, ${formatEventDateTime(movement.date, movement.time)}`}
+              accessibilityLabel={`${movement.title}, ${formatMoney(movement.amount, movement.currency)}, ${movement.description}, ${formatEventDateTime(movement.date, movement.time)}`}
               accessibilityRole="button"
               onPress={movement.onPress}
               style={styles.movementPressable}>
@@ -373,7 +379,7 @@ export function AccountMovementList({
                   </ThemedText>
                 </View>
                 <View style={styles.amountColumn}>
-                  <ThemedText type="defaultSemiBold">{formatCLP(movement.amount)}</ThemedText>
+                  <ThemedText type="defaultSemiBold">{formatMoney(movement.amount, movement.currency)}</ThemedText>
                   <Ionicons name="chevron-forward" size={18} color={colors.icon} />
                 </View>
               </ThemedView>

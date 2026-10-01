@@ -3,6 +3,7 @@ export const UNBILLED_CREDIT_CARD_TOTAL_SQL = `
     COALESCE((SELECT SUM(COALESCE(expense.original_amount, expense.amount))
       FROM expenses expense
       WHERE expense.payment_method_id = method.id
+        AND expense.currency = 'CLP'
         AND expense.debt_plan_id IS NULL
         AND expense.credit_payment_target_id IS NULL
         AND expense.date <= DATE('now', 'localtime')
@@ -12,6 +13,7 @@ export const UNBILLED_CREDIT_CARD_TOTAL_SQL = `
     - COALESCE((SELECT SUM(adjustment.amount)
       FROM credit_card_adjustments adjustment
       WHERE adjustment.payment_method_id = method.id
+        AND adjustment.currency = 'CLP'
         AND adjustment.date <= DATE('now', 'localtime')
         AND adjustment.date > COALESCE((SELECT MAX(cycle.end_date)
           FROM credit_card_cycles cycle

@@ -8,3 +8,11 @@ export function spendingExpenseSql(tableAlias?: string): string {
   }
   return `${tableAlias ? `${tableAlias}.` : ''}credit_payment_target_id IS NULL`;
 }
+
+export function clpSpendingExpenseSql(tableAlias?: string): string {
+  if (tableAlias && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(tableAlias)) {
+    throw new Error('Invalid SQL table alias');
+  }
+  const prefix = tableAlias ? `${tableAlias}.` : '';
+  return `${prefix}credit_payment_target_id IS NULL AND ${prefix}currency = 'CLP'`;
+}

@@ -28,6 +28,7 @@ export async function exportPeriodCsv(
       name: t('csv.fields.name'),
       category: t('csv.fields.category'),
       paymentMethod: t('csv.fields.paymentMethod'),
+      currency: t('csv.fields.currency'),
       amount: t('csv.fields.amount'),
     },
     expense: t('csv.expense'),

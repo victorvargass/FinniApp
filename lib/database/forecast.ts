@@ -1,6 +1,6 @@
 import { getDebts } from './debts';
 import { getDatabase } from '@/lib/database/connection';
-import { spendingExpenseSql } from '@/lib/movement-classification';
+import { clpSpendingExpenseSql } from '@/lib/movement-classification';
 import { summarizeFinancialForecast } from '@/lib/financial-forecast';
 import type { BudgetForecast, BudgetForecastCategory, FinancialForecastItem } from '@/lib/types';
 
@@ -25,7 +25,7 @@ export async function getBudgetForecast(periodId: number, referenceDate: string)
               category.period_limit AS 'limit', COALESCE(SUM(expense.amount), 0) AS spent
        FROM categories category
        LEFT JOIN expenses expense ON expense.category_id = category.id
-         AND expense.period_id = ? AND ${spendingExpenseSql('expense')}
+         AND expense.period_id = ? AND ${clpSpendingExpenseSql('expense')}
        WHERE category.period_limit IS NOT NULL AND category.period_limit > 0
        GROUP BY category.id
        ORDER BY CAST(COALESCE(SUM(expense.amount), 0) AS REAL) / category.period_limit DESC,

@@ -9,6 +9,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { APP_LOCALE, t } from '@/lib/i18n';
+import { formatMoney } from '@/lib/format';
 import { showToast } from '@/lib/toast';
 import type { FinancialAuditEntry } from '@/lib/types';
 import { getFinancialAuditLog, restoreFinancialAuditEntry } from '@/repositories';
@@ -17,12 +18,6 @@ function formatMoment(value: string): string {
   const parsed = new Date(`${value.replace(' ', 'T')}Z`);
   if (!Number.isFinite(parsed.getTime())) return value;
   return new Intl.DateTimeFormat(APP_LOCALE, { dateStyle: 'medium', timeStyle: 'short' }).format(parsed);
-}
-
-function formatAmount(value: number): string {
-  return new Intl.NumberFormat(APP_LOCALE, {
-    style: 'currency', currency: 'CLP', maximumFractionDigits: 0,
-  }).format(value);
 }
 
 export default function FinancialAuditScreen() {
@@ -91,7 +86,7 @@ export default function FinancialAuditScreen() {
               <View style={styles.copy}>
                 <ThemedText type="defaultSemiBold" numberOfLines={2}>{entry.title}</ThemedText>
                 <ThemedText style={{ color: colors.textSecondary }}>
-                  {t(`financialAudit.actions.${entry.action}`)} · {formatAmount(entry.amount)}
+                  {t(`financialAudit.actions.${entry.action}`)} · {formatMoney(entry.amount, entry.currency)}
                 </ThemedText>
                 <ThemedText style={[styles.meta, { color: colors.textSecondary }]}>
                   {formatMoment(entry.createdAt)}

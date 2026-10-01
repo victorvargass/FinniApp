@@ -146,6 +146,11 @@ export default function PaymentMethodsScreen() {
                       {`${item.type === 'credit' ? t('paymentMethods.availableCredit') : t('paymentMethods.availableBalance')}: ${new Intl.NumberFormat(undefined, { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.availableBalance)}`}
                     </ThemedText>
                   )}
+                {item.usdCreditLimitCents != null && (
+                  <ThemedText type="defaultSemiBold" style={styles.balance}>
+                    {t('paymentMethods.usdAvailableCredit')}: {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format((item.usdAvailableCreditCents ?? 0) / 100)}
+                  </ThemedText>
+                )}
               </View>
             </Pressable>
             <Pressable

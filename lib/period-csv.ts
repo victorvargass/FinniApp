@@ -7,6 +7,7 @@ export const PERIOD_CSV_FIELDS = [
   'name',
   'category',
   'paymentMethod',
+  'currency',
   'amount',
 ] as const;
 
@@ -41,7 +42,10 @@ export function buildPeriodCsv(
       name: item.name,
       category: item.categoryName ?? labels.uncategorized,
       paymentMethod: item.paymentMethodName ?? labels.noPaymentMethod,
-      amount: -Math.abs(item.originalAmount ?? item.amount),
+      currency: item.currency === 'USD' ? 'USD' as const : 'CLP' as const,
+      amount: item.currency === 'USD'
+        ? -Math.abs(item.originalAmount ?? item.amount) / 100
+        : -Math.abs(item.originalAmount ?? item.amount),
     })),
     ...statement.incomes.map((item) => ({
       id: item.id,
@@ -51,6 +55,7 @@ export function buildPeriodCsv(
       name: item.name,
       category: item.categoryName ?? labels.uncategorized,
       paymentMethod: item.paymentMethodName ?? labels.noPaymentMethod,
+      currency: 'CLP' as const,
       amount: Math.abs(item.amount),
     })),
   ].sort((first, second) => (

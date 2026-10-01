@@ -7,6 +7,7 @@ import type {
   Income,
   PaymentMethod,
   SavingsGoal,
+  CurrencyCode,
 } from './types.ts';
 
 export type GlobalSearchKind =
@@ -25,6 +26,7 @@ export type GlobalSearchResult = {
   title: string;
   searchableText: string;
   amount?: number;
+  currency?: CurrencyCode;
   date?: string;
   meta?: string | null;
 };
@@ -62,6 +64,7 @@ export function buildGlobalSearchResults(
       title: item.name,
       searchableText: [item.name, item.categoryName, item.paymentMethodName, item.savingsGoalName].filter(Boolean).join(' '),
       amount: item.amount,
+      currency: item.currency,
       date: item.date,
       meta: item.categoryName,
     })),

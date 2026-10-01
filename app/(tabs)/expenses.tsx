@@ -27,7 +27,7 @@ import {
 } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
-import { formatCLP, formatEventDateTime } from '@/lib/format';
+import { formatCLP, formatEventDateTime, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
@@ -61,6 +61,7 @@ type ExpenseListItem =
       name: string;
       color: string;
       total: number;
+      usdTotal: number;
       isCollapsed: boolean;
     };
 
@@ -123,8 +124,8 @@ function compareExpenseGroups(
       return -nameComparison;
     case 'amount-asc':
     case 'amount-desc': {
-      const firstTotal = first.expenses.reduce((sum, item) => sum + item.amount, 0);
-      const secondTotal = second.expenses.reduce((sum, item) => sum + item.amount, 0);
+      const firstTotal = first.expenses.reduce((sum, item) => sum + (item.currency === 'USD' ? 0 : item.amount), 0);
+      const secondTotal = second.expenses.reduce((sum, item) => sum + (item.currency === 'USD' ? 0 : item.amount), 0);
       const comparison = firstTotal - secondTotal;
       return (sortBy === 'amount-asc' ? comparison : -comparison) || nameComparison;
     }
@@ -457,7 +458,8 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
           key,
           name: group.name,
           color: group.color,
-          total: group.expenses.reduce((sum, expense) => sum + expense.amount, 0),
+          total: group.expenses.reduce((sum, expense) => sum + (expense.currency === 'USD' ? 0 : expense.amount), 0),
+          usdTotal: group.expenses.reduce((sum, expense) => sum + (expense.currency === 'USD' ? expense.amount : 0), 0),
           isCollapsed: collapsedGroupKeys.includes(key),
         },
         ...(collapsedGroupKeys.includes(key)
@@ -787,7 +789,12 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
                   <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
                 </View>
                 <View style={styles.groupHeaderRight}>
-                  <ThemedText type="defaultSemiBold">{formatCLP(item.total)}</ThemedText>
+                  <View>
+                    <ThemedText type="defaultSemiBold">{formatCLP(item.total)}</ThemedText>
+                    {item.usdTotal > 0 && (
+                      <ThemedText type="defaultSemiBold">{formatMoney(item.usdTotal, 'USD')}</ThemedText>
+                    )}
+                  </View>
                   <Ionicons
                     name={item.isCollapsed ? 'chevron-down' : 'chevron-up'}
                     size={20}
@@ -865,7 +872,7 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
                   </View>
                 </View>
                 <View style={styles.itemActions}>
-                  <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(expense.amount)}</ThemedText>
+                  <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatMoney(expense.amount, expense.currency)}</ThemedText>
                   <Pressable
                     onPress={() => handleActions(expense)}
                     style={styles.itemActionButton}

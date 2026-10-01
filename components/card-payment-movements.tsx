@@ -38,6 +38,7 @@ export function CardPaymentMovements() {
         title: movement.name?.trim()
           || (isPayment ? t('movementLedger.cardPayment') : getAdjustmentLabel(movement.adjustmentKind)),
         amount: movement.amount,
+        currency: movement.currency,
         date: movement.date,
         time: movement.time,
         description: isPayment

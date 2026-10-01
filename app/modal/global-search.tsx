@@ -9,7 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as database from '@/repositories';
-import { formatCLP, formatDate } from '@/lib/format';
+import { formatDate, formatMoney } from '@/lib/format';
 import { buildGlobalSearchResults, type GlobalSearchData, type GlobalSearchKind, type GlobalSearchResult } from '@/lib/global-search';
 import { t } from '@/lib/i18n';
 
@@ -112,7 +112,7 @@ export default function GlobalSearchScreen() {
                       {[item.meta, item.date ? formatDate(new Date(`${item.date}T12:00:00`)) : null].filter(Boolean).join(' · ')}
                     </ThemedText>
                   </View>
-                  {item.amount != null && <ThemedText type="defaultSemiBold">{formatCLP(item.amount)}</ThemedText>}
+                  {item.amount != null && <ThemedText type="defaultSemiBold">{formatMoney(item.amount, item.currency)}</ThemedText>}
                   <Ionicons name="chevron-forward" size={18} color={colors.icon} />
                 </ThemedView>
               </Pressable>

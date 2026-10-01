@@ -12,7 +12,7 @@ import {
   getPeriodStatement,
 } from '@/repositories';
 import { calculatePeriodAvailable } from '@/lib/period-card-cashflow';
-import { formatCLP } from '@/lib/format';
+import { formatCLP, formatMoney } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import type {
   AccountTransfer,
@@ -306,7 +306,7 @@ function expenseRows(expenses: ExpenseWithCategory[]): string {
           <td><strong>${escapeHtml(expense.name)}</strong>${detailNotes}</td>
           <td class="category-cell"><span class="tag" style="border-color:${categoryColor}">${escapeHtml(expense.categoryName ?? t('expenses.noCategory'))}</span></td>
           <td class="payment-method-cell"><span class="tag" style="border-color:${paymentMethodColor}">${escapeHtml(expense.paymentMethodName ?? t('common.notSpecified'))}</span>${paymentMethodNote}</td>
-          <td class="amount expense">-${formatCLP(expense.amount)}</td>
+          <td class="amount expense">-${formatMoney(expense.amount, expense.currency)}</td>
         </tr>`;
     })
     .join('');
@@ -430,7 +430,10 @@ export function buildPeriodReportHtml(
   fonts: { regular: string | null; bold: string | null } = { regular: null, bold: null },
   accountTransfers: AccountTransfer[] = []
 ): string {
-  const expensesTotal = total(expenses);
+  const expensesTotal = total(expenses.filter((expense) => expense.currency !== 'USD'));
+  const usdExpensesTotal = expenses
+    .filter((expense) => expense.currency === 'USD')
+    .reduce((sum, expense) => sum + expense.amount, 0);
   const savingsWithdrawals = total(incomes.filter((income) => income.savingsGoalId != null));
   const incomesTotal = total(incomes.filter((income) => income.savingsGoalId == null));
   const savingsFunding = period.savingsFundingTotal ?? 0;
@@ -657,7 +660,7 @@ export function buildPeriodReportHtml(
           <thead><tr><th>${t('forms.date')}</th><th>${t('report.description')}</th><th>${t('navigation.category')}</th><th>${t('navigation.paymentMethod')}</th><th style="text-align:right">${t('report.amount')}</th></tr></thead>
           <tbody>${expenseRows(expenses)}</tbody>
         </table>
-        <div class="table-total"><span>${t('expenses.total')}</span><span class="expense">${formatCLP(expensesTotal)}</span></div>
+        <div class="table-total"><span>${t('expenses.total')}</span><span class="expense">${formatCLP(expensesTotal)}${usdExpensesTotal > 0 ? ` · ${formatMoney(usdExpensesTotal, 'USD')}` : ''}</span></div>
       </section>
 
       <section class="section transactions${incomes.length <= 8 ? ' keep-together' : ''}">

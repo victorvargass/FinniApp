@@ -6,7 +6,7 @@ import { buildPeriodCsv } from '../lib/period-csv.ts';
 const labels = {
   headers: {
     date: 'Fecha', time: 'Hora', type: 'Tipo', name: 'Nombre',
-    category: 'Categoría', paymentMethod: 'Medio de pago', amount: 'Monto',
+    category: 'Categoría', paymentMethod: 'Medio de pago', currency: 'Moneda', amount: 'Monto',
   },
   expense: 'Gasto',
   income: 'Ingreso',
@@ -34,7 +34,7 @@ test('period CSV orders movements and escapes spreadsheet-sensitive separators',
 
 test('period CSV falls back to every field when selection is empty', () => {
   const csv = buildPeriodCsv({ expenses: [], incomes: [] }, [], labels);
-  assert.match(csv, /^\uFEFFFecha;Hora;Tipo;Nombre;Categoría;Medio de pago;Monto/);
+  assert.match(csv, /^\uFEFFFecha;Hora;Tipo;Nombre;Categoría;Medio de pago;Moneda;Monto/);
 });
 
 test('period CSV remains exportable when a legacy movement has no time', () => {

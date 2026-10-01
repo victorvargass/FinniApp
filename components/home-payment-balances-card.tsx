@@ -5,7 +5,7 @@ import { ExpandableFinanceCard } from '@/components/expandable-finance-card';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatCLP } from '@/lib/format';
+import { formatCLP, formatMoney } from '@/lib/format';
 import { visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
 import {
@@ -88,6 +88,11 @@ export function HomePaymentBalancesCard({
                   <ThemedText style={[styles.creditLimit, { color: colors.textSecondary }]}>
                     {t('paymentMethods.creditLimit')}: {method.creditLimit == null ? '—' : formatCLP(method.creditLimit)}
                   </ThemedText>
+                  {method.usdCreditLimitCents != null && (
+                    <ThemedText style={[styles.creditLimit, { color: colors.textSecondary }]}>
+                      {t('paymentMethods.usdAvailableCredit')}: {formatMoney(method.usdAvailableCreditCents ?? 0, 'USD')}
+                    </ThemedText>
+                  )}
                 </>
               )}
             </View>

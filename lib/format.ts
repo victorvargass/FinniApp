@@ -4,6 +4,7 @@ import {
   parseNonNegativeCurrency,
   parsePositiveCurrency,
 } from './money';
+import type { CurrencyCode } from './types';
 
 export function formatCLP(amount: number): string {
   return new Intl.NumberFormat(APP_LOCALE, {
@@ -11,6 +12,33 @@ export function formatCLP(amount: number): string {
     currency: 'CLP',
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+/** Formats an integer amount in its native currency. USD values are stored in cents. */
+export function formatMoney(amount: number, currency: CurrencyCode = 'CLP'): string {
+  if (currency === 'USD') {
+    return new Intl.NumberFormat(APP_LOCALE, {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount / 100);
+  }
+  return formatCLP(amount);
+}
+
+export function formatUSDInput(cents: number | string | null | undefined): string {
+  const digits = extractCurrencyDigits(cents);
+  if (!digits) return '';
+  return formatMoney(Number(digits), 'USD');
+}
+
+/** Parses a USD input into integer cents. The last two digits are decimals. */
+export function parseUSDAmount(value: string): number | null {
+  const digits = extractCurrencyDigits(value);
+  if (!digits) return null;
+  const cents = Number(digits);
+  return Number.isSafeInteger(cents) && cents > 0 ? cents : null;
 }
 
 /** Formats the raw digits of a monetary input while it is being edited. */

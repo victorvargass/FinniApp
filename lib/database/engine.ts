@@ -25,7 +25,7 @@ import {
 } from '../balance-snapshot';
 import { calculateAvailableBalance } from '../payment-method-calculations';
 import { PERIOD_CARD_ADJUSTMENTS_SQL, PERIOD_CARD_PAYMENTS_SQL } from '../period-card-cashflow';
-import { spendingExpenseSql } from '../movement-classification';
+import { clpSpendingExpenseSql, spendingExpenseSql } from '../movement-classification';
 import { canUpdateExpenseAcrossCreditCycles } from '../credit-cycle-edit';
 import { UNBILLED_CREDIT_CARD_TOTAL_SQL } from '../home-summary';
 import {
@@ -637,6 +637,7 @@ async function initializeDatabase(): Promise<void> {
       split_percentage REAL,
       split_mode TEXT CHECK (split_mode IS NULL OR split_mode IN ('percentage', 'amount')),
       credit_payment_target_id INTEGER,
+      currency TEXT NOT NULL DEFAULT 'CLP' CHECK (currency IN ('CLP', 'USD')),
 
       FOREIGN KEY(category_id)
           REFERENCES categories(id)
@@ -703,6 +704,7 @@ async function initializeDatabase(): Promise<void> {
       balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0,
       balance_transfer_anchor_id INTEGER NOT NULL DEFAULT 0,
       payment_due_day INTEGER,
+      usd_credit_limit_cents INTEGER CHECK (usd_credit_limit_cents IS NULL OR usd_credit_limit_cents > 0),
       UNIQUE(name, type)
     );
 
@@ -714,6 +716,7 @@ async function initializeDatabase(): Promise<void> {
       time TEXT NOT NULL DEFAULT '12:00',
       kind TEXT NOT NULL CHECK (kind IN ('refund', 'cancelled_purchase', 'discount', 'other')),
       note TEXT,
+      currency TEXT NOT NULL DEFAULT 'CLP' CHECK (currency IN ('CLP', 'USD')),
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(payment_method_id) REFERENCES payment_methods(id) ON DELETE RESTRICT
@@ -1076,6 +1079,9 @@ async function initializeDatabase(): Promise<void> {
       'ALTER TABLE expenses ADD COLUMN credit_payment_target_id INTEGER REFERENCES payment_methods(id) ON DELETE RESTRICT;'
     );
   }
+  if (!expenseColumns.some((column) => column.name === 'currency')) {
+    await db.execAsync("ALTER TABLE expenses ADD COLUMN currency TEXT NOT NULL DEFAULT 'CLP' CHECK (currency IN ('CLP', 'USD'));");
+  }
   const incomeColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(incomes)');
   if (!incomeColumns.some((column) => column.name === 'recurring_income_id')) {
     await db.execAsync('ALTER TABLE incomes ADD COLUMN recurring_income_id INTEGER;');
@@ -1366,6 +1372,15 @@ async function initializeDatabase(): Promise<void> {
   if (!paymentMethodColumns.some((column) => column.name === 'credit_limit')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN credit_limit INTEGER;');
   }
+  if (!paymentMethodColumns.some((column) => column.name === 'usd_credit_limit_cents')) {
+    await db.execAsync('ALTER TABLE payment_methods ADD COLUMN usd_credit_limit_cents INTEGER;');
+  }
+  const creditAdjustmentColumns = await db.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(credit_card_adjustments)'
+  );
+  if (!creditAdjustmentColumns.some((column) => column.name === 'currency')) {
+    await db.execAsync("ALTER TABLE credit_card_adjustments ADD COLUMN currency TEXT NOT NULL DEFAULT 'CLP' CHECK (currency IN ('CLP', 'USD'));");
+  }
   if (!paymentMethodColumns.some((column) => column.name === 'reported_balance')) {
     await db.execAsync('ALTER TABLE payment_methods ADD COLUMN reported_balance INTEGER;');
   }
@@ -1446,6 +1461,7 @@ async function initializeDatabase(): Promise<void> {
         credit_limit INTEGER,
         reported_balance INTEGER,
         balance_updated_at TEXT,
+        balance_updated_time TEXT,
         balance_synced_at TEXT,
         balance_expense_anchor_id INTEGER NOT NULL DEFAULT 0,
         balance_payment_anchor_id INTEGER NOT NULL DEFAULT 0,
@@ -1454,19 +1470,22 @@ async function initializeDatabase(): Promise<void> {
         balance_debt_plan_anchor_id INTEGER NOT NULL DEFAULT 0,
         balance_transfer_anchor_id INTEGER NOT NULL DEFAULT 0,
         payment_due_day INTEGER,
+        usd_credit_limit_cents INTEGER,
         UNIQUE(name, type)
       );
       INSERT INTO payment_methods_new (
         id, name, type, system_key, billing_day, color, active, show_on_home, credit_limit,
-        reported_balance, balance_updated_at, balance_synced_at,
+        reported_balance, balance_updated_at, balance_updated_time, balance_synced_at,
         balance_expense_anchor_id, balance_payment_anchor_id, balance_income_anchor_id,
-        balance_adjustment_anchor_id, balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
+        balance_adjustment_anchor_id, balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day,
+        usd_credit_limit_cents
       )
       SELECT
         id, name, type, system_key, billing_day, color, active, show_on_home, credit_limit,
-        reported_balance, balance_updated_at, balance_synced_at,
+        reported_balance, balance_updated_at, balance_updated_time, balance_synced_at,
         balance_expense_anchor_id, balance_payment_anchor_id, balance_income_anchor_id,
-        balance_adjustment_anchor_id, balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day
+        balance_adjustment_anchor_id, balance_debt_plan_anchor_id, balance_transfer_anchor_id, payment_due_day,
+        usd_credit_limit_cents
       FROM payment_methods;
       DROP TABLE payment_methods;
       ALTER TABLE payment_methods_new RENAME TO payment_methods;
@@ -2891,7 +2910,8 @@ async function assertCreditPaymentSelection(
   db: SQLite.SQLiteDatabase,
   categoryId: number | null,
   paymentMethodId: number | null,
-  creditPaymentTargetId: number | null
+  creditPaymentTargetId: number | null,
+  currency: 'CLP' | 'USD' = 'CLP'
 ): Promise<void> {
   const category = categoryId == null
     ? null
@@ -2904,20 +2924,38 @@ async function assertCreditPaymentSelection(
     throw new Error(t('database.creditPaymentTargetRequired'));
   }
   if (!isCreditPayment) return;
-  if (paymentMethodId == null) {
+  if (paymentMethodId == null && currency === 'CLP') {
     throw new Error(t('database.creditPaymentSourceRequired'));
   }
   const [source, target] = await Promise.all([
-    db.getFirstAsync<{ type: PaymentMethod['type'] }>(
+    paymentMethodId == null ? Promise.resolve(null) : db.getFirstAsync<{ type: PaymentMethod['type'] }>(
       'SELECT type FROM payment_methods WHERE id = ?', paymentMethodId
     ),
-    db.getFirstAsync<{ type: PaymentMethod['type'] }>(
-      'SELECT type FROM payment_methods WHERE id = ?', creditPaymentTargetId
+    db.getFirstAsync<{ type: PaymentMethod['type']; usd_credit_limit_cents: number | null }>(
+      'SELECT type, usd_credit_limit_cents FROM payment_methods WHERE id = ?', creditPaymentTargetId
     ),
   ]);
-  if (!source || !target) throw new Error(t('database.paymentMissing'));
-  if (source.type === 'credit') throw new Error(t('database.creditPaymentSourceInvalid'));
+  if (!target || (paymentMethodId != null && !source)) throw new Error(t('database.paymentMissing'));
+  if (source?.type === 'credit') throw new Error(t('database.creditPaymentSourceInvalid'));
   if (target.type !== 'credit') throw new Error(t('database.creditPaymentTargetInvalid'));
+  if (currency === 'USD' && target.usd_credit_limit_cents == null) {
+    throw new Error(t('database.usdCreditNotEnabled'));
+  }
+}
+
+async function assertExpenseCurrencySelection(db: SQLite.SQLiteDatabase, data: NewExpense): Promise<void> {
+  if ((data.currency ?? 'CLP') !== 'USD') return;
+  if (data.originalAmount != null || data.receivableShares?.length || data.savingsGoalId != null) {
+    throw new Error(t('database.usdExpenseSimpleOnly'));
+  }
+  const methodId = data.creditPaymentTargetId ?? data.paymentMethodId;
+  if (methodId == null) throw new Error(t('database.usdCreditCardRequired'));
+  const method = await db.getFirstAsync<{ type: string; usd_credit_limit_cents: number | null }>(
+    'SELECT type, usd_credit_limit_cents FROM payment_methods WHERE id = ?', methodId
+  );
+  if (!method || method.type !== 'credit' || method.usd_credit_limit_cents == null) {
+    throw new Error(t('database.usdCreditCardRequired'));
+  }
 }
 
 export async function addSavingsGoalBalanceAdjustment(
@@ -3235,7 +3273,7 @@ export async function getPeriodSavingsFundingTotal(periodId: number): Promise<nu
     `SELECT COALESCE(SUM(expense.amount), 0) AS total
      FROM savings_goal_movements movement
      INNER JOIN expenses expense ON expense.id = movement.expense_id
-     WHERE movement.kind = 'funded_expense' AND expense.period_id = ?`,
+     WHERE movement.kind = 'funded_expense' AND expense.period_id = ? AND expense.currency = 'CLP'`,
     periodId
   );
   return Number(row?.total ?? 0);
@@ -3251,6 +3289,13 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
   const registeredTransfersIn = Number(row.registered_transfers_in ?? 0);
   const registeredTransfersOut = Number(row.registered_transfers_out ?? 0);
   const installmentCommitments = Number(row.installment_commitments ?? 0);
+  const usdCreditLimitCents = row.usd_credit_limit_cents == null ? null : Number(row.usd_credit_limit_cents);
+  const usdRegisteredChargesCents = Number(row.usd_registered_charges ?? 0);
+  const usdRegisteredPaymentsCents = Number(row.usd_registered_payments ?? 0);
+  const usdRegisteredAdjustmentsCents = Number(row.usd_registered_adjustments ?? 0);
+  const usdAvailableCreditCents = usdCreditLimitCents == null
+    ? null
+    : usdCreditLimitCents - usdRegisteredChargesCents + usdRegisteredPaymentsCents + usdRegisteredAdjustmentsCents;
   const availableBalance = reportedBalance == null
     ? null
     : calculateAvailableBalance(
@@ -3291,6 +3336,14 @@ function mapPaymentMethod(row: Record<string, unknown>): PaymentMethod {
     paymentDueDay: row.payment_due_day == null ? null : Number(row.payment_due_day),
     billedAmount: Math.max(0, Number(row.billed_amount ?? 0)),
     statementDate: row.statement_date == null ? null : String(row.statement_date),
+    usdCreditLimitCents,
+    usdAvailableCreditCents,
+    usdUsedAmountCents: usdCreditLimitCents == null || usdAvailableCreditCents == null
+      ? null
+      : Math.max(0, usdCreditLimitCents - usdAvailableCreditCents),
+    usdRegisteredChargesCents,
+    usdRegisteredPaymentsCents,
+    usdRegisteredAdjustmentsCents,
   };
 }
 
@@ -3301,6 +3354,7 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
        COALESCE((
          SELECT SUM(${paymentOutflowSql('charge')}) FROM expenses charge
          WHERE charge.payment_method_id = method.id
+           AND charge.currency = 'CLP'
            AND charge.debt_plan_id IS NULL
            AND charge.date <= DATE('now', 'localtime')
            AND ${paymentMethodAfterSnapshotSql('charge.date', 'charge.id', 'balance_expense_anchor_id', 'charge.time')}
@@ -3308,15 +3362,37 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
        COALESCE((
          SELECT SUM(payment.amount) FROM expenses payment
          WHERE payment.credit_payment_target_id = method.id
+           AND payment.currency = 'CLP'
            AND payment.date <= DATE('now', 'localtime')
            AND ${paymentMethodAfterSnapshotSql('payment.date', 'payment.id', 'balance_payment_anchor_id', 'payment.time')}
        ), 0) AS registered_payments,
        COALESCE((
          SELECT SUM(adjustment.amount) FROM credit_card_adjustments adjustment
          WHERE adjustment.payment_method_id = method.id
+           AND adjustment.currency = 'CLP'
            AND adjustment.date <= DATE('now', 'localtime')
            AND ${paymentMethodAfterSnapshotSql('adjustment.date', 'adjustment.id', 'balance_adjustment_anchor_id', 'adjustment.time')}
        ), 0) AS registered_adjustments,
+       COALESCE((
+         SELECT SUM(charge.amount) FROM expenses charge
+         WHERE charge.payment_method_id = method.id
+           AND charge.currency = 'USD'
+           AND charge.credit_payment_target_id IS NULL
+           AND charge.debt_plan_id IS NULL
+           AND charge.date <= DATE('now', 'localtime')
+       ), 0) AS usd_registered_charges,
+       COALESCE((
+         SELECT SUM(payment.amount) FROM expenses payment
+         WHERE payment.credit_payment_target_id = method.id
+           AND payment.currency = 'USD'
+           AND payment.date <= DATE('now', 'localtime')
+       ), 0) AS usd_registered_payments,
+       COALESCE((
+         SELECT SUM(adjustment.amount) FROM credit_card_adjustments adjustment
+         WHERE adjustment.payment_method_id = method.id
+           AND adjustment.currency = 'USD'
+           AND adjustment.date <= DATE('now', 'localtime')
+       ), 0) AS usd_registered_adjustments,
        COALESCE((
          SELECT SUM(income.amount) FROM incomes income
          WHERE income.payment_method_id = method.id
@@ -3351,11 +3427,13 @@ export async function getPaymentMethods(includeInactive = false): Promise<Paymen
            ORDER BY cycle.end_date DESC LIMIT 1), 0)
          - COALESCE((SELECT SUM(payment.amount) FROM expenses payment
            WHERE payment.credit_payment_target_id = method.id
+             AND payment.currency = 'CLP'
              AND payment.date >= COALESCE((SELECT cycle.end_date FROM credit_card_cycles cycle
                WHERE cycle.payment_method_id = method.id
                ORDER BY cycle.end_date DESC LIMIT 1), '9999-12-31')), 0)
          - COALESCE((SELECT SUM(adjustment.amount) FROM credit_card_adjustments adjustment
            WHERE adjustment.payment_method_id = method.id
+             AND adjustment.currency = 'CLP'
              AND adjustment.date >= COALESCE((SELECT cycle.end_date FROM credit_card_cycles cycle
                WHERE cycle.payment_method_id = method.id
                ORDER BY cycle.end_date DESC LIMIT 1), '9999-12-31')), 0)
@@ -3382,6 +3460,7 @@ export async function getPaymentMethodMovements(
     kind: PaymentMethodMovement['kind'];
     category_name: string | null;
     related_payment_method_name: string | null;
+    currency: 'CLP' | 'USD';
   }>(
     `SELECT * FROM (
        SELECT
@@ -3398,7 +3477,8 @@ export async function getPaymentMethodMovements(
          CASE
            WHEN expense.credit_payment_target_id = ? THEN source_method.name
            ELSE target_method.name
-         END AS related_payment_method_name
+         END AS related_payment_method_name,
+         expense.currency
        FROM expenses expense
        LEFT JOIN categories category ON category.id = expense.category_id
        LEFT JOIN payment_methods source_method ON source_method.id = expense.payment_method_id
@@ -3416,7 +3496,8 @@ export async function getPaymentMethodMovements(
          adjustment.time,
          'credit_adjustment' AS kind,
          adjustment.kind AS category_name,
-         NULL AS related_payment_method_name
+         NULL AS related_payment_method_name,
+         adjustment.currency
        FROM credit_card_adjustments adjustment
        WHERE adjustment.payment_method_id = ?
 
@@ -3430,7 +3511,8 @@ export async function getPaymentMethodMovements(
          '${DEFAULT_EVENT_TIME}' AS time,
          'installment_purchase' AS kind,
          category.name AS category_name,
-         NULL AS related_payment_method_name
+         NULL AS related_payment_method_name,
+         'CLP' AS currency
        FROM debt_plans plan
        LEFT JOIN categories category ON category.id = plan.category_id
        WHERE plan.payment_method_id = ? AND plan.status != 'cancelled'
@@ -3445,7 +3527,8 @@ export async function getPaymentMethodMovements(
          income.time,
          CASE WHEN savings_movement.kind = 'withdrawal' THEN 'savings_withdrawal' ELSE 'income' END AS kind,
          NULL AS category_name,
-         savings_goal.name AS related_payment_method_name
+         savings_goal.name AS related_payment_method_name,
+         'CLP' AS currency
        FROM incomes income
        LEFT JOIN savings_goal_movements savings_movement ON savings_movement.income_id = income.id
        LEFT JOIN savings_goals savings_goal ON savings_goal.id = savings_movement.goal_id
@@ -3461,7 +3544,8 @@ export async function getPaymentMethodMovements(
          transfer.time,
          'transfer_out' AS kind,
          NULL AS category_name,
-         destination.name AS related_payment_method_name
+         destination.name AS related_payment_method_name,
+         'CLP' AS currency
        FROM account_transfers transfer
        INNER JOIN payment_methods destination ON destination.id = transfer.destination_payment_method_id
        WHERE transfer.source_payment_method_id = ?
@@ -3476,7 +3560,8 @@ export async function getPaymentMethodMovements(
          transfer.time,
          'transfer_in' AS kind,
          NULL AS category_name,
-         source.name AS related_payment_method_name
+         source.name AS related_payment_method_name,
+         'CLP' AS currency
        FROM account_transfers transfer
        INNER JOIN payment_methods source ON source.id = transfer.source_payment_method_id
        WHERE transfer.destination_payment_method_id = ?
@@ -3513,6 +3598,7 @@ export async function getPaymentMethodMovements(
     relatedPaymentMethodName: row.related_payment_method_name == null
       ? null
       : String(row.related_payment_method_name),
+    currency: row.currency === 'USD' ? 'USD' : 'CLP',
   }));
 }
 
@@ -3525,6 +3611,7 @@ function mapCreditCardAdjustment(row: Record<string, unknown>): CreditCardAdjust
     time: String(row.time ?? DEFAULT_EVENT_TIME),
     kind: row.kind as CreditCardAdjustment['kind'],
     note: row.note == null ? null : String(row.note),
+    currency: row.currency === 'USD' ? 'USD' : 'CLP',
   };
 }
 
@@ -3542,12 +3629,15 @@ async function assertCreditCardAdjustment(
   if (!['refund', 'cancelled_purchase', 'discount', 'other'].includes(data.kind)) {
     throw new Error(t('database.creditAdjustmentKindInvalid'));
   }
-  const method = await database.getFirstAsync<{ type: PaymentMethod['type']; active: number }>(
-    'SELECT type, active FROM payment_methods WHERE id = ?',
+  const method = await database.getFirstAsync<{ type: PaymentMethod['type']; active: number; usd_credit_limit_cents: number | null }>(
+    'SELECT type, active, usd_credit_limit_cents FROM payment_methods WHERE id = ?',
     data.paymentMethodId
   );
   if (!method) throw new Error(t('database.paymentMissing'));
   if (method.type !== 'credit') throw new Error(t('database.creditPaymentTargetInvalid'));
+  if (data.currency === 'USD' && method.usd_credit_limit_cents == null) {
+    throw new Error(t('database.usdCreditNotEnabled'));
+  }
   if (requireActive && Number(method.active) !== 1) {
     throw new Error(t('database.activePaymentOnly'));
   }
@@ -3565,18 +3655,21 @@ export async function getCreditCardAdjustment(id: number): Promise<CreditCardAdj
 export async function createCreditCardAdjustment(data: NewCreditCardAdjustment): Promise<number> {
   const database = await getDb();
   await assertCreditCardAdjustment(database, data, true);
-  await assertCreditCardCycleIsEditable(database, data.paymentMethodId, data.date);
+  if ((data.currency ?? 'CLP') === 'CLP') {
+    await assertCreditCardCycleIsEditable(database, data.paymentMethodId, data.date);
+  }
   let createdId = 0;
   await withExclusiveTransaction(database, async (transaction) => {
     const result = await transaction.runAsync(
-      `INSERT INTO credit_card_adjustments (payment_method_id, amount, date, time, kind, note)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO credit_card_adjustments (payment_method_id, amount, date, time, kind, note, currency)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       data.paymentMethodId,
       data.amount,
       data.date,
       resolveEventTime(data.time),
       data.kind,
-      data.note?.trim() || null
+      data.note?.trim() || null,
+      data.currency ?? 'CLP'
     );
     createdId = result.lastInsertRowId;
   });
@@ -3593,18 +3686,23 @@ export async function updateCreditCardAdjustment(
     payment_method_id: number;
     date: string;
     time: string;
+    currency: 'CLP' | 'USD';
   }>(
-    'SELECT id, payment_method_id, date, time FROM credit_card_adjustments WHERE id = ?',
+    'SELECT id, payment_method_id, date, time, currency FROM credit_card_adjustments WHERE id = ?',
     id
   );
   if (!current) throw new Error(t('database.creditAdjustmentMissing'));
   await assertCreditCardAdjustment(database, data, false);
-  await assertCreditCardCycleIsEditable(database, current.payment_method_id, current.date);
-  await assertCreditCardCycleIsEditable(database, data.paymentMethodId, data.date);
+  if (current.currency === 'CLP') {
+    await assertCreditCardCycleIsEditable(database, current.payment_method_id, current.date);
+  }
+  if ((data.currency ?? 'CLP') === 'CLP') {
+    await assertCreditCardCycleIsEditable(database, data.paymentMethodId, data.date);
+  }
   await withExclusiveTransaction(database, async (transaction) => {
     await transaction.runAsync(
       `UPDATE credit_card_adjustments
-       SET payment_method_id = ?, amount = ?, date = ?, time = ?, kind = ?, note = ?, updated_at = CURRENT_TIMESTAMP
+       SET payment_method_id = ?, amount = ?, date = ?, time = ?, kind = ?, note = ?, currency = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       data.paymentMethodId,
       data.amount,
@@ -3612,6 +3710,7 @@ export async function updateCreditCardAdjustment(
       data.time ?? current.time,
       data.kind,
       data.note?.trim() || null,
+      data.currency ?? 'CLP',
       id
     );
   });
@@ -3619,12 +3718,14 @@ export async function updateCreditCardAdjustment(
 
 export async function deleteCreditCardAdjustment(id: number): Promise<void> {
   const database = await getDb();
-  const current = await database.getFirstAsync<{ payment_method_id: number; date: string }>(
-    'SELECT payment_method_id, date FROM credit_card_adjustments WHERE id = ?',
+  const current = await database.getFirstAsync<{ payment_method_id: number; date: string; currency: 'CLP' | 'USD' }>(
+    'SELECT payment_method_id, date, currency FROM credit_card_adjustments WHERE id = ?',
     id
   );
   if (!current) throw new Error(t('database.creditAdjustmentMissing'));
-  await assertCreditCardCycleIsEditable(database, current.payment_method_id, current.date);
+  if (current.currency === 'CLP') {
+    await assertCreditCardCycleIsEditable(database, current.payment_method_id, current.date);
+  }
   await withExclusiveTransaction(database, async (transaction) => {
     const result = await transaction.runAsync('DELETE FROM credit_card_adjustments WHERE id = ?', id);
     if (result.changes === 0) throw new Error(t('database.creditAdjustmentMissing'));
@@ -3699,7 +3800,8 @@ export async function getCardPaymentMovementsForPeriod(
          target.id AS target_payment_method_id,
          target.name AS target_payment_method_name,
          target.color AS target_payment_method_color,
-         NULL AS adjustment_kind
+         NULL AS adjustment_kind,
+         expense.currency
        FROM expenses expense
        LEFT JOIN payment_methods source ON source.id = expense.payment_method_id
        INNER JOIN payment_methods target ON target.id = expense.credit_payment_target_id
@@ -3720,7 +3822,8 @@ export async function getCardPaymentMovementsForPeriod(
          target.id AS target_payment_method_id,
          target.name AS target_payment_method_name,
          target.color AS target_payment_method_color,
-         adjustment.kind AS adjustment_kind
+         adjustment.kind AS adjustment_kind,
+         adjustment.currency
        FROM credit_card_adjustments adjustment
        INNER JOIN payment_methods target ON target.id = adjustment.payment_method_id
        INNER JOIN periods period ON period.id = ?
@@ -3752,6 +3855,7 @@ export async function getCardPaymentMovementsForPeriod(
     adjustmentKind: row.adjustment_kind == null
       ? null
       : row.adjustment_kind as CardPaymentMovement['adjustmentKind'],
+    currency: row.currency === 'USD' ? 'USD' : 'CLP',
   }));
 }
 
@@ -3846,6 +3950,10 @@ function validatePaymentMethod(data: NewPaymentMethod) {
     if (data.paymentDueDay == null || data.paymentDueDay < 1 || data.paymentDueDay > 31) {
       throw new Error(t('database.invalidPaymentDueDay'));
     }
+    if (data.usdCreditLimitCents != null
+      && (!Number.isInteger(data.usdCreditLimitCents) || data.usdCreditLimitCents <= 0)) {
+      throw new Error(t('database.invalidUsdCreditLimit'));
+    }
   }
   if (data.reportedBalance != null && (!Number.isInteger(data.reportedBalance) || data.reportedBalance < 0)) {
     throw new Error(t('database.paymentBalanceInvalid'));
@@ -3880,8 +3988,8 @@ export async function createPaymentMethod(data: NewPaymentMethod): Promise<void>
   await db.runAsync(
     `INSERT INTO payment_methods (
        name, type, billing_day, color, active, show_on_home, credit_limit, reported_balance,
-       balance_updated_at, balance_updated_time, balance_synced_at, payment_due_day
-     ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+       balance_updated_at, balance_updated_time, balance_synced_at, payment_due_day, usd_credit_limit_cents
+     ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`,
     data.name.trim(),
     data.type,
     data.type === 'credit' ? data.billingDay : null,
@@ -3892,7 +4000,8 @@ export async function createPaymentMethod(data: NewPaymentMethod): Promise<void>
     data.balanceDate,
     data.reportedBalance == null ? null : resolveEventTime(data.balanceTime ?? undefined),
     data.reportedBalance == null ? null : new Date().toISOString(),
-    data.type === 'credit' ? data.paymentDueDay : null
+    data.type === 'credit' ? data.paymentDueDay : null,
+    data.type === 'credit' ? data.usdCreditLimitCents ?? null : null
   );
 }
 
@@ -3908,7 +4017,7 @@ export async function updatePaymentMethod(id: number, data: NewPaymentMethod): P
   await assertUniquePaymentMethodName(db, immutableTypeData, id);
   await db.runAsync(
     `UPDATE payment_methods
-     SET name = ?, billing_day = ?, color = ?, credit_limit = ?, payment_due_day = ?, show_on_home = ?
+     SET name = ?, billing_day = ?, color = ?, credit_limit = ?, payment_due_day = ?, show_on_home = ?, usd_credit_limit_cents = ?
      WHERE id = ?`,
     data.name.trim(),
     current.type === 'credit' ? data.billingDay : null,
@@ -3916,6 +4025,7 @@ export async function updatePaymentMethod(id: number, data: NewPaymentMethod): P
     current.type === 'credit' ? data.creditLimit : null,
     current.type === 'credit' ? data.paymentDueDay : null,
     data.showOnHome ? 1 : 0,
+    current.type === 'credit' ? data.usdCreditLimitCents ?? null : null,
     id
   );
 }
@@ -4193,7 +4303,7 @@ export async function getPaymentMethodTotals(periodId: number): Promise<PaymentM
        FROM expenses e
        LEFT JOIN payment_methods pm ON pm.id = e.payment_method_id
        LEFT JOIN savings_goal_movements savingsMovement ON savingsMovement.expense_id = e.id
-       WHERE e.period_id = ? AND ${spendingExpenseSql('e')}
+       WHERE e.period_id = ? AND ${clpSpendingExpenseSql('e')}
      )
      GROUP BY paymentMethodId, paymentMethodName, paymentMethodType, paymentMethodColor
      ORDER BY total DESC`,
@@ -4233,10 +4343,12 @@ export async function getCreditCardCycles(paymentMethodId: number): Promise<Cred
        (SELECT COALESCE(SUM(${paymentOutflowSql('expense')}), 0)
         FROM expenses expense
         WHERE expense.payment_method_id = cc.payment_method_id
+          AND expense.currency = 'CLP'
           AND expense.date BETWEEN cc.start_date AND cc.end_date)
        - (SELECT COALESCE(SUM(credit.amount), 0)
           FROM credit_card_adjustments credit
           WHERE credit.payment_method_id = cc.payment_method_id
+            AND credit.currency = 'CLP'
             AND credit.date BETWEEN cc.start_date AND cc.end_date) AS recordedTotal
      FROM credit_card_cycles cc
      LEFT JOIN expenses bank_charge ON bank_charge.id = cc.bank_charge_expense_id
@@ -4351,10 +4463,12 @@ export async function reconcileCreditCardCycle(
         (SELECT COALESCE(SUM(${paymentOutflowSql('expense')}), 0)
          FROM expenses expense
          WHERE expense.payment_method_id = cycle.payment_method_id
+           AND expense.currency = 'CLP'
            AND expense.date BETWEEN cycle.start_date AND cycle.end_date)
         - (SELECT COALESCE(SUM(credit.amount), 0)
            FROM credit_card_adjustments credit
            WHERE credit.payment_method_id = cycle.payment_method_id
+             AND credit.currency = 'CLP'
              AND credit.date BETWEEN cycle.start_date AND cycle.end_date) AS recorded_total
        FROM credit_card_cycles cycle
        WHERE cycle.id = ?`,
@@ -5513,6 +5627,7 @@ export async function getExpenses(periodId?: number): Promise<ExpenseWithCategor
         e.split_mode AS splitMode,
         e.payment_method_id AS paymentMethodId,
         e.credit_payment_target_id AS creditPaymentTargetId,
+        e.currency,
         e.recurring_expense_id AS recurringExpenseId,
         e.debt_plan_id AS debtPlanId,
         debtEntry.debt_id AS debtId,
@@ -5584,6 +5699,7 @@ export async function getExpenseById(id: number): Promise<ExpenseWithCategory | 
       e.split_mode AS splitMode,
       e.payment_method_id AS paymentMethodId,
       e.credit_payment_target_id AS creditPaymentTargetId,
+      e.currency,
       e.recurring_expense_id AS recurringExpenseId,
       e.debt_plan_id AS debtPlanId,
       (SELECT entry.debt_id FROM manual_debt_entries entry WHERE entry.expense_id = e.id) AS debtId,
@@ -5717,18 +5833,22 @@ export async function createExpense(
     db,
     data.categoryId,
     effectivePaymentMethodId,
-    data.creditPaymentTargetId ?? null
+    data.creditPaymentTargetId ?? null,
+    data.currency ?? 'CLP'
   );
+  await assertExpenseCurrencySelection(db, data);
   await assertDateBelongsToPeriod(db, targetPeriodId, data.date);
-  await assertCreditCardCycleIsEditable(db, effectivePaymentMethodId, data.date);
+  if ((data.currency ?? 'CLP') === 'CLP') {
+    await assertCreditCardCycleIsEditable(db, effectivePaymentMethodId, data.date);
+  }
 
   let createdId = 0;
   await withExclusiveTransaction(db, async (transaction) => {
     const result = await transaction.runAsync(
       `INSERT INTO expenses (
         name, amount, category_id, period_id, date, time, original_amount,
-        split_percentage, split_mode, payment_method_id, credit_payment_target_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        split_percentage, split_mode, payment_method_id, credit_payment_target_id, currency
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       data.name.trim(),
       data.amount,
       data.categoryId,
@@ -5739,7 +5859,8 @@ export async function createExpense(
       data.splitPercentage,
       data.splitMode,
       effectivePaymentMethodId,
-      data.creditPaymentTargetId ?? null
+      data.creditPaymentTargetId ?? null,
+      data.currency ?? 'CLP'
     );
     createdId = result.lastInsertRowId;
     await setExpenseSavingsMovement(transaction, createdId, data.amount, selection);
@@ -5771,9 +5892,10 @@ export async function updateExpense(
     payment_method_id: number | null;
     recurring_expense_id: number | null;
     credit_payment_target_id: number | null;
+    currency: 'CLP' | 'USD';
   }>(
     `SELECT period_id, date, time, amount, original_amount, payment_method_id, recurring_expense_id,
-       credit_payment_target_id FROM expenses WHERE id = ?`,
+       credit_payment_target_id, currency FROM expenses WHERE id = ?`,
     id
   );
   if (!expense) throw new Error(t('database.expenseMissing'));
@@ -5799,21 +5921,34 @@ export async function updateExpense(
     throw new Error(t('database.splitReceivablesLocked'));
   }
   await assertDateBelongsToPeriod(db, expense.period_id, data.date);
-  await assertExpenseCreditCardCycleUpdateAllowed(
-    db,
-    {
-      paymentMethodId: expense.payment_method_id,
-      date: expense.date,
-      amount: expense.amount,
-      originalAmount: expense.original_amount,
-    },
-    {
-      paymentMethodId: effectivePaymentMethodId,
-      date: data.date,
-      amount: data.amount,
-      originalAmount: data.originalAmount,
+  const nextCurrency = data.currency ?? expense.currency;
+  if (nextCurrency === 'USD' && expense.recurring_expense_id != null) {
+    throw new Error(t('database.usdExpenseSimpleOnly'));
+  }
+  if (expense.currency === 'CLP' && nextCurrency === 'CLP') {
+    await assertExpenseCreditCardCycleUpdateAllowed(
+      db,
+      {
+        paymentMethodId: expense.payment_method_id,
+        date: expense.date,
+        amount: expense.amount,
+        originalAmount: expense.original_amount,
+      },
+      {
+        paymentMethodId: effectivePaymentMethodId,
+        date: data.date,
+        amount: data.amount,
+        originalAmount: data.originalAmount,
+      }
+    );
+  } else {
+    if (expense.currency === 'CLP') {
+      await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
     }
-  );
+    if (nextCurrency === 'CLP') {
+      await assertCreditCardCycleIsEditable(db, effectivePaymentMethodId, data.date);
+    }
+  }
   const creditPaymentTargetId = data.creditPaymentTargetId === undefined
     ? expense.credit_payment_target_id
     : data.creditPaymentTargetId;
@@ -5821,8 +5956,14 @@ export async function updateExpense(
     db,
     data.categoryId,
     effectivePaymentMethodId,
-    creditPaymentTargetId
+    creditPaymentTargetId,
+    nextCurrency
   );
+  await assertExpenseCurrencySelection(db, {
+    ...data,
+    creditPaymentTargetId,
+    currency: nextCurrency,
+  });
   if (debtEntry) {
     await assertDebtPaymentMethodExists(db, effectivePaymentMethodId);
     const balanceAtPayment = await getDebtPaymentCapacityAtDate(
@@ -5845,7 +5986,7 @@ export async function updateExpense(
       `UPDATE expenses SET
         name = ?, amount = ?, category_id = ?, date = ?, time = ?,
         original_amount = ?, split_percentage = ?, split_mode = ?, payment_method_id = ?,
-        credit_payment_target_id = ?
+        credit_payment_target_id = ?, currency = ?
        WHERE id = ?`,
       data.name.trim(),
       data.amount,
@@ -5857,6 +5998,7 @@ export async function updateExpense(
       data.splitMode,
       effectivePaymentMethodId,
       creditPaymentTargetId,
+      nextCurrency,
       id
     );
 
@@ -5975,8 +6117,9 @@ export async function deleteExpense(
     payment_method_id: number | null;
     debt_plan_id: number | null;
     debt_installment_id: number | null;
+    currency: 'CLP' | 'USD';
   }>(
-    'SELECT date, payment_method_id, debt_plan_id, debt_installment_id FROM expenses WHERE id = ?',
+    'SELECT date, payment_method_id, debt_plan_id, debt_installment_id, currency FROM expenses WHERE id = ?',
     id
   );
   if (!expense) return;
@@ -5984,7 +6127,9 @@ export async function deleteExpense(
     "SELECT debt_id FROM manual_debt_entries WHERE expense_id = ? AND kind = 'payment'",
     id
   );
-  await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
+  if (expense.currency === 'CLP') {
+    await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
+  }
   await withExclusiveTransaction(db, async (transaction) => {
     const snapshot = await transaction.getFirstAsync<Record<string, unknown>>(
       'SELECT * FROM expenses WHERE id = ?', id
@@ -7595,21 +7740,33 @@ export async function getFinancialAuditLog(): Promise<FinancialAuditEntry[]> {
     restriction_reason: string | null;
     restored_at: string | null;
     created_at: string;
+    snapshot_json: string | null;
   }>(
     `SELECT id, entity_type, entity_id, action, title, amount, event_date, event_time,
-            restorable, restriction_reason, restored_at, created_at
+            restorable, restriction_reason, restored_at, created_at, snapshot_json
      FROM financial_audit_log
      ORDER BY created_at DESC, id DESC
      LIMIT 250`
   );
-  return rows.map((row) => ({
+  return rows.map((row) => {
+    let currency: 'CLP' | 'USD' = 'CLP';
+    if (row.entity_type === 'expense' && row.snapshot_json) {
+      try {
+        currency = (JSON.parse(row.snapshot_json) as { currency?: unknown }).currency === 'USD' ? 'USD' : 'CLP';
+      } catch {
+        currency = 'CLP';
+      }
+    }
+    return ({
     id: Number(row.id), entityType: row.entity_type, entityId: Number(row.entity_id),
     action: row.action, title: row.title, amount: Number(row.amount),
     eventDate: row.event_date, eventTime: row.event_time,
     restorable: Number(row.restorable) === 1 && row.restored_at == null,
     restrictionReason: row.restriction_reason, restoredAt: row.restored_at,
     createdAt: row.created_at,
-  }));
+    currency,
+  });
+  });
 }
 
 export async function restoreFinancialAuditEntry(auditId: number): Promise<void> {
@@ -7647,17 +7804,19 @@ export async function restoreFinancialAuditEntry(auditId: number): Promise<void>
     if (existing) throw new Error(t('database.auditIdConflict'));
 
     if (audit.entity_type === 'expense') {
-      await assertCreditCardCycleIsEditable(
-        transaction,
-        snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
-        String(snapshot.date)
-      );
+      if (snapshot.currency !== 'USD') {
+        await assertCreditCardCycleIsEditable(
+          transaction,
+          snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
+          String(snapshot.date)
+        );
+      }
       await transaction.runAsync(
         `INSERT INTO expenses
           (id, name, amount, category_id, period_id, date, time, original_amount,
            split_percentage, split_mode, payment_method_id, recurring_expense_id,
-           debt_plan_id, debt_installment_id, credit_payment_target_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           debt_plan_id, debt_installment_id, credit_payment_target_id, currency)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         Number(snapshot.id), String(snapshot.name), Number(snapshot.amount),
         snapshot.category_id == null ? null : Number(snapshot.category_id), Number(snapshot.period_id),
         String(snapshot.date), String(snapshot.time ?? DEFAULT_EVENT_TIME),
@@ -7666,7 +7825,8 @@ export async function restoreFinancialAuditEntry(auditId: number): Promise<void>
         snapshot.split_mode == null ? null : String(snapshot.split_mode),
         snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
         null, null, null,
-        snapshot.credit_payment_target_id == null ? null : Number(snapshot.credit_payment_target_id)
+        snapshot.credit_payment_target_id == null ? null : Number(snapshot.credit_payment_target_id),
+        snapshot.currency === 'USD' ? 'USD' : 'CLP'
       );
     } else {
       await transaction.runAsync(
@@ -7685,9 +7845,10 @@ export async function restoreFinancialAuditEntry(auditId: number): Promise<void>
     );
     await transaction.runAsync(
       `INSERT INTO financial_audit_log
-        (entity_type, entity_id, action, title, amount, event_date, event_time, restorable)
-       VALUES (?, ?, 'restored', ?, ?, ?, ?, 0)`,
-      audit.entity_type, audit.entity_id, audit.title, audit.amount, audit.event_date, audit.event_time
+        (entity_type, entity_id, action, title, amount, event_date, event_time, snapshot_json, restorable)
+       VALUES (?, ?, 'restored', ?, ?, ?, ?, ?, 0)`,
+      audit.entity_type, audit.entity_id, audit.title, audit.amount, audit.event_date, audit.event_time,
+      audit.snapshot_json
     );
   });
 }
@@ -7701,7 +7862,7 @@ export async function getPeriodCategoryExpensesTotals(
     WITH filtered_expenses AS (
       SELECT category_id, amount
       FROM expenses
-      WHERE period_id = ? AND ${spendingExpenseSql()}
+      WHERE period_id = ? AND ${clpSpendingExpenseSql()}
     )
     SELECT
       c.id as categoryId,
@@ -7964,7 +8125,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
   }[] = await db.getAllAsync(`
     SELECT id, period_id, category_id, payment_method_id, amount
     FROM expenses
-    WHERE ${spendingExpenseSql()}
+    WHERE ${clpSpendingExpenseSql()}
   `);
 
   // Get all incomes
@@ -8000,7 +8161,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
     SELECT expense.period_id, COALESCE(SUM(expense.amount), 0) AS total
     FROM savings_goal_movements movement
     INNER JOIN expenses expense ON expense.id = movement.expense_id
-    WHERE movement.kind = 'funded_expense'
+    WHERE movement.kind = 'funded_expense' AND expense.currency = 'CLP'
     GROUP BY expense.period_id
   `);
   const savingsFundingByPeriod = new Map(
@@ -8140,6 +8301,8 @@ export async function getPeriodStatement(
         e.split_percentage AS splitPercentage,
         e.split_mode AS splitMode,
         e.payment_method_id AS paymentMethodId,
+        e.credit_payment_target_id AS creditPaymentTargetId,
+        e.currency,
         e.recurring_expense_id AS recurringExpenseId,
         e.debt_plan_id AS debtPlanId,
         installment.installment_number AS installmentNumber,
@@ -8270,6 +8433,7 @@ export async function getPeriodFinancialDetails(periodId: number): Promise<Perio
           SELECT SUM(${paymentOutflowSql('expense')})
           FROM expenses expense
           WHERE expense.payment_method_id = cycle.payment_method_id
+            AND expense.currency = 'CLP'
             AND expense.date BETWEEN cycle.start_date AND cycle.end_date
         ), 0) AS recordedTotal,
         cycle.status

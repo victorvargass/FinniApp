@@ -14,7 +14,7 @@ test('credit card adjustment insert binds one value per declared column', () => 
     implementation.indexOf('createdId = result.lastInsertRowId')
   );
   const argumentsPassed = argumentBlock.match(/^\s{6}(?:data\.|resolveEventTime)/gm) ?? [];
-  assert.equal(values.length, 6);
-  assert.equal(argumentsPassed.length, 6);
+  assert.equal(values.length, 7);
+  assert.equal(argumentsPassed.length, 7);
   assert.equal((argumentBlock.match(/resolveEventTime\(data\.time\)/g) ?? []).length, 1);
 });

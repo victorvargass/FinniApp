@@ -9,7 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatCLP, formatDate, formatEventDateTime } from '@/lib/format';
+import { formatCLP, formatDate, formatEventDateTime, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getCardDueDate } from '@/lib/payment-method-calculations';
 import type { PaymentMethodMovement } from '@/lib/types';
@@ -65,6 +65,9 @@ export default function PaymentMethodDetailScreen() {
   const isCredit = method.type === 'credit';
   const progress = isCredit && method.creditLimit
     ? Math.min(1, Math.max(0, (method.usedAmount ?? 0) / method.creditLimit))
+    : 0;
+  const usdProgress = method.usdCreditLimitCents
+    ? Math.min(1, Math.max(0, (method.usdUsedAmountCents ?? 0) / method.usdCreditLimitCents))
     : 0;
   const dueDate = isCredit ? getCardDueDate(method) : null;
   const typeLabel = {
@@ -127,6 +130,22 @@ export default function PaymentMethodDetailScreen() {
             </ThemedText>
           )}
         </View>
+
+        {method.usdCreditLimitCents != null && (
+          <ThemedView style={[styles.setupCard, { borderColor: colors.primary }]}>
+            <View style={styles.setupCopy}>
+              <ThemedText type="subtitle">{t('paymentMethods.usdAvailableCredit')}</ThemedText>
+              <ThemedText type="title">{formatMoney(method.usdAvailableCreditCents ?? 0, 'USD')}</ThemedText>
+              <View style={[styles.track, { backgroundColor: colors.border }]}>
+                <View style={[styles.fill, { width: `${usdProgress * 100}%`, backgroundColor: colors.primary }]} />
+              </View>
+              <View style={styles.accountFooter}>
+                <ThemedText style={styles.hint}>{t('paymentMethods.usdUsed')} {formatMoney(method.usdUsedAmountCents ?? 0, 'USD')}</ThemedText>
+                <ThemedText style={styles.hint}>{t('paymentMethods.totalCredit')} {formatMoney(method.usdCreditLimitCents, 'USD')}</ThemedText>
+              </View>
+            </View>
+          </ThemedView>
+        )}
 
         {method.availableBalance == null && (
           <ThemedView style={[styles.setupCard, { borderColor: colors.secondary }]}>
@@ -267,7 +286,7 @@ export default function PaymentMethodDetailScreen() {
                   styles.movementAmount,
                   { color: isIncoming ? colors.success : colors.expense },
                 ]}>
-                  {isIncoming ? '+' : '−'}{formatCLP(movement.amount)}
+                  {isIncoming ? '+' : '−'}{formatMoney(movement.amount, movement.currency)}
                 </ThemedText>
               </Pressable>
             );

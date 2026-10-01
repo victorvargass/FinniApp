@@ -28,9 +28,9 @@ export function buildWeeklyInsight(
   const currentStart = addUtcDays(referenceDate, -6);
   const previousStart = addUtcDays(referenceDate, -13);
   const previousEnd = addUtcDays(referenceDate, -7);
-  const currentExpenses = expenses.filter((item) => isBetween(item.date, currentStart, referenceDate));
+  const currentExpenses = expenses.filter((item) => item.currency !== 'USD' && isBetween(item.date, currentStart, referenceDate));
   const currentIncomes = incomes.filter((item) => isBetween(item.date, currentStart, referenceDate));
-  const previousExpenses = expenses.filter((item) => isBetween(item.date, previousStart, previousEnd));
+  const previousExpenses = expenses.filter((item) => item.currency !== 'USD' && isBetween(item.date, previousStart, previousEnd));
   const expenseTotal = currentExpenses.reduce((sum, item) => sum + item.amount, 0);
   const incomeTotal = currentIncomes.reduce((sum, item) => sum + item.amount, 0);
   const previousExpenseTotal = previousExpenses.reduce((sum, item) => sum + item.amount, 0);

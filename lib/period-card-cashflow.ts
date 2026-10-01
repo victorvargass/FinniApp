@@ -8,12 +8,14 @@ export type PeriodCardCashflow = {
 type PeriodOverviewExpense = {
   amount: number;
   paymentMethodType: PaymentMethodType | null;
+  currency?: 'CLP' | 'USD';
 };
 
 export const PERIOD_CARD_PAYMENTS_SQL = `
   SELECT period_id AS periodId, SUM(amount) AS total
   FROM expenses
   WHERE credit_payment_target_id IS NOT NULL
+    AND currency = 'CLP'
   GROUP BY period_id
 `;
 
@@ -22,6 +24,7 @@ export const PERIOD_CARD_ADJUSTMENTS_SQL = `
   FROM credit_card_adjustments adjustment
   INNER JOIN periods period
     ON adjustment.date BETWEEN period.start_date AND period.end_date
+  WHERE adjustment.currency = 'CLP'
   GROUP BY period.id
 `;
 
@@ -29,7 +32,7 @@ export function calculatePeriodOverviewExpenses(
   expenses: readonly PeriodOverviewExpense[]
 ): number {
   return expenses.reduce(
-    (total, expense) => total + (expense.paymentMethodType === 'credit' ? 0 : expense.amount),
+    (total, expense) => total + (expense.paymentMethodType === 'credit' || expense.currency === 'USD' ? 0 : expense.amount),
     0
   );
 }
