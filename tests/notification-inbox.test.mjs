@@ -4,9 +4,20 @@ import { DatabaseSync } from 'node:sqlite';
 
 import {
   DEDUPLICATE_MOVEMENT_REMINDERS_SQL,
+  isAppNotificationVisible,
   localNotificationDateKey,
   notificationDayBucket,
 } from '../lib/notification-inbox.ts';
+
+test('financial reminders due within seven days are visible before their push arrives', () => {
+  const now = new Date(2026, 8, 30, 9, 43).getTime();
+  const dueInFiveDays = new Date(2026, 9, 5, 9).getTime();
+  const dueInEightDays = new Date(2026, 9, 8, 9).getTime();
+
+  assert.equal(isAppNotificationVisible('card-payment-due', dueInFiveDays, now), true);
+  assert.equal(isAppNotificationVisible('movement-reminder', dueInFiveDays, now), false);
+  assert.equal(isAppNotificationVisible('card-payment-due', dueInEightDays, now), false);
+});
 
 test('movement reminder keys use the device local calendar date', () => {
   const localEvening = new Date(2026, 8, 25, 21, 0, 0);

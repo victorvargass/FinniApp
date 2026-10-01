@@ -203,12 +203,7 @@ export async function syncFinancialReminders(
 ): Promise<void> {
   if (Platform.OS === 'web') return;
 
-  await configureFinancialReminderChannel();
   await cancelFinancialReminders();
-  if (!notificationsEnabled) return;
-  const permission = await Notifications.getPermissionsAsync();
-  if (!permission.granted) return;
-
   const reminders = buildFinancialReminders(data);
   await replaceFutureAppNotifications(
     [...FINANCIAL_KINDS],
@@ -224,6 +219,11 @@ export async function syncFinancialReminders(
       recurringDate: null,
     }))
   );
+
+  if (!notificationsEnabled) return;
+  await configureFinancialReminderChannel();
+  const permission = await Notifications.getPermissionsAsync();
+  if (!permission.granted) return;
 
   for (const reminder of reminders) {
     await Notifications.scheduleNotificationAsync({

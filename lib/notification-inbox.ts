@@ -8,6 +8,28 @@ export function localNotificationDateKey(value: Date | number): string {
 
 export type NotificationDayBucket = 'today' | 'yesterday' | 'date';
 
+export const UPCOMING_NOTIFICATION_HORIZON_MS = 7 * 24 * 60 * 60 * 1000;
+export const UPCOMING_FINANCIAL_NOTIFICATION_KINDS = [
+  'card-billing-date',
+  'card-payment-due',
+  'debt-payment-due',
+  'installment-payment-due',
+  'period-ending',
+] as const;
+
+export function isAppNotificationVisible(
+  kind: string,
+  scheduledFor: number,
+  now = Date.now()
+): boolean {
+  return scheduledFor <= now || (
+    UPCOMING_FINANCIAL_NOTIFICATION_KINDS.includes(
+      kind as typeof UPCOMING_FINANCIAL_NOTIFICATION_KINDS[number]
+    )
+    && scheduledFor <= now + UPCOMING_NOTIFICATION_HORIZON_MS
+  );
+}
+
 export function notificationDayBucket(
   value: Date | number,
   now: Date | number = Date.now()

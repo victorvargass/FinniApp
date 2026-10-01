@@ -37,7 +37,7 @@ import type { HomeSectionId } from '@/lib/home-preferences';
 import { visibleHomeDebts, visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
-import { findUrgentCardPayment } from '@/lib/payment-method-calculations';
+import { findUrgentCardPayments } from '@/lib/payment-method-calculations';
 import { getHomePaymentMethods, sumKnownAvailableBalances } from '@/lib/payment-method-groups';
 import {
   calculatePeriodAvailable,
@@ -214,7 +214,7 @@ export default function HomeScreen() {
   const negativePaymentMethod = paymentMethods.find(
     (method) => method.active && method.availableBalance != null && method.availableBalance < 0
   );
-  const urgentCardPayment = findUrgentCardPayment(paymentMethods);
+  const urgentCardPayments = findUrgentCardPayments(paymentMethods);
   const closeInsights = selectedPeriodReport
     ? buildPeriodCloseInsights(
       periodBalance,
@@ -227,25 +227,27 @@ export default function HomeScreen() {
     : null;
   const attentionItems: HomeAttentionItem[] = [];
 
-  if (isCurrentPeriod && urgentCardPayment) {
-    const isOverdue = urgentCardPayment.daysUntil < 0;
-    const attentionId = `card-due-${urgentCardPayment.method.id}-${toDateString(urgentCardPayment.dueDate)}-${urgentCardPayment.method.billedAmount}`;
-    attentionItems.push({
-      key: attentionId,
-      icon: isOverdue ? 'alert-circle-outline' : 'calendar-outline',
-      title: t(isOverdue ? 'home.cardPaymentOverdueTitle' : 'home.cardPaymentDueTitle'),
-      body: t(isOverdue ? 'home.cardPaymentOverdueBody' : 'home.cardPaymentDueBody', {
-        name: urgentCardPayment.method.name,
-        amount: formatCLP(urgentCardPayment.method.billedAmount),
-        date: formatDate(urgentCardPayment.dueDate),
-      }),
-      tone: isOverdue ? 'danger' : 'warning',
-      onPress: () => router.push({
-        pathname: '/modal/payment-method-detail',
-        params: { id: String(urgentCardPayment.method.id) },
-      }),
-      onDismiss: () => dismissAttention(attentionId),
-    });
+  if (isCurrentPeriod) {
+    for (const urgentCardPayment of urgentCardPayments) {
+      const isOverdue = urgentCardPayment.daysUntil < 0;
+      const attentionId = `card-due-${urgentCardPayment.method.id}-${toDateString(urgentCardPayment.dueDate)}-${urgentCardPayment.method.billedAmount}`;
+      attentionItems.push({
+        key: attentionId,
+        icon: isOverdue ? 'alert-circle-outline' : 'calendar-outline',
+        title: t(isOverdue ? 'home.cardPaymentOverdueTitle' : 'home.cardPaymentDueTitle'),
+        body: t(isOverdue ? 'home.cardPaymentOverdueBody' : 'home.cardPaymentDueBody', {
+          name: urgentCardPayment.method.name,
+          amount: formatCLP(urgentCardPayment.method.billedAmount),
+          date: formatDate(urgentCardPayment.dueDate),
+        }),
+        tone: isOverdue ? 'danger' : 'warning',
+        onPress: () => router.push({
+          pathname: '/modal/payment-method-detail',
+          params: { id: String(urgentCardPayment.method.id) },
+        }),
+        onDismiss: () => dismissAttention(attentionId),
+      });
+    }
   }
 
   if (isCurrentPeriod && pendingConfirmationCount > 0) {

@@ -68,11 +68,11 @@ export function getCardDueDate(
   };
 }
 
-export function findUrgentCardPayment(
+export function findUrgentCardPayments(
   methods: PaymentMethod[],
   referenceDate = new Date(),
   horizonDays = 7
-): { method: PaymentMethod; dueDate: Date; daysUntil: number } | null {
+): { method: PaymentMethod; dueDate: Date; daysUntil: number }[] {
   const referenceKey = Date.UTC(
     referenceDate.getFullYear(),
     referenceDate.getMonth(),
@@ -91,7 +91,17 @@ export function findUrgentCardPayment(
       return { method, dueDate, daysUntil: Math.round((dueKey - referenceKey) / DAY_MS) };
     })
     .filter((item) => item.daysUntil <= horizonDays)
-    .sort((first, second) => first.daysUntil - second.daysUntil)[0] ?? null;
+    .sort((first, second) => first.daysUntil - second.daysUntil
+      || first.method.name.localeCompare(second.method.name)
+      || first.method.id - second.method.id);
+}
+
+export function findUrgentCardPayment(
+  methods: PaymentMethod[],
+  referenceDate = new Date(),
+  horizonDays = 7
+): { method: PaymentMethod; dueDate: Date; daysUntil: number } | null {
+  return findUrgentCardPayments(methods, referenceDate, horizonDays)[0] ?? null;
 }
 import type { PaymentMethod } from './types';
 

@@ -1,5 +1,9 @@
 import { getDatabase, withExclusiveDatabaseTransaction } from '@/lib/database/connection';
-import { DEDUPLICATE_MOVEMENT_REMINDERS_SQL } from '@/lib/notification-inbox';
+import {
+  DEDUPLICATE_MOVEMENT_REMINDERS_SQL,
+  UPCOMING_FINANCIAL_NOTIFICATION_KINDS,
+  UPCOMING_NOTIFICATION_HORIZON_MS,
+} from '@/lib/notification-inbox';
 import type { AppNotification, NewAppNotification } from '@/lib/types';
 
 async function withNotificationTransaction(
@@ -83,6 +87,8 @@ export async function getAppNotifications(): Promise<AppNotification[]> {
     await transaction.execAsync(DEDUPLICATE_MOVEMENT_REMINDERS_SQL);
   });
   const database = await getDatabase();
+  const now = Date.now();
+  const upcomingKinds = UPCOMING_FINANCIAL_NOTIFICATION_KINDS.map(() => '?').join(', ');
   const rows = await database.getAllAsync<Omit<AppNotification, 'isRead'> & { isRead: number }>(
     `SELECT
       id,
@@ -99,10 +105,18 @@ export async function getAppNotifications(): Promise<AppNotification[]> {
       created_at AS createdAt,
       CASE WHEN read_at IS NULL THEN 0 ELSE 1 END AS isRead
      FROM app_notifications
-     WHERE deleted_at IS NULL AND scheduled_for <= ?
+     WHERE deleted_at IS NULL AND (
+       scheduled_for <= ?
+       OR (
+         kind IN (${upcomingKinds})
+         AND scheduled_for <= ?
+       )
+     )
      ORDER BY scheduled_for DESC, id DESC
      LIMIT 200`,
-    Date.now()
+    now,
+    ...UPCOMING_FINANCIAL_NOTIFICATION_KINDS,
+    now + UPCOMING_NOTIFICATION_HORIZON_MS
   );
   return rows.map((row) => ({ ...row, isRead: row.isRead === 1 }));
 }
