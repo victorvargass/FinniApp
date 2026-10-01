@@ -4,7 +4,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatCLP } from '@/lib/format';
+import { formatCLP, formatMoney } from '@/lib/format';
 import type { HomeGlobalMetricId, HomePeriodMetricId } from '@/lib/home-preferences';
 import { t } from '@/lib/i18n';
 
@@ -13,6 +13,12 @@ type HomeSummaryCardsProps = {
   globalMetrics: HomeGlobalMetricId[];
   periodValues: Record<HomePeriodMetricId, number>;
   globalValues: Record<HomeGlobalMetricId, number>;
+  creditTotals: {
+    limitClp: number;
+    availableUsdCents: number;
+    limitUsdCents: number;
+    hasUsd: boolean;
+  };
 };
 
 type MetricRowProps = {
@@ -39,6 +45,7 @@ export function HomeSummaryCards({
   globalMetrics,
   periodValues,
   globalValues,
+  creditTotals,
 }: HomeSummaryCardsProps) {
   const scheme = useColorScheme() ?? 'light';
   const colors = Colors[scheme];
@@ -95,16 +102,39 @@ export function HomeSummaryCards({
       <ThemedView style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <ThemedText type="subtitle">{t('home.globalSummary')}</ThemedText>
         <View style={styles.grid}>
-          {globalMetrics.map((metric) => (
-            <MetricRow
-              key={metric}
-              label={globalLabels[metric]}
-              value={globalValues[metric]}
-              color={metric === 'debt' || metric === 'billedCredit'
-                ? colors.expense
-                : metric === 'savings' ? colors.savings : undefined}
-            />
-          ))}
+          {globalMetrics.map((metric) => metric === 'credit' ? (
+            <View key={metric} style={styles.metric}>
+              <ThemedText style={[styles.metricLabel, { color: colors.textSecondary }]}>
+                {globalLabels[metric]}
+              </ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.currencyMetricValue}>
+                CLP {formatCLP(globalValues.credit)}
+              </ThemedText>
+              {creditTotals.hasUsd && (
+                <ThemedText type="defaultSemiBold" style={styles.currencyMetricValue}>
+                  USD {formatMoney(creditTotals.availableUsdCents, 'USD')}
+                </ThemedText>
+              )}
+              <ThemedText style={[styles.metricLabel, styles.creditLimitLabel, { color: colors.textSecondary }]}>
+                {t('home.globalMetricCreditLimits')}
+              </ThemedText>
+              <ThemedText style={styles.currencyMetricSecondary}>CLP {formatCLP(creditTotals.limitClp)}</ThemedText>
+              {creditTotals.hasUsd && (
+                <ThemedText style={styles.currencyMetricSecondary}>
+                  USD {formatMoney(creditTotals.limitUsdCents, 'USD')}
+                </ThemedText>
+              )}
+            </View>
+          ) : (
+              <MetricRow
+                key={metric}
+                label={globalLabels[metric]}
+                value={globalValues[metric]}
+                color={metric === 'debt' || metric === 'billedCredit'
+                  ? colors.expense
+                  : metric === 'savings' ? colors.savings : undefined}
+              />
+            ))}
         </View>
       </ThemedView>
     </View>
@@ -119,4 +149,7 @@ const styles = StyleSheet.create({
   metric: { width: '50%', paddingHorizontal: 6, gap: 3 },
   metricLabel: { fontSize: 12, lineHeight: 17 },
   metricValue: { fontFamily: Fonts.bold, fontSize: 18, lineHeight: 24 },
+  currencyMetricValue: { fontSize: 14, lineHeight: 19 },
+  creditLimitLabel: { marginTop: 5 },
+  currencyMetricSecondary: { fontSize: 12, lineHeight: 17 },
 });

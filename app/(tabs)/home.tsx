@@ -315,7 +315,18 @@ export default function HomeScreen() {
     : attentionItems.filter((item) => !dismissedAttentionIds.includes(item.key));
   const visiblePaymentMethods = visibleHomePaymentMethods(paymentMethods);
   const walletTotal = sumKnownAvailableBalances(getHomePaymentMethods(visiblePaymentMethods, 'wallet'));
-  const availableCreditTotal = sumKnownAvailableBalances(getHomePaymentMethods(visiblePaymentMethods, 'credit'));
+  const visibleCreditMethods = getHomePaymentMethods(visiblePaymentMethods, 'credit');
+  const availableCreditTotal = sumKnownAvailableBalances(visibleCreditMethods);
+  const creditLimitTotal = visibleCreditMethods.reduce((sum, method) => sum + (method.creditLimit ?? 0), 0);
+  const hasUsdCredit = visibleCreditMethods.some((method) => method.usdCreditLimitCents != null);
+  const usdAvailableCreditTotalCents = visibleCreditMethods.reduce(
+    (sum, method) => sum + (method.usdAvailableCreditCents ?? 0),
+    0
+  );
+  const usdCreditLimitTotalCents = visibleCreditMethods.reduce(
+    (sum, method) => sum + (method.usdCreditLimitCents ?? 0),
+    0
+  );
   const billedCreditTotal = visiblePaymentMethods
     .filter((method) => method.type === 'credit')
     .reduce((sum, method) => sum + method.billedAmount, 0);
@@ -656,6 +667,12 @@ export default function HomeScreen() {
             billedCredit: billedCreditTotal,
             savings: savingsTotal,
             debt: payableDebtTotal,
+          }}
+          creditTotals={{
+            limitClp: creditLimitTotal,
+            availableUsdCents: usdAvailableCreditTotalCents,
+            limitUsdCents: usdCreditLimitTotalCents,
+            hasUsd: hasUsdCredit,
           }}
         />
         {isCurrentPeriod && (

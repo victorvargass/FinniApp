@@ -183,6 +183,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   const [activeShareDateId, setActiveShareDateId] = useState<number | null>(null);
   const [activeShareTimeId, setActiveShareTimeId] = useState<number | null>(null);
   const totalAmount = currency === 'USD' ? parseUSDAmount(amountText) : parseAmount(amountText);
+  const totalAmountLabel = t('expenses.amountTotal', { currency });
   const percentage = Number(percentageText.replace(',', '.'));
   const hasValidPercentage =
     Number.isFinite(percentage) && percentage > 0 && percentage <= 100;
@@ -834,12 +835,12 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       )}
 
       <View style={styles.formRemainder} onTouchStart={() => setIsNameFocused(false)}>
-      <ThemedText style={styles.label}>{t('expenses.amountTotal')}</ThemedText>
-      <TextInput
-        accessibilityLabel={t('expenses.amountTotal')}
-        testID="expense-amount-input"
-        editable={!receivablesLocked}
-        style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
+        <ThemedText style={styles.label}>{totalAmountLabel}</ThemedText>
+        <TextInput
+          accessibilityLabel={totalAmountLabel}
+          testID="expense-amount-input"
+          editable={!receivablesLocked}
+          style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
         onChangeText={(value) => setAmountText(currency === 'USD' ? formatUSDInput(value) : formatCLPInput(value))}
         placeholder={currency === 'USD' ? 'US$0,00' : t('forms.amountPlaceholder')}

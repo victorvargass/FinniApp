@@ -38,11 +38,20 @@ export function HomePaymentBalancesCard({
   if (methods.length === 0) return null;
 
   const total = sumKnownAvailableBalances(methods);
-  const pendingCount = methods.filter((method) => method.availableBalance == null).length;
-  const summary = t(
-    kind === 'wallet' ? 'home.walletTotal' : 'home.availableCreditTotal',
-    { amount: formatCLP(total) }
+  const hasUsdCredit = kind === 'credit' && methods.some((method) => method.usdCreditLimitCents != null);
+  const usdAvailableTotalCents = methods.reduce(
+    (sum, method) => sum + (method.usdAvailableCreditCents ?? 0),
+    0
   );
+  const pendingCount = methods.filter((method) => method.availableBalance == null).length;
+  const summary = kind === 'wallet'
+    ? t('home.walletTotal', { amount: formatCLP(total) })
+    : hasUsdCredit
+      ? t('home.availableCreditTotals', {
+          clp: formatCLP(total),
+          usd: formatMoney(usdAvailableTotalCents, 'USD'),
+        })
+      : t('home.availableCreditTotal', { amount: formatCLP(total) });
   const title = t(kind === 'wallet' ? 'home.wallet' : 'home.availableCredit');
 
   return (
@@ -69,32 +78,40 @@ export function HomePaymentBalancesCard({
               </ThemedText>
             </View>
             <View style={styles.amountCopy}>
-              {method.availableBalance == null ? (
-                <ThemedText style={[styles.pending, { color: colors.action }]}>
-                  {t('paymentMethods.configureCurrentBalance')}
-                </ThemedText>
-              ) : (
-                <ThemedText
-                  type="defaultSemiBold"
-                  style={kind === 'credit' ? [styles.availableCredit, { color: colors.primary }] : undefined}>
-                  {formatCLP(method.availableBalance)}
-                </ThemedText>
-              )}
               {kind === 'credit' && (
                 <>
+                  <ThemedText style={styles.valueHeading}>{t('paymentMethods.availableCredits')}</ThemedText>
+                  <ThemedText type="defaultSemiBold" style={[styles.currencyValue, { color: colors.primary }]}>
+                    CLP {method.availableBalance == null ? '—' : formatCLP(method.availableBalance)}
+                  </ThemedText>
+                  {method.usdCreditLimitCents != null && (
+                    <ThemedText type="defaultSemiBold" style={[styles.currencyValue, { color: colors.primary }]}>
+                      USD {formatMoney(method.usdAvailableCreditCents ?? 0, 'USD')}
+                    </ThemedText>
+                  )}
                   <ThemedText style={[styles.billedAmount, { color: method.billedAmount > 0 ? colors.expense : colors.textSecondary }]}>
                     {t('paymentMethods.billedToPay')}: {formatCLP(method.billedAmount)}
                   </ThemedText>
+                  <ThemedText style={[styles.valueHeading, styles.totalHeading]}>
+                    {t('paymentMethods.totalCredits')}
+                  </ThemedText>
                   <ThemedText style={[styles.creditLimit, { color: colors.textSecondary }]}>
-                    {t('paymentMethods.creditLimit')}: {method.creditLimit == null ? '—' : formatCLP(method.creditLimit)}
+                    CLP {method.creditLimit == null ? '—' : formatCLP(method.creditLimit)}
                   </ThemedText>
                   {method.usdCreditLimitCents != null && (
                     <ThemedText style={[styles.creditLimit, { color: colors.textSecondary }]}>
-                      {t('paymentMethods.usdAvailableCredit')}: {formatMoney(method.usdAvailableCreditCents ?? 0, 'USD')}
+                      USD {formatMoney(method.usdCreditLimitCents, 'USD')}
                     </ThemedText>
                   )}
                 </>
               )}
+              {kind !== 'credit' && (method.availableBalance == null ? (
+                <ThemedText style={[styles.pending, { color: colors.action }]}>
+                  {t('paymentMethods.configureCurrentBalance')}
+                </ThemedText>
+              ) : (
+                <ThemedText type="defaultSemiBold">{formatCLP(method.availableBalance)}</ThemedText>
+              ))}
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.icon} />
           </Pressable>
@@ -110,8 +127,10 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5 },
   copy: { minWidth: 0, flex: 1, gap: 1 },
   type: { fontSize: 11, lineHeight: 15 },
-  amountCopy: { maxWidth: '45%', alignItems: 'flex-end' },
-  availableCredit: { fontSize: 15, lineHeight: 20 },
+  amountCopy: { maxWidth: '58%', alignItems: 'flex-end' },
+  valueHeading: { fontSize: 10, lineHeight: 14, fontWeight: '700', opacity: 0.72, textTransform: 'uppercase' },
+  totalHeading: { marginTop: 4 },
+  currencyValue: { fontSize: 12, lineHeight: 16, textAlign: 'right' },
   billedAmount: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   creditLimit: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   pending: { fontSize: 11, lineHeight: 15, textAlign: 'right' },

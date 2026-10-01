@@ -13,6 +13,7 @@ import { Colors } from '@/constants/theme';
 import { usePaymentDatabase, usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { formatCLP, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getAvailablePaymentMethodSections, groupPaymentMethodsByType } from '@/lib/payment-method-groups';
 import { showToast } from '@/lib/toast';
@@ -125,6 +126,11 @@ export default function PaymentMethodsScreen() {
                 <ThemedText style={styles.secondary}>
                   {typeLabels[item.type]}{item.billingDay ? t('paymentMethods.approximateBilling', { day: item.billingDay }) : ''}
                 </ThemedText>
+                {item.type === 'credit' && (
+                  <ThemedText type="defaultSemiBold" style={styles.balanceHeading}>
+                    {t('paymentMethods.availableCredits')}
+                  </ThemedText>
+                )}
                 {item.availableBalance == null ? (
                     <Pressable
                       accessibilityRole="button"
@@ -143,12 +149,14 @@ export default function PaymentMethodsScreen() {
                     </Pressable>
                   ) : (
                     <ThemedText type="defaultSemiBold" style={styles.balance}>
-                      {`${item.type === 'credit' ? t('paymentMethods.availableCredit') : t('paymentMethods.availableBalance')}: ${new Intl.NumberFormat(undefined, { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.availableBalance)}`}
+                      {item.type === 'credit'
+                        ? `CLP ${formatCLP(item.availableBalance)}`
+                        : `${t('paymentMethods.availableBalance')}: ${formatCLP(item.availableBalance)}`}
                     </ThemedText>
                   )}
                 {item.usdCreditLimitCents != null && (
                   <ThemedText type="defaultSemiBold" style={styles.balance}>
-                    {t('paymentMethods.usdAvailableCredit')}: {new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format((item.usdAvailableCreditCents ?? 0) / 100)}
+                    USD {formatMoney(item.usdAvailableCreditCents ?? 0, 'USD')}
                   </ThemedText>
                 )}
               </View>
@@ -218,6 +226,7 @@ const styles = StyleSheet.create({
   colorDot: { width: 18, height: 18, borderRadius: 6 },
   copy: { flex: 1, gap: 3 },
   secondary: { opacity: 0.65, fontSize: 13 },
+  balanceHeading: { fontSize: 12, marginTop: 5 },
   balance: { fontSize: 12, marginTop: 2 },
   configureBalance: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
   chevron: { paddingVertical: 8, paddingLeft: 4 },

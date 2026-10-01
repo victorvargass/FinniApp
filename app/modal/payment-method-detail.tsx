@@ -101,25 +101,65 @@ export default function PaymentMethodDetailScreen() {
             </View>
             <Ionicons name={isCredit ? 'card' : 'wallet'} size={30} color="#fff" />
           </View>
-          <ThemedText style={styles.onCardLabel}>
-            {isCredit ? t('paymentMethods.availableCredit') : t('paymentMethods.availableBalance')}
-          </ThemedText>
-          <ThemedText style={styles.balance}>
-            {method.availableBalance == null ? '—' : formatCLP(method.availableBalance)}
-          </ThemedText>
-          {isCredit && method.creditLimit != null && (
+          {isCredit ? (
             <>
-              <View style={styles.track}>
-                <View style={[styles.fill, { width: `${progress * 100}%` }]} />
+              <ThemedText style={styles.onCardLabel}>{t('paymentMethods.availableCredits')}</ThemedText>
+              <View style={styles.currencyGrid}>
+                <View style={styles.currencyColumn}>
+                  <ThemedText style={styles.onCardCurrency}>CLP</ThemedText>
+                  <ThemedText
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                    minimumFontScale={0.72}
+                    style={styles.currencyBalance}>
+                    {method.availableBalance == null ? '—' : formatCLP(method.availableBalance)}
+                  </ThemedText>
+                  {method.creditLimit != null && (
+                    <>
+                      <View style={styles.track}>
+                        <View style={[styles.fill, { width: `${progress * 100}%` }]} />
+                      </View>
+                      <ThemedText style={styles.onCardSmall}>
+                        {t('paymentMethods.used')}: {formatCLP(method.usedAmount ?? 0)}
+                      </ThemedText>
+                      <ThemedText style={styles.onCardSmall}>
+                        {t('paymentMethods.totalCredit')}: {formatCLP(method.creditLimit)}
+                      </ThemedText>
+                    </>
+                  )}
+                </View>
+                {method.usdCreditLimitCents != null && (
+                  <>
+                    <View style={styles.currencyDivider} />
+                    <View style={styles.currencyColumn}>
+                      <ThemedText style={styles.onCardCurrency}>USD</ThemedText>
+                      <ThemedText
+                        adjustsFontSizeToFit
+                        numberOfLines={1}
+                        minimumFontScale={0.72}
+                        style={styles.currencyBalance}>
+                        {formatMoney(method.usdAvailableCreditCents ?? 0, 'USD')}
+                      </ThemedText>
+                      <View style={styles.track}>
+                        <View style={[styles.fill, { width: `${usdProgress * 100}%` }]} />
+                      </View>
+                      <ThemedText style={styles.onCardSmall}>
+                        {t('paymentMethods.used')}: {formatMoney(method.usdUsedAmountCents ?? 0, 'USD')}
+                      </ThemedText>
+                      <ThemedText style={styles.onCardSmall}>
+                        {t('paymentMethods.totalCredit')}: {formatMoney(method.usdCreditLimitCents, 'USD')}
+                      </ThemedText>
+                    </View>
+                  </>
+                )}
               </View>
-              <View style={styles.accountFooter}>
-                <ThemedText style={styles.onCardSmall}>
-                  {t('paymentMethods.used')} {formatCLP(method.usedAmount ?? 0)}
-                </ThemedText>
-                <ThemedText style={styles.onCardSmall}>
-                  {t('paymentMethods.totalCredit')} {formatCLP(method.creditLimit)}
-                </ThemedText>
-              </View>
+            </>
+          ) : (
+            <>
+              <ThemedText style={styles.onCardLabel}>{t('paymentMethods.availableBalance')}</ThemedText>
+              <ThemedText style={styles.balance}>
+                {method.availableBalance == null ? '—' : formatCLP(method.availableBalance)}
+              </ThemedText>
             </>
           )}
           {method.balanceUpdatedAt && (
@@ -130,22 +170,6 @@ export default function PaymentMethodDetailScreen() {
             </ThemedText>
           )}
         </View>
-
-        {method.usdCreditLimitCents != null && (
-          <ThemedView style={[styles.setupCard, { borderColor: colors.primary }]}>
-            <View style={styles.setupCopy}>
-              <ThemedText type="subtitle">{t('paymentMethods.usdAvailableCredit')}</ThemedText>
-              <ThemedText type="title">{formatMoney(method.usdAvailableCreditCents ?? 0, 'USD')}</ThemedText>
-              <View style={[styles.track, { backgroundColor: colors.border }]}>
-                <View style={[styles.fill, { width: `${usdProgress * 100}%`, backgroundColor: colors.primary }]} />
-              </View>
-              <View style={styles.accountFooter}>
-                <ThemedText style={styles.hint}>{t('paymentMethods.usdUsed')} {formatMoney(method.usdUsedAmountCents ?? 0, 'USD')}</ThemedText>
-                <ThemedText style={styles.hint}>{t('paymentMethods.totalCredit')} {formatMoney(method.usdCreditLimitCents, 'USD')}</ThemedText>
-              </View>
-            </View>
-          </ThemedView>
-        )}
 
         {method.availableBalance == null && (
           <ThemedView style={[styles.setupCard, { borderColor: colors.secondary }]}>
@@ -450,9 +474,13 @@ const styles = StyleSheet.create({
   onCardName: { color: '#fff', fontSize: 20, fontWeight: '700' },
   onCardLabel: { color: '#fff', opacity: 0.82 },
   balance: { color: '#fff', fontSize: 30, fontWeight: '700' },
+  currencyGrid: { flexDirection: 'row', alignItems: 'stretch', gap: 12 },
+  currencyColumn: { flex: 1, minWidth: 0, gap: 3 },
+  currencyDivider: { width: StyleSheet.hairlineWidth, backgroundColor: '#ffffff66' },
+  onCardCurrency: { color: '#fff', opacity: 0.78, fontSize: 12, fontWeight: '700' },
+  currencyBalance: { color: '#fff', fontSize: 22, lineHeight: 28, fontWeight: '700' },
   track: { height: 7, borderRadius: 4, backgroundColor: '#ffffff55', overflow: 'hidden', marginTop: 7 },
   fill: { height: '100%', backgroundColor: '#fff', borderRadius: 4 },
-  accountFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   onCardSmall: { color: '#fff', opacity: 0.88, fontSize: 12 },
   statement: { borderRadius: 14, padding: 17, gap: 6 },
   setupCard: { borderWidth: 1, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 11, flexWrap: 'wrap' },
