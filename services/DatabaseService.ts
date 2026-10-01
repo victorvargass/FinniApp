@@ -21,6 +21,7 @@ import { t } from '@/lib/i18n';
 import { attachDiagnosticMetadata } from '@/lib/logger';
 import {
   exportEncryptedDatabaseCopy,
+  exportPlaintextDatabaseCopy,
   openEncryptedDatabaseAsync,
 } from '@/lib/database/encryption';
 
@@ -133,11 +134,7 @@ export class DatabaseService {
     }
   }
 
-  /**
-   * Creates a consistent point-in-time SQLite copy using the native backup
-   * API. The destination is changed back to the standalone DELETE journal
-   * mode so the uploaded file never depends on sidecar WAL files.
-   */
+  /** Creates a standalone plaintext SQLite copy for the encrypted envelope. */
   static async createBackupFile(): Promise<File> {
     const backupName = `gastos-backup-${Date.now()}.db`;
     const backup = new File(
@@ -148,23 +145,11 @@ export class DatabaseService {
     try {
       await withDatabaseLock(async () => {
         const source = await getDatabase();
-        const destination = await SQLite.openDatabaseAsync(
+        await exportPlaintextDatabaseCopy(
+          source,
           backupName,
-          {},
           Paths.cache.uri
         );
-
-        try {
-          await SQLite.backupDatabaseAsync({
-            sourceDatabase: source,
-            sourceDatabaseName: 'main',
-            destDatabase: destination,
-            destDatabaseName: 'main',
-          });
-          await destination.execAsync('PRAGMA journal_mode = DELETE');
-        } finally {
-          await destination.closeAsync();
-        }
       });
 
       // Never replace the last valid Drive copy with a file the restore path

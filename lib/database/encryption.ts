@@ -135,6 +135,57 @@ export async function exportEncryptedDatabaseCopy(
   await exportDatabaseWithKey(source, name, directory, key);
 }
 
+/**
+ * Exports an encrypted local database to a standalone plaintext SQLite file.
+ * The caller must protect and remove the temporary file after use.
+ */
+export async function exportPlaintextDatabaseCopy(
+  source: SQLite.SQLiteDatabase,
+  name: string,
+  directory: string
+): Promise<void> {
+  const target = databaseFile(name, directory);
+  if (target.exists) target.delete();
+
+  const schema = await source.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  const application = await source.getFirstAsync<{ application_id: number }>('PRAGMA application_id');
+  const sourceObjects = await source.getFirstAsync<{ count: number }>(
+    'SELECT count(*) AS count FROM sqlite_master'
+  );
+  let attached = false;
+
+  try {
+    // An empty ATTACH key explicitly disables SQLCipher for this temporary
+    // database. sqlite3_backup cannot safely bridge a keyed source and an
+    // uninitialised destination connection on every native platform.
+    await source.execAsync(
+      `ATTACH DATABASE ${sqlString(databasePath(name, directory))} AS plaintext_export KEY ''`
+    );
+    attached = true;
+    await source.getFirstAsync("SELECT sqlcipher_export('plaintext_export')");
+    await source.execAsync(
+      `PRAGMA plaintext_export.user_version = ${Number(schema?.user_version ?? 0)}`
+    );
+    await source.execAsync(
+      `PRAGMA plaintext_export.application_id = ${Number(application?.application_id ?? 0)}`
+    );
+    const exportedObjects = await source.getFirstAsync<{ count: number }>(
+      'SELECT count(*) AS count FROM plaintext_export.sqlite_master'
+    );
+    if (Number(exportedObjects?.count ?? -1) !== Number(sourceObjects?.count ?? 0)) {
+      throw new Error(t('errors.localEncryptionMigrationFailed'));
+    }
+    await source.execAsync('DETACH DATABASE plaintext_export');
+    attached = false;
+  } catch (error) {
+    if (attached) {
+      await source.execAsync('DETACH DATABASE plaintext_export').catch(() => undefined);
+    }
+    if (target.exists) target.delete();
+    throw error;
+  }
+}
+
 async function migratePlaintextDatabase(
   activeFile: File,
   directory: string,

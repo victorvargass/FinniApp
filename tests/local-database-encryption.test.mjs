@@ -11,6 +11,10 @@ const connection = readFileSync(
   'utf8'
 );
 const database = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
+const databaseService = readFileSync(
+  new URL('../services/DatabaseService.ts', import.meta.url),
+  'utf8'
+);
 const appConfig = readFileSync(new URL('../app.config.js', import.meta.url), 'utf8');
 const appJson = JSON.parse(readFileSync(new URL('../app.json', import.meta.url), 'utf8'));
 const provider = readFileSync(
@@ -51,4 +55,16 @@ test('migration snapshots remain encrypted and initialization failures are recov
   assert.match(provider, /onRetry=\{initializeDatabase\}/);
   assert.doesNotMatch(provider, /error\.message/);
   assert.doesNotMatch(errorScreen, /message:\s*string/);
+});
+
+test('Drive backups export the keyed database through an explicit plaintext attachment', () => {
+  assert.match(
+    encryption,
+    /ATTACH DATABASE[\s\S]*AS plaintext_export KEY ''[\s\S]*sqlcipher_export\('plaintext_export'\)/
+  );
+  assert.match(encryption, /PRAGMA plaintext_export\.user_version/);
+  assert.match(encryption, /PRAGMA plaintext_export\.application_id/);
+  assert.match(encryption, /exportedObjects[\s\S]*sourceObjects/);
+  assert.match(databaseService, /exportPlaintextDatabaseCopy\([\s\S]*Paths\.cache\.uri/);
+  assert.doesNotMatch(databaseService, /backupDatabaseAsync/);
 });
