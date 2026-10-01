@@ -5,6 +5,7 @@ import {
   AppState,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   TextInput,
   View,
@@ -139,6 +140,9 @@ export default function GoogleDriveScreen() {
     setBackupFrequency,
     revealBackupPassphrase,
   } = useGoogle();
+  const backupRequiresPassphrase = Boolean(lastBackup?.name.endsWith('.finni'));
+  const needsExistingPassphrase = backupRequiresPassphrase && !hasBackupPassphrase;
+  const restoreOfferRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!progress) return;
@@ -194,9 +198,26 @@ export default function GoogleDriveScreen() {
     }
     try {
       await saveBackupPassphrase(passphrase);
+      const savedPassphrase = passphrase;
       setPassphrase('');
       setPassphraseConfirmation('');
       showToast(t('settings.backupPassphraseSaved'));
+      Alert.alert(
+        t('settings.backupRecoveryTitle'),
+        t('settings.backupRecoveryMessage'),
+        [
+          { text: t('settings.backupRecoveryLater'), style: 'cancel' },
+          {
+            text: t('settings.backupRecoveryShare'),
+            onPress: () => {
+              void Share.share({
+                title: t('settings.backupRecoveryTitle'),
+                message: t('settings.backupRecoveryShareMessage', { password: savedPassphrase }),
+              });
+            },
+          },
+        ]
+      );
     } catch (saveError) {
       Alert.alert(
         t('common.error'),
@@ -237,29 +258,67 @@ export default function GoogleDriveScreen() {
     );
   };
 
-  const runRestore = async () => {
+  const runRestore = React.useCallback(async (existingPassphrase?: string) => {
     try {
-      await restore();
+      await restore(existingPassphrase);
+      setPassphrase('');
       showToast(t('settings.restoreCompletedMessage'));
     } catch {
       // El hook muestra el error mediante su estado.
     }
-  };
+  }, [restore]);
 
-  const confirmRestore = () => {
+  const confirmRestore = (existingPassphrase?: string) => {
+    if (existingPassphrase !== undefined && existingPassphrase.length === 0) {
+      Alert.alert(t('common.error'), t('errors.backupPassphraseRequired'));
+      return;
+    }
     Alert.alert(
       t('settings.restoreData'),
-      t('settings.restoreWarning'),
+      existingPassphrase
+        ? t('settings.restoreWithExistingPassphraseWarning')
+        : t('settings.restoreWarning'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('settings.restore'),
           style: 'destructive',
-          onPress: () => { void runRestore(); },
+          onPress: () => { void runRestore(existingPassphrase); },
         },
       ]
     );
   };
+
+  React.useEffect(() => {
+    if (!isConnected || !lastBackup || isWorking) return;
+    if (restoreOfferRef.current === lastBackup.id) return;
+    restoreOfferRef.current = lastBackup.id;
+
+    if (backupRequiresPassphrase && !hasBackupPassphrase) {
+      Alert.alert(
+        t('settings.backupFoundTitle'),
+        t('settings.backupFoundPasswordRequired', {
+          date: formatBackupDate(lastBackup.modifiedTime),
+        }),
+        [{ text: t('common.accept'), onPress: () => undefined }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      t('settings.backupFoundTitle'),
+      t('settings.backupFoundReady', {
+        date: formatBackupDate(lastBackup.modifiedTime),
+      }),
+      [
+        { text: t('settings.restoreLater'), style: 'cancel' },
+        {
+          text: t('settings.restoreNow'),
+          onPress: () => { void runRestore(); },
+        },
+      ]
+    );
+  }, [backupRequiresPassphrase, hasBackupPassphrase, isConnected, isWorking, lastBackup, runRestore]);
 
   const confirmLogout = () => {
     Alert.alert(
@@ -385,7 +444,9 @@ export default function GoogleDriveScreen() {
                 <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
                   {t(hasBackupPassphrase
                     ? 'settings.backupEncryptionReady'
-                    : 'settings.backupEncryptionSetup')}
+                    : needsExistingPassphrase
+                      ? 'settings.backupEncryptionExisting'
+                      : 'settings.backupEncryptionSetup')}
                 </ThemedText>
                 {hasBackupPassphrase && (
                   <View style={styles.passphraseRecovery}>
@@ -420,28 +481,37 @@ export default function GoogleDriveScreen() {
                       autoCapitalize="none"
                       autoCorrect={false}
                       secureTextEntry
-                      placeholder={t('settings.backupPassphrasePlaceholder')}
+                      placeholder={t(needsExistingPassphrase
+                        ? 'settings.backupPassphraseExistingPlaceholder'
+                        : 'settings.backupPassphrasePlaceholder')}
                       placeholderTextColor={colors.textSecondary}
                       value={passphrase}
                       onChangeText={setPassphrase}
                       style={[styles.passphraseInput, { borderColor: colors.border, color: colors.text }]}
                     />
-                    <TextInput
-                      testID="backup-passphrase-confirmation"
-                      accessibilityLabel={t('settings.backupPassphraseConfirm')}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      secureTextEntry
-                      placeholder={t('settings.backupPassphraseConfirm')}
-                      placeholderTextColor={colors.textSecondary}
-                      value={passphraseConfirmation}
-                      onChangeText={setPassphraseConfirmation}
-                      style={[styles.passphraseInput, { borderColor: colors.border, color: colors.text }]}
-                    />
+                    {!needsExistingPassphrase && (
+                      <TextInput
+                        testID="backup-passphrase-confirmation"
+                        accessibilityLabel={t('settings.backupPassphraseConfirm')}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        secureTextEntry
+                        placeholder={t('settings.backupPassphraseConfirm')}
+                        placeholderTextColor={colors.textSecondary}
+                        value={passphraseConfirmation}
+                        onChangeText={setPassphraseConfirmation}
+                        style={[styles.passphraseInput, { borderColor: colors.border, color: colors.text }]}
+                      />
+                    )}
                     <ActionButton
-                      title={t('settings.saveBackupPassphrase')}
+                      title={t(needsExistingPassphrase
+                        ? 'settings.validateAndRestoreBackup'
+                        : 'settings.saveBackupPassphrase')}
                       disabled={isWorking}
-                      onPress={() => { void saveEncryptionPassword(); }}
+                      onPress={() => {
+                        if (needsExistingPassphrase) confirmRestore(passphrase);
+                        else void saveEncryptionPassword();
+                      }}
                       style={[styles.encryptionButton, { backgroundColor: colors.primary }]}
                       textStyle={{ color: colors.onPrimary }}
                     />
@@ -459,8 +529,8 @@ export default function GoogleDriveScreen() {
                 />
                 <ActionButton
                   title={operation === 'restore' ? t('settings.restoring') : t('settings.restore')}
-                  disabled={isWorking || !lastBackup}
-                  onPress={confirmRestore}
+                  disabled={isWorking || !lastBackup || needsExistingPassphrase}
+                  onPress={() => confirmRestore()}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
                   textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
