@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-const acceptedHighRiskPackages = new Set(['image-size', 'postcss']);
+const acceptedHighRiskPackages = new Set();
 const isWindows = process.platform === 'win32';
 const auditCommand = isWindows
   ? [process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm audit --omit=dev --json']]

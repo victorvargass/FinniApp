@@ -27,7 +27,12 @@ Para informar una vulnerabilidad, escribe a victorvargassandoval93@gmail.com. No
   recuperación es un respaldo cifrado de Google Drive y su contraseña.
 - La biometría protege la interfaz; el cifrado local protege el archivo en
   reposo. Son controles distintos y complementarios.
-- `npm audit --omit=dev` informa vulnerabilidades transitivas asociadas principalmente a Expo/Metro y React Navigation. Las correcciones propuestas requieren saltar de Expo SDK 54 a versiones mayores incompatibles, por lo que deben resolverse mediante una actualización planificada y probada del SDK, no con `npm audit fix --force`.
+- `npm audit --omit=dev` aún puede informar vulnerabilidades moderadas
+  transitivas asociadas principalmente a Expo/Metro y React Navigation. Las
+  alertas altas conocidas de `image-size` y `postcss` se fijan mediante
+  overrides compatibles y se verifican en CI. Los saltos mayores de Expo se
+  realizan únicamente mediante una migración planificada y probada; nunca con
+  `npm audit fix --force`.
 - Los E2E de Google Drive requieren una cuenta de prueba aislada y no deben usar datos personales.
 
 ## Reglas de desarrollo
