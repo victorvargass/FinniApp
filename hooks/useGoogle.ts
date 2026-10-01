@@ -143,15 +143,12 @@ export function useGoogle() {
 
     try {
       const accountId = state.user?.id;
-      const passphrase = accountId
-        ? await BackupCredentialService.getPassphrase(accountId)
-        : null;
-      if (!passphrase) throw new Error(t('errors.backupPassphraseRequired'));
-      const result = await BackupService.backup(getDrive(), passphrase, {
+      if (!accountId) throw new Error(t('errors.googleAuthRequired'));
+      const result = await BackupService.backup(getDrive(), {
         onProgress: (progress) => setState((current) => ({ ...current, progress })),
       });
       await Promise.all([
-        BackupPreferencesService.recordSuccessfulBackup(accountId!, result.fingerprint),
+        BackupPreferencesService.recordSuccessfulBackup(accountId, result.fingerprint),
         BackupPreferencesService.recordOperationMetrics(result.metrics),
       ]).catch(() => undefined);
       setState((current) => ({
@@ -175,7 +172,7 @@ export function useGoogle() {
     }
   }, [getDrive, state.user?.id]);
 
-  const restore = useCallback(async (providedPassphrase?: string) => {
+  const restore = useCallback(async () => {
     setState((current) => ({
       ...current,
       isWorking: true,
@@ -186,9 +183,9 @@ export function useGoogle() {
 
     try {
       const accountId = state.user?.id;
-      const passphrase = providedPassphrase ?? (accountId
+      const passphrase = accountId
         ? await BackupCredentialService.getPassphrase(accountId)
-        : null);
+        : null;
       let metrics: BackupOperationMetrics | null = null;
       await runDatabaseMaintenance(async () => {
         metrics = await RestoreService.restore(
@@ -198,11 +195,6 @@ export function useGoogle() {
         );
       });
       await refreshBackupInfo();
-      if (accountId && providedPassphrase) {
-        // A password supplied on a new device is persisted only after the
-        // downloaded backup has been decrypted and validated successfully.
-        await BackupCredentialService.setPassphrase(accountId, providedPassphrase);
-      }
       if (metrics) {
         await BackupPreferencesService.recordOperationMetrics(metrics).catch(() => undefined);
       }
@@ -233,30 +225,10 @@ export function useGoogle() {
     }
   }, [getDrive, runDatabaseMaintenance, refreshBackupInfo, state.user?.id]);
 
-  const saveBackupPassphrase = useCallback(async (passphrase: string) => {
-    const accountId = state.user?.id;
-    if (!accountId) throw new Error(t('errors.googleAuthRequired'));
-    // If Drive already has a backup, this is an existing password recovery
-    // flow. Never let an arbitrary new value replace the local credential.
-    if (state.lastBackup?.name.endsWith('.finni')) {
-      throw new Error(t('errors.backupPassphraseMustBeVerified'));
-    }
-    await BackupCredentialService.setPassphrase(accountId, passphrase);
-    setState((current) => ({ ...current, hasBackupPassphrase: true, error: null }));
-  }, [state.lastBackup, state.user?.id]);
-
   const setBackupFrequency = useCallback(async (frequency: BackupFrequency) => {
     await BackupPreferencesService.setFrequency(frequency);
     setState((current) => ({ ...current, backupFrequency: frequency }));
   }, []);
-
-  const revealBackupPassphrase = useCallback(async () => {
-    const accountId = state.user?.id;
-    if (!accountId) throw new Error(t('errors.googleAuthRequired'));
-    const passphrase = await BackupCredentialService.getPassphrase(accountId);
-    if (!passphrase) throw new Error(t('errors.backupPassphraseRequired'));
-    return passphrase;
-  }, [state.user?.id]);
 
   const logout = useCallback(async () => {
     setState((current) => ({
@@ -300,9 +272,7 @@ export function useGoogle() {
       restore,
       logout,
       refreshBackupInfo,
-      saveBackupPassphrase,
       setBackupFrequency,
-      revealBackupPassphrase,
     }),
     [
       state,
@@ -311,9 +281,7 @@ export function useGoogle() {
       restore,
       logout,
       refreshBackupInfo,
-      saveBackupPassphrase,
       setBackupFrequency,
-      revealBackupPassphrase,
     ]
   );
 }

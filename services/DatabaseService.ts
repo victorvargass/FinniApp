@@ -135,7 +135,7 @@ export class DatabaseService {
     }
   }
 
-  /** Creates a standalone plaintext SQLite copy for the encrypted envelope. */
+  /** Creates a standalone SQLite copy for the private Google Drive app-data backup. */
   static async createBackupFile(): Promise<{ file: File; fingerprint: string }> {
     const backupName = `gastos-backup-${Date.now()}.db`;
     const backup = new File(

@@ -4,7 +4,6 @@ import { isAutomaticBackupDue } from '@/lib/backup-policy';
 import { BackupService } from '@/services/BackupService';
 import { GoogleDriveService } from '@/services/GoogleDriveService';
 import { SessionService } from '@/services/SessionService';
-import { BackupCredentialService } from '@/services/BackupCredentialService';
 import { BackupPreferencesService } from '@/services/BackupPreferencesService';
 
 export function AutomaticBackupController({ enabled }: { enabled: boolean }) {
@@ -21,11 +20,12 @@ export function AutomaticBackupController({ enabled }: { enabled: boolean }) {
         if (!isAutomaticBackupDue(previous, Date.now(), frequency)) return;
         const user = await SessionService.restore();
         if (!active || !user) return;
-        const passphrase = await BackupCredentialService.getPassphrase(user.id);
-        if (!passphrase) return;
         const drive = new GoogleDriveService(() => SessionService.getAccessToken());
-        const previousFingerprint = await BackupPreferencesService.getLastFingerprint(user.id);
-        const result = await BackupService.backup(drive, passphrase, {
+        const latestBackup = await drive.getLatestBackup();
+        const previousFingerprint = latestBackup?.name.endsWith('.finni')
+          ? null
+          : await BackupPreferencesService.getLastFingerprint(user.id);
+        const result = await BackupService.backup(drive, {
           skipIfFingerprint: previousFingerprint,
         });
         if (!active) return;

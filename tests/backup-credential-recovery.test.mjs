@@ -4,40 +4,37 @@ import { readFileSync } from 'node:fs';
 
 const screen = readFileSync(new URL('../app/modal/google-drive.tsx', import.meta.url), 'utf8');
 const hook = readFileSync(new URL('../hooks/useGoogle.ts', import.meta.url), 'utf8');
-const biometric = readFileSync(
-  new URL('../contexts/BiometricContext.tsx', import.meta.url),
+const backupService = readFileSync(
+  new URL('../services/BackupService.ts', import.meta.url),
   'utf8'
 );
+const automaticBackup = readFileSync(
+  new URL('../components/automatic-backup-controller.tsx', import.meta.url),
+  'utf8'
+);
+const restoreService = readFileSync(new URL('../services/RestoreService.ts', import.meta.url), 'utf8');
 
-test('the locally stored backup password can be recovered only after device authentication', () => {
-  assert.match(hook, /revealBackupPassphrase[\s\S]*BackupCredentialService\.getPassphrase\(accountId\)/);
-  assert.match(screen, /biometric\.authenticate\([\s\S]*revealBackupPassphrase\(\)/);
-  assert.match(screen, /!biometric\.isAvailable/);
-  assert.match(biometric, /biometricsSecurityLevel:\s*'strong'/);
+test('new Drive backups rely on Google access without a FinniApp password', () => {
+  assert.doesNotMatch(backupService, /BackupEncryptionService|passphrase/);
+  assert.match(backupService, /drive\.uploadDatabase\(file\.uri\)/);
+  assert.doesNotMatch(automaticBackup, /BackupCredentialService|getPassphrase/);
+  assert.match(automaticBackup, /BackupService\.backup\(drive,\s*\{/);
 });
 
-test('a revealed backup password is short-lived and hidden outside the active app', () => {
-  assert.match(screen, /setTimeout\(\(\) => setRevealedPassphrase\(null\), 30_000\)/);
-  assert.match(screen, /nextState !== 'active'[\s\S]*setRevealedPassphrase\(null\)/);
-  assert.match(screen, /<ThemedText selectable[\s\S]*\{revealedPassphrase\}/);
+test('the Drive screen does not ask users to create or recover a backup password', () => {
+  assert.match(screen, /backupAccessGoogle/);
+  assert.doesNotMatch(screen, /testID="backup-passphrase"/);
+  assert.doesNotMatch(screen, /forgotBackupPassphrase/);
+  assert.match(screen, /disabled=\{isWorking\}[\s\S]*onPress=\{confirmBackup\}/);
 });
 
-test('an existing encrypted Drive backup never enters password creation mode', () => {
-  assert.match(screen, /backupRequiresPassphrase\s*=\s*Boolean\(lastBackup\?\.name\.endsWith\('\.finni'\)\)/);
-  assert.match(screen, /needsExistingPassphrase[\s\S]*backupEncryptionExisting/);
-  assert.match(screen, /!needsExistingPassphrase\s*&&\s*\([\s\S]*backup-passphrase-confirmation/);
-  assert.match(screen, /needsExistingPassphrase\) confirmRestore\(passphrase\)/);
+test('legacy encrypted backups remain restorable only when the old device credential exists', () => {
+  assert.match(restoreService, /BackupEncryptionService\.decryptIfNeeded\(file, passphrase\)/);
+  assert.match(hook, /BackupCredentialService\.getPassphrase\(accountId\)/);
+  assert.match(screen, /isLegacyEncryptedBackup[\s\S]*legacyBackupCanMigrate/);
+  assert.match(screen, /canRestoreBackup[\s\S]*legacyBackupUnavailable/);
 });
 
-test('a recovered password is stored only after a successful restore', () => {
-  const restoreCall = hook.indexOf('metrics = await RestoreService.restore');
-  const credentialWrite = hook.indexOf('BackupCredentialService.setPassphrase(accountId, providedPassphrase)');
-  assert.ok(restoreCall >= 0);
-  assert.ok(credentialWrite > restoreCall);
-  assert.match(hook, /invalidBackupPassphrase[\s\S]*BackupCredentialService\.clear\(\)/);
-});
-
-test('sign-in offers the discovered backup immediately', () => {
-  assert.match(screen, /backupFoundTitle[\s\S]*backupFoundPasswordRequired/);
+test('sign-in offers a recoverable Google backup immediately', () => {
   assert.match(screen, /backupFoundTitle[\s\S]*backupFoundReady[\s\S]*restoreNow/);
 });

@@ -2,12 +2,9 @@ import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
-  AppState,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,11 +17,9 @@ import { SimpleSelect } from '@/components/simple-select';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useGoogle } from '@/hooks/useGoogle';
-import { useBiometric } from '@/contexts/BiometricContext';
 import { Alert } from '@/lib/alert';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
-import { BACKUP_PASSPHRASE_MIN_LENGTH } from '@/lib/backup-encryption';
 import type { BackupStage } from '@/lib/backup-operation';
 
 function formatElapsed(milliseconds: number): string {
@@ -98,7 +93,6 @@ export default function GoogleDriveScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const guide = useFeatureGuide('google-drive');
-  const biometric = useBiometric();
   const guideSlides = [
     {
       icon: 'cloud-outline' as const,
@@ -116,9 +110,6 @@ export default function GoogleDriveScreen() {
       body: t('featureGuides.googleDrive.restoreBody'),
     },
   ];
-  const [passphrase, setPassphrase] = React.useState('');
-  const [passphraseConfirmation, setPassphraseConfirmation] = React.useState('');
-  const [revealedPassphrase, setRevealedPassphrase] = React.useState<string | null>(null);
   const [progressNow, setProgressNow] = React.useState(Date.now());
   const {
     user,
@@ -136,12 +127,10 @@ export default function GoogleDriveScreen() {
     backup,
     restore,
     logout,
-    saveBackupPassphrase,
     setBackupFrequency,
-    revealBackupPassphrase,
   } = useGoogle();
-  const backupRequiresPassphrase = Boolean(lastBackup?.name.endsWith('.finni'));
-  const needsExistingPassphrase = backupRequiresPassphrase && !hasBackupPassphrase;
+  const isLegacyEncryptedBackup = Boolean(lastBackup?.name.endsWith('.finni'));
+  const canRestoreBackup = !isLegacyEncryptedBackup || hasBackupPassphrase;
   const restoreOfferRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -152,93 +141,18 @@ export default function GoogleDriveScreen() {
   }, [progress]);
 
   React.useEffect(() => {
-    if (!revealedPassphrase) return;
-    const timeout = setTimeout(() => setRevealedPassphrase(null), 30_000);
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active') setRevealedPassphrase(null);
-    });
-    return () => {
-      clearTimeout(timeout);
-      subscription.remove();
-    };
-  }, [revealedPassphrase]);
-
-  const recoverEncryptionPassword = async () => {
-    if (revealedPassphrase) {
-      setRevealedPassphrase(null);
-      return;
-    }
-    if (!biometric.isAvailable) {
-      Alert.alert(t('common.error'), t('settings.backupPassphraseAuthenticationRequired'));
-      return;
-    }
-    const authenticated = await biometric.authenticate({
-      promptMessage: t('settings.backupPassphraseRevealPrompt'),
-      promptSubtitle: t('settings.backupPassphraseRevealSubtitle'),
-    });
-    if (!authenticated) return;
-    try {
-      setRevealedPassphrase(await revealBackupPassphrase());
-    } catch (revealError) {
-      Alert.alert(
-        t('common.error'),
-        revealError instanceof Error ? revealError.message : t('errors.unexpected')
-      );
-    }
-  };
-
-  const saveEncryptionPassword = async () => {
-    if (passphrase.length < BACKUP_PASSPHRASE_MIN_LENGTH) {
-      Alert.alert(t('common.error'), t('settings.backupPassphraseTooShort'));
-      return;
-    }
-    if (passphrase !== passphraseConfirmation) {
-      Alert.alert(t('common.error'), t('settings.backupPassphraseMismatch'));
-      return;
-    }
-    try {
-      await saveBackupPassphrase(passphrase);
-      const savedPassphrase = passphrase;
-      setPassphrase('');
-      setPassphraseConfirmation('');
-      showToast(t('settings.backupPassphraseSaved'));
-      Alert.alert(
-        t('settings.backupRecoveryTitle'),
-        t('settings.backupRecoveryMessage'),
-        [
-          { text: t('settings.backupRecoveryLater'), style: 'cancel' },
-          {
-            text: t('settings.backupRecoveryShare'),
-            onPress: () => {
-              void Share.share({
-                title: t('settings.backupRecoveryTitle'),
-                message: t('settings.backupRecoveryShareMessage', { password: savedPassphrase }),
-              });
-            },
-          },
-        ]
-      );
-    } catch (saveError) {
-      Alert.alert(
-        t('common.error'),
-        saveError instanceof Error ? saveError.message : t('errors.unexpected')
-      );
-    }
-  };
-
-  React.useEffect(() => {
     if (!error) return;
     Alert.alert(t('common.error'), error, [{ text: t('common.accept') }]);
   }, [error]);
 
-  const runBackup = async () => {
+  const runBackup = React.useCallback(async () => {
     try {
       await backup();
       showToast(t('settings.backupCompletedMessage'));
     } catch {
       // El hook muestra el error mediante su estado.
     }
-  };
+  }, [backup]);
 
   const confirmBackup = () => {
     Alert.alert(
@@ -258,32 +172,25 @@ export default function GoogleDriveScreen() {
     );
   };
 
-  const runRestore = React.useCallback(async (existingPassphrase?: string) => {
+  const runRestore = React.useCallback(async () => {
     try {
-      await restore(existingPassphrase);
-      setPassphrase('');
+      await restore();
       showToast(t('settings.restoreCompletedMessage'));
     } catch {
       // El hook muestra el error mediante su estado.
     }
   }, [restore]);
 
-  const confirmRestore = (existingPassphrase?: string) => {
-    if (existingPassphrase !== undefined && existingPassphrase.length === 0) {
-      Alert.alert(t('common.error'), t('errors.backupPassphraseRequired'));
-      return;
-    }
+  const confirmRestore = () => {
     Alert.alert(
       t('settings.restoreData'),
-      existingPassphrase
-        ? t('settings.restoreWithExistingPassphraseWarning')
-        : t('settings.restoreWarning'),
+      t('settings.restoreWarning'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('settings.restore'),
           style: 'destructive',
-          onPress: () => { void runRestore(existingPassphrase); },
+          onPress: () => { void runRestore(); },
         },
       ]
     );
@@ -294,10 +201,26 @@ export default function GoogleDriveScreen() {
     if (restoreOfferRef.current === lastBackup.id) return;
     restoreOfferRef.current = lastBackup.id;
 
-    if (backupRequiresPassphrase && !hasBackupPassphrase) {
+    if (isLegacyEncryptedBackup) {
+      if (hasBackupPassphrase) {
+        Alert.alert(
+          t('settings.legacyBackupTitle'),
+          t('settings.legacyBackupMigrationOffer', {
+            date: formatBackupDate(lastBackup.modifiedTime),
+          }),
+          [
+            { text: t('settings.restoreLater'), style: 'cancel' },
+            {
+              text: t('settings.createNewBackup'),
+              onPress: () => { void runBackup(); },
+            },
+          ]
+        );
+        return;
+      }
       Alert.alert(
-        t('settings.backupFoundTitle'),
-        t('settings.backupFoundPasswordRequired', {
+        t('settings.legacyBackupTitle'),
+        t('settings.legacyBackupUnavailable', {
           date: formatBackupDate(lastBackup.modifiedTime),
         }),
         [{ text: t('common.accept'), onPress: () => undefined }]
@@ -318,7 +241,7 @@ export default function GoogleDriveScreen() {
         },
       ]
     );
-  }, [backupRequiresPassphrase, hasBackupPassphrase, isConnected, isWorking, lastBackup, runRestore]);
+  }, [hasBackupPassphrase, isConnected, isLegacyEncryptedBackup, isWorking, lastBackup, runBackup, runRestore]);
 
   const confirmLogout = () => {
     Alert.alert(
@@ -438,98 +361,32 @@ export default function GoogleDriveScreen() {
 
               <ThemedView style={[styles.encryptionCard, { borderColor: colors.border }]}>
                 <View style={styles.encryptionHeading}>
-                  <Ionicons name="lock-closed-outline" size={21} color={colors.success} />
-                  <ThemedText type="defaultSemiBold">{t('settings.backupEncryptionTitle')}</ThemedText>
+                  <Ionicons name="logo-google" size={21} color={colors.success} />
+                  <ThemedText type="defaultSemiBold">{t('settings.backupAccessTitle')}</ThemedText>
                 </View>
                 <ThemedText style={[styles.description, { color: colors.textSecondary }]}>
-                  {t(hasBackupPassphrase
-                    ? 'settings.backupEncryptionReady'
-                    : needsExistingPassphrase
-                      ? 'settings.backupEncryptionExisting'
-                      : 'settings.backupEncryptionSetup')}
+                  {t('settings.backupAccessGoogle')}
                 </ThemedText>
-                {hasBackupPassphrase && (
-                  <View style={styles.passphraseRecovery}>
-                    {revealedPassphrase && (
-                      <View
-                        accessibilityLabel={t('settings.backupPassphraseRevealed')}
-                        style={[styles.revealedPassphrase, { borderColor: colors.border }]}
-                      >
-                        <ThemedText selectable style={styles.revealedPassphraseText}>
-                          {revealedPassphrase}
-                        </ThemedText>
-                        <ThemedText style={[styles.revealTimeout, { color: colors.textSecondary }]}>
-                          {t('settings.backupPassphraseRevealTimeout')}
-                        </ThemedText>
-                      </View>
-                    )}
-                    <ActionButton
-                      title={t(revealedPassphrase
-                        ? 'settings.hideBackupPassphrase'
-                        : 'settings.revealBackupPassphrase')}
-                      disabled={isWorking || biometric.isChecking}
-                      onPress={() => { void recoverEncryptionPassword(); }}
-                      style={styles.recoveryButton}
-                    />
-                  </View>
-                )}
-                {!hasBackupPassphrase && (
-                  <View style={styles.passphraseFields}>
-                    <TextInput
-                      testID="backup-passphrase"
-                      accessibilityLabel={t('settings.backupPassphrase')}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      secureTextEntry
-                      placeholder={t(needsExistingPassphrase
-                        ? 'settings.backupPassphraseExistingPlaceholder'
-                        : 'settings.backupPassphrasePlaceholder')}
-                      placeholderTextColor={colors.textSecondary}
-                      value={passphrase}
-                      onChangeText={setPassphrase}
-                      style={[styles.passphraseInput, { borderColor: colors.border, color: colors.text }]}
-                    />
-                    {!needsExistingPassphrase && (
-                      <TextInput
-                        testID="backup-passphrase-confirmation"
-                        accessibilityLabel={t('settings.backupPassphraseConfirm')}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        secureTextEntry
-                        placeholder={t('settings.backupPassphraseConfirm')}
-                        placeholderTextColor={colors.textSecondary}
-                        value={passphraseConfirmation}
-                        onChangeText={setPassphraseConfirmation}
-                        style={[styles.passphraseInput, { borderColor: colors.border, color: colors.text }]}
-                      />
-                    )}
-                    <ActionButton
-                      title={t(needsExistingPassphrase
-                        ? 'settings.validateAndRestoreBackup'
-                        : 'settings.saveBackupPassphrase')}
-                      disabled={isWorking}
-                      onPress={() => {
-                        if (needsExistingPassphrase) confirmRestore(passphrase);
-                        else void saveEncryptionPassword();
-                      }}
-                      style={[styles.encryptionButton, { backgroundColor: colors.primary }]}
-                      textStyle={{ color: colors.onPrimary }}
-                    />
-                  </View>
+                {isLegacyEncryptedBackup && (
+                  <ThemedText style={[styles.legacyNotice, { color: colors.warning }]}>
+                    {t(hasBackupPassphrase
+                      ? 'settings.legacyBackupCanMigrate'
+                      : 'settings.legacyBackupCannotRestore')}
+                  </ThemedText>
                 )}
               </ThemedView>
 
               <View style={styles.actions}>
                 <ActionButton
                   title={operation === 'backup' ? t('settings.backingUp') : t('settings.backup')}
-                  disabled={isWorking || !hasBackupPassphrase}
+                  disabled={isWorking}
                   onPress={confirmBackup}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
                   textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
                 />
                 <ActionButton
                   title={operation === 'restore' ? t('settings.restoring') : t('settings.restore')}
-                  disabled={isWorking || !lastBackup || needsExistingPassphrase}
+                  disabled={isWorking || !lastBackup || !canRestoreBackup}
                   onPress={() => confirmRestore()}
                   style={colorScheme === 'dark' ? styles.darkActionButton : undefined}
                   textStyle={colorScheme === 'dark' ? styles.darkActionButtonText : undefined}
@@ -630,37 +487,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  passphraseFields: {
-    gap: 10,
-  },
-  passphraseRecovery: {
-    gap: 10,
-  },
-  revealedPassphrase: {
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    gap: 6,
-  },
-  revealedPassphraseText: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  revealTimeout: {
-    fontSize: 12,
-  },
-  recoveryButton: {
-    marginTop: 2,
-  },
-  passphraseInput: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 13,
-    fontSize: 16,
-  },
-  encryptionButton: {
-    marginTop: 2,
+  legacyNotice: {
+    fontSize: 13,
+    lineHeight: 19,
   },
   loading: {
     minHeight: 88,
