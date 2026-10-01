@@ -81,9 +81,14 @@ export function HomePaymentBalancesCard({
                 </ThemedText>
               )}
               {kind === 'credit' && (
-                <ThemedText style={[styles.creditLimit, { color: colors.textSecondary }]}>
-                  {t('paymentMethods.creditLimit')}: {method.creditLimit == null ? '—' : formatCLP(method.creditLimit)}
-                </ThemedText>
+                <>
+                  <ThemedText style={[styles.billedAmount, { color: method.billedAmount > 0 ? colors.expense : colors.textSecondary }]}>
+                    {t('paymentMethods.billedToPay')}: {formatCLP(method.billedAmount)}
+                  </ThemedText>
+                  <ThemedText style={[styles.creditLimit, { color: colors.textSecondary }]}>
+                    {t('paymentMethods.creditLimit')}: {method.creditLimit == null ? '—' : formatCLP(method.creditLimit)}
+                  </ThemedText>
+                </>
               )}
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.icon} />
@@ -102,6 +107,7 @@ const styles = StyleSheet.create({
   type: { fontSize: 11, lineHeight: 15 },
   amountCopy: { maxWidth: '45%', alignItems: 'flex-end' },
   availableCredit: { fontSize: 15, lineHeight: 20 },
+  billedAmount: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   creditLimit: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   pending: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   pressed: { opacity: 0.7 },
