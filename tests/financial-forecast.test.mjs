@@ -48,3 +48,15 @@ test('forecast projects recurrence rules and excludes registered occurrences', (
   assert.match(source, /method\.billedAmount > 0/);
   assert.match(source, /debt\.direction === 'receivable'/);
 });
+
+test('standalone installment rows expose the normalized forecast columns', () => {
+  const source = readFileSync(new URL('../lib/database/forecast.ts', import.meta.url), 'utf8');
+  assert.match(source, /installment\.projected_amount AS amount, installment\.due_date AS date/);
+});
+
+test('forecast load failures are handled instead of becoming unhandled rejections', () => {
+  const source = readFileSync(new URL('../app/modal/budget-forecast.tsx', import.meta.url), 'utf8');
+  assert.match(source, /\.catch\(\(error\) => \{/);
+  assert.match(source, /logAppError\('forecast\.load', error\)/);
+  assert.match(source, /budgetForecast\.loadError/);
+});

@@ -8153,9 +8153,16 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
     FROM incomes income
   `);
 
-  const [cardPayments, cardAdjustments] = await Promise.all([
+  const [cardPayments, cardAdjustments, debtPayments] = await Promise.all([
     db.getAllAsync<{ periodId: number; total: number }>(PERIOD_CARD_PAYMENTS_SQL),
     db.getAllAsync<{ periodId: number; total: number }>(PERIOD_CARD_ADJUSTMENTS_SQL),
+    db.getAllAsync<{ periodId: number; direction: Debt['direction']; total: number }>(`
+      SELECT entry.period_id AS periodId, debt.direction, SUM(entry.amount) AS total
+      FROM manual_debt_entries entry
+      INNER JOIN manual_debts debt ON debt.id = entry.debt_id
+      WHERE entry.kind = 'payment' AND entry.period_id IS NOT NULL
+      GROUP BY entry.period_id, debt.direction
+    `),
   ]);
   const cardPaymentsByPeriod = new Map(
     cardPayments.map((row) => [row.periodId, Number(row.total)])
@@ -8163,6 +8170,14 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
   const cardAdjustmentsByPeriod = new Map(
     cardAdjustments.map((row) => [row.periodId, Number(row.total)])
   );
+  const debtPaymentsByPeriod = new Map<number, number>();
+  const debtCollectionsByPeriod = new Map<number, number>();
+  for (const row of debtPayments) {
+    const target = row.direction === 'receivable'
+      ? debtCollectionsByPeriod
+      : debtPaymentsByPeriod;
+    target.set(row.periodId, Number(row.total));
+  }
 
   const savingsFundingRows = await db.getAllAsync<{ period_id: number; total: number }>(`
     SELECT expense.period_id, COALESCE(SUM(expense.amount), 0) AS total
@@ -8280,6 +8295,8 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
       incomesTotal,
       savingsWithdrawalTotal: savingsWithdrawalsByPeriod.get(period.id) ?? 0,
       savingsFundingTotal: savingsFundingByPeriod.get(period.id) ?? 0,
+      debtPaymentsTotal: debtPaymentsByPeriod.get(period.id) ?? 0,
+      debtCollectionsTotal: debtCollectionsByPeriod.get(period.id) ?? 0,
       cardPaymentsFromAccountsTotal: cardPaymentsByPeriod.get(period.id) ?? 0,
       cardInternalAdjustmentsTotal: cardAdjustmentsByPeriod.get(period.id) ?? 0,
     };

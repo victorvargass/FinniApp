@@ -6,6 +6,7 @@ export type LogContext =
   | 'database.initialize'
   | 'database.refresh'
   | 'database.restore'
+  | 'forecast.load'
   | 'report.export'
   | 'csv.export'
   | 'updates.currentToast';

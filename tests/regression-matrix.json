@@ -40,8 +40,8 @@
     {
       "id": "savings-lifecycle",
       "priority": "critical",
-      "routes": ["app/modal/savings-goals.tsx", "app/modal/savings-goal-form.tsx", "app/modal/savings-goal-balance.tsx"],
-      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/weekly-insights.test.mjs"]
+      "routes": ["app/modal/savings-goals.tsx", "app/modal/savings-goal-detail.tsx", "app/modal/savings-goal-form.tsx", "app/modal/savings-goal-balance.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/savings-goal-detail.test.mjs", "tests/weekly-insights.test.mjs"]
     },
     {
       "id": "debts-and-payments",

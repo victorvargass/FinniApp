@@ -49,11 +49,11 @@ function GoalCard({ goal }: { goal: SavingsGoal }) {
 
   return (
     <Pressable
-      accessibilityLabel={t('savings.editAccessibility', { name: goal.name })}
+      accessibilityLabel={t('savings.openGoalAccessibility', { name: goal.name })}
       accessibilityRole="button"
       onPress={() =>
         router.push({
-          pathname: '/modal/savings-goal-form',
+          pathname: '/modal/savings-goal-detail' as never,
           params: { id: String(goal.id) },
         })
       }

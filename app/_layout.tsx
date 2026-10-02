@@ -193,6 +193,10 @@ function AppContent() {
                   options={{ presentation: 'modal', title: t('savings.goal') }}
                 />
                 <Stack.Screen
+                  name="modal/savings-goal-detail"
+                  options={{ presentation: 'modal', title: t('savings.goalDetails') }}
+                />
+                <Stack.Screen
                   name="modal/savings-goal-balance"
                   options={{ presentation: 'modal', title: t('savings.updateBalance') }}
                 />

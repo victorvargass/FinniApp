@@ -1,5 +1,4 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -15,7 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ColorPicker } from '@/components/ColorPicker';
 import { ColorSelect } from '@/components/forms/shared';
-import { SavingsGoalProgress } from '@/components/SavingsGoalProgress';
 import { HomeVisibilityPreference } from '@/components/home-visibility-preference';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -24,10 +22,10 @@ import { useSavingsDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
-import { formatCLP, formatCLPInput, formatDate, formatEventDateTime, formatTime, parseAmount, parseNonNegativeAmount, toDateString } from '@/lib/format';
+import { formatCLPInput, formatDate, formatTime, parseAmount, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
-import type { NewSavingsGoal, SavingsGoalMovement } from '@/lib/types';
+import type { NewSavingsGoal } from '@/lib/types';
 
 function parseIsoDate(value: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -45,11 +43,6 @@ function parseIsoDate(value: string): Date | null {
 
 function parseDate(value: string): Date {
   return parseIsoDate(value) ?? getDefaultDeadline();
-}
-
-function formatMovementDate(value: string): string {
-  const date = parseIsoDate(value);
-  return date ? formatDate(date) : t('common.dateUnavailable');
 }
 
 function getDefaultDeadline(): Date {
@@ -71,8 +64,6 @@ export default function SavingsGoalFormScreen() {
     editSavingsGoal,
     setSavingsGoalStatus,
     removeSavingsGoal,
-    removeSavingsGoalBalanceAdjustment,
-    getSavingsGoalMovements,
   } = useSavingsDatabase();
 
   const goalId = id ? Number(id) : null;
@@ -104,31 +95,12 @@ export default function SavingsGoalFormScreen() {
   const [showBalanceDatePicker, setShowBalanceDatePicker] = useState(false);
   const [showBalanceTimePicker, setShowBalanceTimePicker] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [movements, setMovements] = useState<SavingsGoalMovement[]>([]);
-  const [loadingMovements, setLoadingMovements] = useState(Boolean(goal));
 
   useEffect(() => {
     navigation.setOptions({
       title: goal ? t('savings.editGoal') : t('savings.newGoal'),
     });
   }, [goal, navigation]);
-
-  useEffect(() => {
-    if (!goal) return;
-    let cancelled = false;
-    setLoadingMovements(true);
-    getSavingsGoalMovements(goal.id)
-      .then((items) => {
-        if (!cancelled) setMovements(items);
-      })
-      .catch(() => {
-        if (!cancelled) setMovements([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingMovements(false);
-      });
-    return () => { cancelled = true; };
-  }, [getSavingsGoalMovements, goal]);
 
   if (id && !goal) {
     return (
@@ -270,174 +242,11 @@ export default function SavingsGoalFormScreen() {
     );
   };
 
-  const confirmDeleteBalanceUpdate = (movement: SavingsGoalMovement) => {
-    if (!goal || movement.kind !== 'adjustment' || saving) return;
-    Alert.alert(
-      t('savings.deleteBalanceUpdate'),
-      t('savings.deleteBalanceUpdateQuestion', { date: formatMovementDate(movement.date) }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            setSaving(true);
-            try {
-              await removeSavingsGoalBalanceAdjustment(goal.id, Math.abs(movement.id));
-              setMovements((current) => current.filter((item) => item.id !== movement.id));
-              showToast(t('savings.balanceUpdateDeleted'));
-            } catch (error) {
-              Alert.alert(
-                t('errors.couldNotDelete'),
-                error instanceof Error ? error.message : t('common.tryAgain')
-              );
-            } finally {
-              setSaving(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <ThemedView style={styles.shell}>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled">
-        {goal && (
-          <ThemedView style={[styles.progressCard, { borderColor: colors.border }]}>
-            <ThemedText type="defaultSemiBold">{t('savings.currentProgress')}</ThemedText>
-            <SavingsGoalProgress
-              color={goal.color}
-              currentAmount={goal.currentAmount}
-              targetAmount={goal.targetAmount}
-            />
-            {goal.status === 'active' && (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => router.push({
-                  pathname: '/modal/expense-form',
-                  params: { savingsGoalId: String(goal.id) },
-                })}
-                style={({ pressed }) => [
-                  styles.contributionButton,
-                  { backgroundColor: colors.action },
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText style={[styles.contributionButtonText, { color: colors.onPrimary }]}>
-                  {t('savings.enterContribution')}
-                </ThemedText>
-              </Pressable>
-            )}
-            {goal.status === 'active' && (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => router.push({
-                  pathname: '/modal/savings-goal-balance',
-                  params: { savingsGoalId: String(goal.id) },
-                })}
-                style={({ pressed }) => [
-                  styles.withdrawButton,
-                  { borderColor: colors.border },
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText type="defaultSemiBold">{t('savings.updateBalance')}</ThemedText>
-              </Pressable>
-            )}
-            {goal.status === 'active' && goal.allowWithdrawals && goal.currentAmount > 0 && (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => router.push({
-                  pathname: '/modal/income-form',
-                  params: { savingsGoalId: String(goal.id) },
-                })}
-                style={({ pressed }) => [
-                  styles.withdrawButton,
-                  { borderColor: colors.border },
-                  pressed && styles.pressed,
-                ]}>
-                <ThemedText type="defaultSemiBold">{t('savings.withdraw')}</ThemedText>
-              </Pressable>
-            )}
-            {goal.status === 'active' && !goal.allowWithdrawals && (
-              <ThemedText style={styles.withdrawalsDisabled}>
-                {t('savings.withdrawalsDisabled')}
-              </ThemedText>
-            )}
-          </ThemedView>
-        )}
-
-        {goal && (
-          <View style={[styles.movementsSection, { borderColor: colors.border }]}>
-            <ThemedText type="subtitle">{t('savings.movements')}</ThemedText>
-            <View style={[styles.movementRow, { borderBottomColor: colors.border }]}>
-              <View style={styles.movementCopy}>
-                <ThemedText type="defaultSemiBold">{t('savings.reportedStartingBalance')}</ThemedText>
-                <ThemedText style={styles.movementMeta}>
-                  {formatMovementDate(goal.balanceDate)}
-                </ThemedText>
-              </View>
-              <ThemedText type="defaultSemiBold">{formatCLP(goal.initialAmount)}</ThemedText>
-            </View>
-            {loadingMovements ? (
-              <ThemedText style={styles.emptyMovements}>{t('savings.loadingMovements')}</ThemedText>
-            ) : (
-              movements.map((movement) => {
-                const positive = movement.kind === 'contribution';
-                const label = movement.kind === 'contribution'
-                  ? t('savings.contribution')
-                  : movement.kind === 'withdrawal'
-                    ? t('savings.withdrawalToPeriod')
-                    : movement.kind === 'funded_expense'
-                      ? t('savings.fundedExpense')
-                      : t('savings.balanceAdjustment');
-                const canOpen = movement.expenseId != null || movement.incomeId != null;
-                const canDelete = movement.kind === 'adjustment';
-                return (
-                  <Pressable
-                    accessibilityLabel={canDelete
-                      ? t('savings.deleteBalanceUpdateAccessibility', { date: formatMovementDate(movement.date) })
-                      : undefined}
-                    key={movement.id}
-                    disabled={!canOpen && !canDelete}
-                    onPress={() => {
-                      if (canDelete) {
-                        confirmDeleteBalanceUpdate(movement);
-                      } else if (movement.expenseId != null) {
-                        router.push({ pathname: '/modal/expense-form', params: { id: String(movement.expenseId) } });
-                      } else if (movement.incomeId != null) {
-                        router.push({ pathname: '/modal/income-form', params: { id: String(movement.incomeId) } });
-                      }
-                    }}
-                    style={({ pressed }) => [
-                      styles.movementRow,
-                      { borderBottomColor: colors.border },
-                      pressed && styles.pressed,
-                    ]}>
-                    <View style={styles.movementCopy}>
-                      <ThemedText type="defaultSemiBold" numberOfLines={1}>{movement.name}</ThemedText>
-                      <ThemedText style={styles.movementMeta}>
-                        {label} · {formatEventDateTime(movement.date, movement.time)}
-                      </ThemedText>
-                    </View>
-                    <View style={styles.movementValue}>
-                      <ThemedText style={movement.kind === 'adjustment'
-                        ? undefined
-                        : positive ? styles.positiveMovement : styles.negativeMovement}>
-                        {movement.kind === 'adjustment'
-                          ? formatCLP(movement.reportedBalance ?? Math.abs(movement.amount))
-                          : `${positive ? '+' : '−'}${formatCLP(Math.abs(movement.amount))}`}
-                      </ThemedText>
-                      {canDelete && <Ionicons name="trash-outline" size={18} color="#C93F4B" />}
-                    </View>
-                  </Pressable>
-                );
-              })
-            )}
-          </View>
-        )}
-
         <ThemedText style={styles.label}>{t('common.name')}</ThemedText>
         <TextInput
           autoCapitalize="sentences"

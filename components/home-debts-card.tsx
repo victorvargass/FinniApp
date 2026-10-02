@@ -8,6 +8,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCLP, formatDate } from '@/lib/format';
 import { visibleHomeDebtPlans, visibleHomeDebts, visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
+import { getCreditCardDebtAmount } from '@/lib/payment-method-calculations';
 import type { Debt, DebtPlan, PaymentMethod } from '@/lib/types';
 
 type HomeDebtsCardProps = {
@@ -95,12 +96,12 @@ export function HomeDebtsCard({
     (item) => item.status === 'active' || item.status === 'projected'
   );
   const creditCards = visibleHomePaymentMethods(paymentMethods).filter((item) =>
-    item.active && item.type === 'credit' && (item.usedAmount ?? 0) > 0
+    item.active && item.type === 'credit' && getCreditCardDebtAmount(item) > 0
   );
   if (activeDebts.length === 0 && activePlans.length === 0 && creditCards.length === 0) return null;
 
   const totalBalance = payableDebts.reduce((sum, item) => sum + item.currentBalance, 0)
-    + creditCards.reduce((sum, item) => sum + (item.usedAmount ?? 0), 0);
+    + creditCards.reduce((sum, item) => sum + getCreditCardDebtAmount(item), 0);
   const totalReceivable = receivableDebts.reduce((sum, item) => sum + item.currentBalance, 0);
 
   return (
@@ -122,11 +123,13 @@ export function HomeDebtsCard({
               key={`card-${card.id}`}
               color={card.color}
               name={card.name}
-              detail={t('paymentMethods.credit')}
-              amount={card.usedAmount ?? 0}
-              amountDetail={`${t('paymentMethods.billedToPay')}: ${formatCLP(card.billedAmount)}`}
+              detail={t(card.usedAmount == null ? 'paymentMethods.billedToPay' : 'paymentMethods.credit')}
+              amount={getCreditCardDebtAmount(card)}
+              amountDetail={card.usedAmount == null
+                ? undefined
+                : `${t('paymentMethods.billedToPay')}: ${formatCLP(card.billedAmount)}`}
               amountDetailColor={card.billedAmount > 0 ? colors.expense : colors.textSecondary}
-              total={card.creditLimit}
+              total={card.usedAmount == null ? null : card.creditLimit}
               onPress={() => onOpenPaymentMethod(card.id)}
             />
           );

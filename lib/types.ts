@@ -594,6 +594,8 @@ export type PeriodHistory = {
   incomesTotal: number;
   savingsWithdrawalTotal: number;
   savingsFundingTotal: number;
+  debtPaymentsTotal: number;
+  debtCollectionsTotal: number;
   cardPaymentsFromAccountsTotal: number;
   cardInternalAdjustmentsTotal: number;
   categories: PeriodHistoryCategory[];

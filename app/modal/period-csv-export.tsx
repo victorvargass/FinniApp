@@ -126,7 +126,12 @@ export default function PeriodCsvExportScreen() {
         },
       ]}>
         <Pressable
+          accessibilityLabel={t('csv.export')}
           accessibilityRole="button"
+          accessibilityState={{
+            busy: exporting,
+            disabled: !period || fields.length === 0 || exporting,
+          }}
           disabled={!period || fields.length === 0 || exporting}
           onPress={() => { void runExport(); }}
           style={({ pressed }) => [

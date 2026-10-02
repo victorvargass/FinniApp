@@ -1,3 +1,11 @@
+import type { PaymentMethod } from './types';
+
+export function getCreditCardDebtAmount(
+  method: Pick<PaymentMethod, 'billedAmount' | 'usedAmount'>
+) {
+  return method.usedAmount ?? method.billedAmount;
+}
+
 export function calculateAvailableBalance(
   reportedBalance: number,
   chargesAfterSnapshot: number,
@@ -103,6 +111,4 @@ export function findUrgentCardPayment(
 ): { method: PaymentMethod; dueDate: Date; daysUntil: number } | null {
   return findUrgentCardPayments(methods, referenceDate, horizonDays)[0] ?? null;
 }
-import type { PaymentMethod } from './types';
-
 const DAY_MS = 24 * 60 * 60 * 1000;

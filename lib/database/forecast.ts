@@ -103,7 +103,7 @@ export async function getBudgetForecast(periodId: number, referenceDate: string)
     ),
     database.getAllAsync<ForecastRow>(
       `SELECT 'installment-' || installment.id AS id, 'installment' AS kind, plan.name,
-              installment.projected_amount, installment.due_date
+              installment.projected_amount AS amount, installment.due_date AS date
        FROM debt_installments installment
        INNER JOIN debt_plans plan ON plan.id = installment.debt_plan_id
        WHERE installment.status = 'projected' AND plan.status IN ('projected', 'active')

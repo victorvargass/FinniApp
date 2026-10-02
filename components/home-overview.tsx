@@ -29,7 +29,19 @@ export function HomeAttentionSection({ items, onOpenNotifications, onUndoDismiss
 
   return (
     <View style={styles.section}>
-      <ThemedText type="subtitle">{t('home.attention')}</ThemedText>
+      <View style={styles.sectionHeader}>
+        <ThemedText type="subtitle" style={styles.sectionTitle}>{t('home.attention')}</ThemedText>
+        <Pressable
+          accessibilityLabel={t('home.viewNotifications')}
+          accessibilityRole="button"
+          onPress={onOpenNotifications}
+          style={({ pressed }) => [styles.notificationsLink, pressed && styles.pressed]}>
+          <Ionicons name="notifications-outline" size={17} color={colors.primary} />
+          <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
+            {t('home.viewNotificationsShort')}
+          </ThemedText>
+        </Pressable>
+      </View>
       {items.length === 0 ? (
         <ThemedView style={[styles.upToDate, { borderColor: colors.border }]}>
           <Ionicons name="checkmark-circle" size={24} color={colors.success} />
@@ -87,26 +99,21 @@ export function HomeAttentionSection({ items, onOpenNotifications, onUndoDismiss
           </Pressable>
         </ThemedView>
       )}
-      <Pressable
-        accessibilityRole="button"
-        onPress={onOpenNotifications}
-        style={({ pressed }) => [
-          styles.notificationsButton,
-          { borderColor: colors.border, backgroundColor: colors.surface },
-          pressed && styles.pressed,
-        ]}>
-        <Ionicons name="notifications-outline" size={20} color={colors.primary} />
-        <ThemedText type="defaultSemiBold" style={styles.notificationsButtonLabel}>
-          {t('home.viewNotifications')}
-        </ThemedText>
-        <Ionicons name="chevron-forward" size={19} color={colors.icon} />
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   section: { gap: 10 },
+  sectionHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sectionTitle: { flex: 1 },
+  notificationsLink: {
+    minHeight: 44,
+    paddingHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   upToDate: { borderWidth: 1, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   attention: { borderWidth: 1, borderRadius: 14, padding: 7, flexDirection: 'row', alignItems: 'center', gap: 2 },
   attentionAction: { flex: 1, minWidth: 0, padding: 6, flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -117,15 +124,5 @@ const styles = StyleSheet.create({
   undoNotice: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 10 },
   undoLabel: { flex: 1, fontSize: 13 },
   undoButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 4 },
-  notificationsButton: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  notificationsButtonLabel: { flex: 1 },
   pressed: { opacity: 0.7 },
 });

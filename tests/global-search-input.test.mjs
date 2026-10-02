@@ -16,4 +16,5 @@ test('global search keeps its placeholder on one vertically centered line', () =
 
 test('the Home search shortcut uses the same single-line text', () => {
   assert.match(home, /testID="home-global-search"[\s\S]*ellipsizeMode="tail"[\s\S]*numberOfLines=\{1\}[\s\S]*t\('globalSearch\.placeholder'\)/);
+  assert.match(home, /hiddenSections\.includes\('search'\)[\s\S]*renderHomeSection\('search'\)/);
 });

@@ -37,7 +37,7 @@ function openResult(result: GlobalSearchResult) {
     debt: '/modal/manual-debt-detail',
     installment: '/modal/debt-detail',
     'payment-method': '/modal/payment-method-detail',
-    'savings-goal': '/modal/savings-goal-form',
+    'savings-goal': '/modal/savings-goal-detail',
   }[result.kind];
   router.push({ pathname: pathname as never, params: { id: String(result.id) } });
 }

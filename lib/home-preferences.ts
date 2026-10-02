@@ -1,4 +1,5 @@
 export const HOME_SECTION_IDS = [
+  'search',
   'attention',
   'weekly',
   'wallet',
@@ -23,7 +24,7 @@ export const HOME_GLOBAL_METRIC_IDS = [
   'debt',
 ] as const;
 
-const HOME_PREFERENCES_VERSION = 2;
+const HOME_PREFERENCES_VERSION = 3;
 
 export type HomeSectionId = typeof HOME_SECTION_IDS[number];
 export type HomePeriodMetricId = typeof HOME_PERIOD_METRIC_IDS[number];
@@ -65,6 +66,10 @@ export function normalizeHomePreferences(value: unknown): HomePreferences {
     : {};
   const storedOrder = normalizeSelection(candidate.sectionOrder, HOME_SECTION_IDS, []);
   const missingSections = HOME_SECTION_IDS.filter((item) => !storedOrder.includes(item));
+  const sectionOrder = (candidate.version ?? 0) < HOME_PREFERENCES_VERSION
+    && !storedOrder.includes('search')
+    ? ['search' as const, ...storedOrder, ...missingSections.filter((item) => item !== 'search')]
+    : [...storedOrder, ...missingSections];
   const storedGlobalMetrics = normalizeSelection(
     candidate.globalMetrics,
     HOME_GLOBAL_METRIC_IDS,
@@ -78,7 +83,7 @@ export function normalizeHomePreferences(value: unknown): HomePreferences {
 
   return {
     version: HOME_PREFERENCES_VERSION,
-    sectionOrder: [...storedOrder, ...missingSections],
+    sectionOrder,
     hiddenSections: normalizeSelection(candidate.hiddenSections, HOME_SECTION_IDS, []),
     periodMetrics: normalizeSelection(
       candidate.periodMetrics,

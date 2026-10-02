@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 
 const card = readFileSync(new URL('../components/home-debts-card.tsx', import.meta.url), 'utf8');
 
-test('credit card rows place the billed amount below used credit without a due date', () => {
-  assert.match(card, /amount=\{card\.usedAmount \?\? 0\}[\s\S]*amountDetail=\{`\$\{t\('paymentMethods\.billedToPay'\)\}: \$\{formatCLP\(card\.billedAmount\)\}`\}/);
-  assert.match(card, /detail=\{t\('paymentMethods\.credit'\)\}/);
+test('credit cards remain visible using billed debt when used credit is unknown', () => {
+  assert.match(card, /getCreditCardDebtAmount\(item\) > 0/);
+  assert.match(card, /amount=\{getCreditCardDebtAmount\(card\)\}/);
+  assert.match(card, /card\.usedAmount == null \? 'paymentMethods\.billedToPay' : 'paymentMethods\.credit'/);
+  assert.match(card, /total=\{card\.usedAmount == null \? null : card\.creditLimit\}/);
   assert.doesNotMatch(card, /getCardDueDate|homeCardEstimatedDue|homeCardDue/);
 });

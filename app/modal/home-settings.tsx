@@ -35,6 +35,7 @@ type SortableSectionRowProps = {
   id: HomeSectionId;
   index: number;
   count: number;
+  minIndex?: number;
   visible: boolean;
   onMove: (from: number, to: number) => void;
   onToggle: (id: HomeSectionId) => void;
@@ -45,6 +46,7 @@ function SortableSectionRow({
   id,
   index,
   count,
+  minIndex = 0,
   visible,
   onMove,
   onToggle,
@@ -55,7 +57,7 @@ function SortableSectionRow({
   const [dragging, setDragging] = useState(false);
   const responder = useMemo(() => {
     const finishDrag = (dy: number) => {
-      const target = Math.max(0, Math.min(count - 1, index + Math.round(dy / ROW_STEP)));
+      const target = Math.max(minIndex, Math.min(count - 1, index + Math.round(dy / ROW_STEP)));
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
       setDragging(false);
       onDraggingChange(false);
@@ -72,7 +74,7 @@ function SortableSectionRow({
       onPanResponderRelease: (_, gesture) => finishDrag(gesture.dy),
       onPanResponderTerminate: (_, gesture) => finishDrag(gesture.dy),
     });
-  }, [count, index, onDraggingChange, onMove, translateY]);
+  }, [count, index, minIndex, onDraggingChange, onMove, translateY]);
 
   return (
     <Animated.View
@@ -90,7 +92,7 @@ function SortableSectionRow({
         accessibilityLabel={t('homeSettings.reorderSection', { section: t(`homeSettings.sections.${id}`) })}
         accessibilityRole="adjustable"
         onAccessibilityAction={(event) => {
-          if (event.nativeEvent.actionName === 'decrement' && index > 0) onMove(index, index - 1);
+          if (event.nativeEvent.actionName === 'decrement' && index > minIndex) onMove(index, index - 1);
           if (event.nativeEvent.actionName === 'increment' && index < count - 1) onMove(index, index + 1);
         }}
         style={styles.dragHandle}
@@ -207,12 +209,27 @@ export default function HomeSettingsScreen() {
           <ThemedText style={[styles.hint, { color: colors.textSecondary }]}>{t('homeSettings.sectionsHint')}</ThemedText>
         </View>
         <View style={styles.sectionList}>
-          {preferences.sectionOrder.map((id, index) => (
+          <View style={[styles.sectionRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <View style={styles.dragHandle}>
+              <Ionicons name="search-outline" size={21} color={colors.icon} />
+            </View>
+            <ThemedText type="defaultSemiBold" style={styles.sectionName}>
+              {t('homeSettings.sections.search')}
+            </ThemedText>
+            <Switch
+              accessibilityLabel={t('homeSettings.toggleSection', { section: t('homeSettings.sections.search') })}
+              onValueChange={() => toggleSection('search')}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              value={!preferences.hiddenSections.includes('search')}
+            />
+          </View>
+          {preferences.sectionOrder.filter((id) => id !== 'search').map((id, index) => (
             <SortableSectionRow
               key={id}
               id={id}
-              index={index}
+              index={index + 1}
               count={preferences.sectionOrder.length}
+              minIndex={1}
               visible={!preferences.hiddenSections.includes(id)}
               onMove={moveSection}
               onToggle={toggleSection}

@@ -36,6 +36,21 @@ test('legacy preferences receive billed credit once and can later hide it', () =
   assert.deepEqual(customized.globalMetrics, ['wallet']);
 });
 
+test('legacy preferences receive the global search first and may hide it later', () => {
+  const migrated = normalizeHomePreferences({
+    version: 2,
+    sectionOrder: ['debts', 'wallet'],
+    hiddenSections: [],
+    periodMetrics: ['available'],
+    globalMetrics: ['wallet', 'billedCredit'],
+  });
+  assert.equal(migrated.sectionOrder[0], 'search');
+  assert.deepEqual(migrated.sectionOrder.slice(1, 3), ['debts', 'wallet']);
+
+  const customized = normalizeHomePreferences({ ...migrated, hiddenSections: ['search'] });
+  assert.deepEqual(customized.hiddenSections, ['search']);
+});
+
 test('home preferences recover safely from corrupt or empty selections', () => {
   assert.deepEqual(parseHomePreferences('not-json'), DEFAULT_HOME_PREFERENCES);
   const preferences = normalizeHomePreferences({

@@ -12,7 +12,11 @@ function formatPeriodDate(value: string) {
   return formatDate(new Date(`${value}T12:00:00`));
 }
 
-export function PeriodSelector() {
+type PeriodSelectorProps = {
+  onEditDates?: () => void;
+};
+
+export function PeriodSelector({ onEditDates }: PeriodSelectorProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { periods, selectedPeriod, settings, selectPeriod } = usePeriodDatabase();
@@ -42,16 +46,22 @@ export function PeriodSelector() {
         <Ionicons name="chevron-back" size={23} color={colors.icon} />
       </Pressable>
 
-      <View style={styles.copy}>
+      <Pressable
+        accessibilityLabel={onEditDates ? t('period.editDates') : undefined}
+        accessibilityRole={onEditDates ? 'button' : undefined}
+        disabled={!onEditDates}
+        onPress={onEditDates}
+        style={({ pressed }) => [styles.copy, pressed && styles.pressed]}>
         <View style={styles.labelRow}>
           <ThemedText type="defaultSemiBold">
             {isCurrent ? t('period.current') : t('period.historical')}
           </ThemedText>
+          {onEditDates && <Ionicons name="pencil-outline" size={14} color={colors.icon} />}
         </View>
         <ThemedText style={styles.dates}>
           {formatPeriodDate(selectedPeriod.startDate)} – {formatPeriodDate(selectedPeriod.endDate)}
         </ThemedText>
-      </View>
+      </Pressable>
 
       <Pressable
         accessibilityLabel={t('accessibility.nextPeriod')}
@@ -111,4 +121,5 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: 'center',
   },
+  pressed: { opacity: 0.65 },
 });

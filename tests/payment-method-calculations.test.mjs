@@ -6,8 +6,15 @@ import {
   findUrgentCardPayment,
   findUrgentCardPayments,
   getCardDueDate,
+  getCreditCardDebtAmount,
   getEstimatedPaymentDueDate,
 } from '../lib/payment-method-calculations.ts';
+
+test('card debt falls back to the billed amount when available credit was not reported', () => {
+  assert.equal(getCreditCardDebtAmount({ usedAmount: null, billedAmount: 350_630 }), 350_630);
+  assert.equal(getCreditCardDebtAmount({ usedAmount: 455_000, billedAmount: 338_720 }), 455_000);
+  assert.equal(getCreditCardDebtAmount({ usedAmount: null, billedAmount: 0 }), 0);
+});
 
 test('available balance applies charges and card payments after the snapshot', () => {
   assert.equal(calculateAvailableBalance(1_000_000, 250_000, 80_000), 830_000);

@@ -16,7 +16,6 @@ import { PeriodSelector } from '@/components/period-selector';
 import { ProgressiveSetup } from '@/components/progressive-setup';
 import { SavingsGoalsPeriodCard } from '@/components/SavingsGoalsPeriodCard';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { WeeklyInsightCard } from '@/components/weekly-insight-card';
 import { Colors } from '@/constants/theme';
 import {
@@ -37,7 +36,7 @@ import type { HomeSectionId } from '@/lib/home-preferences';
 import { visibleHomeDebts, visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
-import { findUrgentCardPayments } from '@/lib/payment-method-calculations';
+import { findUrgentCardPayments, getCreditCardDebtAmount } from '@/lib/payment-method-calculations';
 import { getHomePaymentMethods, sumKnownAvailableBalances } from '@/lib/payment-method-groups';
 import {
   calculatePeriodAvailable,
@@ -337,9 +336,27 @@ export default function HomeScreen() {
     .filter((debt) => debt.status === 'active' && debt.direction === 'payable')
     .reduce((sum, debt) => sum + debt.currentBalance, 0)
     + getHomePaymentMethods(visiblePaymentMethods, 'credit')
-      .reduce((sum, method) => sum + (method.usedAmount ?? 0), 0);
+      .reduce((sum, method) => sum + getCreditCardDebtAmount(method), 0);
 
   const renderHomeSection = (section: HomeSectionId) => {
+    if (section === 'search') {
+      return (
+        <Pressable
+          key={section}
+          accessibilityRole="button"
+          onPress={() => router.push('/modal/global-search' as never)}
+          style={[styles.globalSearch, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          testID="home-global-search">
+          <Ionicons name="search-outline" size={20} color={colors.icon} />
+          <ThemedText
+            ellipsizeMode="tail"
+            numberOfLines={1}
+            style={[styles.globalSearchText, { color: colors.textSecondary }]}>
+            {t('globalSearch.placeholder')}
+          </ThemedText>
+        </Pressable>
+      );
+    }
     if (section === 'attention') {
       return isCurrentPeriod && dismissedAttentionIds != null ? (
         <HomeAttentionSection
@@ -386,7 +403,7 @@ export default function HomeScreen() {
             asOfDate={selectedPeriod.endDate}
             onManage={() => router.push('/modal/savings-goals')}
             onOpenGoal={(id) => router.push({
-              pathname: '/modal/savings-goal-form',
+              pathname: '/modal/savings-goal-detail' as never,
               params: { id: String(id) },
             })}
           />
@@ -512,6 +529,100 @@ export default function HomeScreen() {
     }
   }
 
+  function openPeriodDateEditor() {
+    if (!isCurrentPeriod) return;
+    const actions = [];
+    if (selectedPeriod?.id === 1) {
+      actions.push({
+        text: t('period.start'),
+        onPress: () => {
+          setStartDateDraft(startDate);
+          setShowStartDatePicker(true);
+        },
+      });
+    }
+    actions.push(
+      {
+        text: t('period.end'),
+        onPress: () => {
+          setEndDateDraft(endDate);
+          setShowEndDatePicker(true);
+        },
+      },
+      { text: t('common.cancel'), style: 'cancel' as const }
+    );
+    Alert.alert(t('home.periodDetails'), t('period.editDatesHint'), actions);
+  }
+
+  function confirmClosePeriod() {
+    let nextStartLabel = '';
+    let nextEndLabel = '';
+    const currentEnd = settings.currentPeriod?.endDate
+      ? parseDateString(settings.currentPeriod.endDate)
+      : null;
+    if (currentEnd) {
+      const nextStart = new Date(currentEnd);
+      nextStart.setDate(nextStart.getDate() + 1);
+      const nextEnd = new Date(nextStart);
+      nextEnd.setMonth(nextEnd.getMonth() + 1);
+      nextStartLabel = formatDate(nextStart);
+      nextEndLabel = formatDate(nextEnd);
+    }
+
+    Alert.alert(
+      t('period.finishTitle'),
+      t('period.finishMessage', {
+        start: nextStartLabel,
+        end: nextEndLabel,
+        summary: t('period.finishSummary', {
+          incomes: formatCLP(periodIncomesTotal),
+          expenses: formatCLP(periodExpensesTotal),
+          balance: formatCLP(periodBalance),
+        }),
+        insights: closeInsights
+          ? t('period.finishInsights', {
+            balance: t(`period.finishBalance${closeInsights.balanceStatus === 'positive' ? 'Positive' : closeInsights.balanceStatus === 'negative' ? 'Negative' : 'Even'}`, {
+              amount: formatCLP(Math.abs(periodBalance)),
+            }),
+            comparison: closeInsights.comparisonStatus === 'first'
+              ? t('period.finishComparisonFirst')
+              : closeInsights.comparisonStatus === 'same'
+                ? t('period.finishComparisonSame')
+                : t(closeInsights.comparisonStatus === 'less' ? 'period.finishComparisonLess' : 'period.finishComparisonMore', {
+                  percent: closeInsights.comparisonPercent ?? 0,
+                }),
+            category: closeInsights.topCategoryName
+              ? t('period.finishTopCategory', {
+                category: closeInsights.topCategoryName,
+                amount: formatCLP(closeInsights.topCategoryAmount),
+              })
+              : t('period.finishNoExpenses'),
+          })
+          : '',
+      }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('period.finishAction'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const nextPeriod = await closeCurrentPeriod();
+              showToast(t('period.finished'));
+              router.push({
+                pathname: '/modal/period-opening-balances',
+                params: { start: nextPeriod.startDate, end: nextPeriod.endDate },
+              });
+            } catch {
+              Alert.alert(t('period.finishErrorTitle'), t('period.finishError'));
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  }
+
   async function handleExport() {
     if (!selectedPeriodReport || !hasPeriodMovements || isExporting) return;
     try {
@@ -556,101 +667,68 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top']}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/modal/global-search' as never)}
-          style={[styles.globalSearch, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          testID="home-global-search">
-          <Ionicons name="search-outline" size={20} color={colors.icon} />
-          <ThemedText
-            ellipsizeMode="tail"
-            numberOfLines={1}
-            style={[styles.globalSearchText, { color: colors.textSecondary }]}>
-            {t('globalSearch.placeholder')}
-          </ThemedText>
-        </Pressable>
-        <PeriodSelector />
-        <ThemedView style={[styles.header, { backgroundColor: colors.surface }]}>
-          <ThemedText type="subtitle">{t('home.periodDetails')}</ThemedText>
-          <View style={styles.dateRangeContainer}>
-            <View style={styles.dateContainer}>
-              <ThemedText>{t('period.start')}</ThemedText>
-              <Pressable
-                style={[
-                  styles.dateButton,
-                  { borderColor: colors.icon },
-                  (!isCurrentPeriod || selectedPeriod?.id !== 1) && { opacity: 0.5 },
-                ]}
-                onPress={() => {
-                  if (isCurrentPeriod && selectedPeriod?.id === 1) {
-                    setStartDateDraft(startDate);
-                    setShowStartDatePicker(true);
-                  }
-                }}
-                disabled={!isCurrentPeriod || selectedPeriod?.id !== 1}
-              >
-                <ThemedText>{formatDate(startDate)}</ThemedText>
-              </Pressable>
-
-              {showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
-                <DateTimePicker
-                  value={startDateDraft ?? startDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, selected) => {
-                    if (Platform.OS === 'android') setShowStartDatePicker(false);
-                    if (event.type === 'dismissed' || !selected) return;
-                    if (Platform.OS === 'ios') setStartDateDraft(selected);
-                    else void saveStartDate(selected);
-                  }}
-                />
-              )}
-              {Platform.OS === 'ios' && showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
-                <Pressable style={styles.doneDate} onPress={() => {
-                  setShowStartDatePicker(false);
-                  if (startDateDraft) void saveStartDate(startDateDraft);
-                }}>
-                  <ThemedText type="link">{t('common.done')}</ThemedText>
-                </Pressable>
-              )}
-            </View>
-   
-            <View style={styles.dateContainer}>
-              <ThemedText>{t('period.end')}</ThemedText>
-              <Pressable
-                style={[styles.dateButton, { borderColor: colors.icon }, !isCurrentPeriod && { opacity: 0.5 }]}
-                disabled={!isCurrentPeriod}
-                onPress={() => {
-                  setEndDateDraft(endDate);
-                  setShowEndDatePicker(true);
-                }}>
-                <ThemedText>{formatDate(endDate)}</ThemedText>
-              </Pressable>
-
-              {showEndDatePicker && isCurrentPeriod && (
-                <DateTimePicker
-                  value={endDateDraft ?? endDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={(event, selected) => {
-                    if (Platform.OS === 'android') setShowEndDatePicker(false);
-                    if (event.type === 'dismissed' || !selected) return;
-                    if (Platform.OS === 'ios') setEndDateDraft(selected);
-                    else void saveEndDate(selected);
-                  }}
-                />
-              )}
-              {Platform.OS === 'ios' && showEndDatePicker && (
-                <Pressable style={styles.doneDate} onPress={() => {
-                  setShowEndDatePicker(false);
-                  if (endDateDraft) void saveEndDate(endDateDraft);
-                }}>
-                  <ThemedText type="link">{t('common.done')}</ThemedText>
-                </Pressable>
-              )}
-            </View>
+        {!settings.homePreferences.hiddenSections.includes('search') && renderHomeSection('search')}
+        <PeriodSelector onEditDates={isCurrentPeriod ? openPeriodDateEditor : undefined} />
+        {isCurrentPeriod && hasPeriodMovements && (
+          <View style={styles.periodCloseContainer}>
+            <Pressable
+              accessibilityLabel={t('period.close')}
+              accessibilityRole="button"
+              onPress={confirmClosePeriod}
+              style={({ pressed }) => [
+                styles.periodCloseButton,
+                { backgroundColor: colors.danger },
+                pressed && styles.buttonPressed,
+              ]}
+              testID="period-close">
+              <ThemedText type="defaultSemiBold" style={{ color: colors.onPrimary }}>
+                {t('period.close')}
+              </ThemedText>
+            </Pressable>
           </View>
-        </ThemedView>
+        )}
+        {showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
+          <DateTimePicker
+            value={startDateDraft ?? startDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(event, selected) => {
+              if (Platform.OS === 'android') setShowStartDatePicker(false);
+              if (event.type === 'dismissed' || !selected) return;
+              if (Platform.OS === 'ios') setStartDateDraft(selected);
+              else void saveStartDate(selected);
+            }}
+          />
+        )}
+        {Platform.OS === 'ios' && showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
+          <Pressable style={styles.doneDate} onPress={() => {
+            setShowStartDatePicker(false);
+            if (startDateDraft) void saveStartDate(startDateDraft);
+          }}>
+            <ThemedText type="link">{t('common.done')}</ThemedText>
+          </Pressable>
+        )}
+        {showEndDatePicker && isCurrentPeriod && (
+          <DateTimePicker
+            value={endDateDraft ?? endDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(event, selected) => {
+              if (Platform.OS === 'android') setShowEndDatePicker(false);
+              if (event.type === 'dismissed' || !selected) return;
+              if (Platform.OS === 'ios') setEndDateDraft(selected);
+              else void saveEndDate(selected);
+            }}
+          />
+        )}
+        {Platform.OS === 'ios' && showEndDatePicker && (
+          <Pressable style={styles.doneDate} onPress={() => {
+            setShowEndDatePicker(false);
+            if (endDateDraft) void saveEndDate(endDateDraft);
+          }}>
+            <ThemedText type="link">{t('common.done')}</ThemedText>
+          </Pressable>
+        )}
 
         <HomeSummaryCards
           periodMetrics={settings.homePreferences.periodMetrics}
@@ -682,7 +760,7 @@ export default function HomeScreen() {
             hasAdditionalCategory={hasUserCreatedCategory(categories)}
             hasSavingsGoal={savingsGoals.length > 0}
             hasMovements={hasPeriodMovements}
-            onOpenPeriod={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+            onOpenPeriod={openPeriodDateEditor}
             onOpenPaymentMethods={() => router.push('/modal/payment-methods')}
             onOpenCategories={() => router.push('/modal/categories')}
             onOpenSavings={() => router.push('/modal/savings-goals')}
@@ -691,146 +769,54 @@ export default function HomeScreen() {
           />
         )}
         {settings.homePreferences.sectionOrder
-          .filter((section) => !settings.homePreferences.hiddenSections.includes(section))
+          .filter((section) => section !== 'search'
+            && !settings.homePreferences.hiddenSections.includes(section))
           .map(renderHomeSection)}
 
       {selectedPeriodReport && hasPeriodMovements && (
         <View style={styles.exportSection}>
-          <ThemedText type="subtitle">{t('historicalPeriod.exportTitle')}</ThemedText>
-          <ThemedText style={[styles.exportHint, { color: colors.textSecondary }]}>
-            {t('historicalPeriod.exportHint')}
-          </ThemedText>
-          <View style={styles.exportActions}>
-          <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.exportButton,
-              { backgroundColor: colors.primary },
-              (pressed || isExporting) && styles.buttonPressed,
-            ]}
-            disabled={isExporting}
-            onPress={handleExport}>
-            {isExporting ? (
-              <ActivityIndicator size="small" color={colors.onPrimary} />
-            ) : (
-              <ThemedText style={[styles.actionButtonText, { color: colors.onPrimary }]}>
-                {t('historicalPeriod.exportPdfShort')}
-              </ThemedText>
-            )}
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.exportButton,
-              { borderColor: colors.primary, borderWidth: 1 },
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={() => router.push({
-              pathname: '/modal/period-csv-export' as never,
-              params: { periodId: String(selectedPeriodReport.periodId) },
-            })}>
-            <ThemedText style={[styles.actionButtonText, { color: colors.primary }]}>
-              {t('historicalPeriod.exportCsvShort')}
+          <View style={styles.exportCopy}>
+            <ThemedText type="subtitle">{t('historicalPeriod.exportTitle')}</ThemedText>
+            <ThemedText style={[styles.exportHint, { color: colors.textSecondary }]}>
+              {t('historicalPeriod.exportHint')}
             </ThemedText>
-          </Pressable>
+          </View>
+          <View style={styles.exportActions}>
+            <Pressable
+              accessibilityLabel={t('historicalPeriod.exportPdf')}
+              accessibilityRole="button"
+              accessibilityState={{ busy: isExporting, disabled: isExporting }}
+              style={({ pressed }) => [
+                styles.exportIconButton,
+                styles.pdfExportButton,
+                (pressed || isExporting) && styles.buttonPressed,
+              ]}
+              disabled={isExporting}
+              onPress={handleExport}>
+              {isExporting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="document-text-outline" size={22} color="#FFFFFF" />
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityLabel={t('historicalPeriod.exportCsv')}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.exportIconButton,
+                styles.csvExportButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={() => router.push({
+                pathname: '/modal/period-csv-export' as never,
+                params: { periodId: String(selectedPeriodReport.periodId) },
+              })}>
+              <Ionicons name="grid-outline" size={21} color="#FFFFFF" />
+            </Pressable>
           </View>
         </View>
       )}
 
-      {isCurrentPeriod && hasPeriodMovements && (
-        <View style={{ marginTop: 24, alignItems: 'center' }}>
-          <Pressable
-            accessibilityLabel={t('period.close')}
-            testID="period-close"
-            style={{
-              backgroundColor: '#E95353',
-              paddingHorizontal: 24,
-              paddingVertical: 12,
-              borderRadius: 8,
-            }}
-            onPress={() => {
-              // Las fechas del próximo periodo se calculan igual que en db.ts (ver closeCurrentPeriod)
-              let proximoInicio = '', proximoTermino = '';
-              const end = settings.currentPeriod?.endDate ? parseDateString(settings.currentPeriod.endDate) : null;
-              if (end) {
-                const nextStart = new Date(end);
-                nextStart.setDate(nextStart.getDate() + 1);
-                const nextEnd = new Date(nextStart);
-                nextEnd.setMonth(nextEnd.getMonth() + 1);
-                proximoInicio = formatDate(nextStart);
-                proximoTermino = formatDate(nextEnd);
-              }
-
-              Alert.alert(
-                t('period.finishTitle'),
-                t('period.finishMessage', {
-                  start: proximoInicio,
-                  end: proximoTermino,
-                  summary: t('period.finishSummary', {
-                    incomes: formatCLP(periodIncomesTotal),
-                    expenses: formatCLP(periodExpensesTotal),
-                    balance: formatCLP(periodBalance),
-                  }),
-                  insights: closeInsights
-                    ? t('period.finishInsights', {
-                      balance: t(`period.finishBalance${closeInsights.balanceStatus === 'positive' ? 'Positive' : closeInsights.balanceStatus === 'negative' ? 'Negative' : 'Even'}`, {
-                        amount: formatCLP(Math.abs(periodBalance)),
-                      }),
-                      comparison: closeInsights.comparisonStatus === 'first'
-                        ? t('period.finishComparisonFirst')
-                        : closeInsights.comparisonStatus === 'same'
-                          ? t('period.finishComparisonSame')
-                          : t(closeInsights.comparisonStatus === 'less' ? 'period.finishComparisonLess' : 'period.finishComparisonMore', {
-                            percent: closeInsights.comparisonPercent ?? 0,
-                          }),
-                      category: closeInsights.topCategoryName
-                        ? t('period.finishTopCategory', {
-                          category: closeInsights.topCategoryName,
-                          amount: formatCLP(closeInsights.topCategoryAmount),
-                        })
-                        : t('period.finishNoExpenses'),
-                    })
-                    : '',
-                }),
-                [
-                  {
-                    text: t('common.cancel'),
-                    style: 'cancel',
-                  },
-                  {
-                    text: t('period.finishAction'),
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        const nextPeriod = await closeCurrentPeriod();
-                        showToast(t('period.finished'));
-                        router.push({
-                          pathname: '/modal/period-opening-balances',
-                          params: {
-                            start: nextPeriod.startDate,
-                            end: nextPeriod.endDate,
-                          },
-                        });
-                      } catch {
-                        Alert.alert(
-                          t('period.finishErrorTitle'),
-                          t('period.finishError')
-                        );
-                      }
-                    },
-                  },
-                ],
-                { cancelable: true }
-              );
-   
-            }}
-          >
-            <ThemedText type="defaultSemiBold" style={{ color: '#fff' }}>
-              {t('period.close')}
-            </ThemedText>
-          </Pressable>
-        </View>
-      )}
       </ScrollView>
       {isPeriodChanging && (
         <View
@@ -904,13 +890,6 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingBottom: 40,
   },
-  header: {
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 14,
-    gap: 12,
-  },
   globalSearch: {
     minHeight: 46,
     borderWidth: 1,
@@ -940,21 +919,16 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     gap: 14,
   },
-  dateButton: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
   doneDate: {
     alignSelf: 'flex-end',
   },
-  dateRangeContainer: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  dateContainer: {
-    flex: 1,
+  periodCloseContainer: { alignItems: 'center', marginTop: -6 },
+  periodCloseButton: {
+    minHeight: 44,
+    borderRadius: 10,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   savingsBalanceNote: {
     fontSize: 12,
@@ -962,28 +936,19 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   configurableSection: { gap: 8 },
-  exportButton: {
-    flex: 1,
-    minHeight: 48,
-    marginTop: 8,
-    borderRadius: 10,
+  exportIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
   },
+  pdfExportButton: { backgroundColor: '#C93F4B' },
+  csvExportButton: { backgroundColor: '#168A5B' },
   exportActions: { flexDirection: 'row', gap: 10 },
-  exportSection: { gap: 7, marginTop: 4 },
+  exportSection: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  exportCopy: { flex: 1, gap: 3 },
   exportHint: { fontSize: 13, lineHeight: 18 },
-  exportingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
   buttonPressed: {
     opacity: 0.72,
   },

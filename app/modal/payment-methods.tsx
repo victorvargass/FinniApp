@@ -115,17 +115,29 @@ export default function PaymentMethodsScreen() {
             {section.title}
           </ThemedText>
         )}
-        renderItem={({ item }) => (
-          <ThemedView style={[styles.card, !item.active && styles.inactive]}>
-            <View style={[styles.colorDot, { backgroundColor: item.color }]} />
+        renderItem={({ item }) => {
+          const compactAccount = item.type === 'cash' || item.type === 'debit';
+          return (
+          <ThemedView style={[
+            styles.card,
+            compactAccount && styles.compactCard,
+            !item.active && styles.inactive,
+          ]}>
+            <View style={[
+              styles.colorDot,
+              compactAccount && styles.compactColorDot,
+              { backgroundColor: item.color },
+            ]} />
             <Pressable
               onPress={() => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(item.id) } })}
               style={styles.main}>
-              <View style={styles.copy}>
+              <View style={[styles.copy, compactAccount && styles.compactCopy]}>
                 <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
-                <ThemedText style={styles.secondary}>
-                  {typeLabels[item.type]}{item.billingDay ? t('paymentMethods.approximateBilling', { day: item.billingDay }) : ''}
-                </ThemedText>
+                {!compactAccount && (
+                  <ThemedText style={styles.secondary}>
+                    {typeLabels[item.type]}{item.billingDay ? t('paymentMethods.approximateBilling', { day: item.billingDay }) : ''}
+                  </ThemedText>
+                )}
                 {item.type === 'credit' && (
                   <ThemedText type="defaultSemiBold" style={styles.balanceHeading}>
                     {t('paymentMethods.availableCredits')}
@@ -148,7 +160,9 @@ export default function PaymentMethodsScreen() {
                       </ThemedText>
                     </Pressable>
                   ) : (
-                    <ThemedText type="defaultSemiBold" style={styles.balance}>
+                    <ThemedText
+                      type="defaultSemiBold"
+                      style={[styles.balance, compactAccount && styles.compactBalance]}>
                       {item.type === 'credit'
                         ? `CLP ${formatCLP(item.availableBalance)}`
                         : `${t('paymentMethods.availableBalance')}: ${formatCLP(item.availableBalance)}`}
@@ -204,7 +218,8 @@ export default function PaymentMethodsScreen() {
               <Ionicons name="chevron-forward" size={21} color={colors.icon} />
             </Pressable>
           </ThemedView>
-        )}
+          );
+        }}
         stickySectionHeadersEnabled={false}
       />
       <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
@@ -221,16 +236,20 @@ const styles = StyleSheet.create({
   description: { flex: 1, opacity: 0.7, lineHeight: 21 },
   sectionTitle: { fontSize: 18, marginTop: 14, marginBottom: 6, paddingHorizontal: 12 },
   card: { borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  compactCard: { paddingVertical: 7, marginBottom: 0 },
   inactive: { opacity: 0.55 },
   main: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   colorDot: { width: 18, height: 18, borderRadius: 6 },
+  compactColorDot: { width: 16, height: 16, borderRadius: 5 },
   copy: { flex: 1, gap: 3 },
+  compactCopy: { gap: 0 },
   secondary: { opacity: 0.65, fontSize: 13 },
   balanceHeading: { fontSize: 12, marginTop: 5 },
   balance: { fontSize: 12, marginTop: 2 },
+  compactBalance: { marginTop: 0 },
   configureBalance: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
-  chevron: { paddingVertical: 8, paddingLeft: 4 },
-  star: { padding: 6 },
+  chevron: { minWidth: 44, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  star: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   statementButton: { padding: 6 },
   starDisabled: { opacity: 0.35 },
   empty: { minHeight: 130, marginTop: 22, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20 },

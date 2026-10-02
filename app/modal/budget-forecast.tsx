@@ -11,6 +11,7 @@ import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { groupFinancialForecastItems } from '@/lib/financial-forecast';
 import { APP_LOCALE, t } from '@/lib/i18n';
+import { logAppError } from '@/lib/logger';
 import { toIsoDate } from '@/lib/recurrence';
 import type { BudgetForecast, FinancialForecastItem } from '@/lib/types';
 import { getBudgetForecast } from '@/repositories';
@@ -35,16 +36,23 @@ export default function BudgetForecastScreen() {
   const { selectedPeriodId } = usePeriodDatabase();
   const [forecast, setForecast] = useState<BudgetForecast>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const today = toIsoDate(new Date());
   const groups = groupFinancialForecastItems(forecast.items, today);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     setLoading(true);
+    setLoadFailed(false);
     (selectedPeriodId == null
       ? Promise.resolve(EMPTY)
       : getBudgetForecast(selectedPeriodId, today))
       .then((next) => { if (active) setForecast(next); })
+      .catch((error) => {
+        if (!active) return;
+        setLoadFailed(true);
+        logAppError('forecast.load', error);
+      })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [selectedPeriodId, today]));
@@ -76,6 +84,18 @@ export default function BudgetForecastScreen() {
 
   if (loading) {
     return <View style={[styles.loading, { backgroundColor: colors.screen }]}><ActivityIndicator color={colors.primary} /></View>;
+  }
+
+  if (loadFailed) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
+        <View style={styles.content}>
+          <ThemedView style={[styles.emptyCard, { borderColor: colors.border }]}>
+            <ThemedText style={{ color: colors.textSecondary }}>{t('budgetForecast.loadError')}</ThemedText>
+          </ThemedView>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
