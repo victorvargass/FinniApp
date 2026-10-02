@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
-import { Modal, Pressable, StyleProp, StyleSheet, useWindowDimensions, View, ViewStyle } from 'react-native';
+import { Modal, Pressable, StyleProp, StyleSheet, Switch, useWindowDimensions, View, ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -13,6 +13,8 @@ export type OverflowMenuAction = {
   onPress?: () => void;
   destructive?: boolean;
   disabled?: boolean;
+  switchValue?: boolean;
+  onSwitchValueChange?: (value: boolean) => void;
 };
 
 type Anchor = { x: number; y: number; width: number; height: number };
@@ -84,36 +86,55 @@ export function OverflowMenu({
                 width: menuWidth,
               },
             ]}>
-            {actions.map((action, index) => (
-              <Pressable
-                accessibilityRole="menuitem"
-                accessibilityState={{ disabled: action.disabled }}
-                disabled={action.disabled}
-                key={`${action.label}-${index}`}
-                onPress={() => {
-                  close();
-                  if (action.onPress) requestAnimationFrame(action.onPress);
-                }}
-                style={({ pressed }) => [
-                  styles.item,
-                  index > 0 && { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth },
-                  pressed && styles.pressed,
-                  action.disabled && styles.disabled,
-                ]}>
-                {action.icon && (
-                  <Ionicons
-                    name={action.icon}
-                    size={20}
-                    color={action.destructive ? colors.expense : colors.icon}
-                  />
-                )}
-                <ThemedText
-                  type="defaultSemiBold"
-                  style={[styles.label, action.destructive && { color: colors.expense }]}>
-                  {action.label}
-                </ThemedText>
-              </Pressable>
-            ))}
+            {actions.map((action, index) => {
+              const isSwitch = action.switchValue != null && action.onSwitchValueChange != null;
+              const toggleSwitch = () => action.onSwitchValueChange?.(!action.switchValue);
+              return (
+                <Pressable
+                  accessibilityRole={isSwitch ? 'switch' : 'menuitem'}
+                  accessibilityState={{ disabled: action.disabled, ...(isSwitch ? { checked: action.switchValue } : {}) }}
+                  disabled={action.disabled}
+                  key={`${action.label}-${index}`}
+                  onPress={() => {
+                    if (isSwitch) {
+                      toggleSwitch();
+                      return;
+                    }
+                    close();
+                    if (action.onPress) requestAnimationFrame(action.onPress);
+                  }}
+                  style={({ pressed }) => [
+                    styles.item,
+                    index > 0 && { borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth },
+                    pressed && styles.pressed,
+                    action.disabled && styles.disabled,
+                  ]}>
+                  {action.icon && (
+                    <Ionicons
+                      name={action.icon}
+                      size={20}
+                      color={action.destructive ? colors.expense : colors.icon}
+                    />
+                  )}
+                  <ThemedText
+                    type="defaultSemiBold"
+                    style={[styles.label, action.destructive && { color: colors.expense }]}>
+                    {action.label}
+                  </ThemedText>
+                  {isSwitch && (
+                    <Switch
+                      accessibilityLabel={action.label}
+                      disabled={action.disabled}
+                      onValueChange={action.onSwitchValueChange}
+                      pointerEvents="none"
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                      thumbColor={action.switchValue ? colors.surface : colors.icon}
+                      value={action.switchValue}
+                    />
+                  )}
+                </Pressable>
+              );
+            })}
           </ThemedView>
         </Pressable>
       </Modal>

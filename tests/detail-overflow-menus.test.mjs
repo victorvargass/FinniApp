@@ -27,7 +27,7 @@ test('payment method detail moves secondary configuration actions to an overflow
 test('overflow actions expand below their trigger instead of using a centered alert', () => {
   assert.match(overflowMenu, /measureInWindow/);
   assert.match(overflowMenu, /top: \(anchor\?\.y \?\? 0\) \+ \(anchor\?\.height \?\? 0\) \+ 4/);
-  assert.match(overflowMenu, /accessibilityRole="menuitem"/);
+  assert.match(overflowMenu, /accessibilityRole=\{isSwitch \? 'switch' : 'menuitem'\}/);
   assert.match(overflowMenu, /name="ellipsis-vertical"/);
 });
 
