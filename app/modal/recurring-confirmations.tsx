@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useNavigation } from 'expo-router';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import { Modal, Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -89,6 +89,7 @@ function groupNotificationsByDay(
 }
 
 export default function NotificationsScreen() {
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const {
     recurringDecisions,
@@ -100,9 +101,11 @@ export default function NotificationsScreen() {
     appNotifications,
     setAppNotificationRead,
     deleteAppNotification,
+    deleteAppNotifications,
   } = usePreferenceDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [selectedNotificationId, setSelectedNotificationId] = useState<number | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
   const selectedNotification = appNotifications.find((item) => item.id === selectedNotificationId) ?? null;
   const unread = appNotifications.filter((item) => !item.isRead);
   const read = appNotifications.filter((item) => item.isRead);
@@ -117,6 +120,60 @@ export default function NotificationsScreen() {
       && item.scheduledDate === notification.recurringDate
   );
   const selectedDecision = selectedNotification ? relatedDecision(selectedNotification) : undefined;
+
+  const confirmDeleteAll = useCallback(() => {
+    if (appNotifications.length === 0 || deletingAll) return;
+    Alert.alert(
+      t('notifications.deleteAllTitle'),
+      t('notifications.deleteAllDescription', { count: appNotifications.length }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('notifications.deleteAll'),
+          style: 'destructive',
+          onPress: () => {
+            setDeletingAll(true);
+            void deleteAppNotifications(appNotifications.map((item) => item.id))
+              .then(() => {
+                setSelectedNotificationId(null);
+                showToast(t('notifications.allDeleted'));
+              })
+              .catch(() => Alert.alert(t('errors.couldNotDelete'), t('common.tryAgain')))
+              .finally(() => setDeletingAll(false));
+          },
+        },
+      ]
+    );
+  }, [appNotifications, deleteAppNotifications, deletingAll]);
+
+  const openNotificationMenu = useCallback(() => {
+    Alert.alert(t('common.moreOptions'), t('common.selectAction'), [
+      {
+        text: t('notifications.deleteAll'),
+        style: 'destructive',
+        onPress: confirmDeleteAll,
+      },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  }, [confirmDeleteAll]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: appNotifications.length > 0
+        ? () => (
+          <Pressable
+            accessibilityLabel={t('common.moreOptions')}
+            accessibilityRole="button"
+            disabled={deletingAll}
+            hitSlop={8}
+            onPress={openNotificationMenu}
+            style={({ pressed }) => [styles.headerMenuButton, pressed && styles.pressed]}>
+            <Ionicons name="ellipsis-vertical" size={23} color={colors.primary} />
+          </Pressable>
+        )
+        : () => null,
+    });
+  }, [appNotifications.length, colors.primary, deletingAll, navigation, openNotificationMenu]);
 
   const openDetails = (notification: AppNotification) => {
     setSelectedNotificationId(notification.id);
@@ -382,6 +439,7 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  headerMenuButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   list: { padding: 20, paddingBottom: 32 },
   emptyList: { flexGrow: 1, justifyContent: 'center' },
   intro: { opacity: 0.72, lineHeight: 21, marginBottom: 14 },

@@ -63,7 +63,7 @@ const ORGANIZER_KEYS = [
 
 const PREFERENCE_KEYS = [
   'settings', 'appNotifications', 'setAppNotificationRead',
-  'markAppNotificationReadBySourceKey', 'deleteAppNotification',
+  'markAppNotificationReadBySourceKey', 'deleteAppNotification', 'deleteAppNotifications',
   'setPushNotificationsEnabled', 'setMovementReminder', 'setHomePreferences',
   'runDatabaseMaintenance', 'resetLocalData',
 ] as const satisfies readonly (keyof DatabaseContextValue)[];

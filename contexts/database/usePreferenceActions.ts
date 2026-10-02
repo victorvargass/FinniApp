@@ -64,6 +64,11 @@ export function usePreferenceActions(
     await reloadNotifications();
   }, [reloadNotifications]);
 
+  const deleteAppNotifications = useCallback(async (ids: number[]) => {
+    await db.deleteAppNotifications(ids);
+    await reloadNotifications();
+  }, [reloadNotifications]);
+
   const resetLocalData = useCallback(async () => {
     await db.resetLocalData();
     await cancelFinniNotifications().catch(() => undefined);
@@ -77,9 +82,11 @@ export function usePreferenceActions(
     setAppNotificationRead,
     markAppNotificationReadBySourceKey,
     deleteAppNotification,
+    deleteAppNotifications,
     resetLocalData,
   }), [
     deleteAppNotification,
+    deleteAppNotifications,
     markAppNotificationReadBySourceKey,
     resetLocalData,
     setAppNotificationRead,

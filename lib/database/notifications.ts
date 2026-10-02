@@ -150,3 +150,15 @@ export async function deleteAppNotification(id: number): Promise<void> {
     id
   );
 }
+
+export async function deleteAppNotifications(ids: number[]): Promise<void> {
+  if (ids.length === 0) return;
+  const placeholders = ids.map(() => '?').join(', ');
+  const database = await getDatabase();
+  await database.runAsync(
+    `UPDATE app_notifications
+     SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+     WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
+    ...ids
+  );
+}

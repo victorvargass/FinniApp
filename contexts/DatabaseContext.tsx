@@ -199,6 +199,7 @@ export type DatabaseContextValue = {
   setAppNotificationRead: (id: number, read: boolean) => Promise<void>;
   markAppNotificationReadBySourceKey: (sourceKey: string) => Promise<void>;
   deleteAppNotification: (id: number) => Promise<void>;
+  deleteAppNotifications: (ids: number[]) => Promise<void>;
   addExpense: (data: NewExpense, recurringSchedule?: NewRecurringSchedule) => Promise<void>;
   editExpense: (id: number, data: NewExpense) => Promise<void>;
   removeExpense: (id: number) => Promise<void>;
