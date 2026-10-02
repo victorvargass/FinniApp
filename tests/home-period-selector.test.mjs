@@ -25,11 +25,11 @@ test('closing the period is a destructive menu action instead of a large Home bu
   assert.doesNotMatch(home, /testID="period-close"|periodCloseButton|periodCloseContainer/);
 });
 
-test('period actions render edit, close and cancel in the requested visual order', () => {
+test('period actions render edit then close without a redundant cancel item', () => {
   const edit = home.indexOf("label: t('period.editDates')");
   const close = home.indexOf("label: t('period.close')", edit);
-  const cancel = home.indexOf("label: t('common.cancel')", close);
 
-  assert.ok(edit >= 0 && edit < close && close < cancel);
+  assert.ok(edit >= 0 && edit < close);
+  assert.doesNotMatch(home, /label: t\('common\.cancel'\)/);
   assert.doesNotMatch(home, /Alert\.alert\(\s*t\('period\.manage'/);
 });

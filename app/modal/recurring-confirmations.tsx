@@ -160,7 +160,6 @@ export default function NotificationsScreen() {
                 destructive: true,
                 onPress: confirmDeleteAll,
               },
-              { label: t('common.cancel'), icon: 'close-outline' },
             ]}
             disabled={deletingAll}
             iconColor={colors.primary}

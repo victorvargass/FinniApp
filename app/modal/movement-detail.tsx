@@ -156,7 +156,6 @@ export default function MovementDetailScreen() {
               onPress: manageRecurrence,
             }] : []),
             { label: t('common.delete'), icon: 'trash-outline', destructive: true, onPress: confirmDelete },
-            { label: t('common.cancel'), icon: 'close-outline' },
           ] : []}
           disabled={!movement || working}
           iconColor={colors.primary}

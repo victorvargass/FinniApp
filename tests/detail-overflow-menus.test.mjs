@@ -5,6 +5,17 @@ import { readFileSync } from 'node:fs';
 const debt = readFileSync(new URL('../app/modal/manual-debt-detail.tsx', import.meta.url), 'utf8');
 const paymentMethod = readFileSync(new URL('../app/modal/payment-method-detail.tsx', import.meta.url), 'utf8');
 const overflowMenu = readFileSync(new URL('../components/overflow-menu.tsx', import.meta.url), 'utf8');
+const overflowScreens = [
+  '../app/(tabs)/home.tsx',
+  '../app/modal/contact-detail.tsx',
+  '../app/modal/debts.tsx',
+  '../app/modal/manual-debt-detail.tsx',
+  '../app/modal/movement-detail.tsx',
+  '../app/modal/payment-method-detail.tsx',
+  '../app/modal/recurrence-detail.tsx',
+  '../app/modal/recurring-confirmations.tsx',
+  '../app/modal/savings-goal-detail.tsx',
+].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'));
 
 test('debt detail groups operational and management actions in its header overflow menu', () => {
   assert.match(debt, /<Stack\.Screen options=\{\{/);
@@ -30,9 +41,18 @@ test('payment method detail moves secondary configuration actions to an overflow
 
 test('overflow actions expand below their trigger instead of using a centered alert', () => {
   assert.match(overflowMenu, /measureInWindow/);
-  assert.match(overflowMenu, /top: \(anchor\?\.y \?\? 0\) \+ \(anchor\?\.height \?\? 0\) \+ 4/);
+  assert.match(overflowMenu, /const menuTop = Math\.max\(/);
+  assert.match(overflowMenu, /insets\.top \+ 56 \+ 4/);
+  assert.match(overflowMenu, /top: menuTop/);
   assert.match(overflowMenu, /accessibilityRole=\{isSwitch \? 'switch' : 'menuitem'\}/);
   assert.match(overflowMenu, /name="ellipsis-vertical"/);
+});
+
+test('overflow menus close from the backdrop without redundant cancel rows', () => {
+  assert.match(overflowMenu, /onPress=\{close\} style=\{styles\.overlay\}/);
+  for (const screen of overflowScreens) {
+    assert.doesNotMatch(screen, /label:\s*t\('common\.cancel'\)/);
+  }
 });
 
 test('payment method movement expansion is compact and stays beside the section title', () => {

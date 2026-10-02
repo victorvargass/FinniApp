@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import { Modal, Pressable, StyleProp, StyleSheet, Switch, useWindowDimensions, View, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -38,6 +39,7 @@ export function OverflowMenu({
 }) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const anchorRef = useRef<View>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const visible = anchor != null;
@@ -52,6 +54,10 @@ export function OverflowMenu({
   const menuLeft = anchor
     ? Math.min(Math.max(12, anchor.x + anchor.width - menuWidth), windowWidth - menuWidth - 12)
     : 12;
+  const menuTop = Math.max(
+    (anchor?.y ?? 0) + (anchor?.height ?? 0) + 4,
+    insets.top + 56 + 4
+  );
 
   return (
     <>
@@ -82,7 +88,7 @@ export function OverflowMenu({
                 backgroundColor: colors.surfaceRaised,
                 borderColor: colors.border,
                 left: menuLeft,
-                top: (anchor?.y ?? 0) + (anchor?.height ?? 0) + 4,
+                top: menuTop,
                 width: menuWidth,
               },
             ]}>

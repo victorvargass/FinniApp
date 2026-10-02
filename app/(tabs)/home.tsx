@@ -682,7 +682,6 @@ export default function HomeScreen() {
               destructive: true,
               onPress: confirmClosePeriod,
             }] : []),
-            { label: t('common.cancel'), icon: 'close-outline' },
           ] : undefined}
         />
         {showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (

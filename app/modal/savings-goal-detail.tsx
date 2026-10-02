@@ -139,7 +139,6 @@ export default function SavingsGoalDetailScreen() {
                   params: { savingsGoalId: String(goal.id) },
                 }),
               }] : []),
-              { label: t('common.cancel'), icon: 'close-outline' },
             ]}
           />
         ),

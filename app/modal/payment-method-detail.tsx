@@ -113,7 +113,6 @@ export default function PaymentMethodDetailScreen() {
                 icon: 'settings-outline',
                 onPress: () => router.push({ pathname: '/modal/payment-method-form', params: { id: String(method.id) } }),
               },
-              { label: t('common.cancel'), icon: 'close-outline' },
             ]}
           />
         ),

@@ -141,7 +141,6 @@ export default function DebtDetailScreen() {
                 destructive: true,
                 onPress: deleteDebt,
               }] : []),
-              { label: t('common.cancel'), icon: 'close-outline' },
             ]}
             disabled={working}
           />

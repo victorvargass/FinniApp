@@ -138,7 +138,6 @@ export default function RecurrenceDetailScreen() {
               onPress: () => { void toggleActive(); },
             },
             { label: t('common.delete'), icon: 'trash-outline', destructive: true, onPress: confirmDelete },
-            { label: t('common.cancel'), icon: 'close-outline' },
           ] : []}
           disabled={!recurrence}
           iconColor={colors.primary}

@@ -99,7 +99,6 @@ export default function DebtsScreen() {
               icon: 'archive-outline',
               onPress: () => router.push('/modal/archived-debts' as never),
             },
-            { label: t('common.cancel'), icon: 'close-outline' },
           ]}
           iconColor={colors.icon}
         />

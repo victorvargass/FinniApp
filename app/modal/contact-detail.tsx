@@ -89,7 +89,6 @@ export default function ContactDetailScreen() {
           actions={contact ? [
             { label: t('common.edit'), icon: 'create-outline', onPress: editContact },
             { label: t('common.delete'), icon: 'trash-outline', destructive: true, onPress: deleteContact },
-            { label: t('common.cancel'), icon: 'close-outline' },
           ] : []}
           disabled={!contact || working}
           iconColor={colors.primary}
