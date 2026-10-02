@@ -1,5 +1,9 @@
 import { addIsoDays, addIsoMonths } from './recurrence-core.ts';
-import type { DebtFrequency } from './types.ts';
+import type { DebtDirection, DebtFrequency } from './types.ts';
+
+export function canOmitDebtDueDate(direction: DebtDirection, singlePayment: boolean) {
+  return direction === 'receivable' && singlePayment;
+}
 
 export function getDebtBalanceAdjustmentAmount(
   reportedBalance: number,

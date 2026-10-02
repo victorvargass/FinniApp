@@ -1,7 +1,10 @@
 import { getDebts } from './debts';
+import { getPaymentMethods } from './payment-methods';
 import { getDatabase } from '@/lib/database/connection';
 import { clpSpendingExpenseSql } from '@/lib/movement-classification';
-import { summarizeFinancialForecast } from '@/lib/financial-forecast';
+import { getForecastMonthEnd, summarizeFinancialForecast } from '@/lib/financial-forecast';
+import { getEstimatedPaymentDueDate } from '@/lib/payment-method-calculations';
+import { getOccurrenceDates, toIsoDate } from '@/lib/recurrence';
 import type { BudgetForecast, BudgetForecastCategory, FinancialForecastItem } from '@/lib/types';
 
 type ForecastRow = {
@@ -12,14 +15,80 @@ type ForecastRow = {
   date: string;
 };
 
+type RecurringRuleRow = {
+  id: number;
+  name: string;
+  amount: number;
+  active: number;
+  frequency: 'weekly' | 'monthly' | 'annual' | 'custom';
+  interval_months: number;
+  execution_day: number | null;
+  start_date: string;
+  end_date: string | null;
+};
+
+type OccurrenceRow = {
+  recurring_id: number;
+  scheduled_date: string;
+  status: 'scheduled' | 'pending' | 'generated' | 'skipped';
+};
+
+function recurringForecastItems(
+  kind: 'expense' | 'income',
+  rules: RecurringRuleRow[],
+  occurrences: OccurrenceRow[],
+  referenceDate: string,
+  monthEnd: string
+): FinancialForecastItem[] {
+  const items = new Map<string, FinancialForecastItem>();
+  const statusesByRule = new Map<number, Map<string, OccurrenceRow['status']>>();
+  for (const occurrence of occurrences) {
+    const statuses = statusesByRule.get(occurrence.recurring_id) ?? new Map();
+    statuses.set(occurrence.scheduled_date, occurrence.status);
+    statusesByRule.set(occurrence.recurring_id, statuses);
+  }
+
+  for (const rule of rules) {
+    const statuses = statusesByRule.get(rule.id) ?? new Map();
+    for (const [scheduledDate, status] of statuses) {
+      if ((status === 'scheduled' || status === 'pending') && scheduledDate <= monthEnd) {
+        items.set(`${kind}-${rule.id}-${scheduledDate}`, {
+          id: `${kind}-${rule.id}-${scheduledDate}`,
+          kind,
+          name: rule.name,
+          amount: Number(rule.amount),
+          date: scheduledDate,
+        });
+      }
+    }
+    if (Number(rule.active) !== 1) continue;
+    for (const scheduledDate of getOccurrenceDates({
+      frequency: rule.frequency,
+      intervalMonths: Number(rule.interval_months),
+      executionDay: rule.execution_day == null ? null : Number(rule.execution_day),
+      startDate: rule.start_date,
+      endDate: rule.end_date,
+    }, referenceDate, monthEnd, 100)) {
+      if (statuses.get(scheduledDate) === 'generated' || statuses.get(scheduledDate) === 'skipped') continue;
+      items.set(`${kind}-${rule.id}-${scheduledDate}`, {
+        id: `${kind}-${rule.id}-${scheduledDate}`,
+        kind,
+        name: rule.name,
+        amount: Number(rule.amount),
+        date: scheduledDate,
+      });
+    }
+  }
+  return [...items.values()];
+}
+
 export async function getBudgetForecast(periodId: number, referenceDate: string): Promise<BudgetForecast> {
   const database = await getDatabase();
-  const period = await database.getFirstAsync<{ start_date: string; end_date: string }>(
-    'SELECT start_date, end_date FROM periods WHERE id = ?', periodId
-  );
+  const period = await database.getFirstAsync<{ start_date: string; end_date: string }>('SELECT start_date, end_date FROM periods WHERE id = ?', periodId);
   if (!period) return { categories: [], items: [], projectedIncome: 0, projectedOutflow: 0, projectedNet: 0 };
+  const monthEnd = getForecastMonthEnd(referenceDate);
 
-  const [categoryRows, forecastRows, debts] = await Promise.all([
+  const [categoryRows, installmentRows, expenseRules, incomeRules, expenseOccurrences, incomeOccurrences, debts, paymentMethods] = await Promise.all([
     database.getAllAsync<BudgetForecastCategory>(
       `SELECT category.id AS categoryId, category.name, category.color,
               category.period_limit AS 'limit', COALESCE(SUM(expense.amount), 0) AS spent
@@ -33,32 +102,33 @@ export async function getBudgetForecast(periodId: number, referenceDate: string)
       periodId
     ),
     database.getAllAsync<ForecastRow>(
-      `SELECT 'expense-' || occurrence.id AS id, 'expense' AS kind, recurring.name,
-              recurring.amount, occurrence.scheduled_date AS date
-       FROM recurring_expense_occurrences occurrence
-       INNER JOIN recurring_expenses recurring ON recurring.id = occurrence.recurring_expense_id
-       WHERE occurrence.status IN ('scheduled', 'pending')
-         AND occurrence.scheduled_date > ? AND occurrence.scheduled_date <= ?
-       UNION ALL
-       SELECT 'income-' || occurrence.id, 'income', recurring.name,
-              recurring.amount, occurrence.scheduled_date
-       FROM recurring_income_occurrences occurrence
-       INNER JOIN recurring_incomes recurring ON recurring.id = occurrence.recurring_income_id
-       WHERE occurrence.status IN ('scheduled', 'pending')
-         AND occurrence.scheduled_date > ? AND occurrence.scheduled_date <= ?
-       UNION ALL
-       SELECT 'installment-' || installment.id, 'installment', plan.name,
+      `SELECT 'installment-' || installment.id AS id, 'installment' AS kind, plan.name,
               installment.projected_amount, installment.due_date
        FROM debt_installments installment
        INNER JOIN debt_plans plan ON plan.id = installment.debt_plan_id
        WHERE installment.status = 'projected' AND plan.status IN ('projected', 'active')
-         AND installment.due_date > ? AND installment.due_date <= ?
+         AND installment.due_date <= ?
        ORDER BY date, kind, name COLLATE NOCASE`,
-      referenceDate, period.end_date,
-      referenceDate, period.end_date,
-      referenceDate, period.end_date
+      monthEnd
+    ),
+    database.getAllAsync<RecurringRuleRow>(
+      `SELECT id, name, amount, active, frequency, interval_months, execution_day, start_date, end_date
+       FROM recurring_expenses`
+    ),
+    database.getAllAsync<RecurringRuleRow>(
+      `SELECT id, name, amount, active, frequency, interval_months, execution_day, start_date, end_date
+       FROM recurring_incomes`
+    ),
+    database.getAllAsync<OccurrenceRow>(
+      `SELECT recurring_expense_id AS recurring_id, scheduled_date, status
+       FROM recurring_expense_occurrences WHERE scheduled_date <= ?`, monthEnd
+    ),
+    database.getAllAsync<OccurrenceRow>(
+      `SELECT recurring_income_id AS recurring_id, scheduled_date, status
+       FROM recurring_income_occurrences WHERE scheduled_date <= ?`, monthEnd
     ),
     getDebts(),
+    getPaymentMethods(true),
   ]);
 
   const categories = categoryRows.map((row) => ({
@@ -66,17 +136,37 @@ export async function getBudgetForecast(periodId: number, referenceDate: string)
     categoryId: Number(row.categoryId), limit: Number(row.limit), spent: Number(row.spent),
   }));
   const debtItems: FinancialForecastItem[] = debts
-    .filter((debt) => debt.direction === 'payable' && debt.status === 'active'
+    .filter((debt) => debt.status === 'active'
       && debt.currentBalance > 0 && debt.nextDueDate != null
-      && debt.nextDueDate > referenceDate && debt.nextDueDate <= period.end_date)
+      && debt.nextDueDate <= monthEnd)
     .map((debt) => ({
-      id: `debt-${debt.id}`, kind: 'debt', name: debt.name,
+      id: `debt-${debt.id}`,
+      kind: debt.direction === 'receivable' ? 'receivable' : 'debt',
+      name: debt.name,
       amount: Math.min(debt.currentBalance, debt.installmentAmount ?? debt.currentBalance),
       date: debt.nextDueDate!,
     }));
+  const billedItems: FinancialForecastItem[] = paymentMethods
+    .filter((method) => method.type === 'credit' && method.billedAmount > 0
+      && method.statementDate != null && method.paymentDueDay != null)
+    .map((method) => ({
+      method,
+      dueDate: toIsoDate(getEstimatedPaymentDueDate(method.statementDate!, method.paymentDueDay!)),
+    }))
+    .filter(({ dueDate }) => dueDate <= monthEnd)
+    .map(({ method, dueDate }) => ({
+      id: `billed-${method.id}`,
+      kind: 'billed',
+      name: method.name,
+      amount: method.billedAmount,
+      date: dueDate,
+    }));
   const items = [
-    ...forecastRows.map((row) => ({ ...row, amount: Number(row.amount) })),
+    ...recurringForecastItems('expense', expenseRules, expenseOccurrences, referenceDate, monthEnd),
+    ...recurringForecastItems('income', incomeRules, incomeOccurrences, referenceDate, monthEnd),
+    ...installmentRows.map((row) => ({ ...row, amount: Number(row.amount) })),
     ...debtItems,
+    ...billedItems,
   ].sort((first, second) => first.date.localeCompare(second.date) || first.name.localeCompare(second.name));
   return { categories, items, ...summarizeFinancialForecast(items) };
 }

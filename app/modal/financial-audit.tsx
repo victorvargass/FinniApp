@@ -12,7 +12,7 @@ import { APP_LOCALE, t } from '@/lib/i18n';
 import { formatMoney } from '@/lib/format';
 import { showToast } from '@/lib/toast';
 import type { FinancialAuditEntry } from '@/lib/types';
-import { getFinancialAuditLog, restoreFinancialAuditEntry } from '@/repositories';
+import { deleteFinancialAuditEntry, getFinancialAuditLog, restoreFinancialAuditEntry } from '@/repositories';
 
 function formatMoment(value: string): string {
   const parsed = new Date(`${value.replace(' ', 'T')}Z`);
@@ -25,7 +25,7 @@ export default function FinancialAuditScreen() {
   const { refresh } = usePeriodDatabase();
   const [entries, setEntries] = useState<FinancialAuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [restoringId, setRestoringId] = useState<number | null>(null);
+  const [working, setWorking] = useState<{ id: number; action: 'restore' | 'delete' } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,16 +41,40 @@ export default function FinancialAuditScreen() {
       {
         text: t('financialAudit.restore'),
         onPress: () => {
-          setRestoringId(entry.id);
+          setWorking({ id: entry.id, action: 'restore' });
           void restoreFinancialAuditEntry(entry.id)
             .then(refresh)
             .then(load)
             .then(() => showToast(t('financialAudit.restoredToast')))
             .catch((error: unknown) => showToast(error instanceof Error ? error.message : t('common.tryAgain')))
-            .finally(() => setRestoringId(null));
+            .finally(() => setWorking(null));
         },
       },
     ]);
+  };
+
+  const removePermanently = (entry: FinancialAuditEntry) => {
+    Alert.alert(
+      t('financialAudit.deleteTitle'),
+      t(entry.action === 'restored'
+        ? 'financialAudit.deleteRestoredMessage'
+        : 'financialAudit.deleteDeletedMessage', { name: entry.title }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('financialAudit.deletePermanently'),
+          style: 'destructive',
+          onPress: () => {
+            setWorking({ id: entry.id, action: 'delete' });
+            void deleteFinancialAuditEntry(entry.id)
+              .then(load)
+              .then(() => showToast(t('financialAudit.deletedToast')))
+              .catch((error: unknown) => showToast(error instanceof Error ? error.message : t('common.tryAgain')))
+              .finally(() => setWorking(null));
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -96,10 +120,10 @@ export default function FinancialAuditScreen() {
             {entry.action === 'deleted' && entry.restorable && (
               <Pressable
                 accessibilityRole="button"
-                disabled={restoringId != null}
+                disabled={working != null}
                 onPress={() => restore(entry)}
                 style={({ pressed }) => [styles.restore, { borderColor: colors.primary }, pressed && styles.pressed]}>
-                {restoringId === entry.id && <ActivityIndicator size="small" color={colors.primary} />}
+                {working?.id === entry.id && working.action === 'restore' && <ActivityIndicator size="small" color={colors.primary} />}
                 <ThemedText style={[styles.restoreText, { color: colors.primary }]}>{t('financialAudit.restore')}</ThemedText>
               </Pressable>
             )}
@@ -108,6 +132,15 @@ export default function FinancialAuditScreen() {
                 {t('financialAudit.linkedRestriction')}
               </ThemedText>
             )}
+            <Pressable
+              accessibilityRole="button"
+              disabled={working != null}
+              onPress={() => removePermanently(entry)}
+              style={({ pressed }) => [styles.deleteButton, { borderColor: colors.danger }, pressed && styles.pressed]}>
+              {working?.id === entry.id && working.action === 'delete' && <ActivityIndicator size="small" color={colors.danger} />}
+              <Ionicons name="trash-outline" size={18} color={colors.danger} />
+              <ThemedText style={[styles.deleteText, { color: colors.danger }]}>{t('financialAudit.deletePermanently')}</ThemedText>
+            </Pressable>
           </ThemedView>
         ))}
       </ScrollView>
@@ -129,6 +162,8 @@ const styles = StyleSheet.create({
   meta: { fontSize: 12 },
   restore: { minHeight: 44, borderWidth: 1, borderRadius: 12, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
   restoreText: { fontFamily: Fonts.semiBold },
+  deleteButton: { minHeight: 44, borderWidth: 1, borderRadius: 12, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
+  deleteText: { fontFamily: Fonts.semiBold },
   restriction: { fontSize: 13, lineHeight: 18 },
   pressed: { opacity: 0.7 },
 });

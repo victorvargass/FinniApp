@@ -45,6 +45,7 @@ test('movement deletion audits ordinary recovery and protects linked records', (
   assert.match(databaseSource, /hasProtectedLink = savingsMovement != null \|\| occurrence != null \|\| debtEntry != null/);
   assert.match(databaseSource, /30 \* 24 \* 60 \* 60 \* 1000/);
   assert.match(databaseSource, /assertCreditCardCycleIsEditable\([\s\S]*?snapshot\.payment_method_id/);
+  assert.match(databaseSource, /export async function deleteFinancialAuditEntry[\s\S]*?DELETE FROM financial_audit_log WHERE id = \?/);
 });
 
 test('schema upgrades create a retained snapshot before mutating data', () => {

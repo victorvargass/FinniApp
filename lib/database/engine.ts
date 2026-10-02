@@ -36,7 +36,7 @@ import {
 } from './settings';
 import { getContacts, getRelationshipTypes } from './contacts';
 import { DEFAULT_EVENT_TIME, isValidTimeString, resolveEventTime } from '../event-time';
-import { getDebtBalanceAdjustmentAmount, getNextDebtDueDate, isSinglePaymentDebt } from '../debt-calculations';
+import { canOmitDebtDueDate, getDebtBalanceAdjustmentAmount, getNextDebtDueDate, isSinglePaymentDebt } from '../debt-calculations';
 import {
   MANUAL_DEBT_BALANCE_AT_DATE_SQL,
   manualDebtBalanceAtDateParams,
@@ -4715,7 +4715,8 @@ function validateDebt(data: NewDebt): void {
       throw new Error(t('database.debtInstallmentRequired'));
     }
     const singlePayment = isSinglePaymentDebt(data.initialAmount, data.installmentAmount);
-    if (!data.firstDueDate || (!singlePayment && !data.frequency)) {
+    if ((!data.firstDueDate || (!singlePayment && !data.frequency))
+      && !canOmitDebtDueDate(data.direction, singlePayment)) {
       throw new Error(t('database.debtScheduleRequired'));
     }
   } else if (data.installmentAmount != null && (!Number.isInteger(data.installmentAmount) || data.installmentAmount <= 0 || !data.firstDueDate)) {
@@ -7767,6 +7768,12 @@ export async function getFinancialAuditLog(): Promise<FinancialAuditEntry[]> {
     currency,
   });
   });
+}
+
+export async function deleteFinancialAuditEntry(auditId: number): Promise<void> {
+  const db = await getDb();
+  const result = await db.runAsync('DELETE FROM financial_audit_log WHERE id = ?', auditId);
+  if (result.changes === 0) throw new Error(t('database.auditEntryMissing'));
 }
 
 export async function restoreFinancialAuditEntry(auditId: number): Promise<void> {

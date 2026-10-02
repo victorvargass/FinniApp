@@ -127,11 +127,11 @@ export default function DebtDetailScreen() {
             <ThemedText type="subtitle">{t('debts.singlePayment')}</ThemedText>
             {debt.firstDueDate && (
               <View style={[styles.row, usesLargeText && styles.rowLargeText]}>
-                <ThemedText>{t('debts.scheduledPaymentDate')}</ThemedText>
+                <ThemedText>{t(debt.direction === 'receivable' ? 'debts.scheduledCollectionDate' : 'debts.scheduledPaymentDate')}</ThemedText>
                 <ThemedText>{formatDate(parseIsoDate(debt.firstDueDate))}</ThemedText>
               </View>
             )}
-            <ThemedText style={styles.secondary}>{t('debts.singlePaymentDetail')}</ThemedText>
+            <ThemedText style={styles.secondary}>{t(debt.direction === 'receivable' ? 'debts.singleCollectionDetail' : 'debts.singlePaymentDetail')}</ThemedText>
           </ThemedView>
         )}
         {debt.type === 'variable' && debt.installmentAmount != null && (

@@ -554,7 +554,7 @@ export type BudgetForecastCategory = {
 
 export type FinancialForecastItem = {
   id: string;
-  kind: 'expense' | 'income' | 'debt' | 'installment';
+  kind: 'expense' | 'income' | 'debt' | 'receivable' | 'installment' | 'billed';
   name: string;
   amount: number;
   date: string;

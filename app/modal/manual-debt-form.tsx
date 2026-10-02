@@ -51,7 +51,7 @@ export default function DebtFormScreen() {
   const [balanceTime, setBalanceTime] = useState(toTimeString(new Date()));
   const [installmentAmount, setInstallmentAmount] = useState('');
   const [frequency, setFrequency] = useState<DebtFrequency>('monthly');
-  const [firstDueDate, setFirstDueDate] = useState(toDateString(new Date()));
+  const [firstDueDate, setFirstDueDate] = useState<string | null>(toDateString(new Date()));
   const [categoryId, setCategoryId] = useState<number | null>(defaultExpenseCategoryId);
   const [incomeCategoryId, setIncomeCategoryId] = useState<number | null>(defaultIncomeCategoryId);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
@@ -76,7 +76,7 @@ export default function DebtFormScreen() {
       setCreationDate(debt.creationDate);
       setBalanceDate(debt.balanceDate);
       setBalanceTime(debt.balanceTime ?? debt.balanceUpdatedTime ?? toTimeString(new Date()));
-      setFrequency(debt.frequency ?? 'monthly'); setFirstDueDate(debt.firstDueDate ?? toDateString(new Date()));
+      setFrequency(debt.frequency ?? 'monthly'); setFirstDueDate(debt.firstDueDate);
       setCategoryId(debt.categoryId); setIncomeCategoryId(debt.incomeCategoryId); setPaymentMethodId(debt.paymentMethodId); setNotes(debt.notes ?? ''); setEntryCount(debt.entryCount);
       setShowOnHome(debt.showOnHome);
     }).catch(() => undefined);
@@ -166,12 +166,21 @@ export default function DebtFormScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <ThemedText style={styles.description}>{t('debts.formHint')}</ThemedText>
         <ThemedView style={styles.card}>
-          <SimpleSelect disabled={entryCount > 0} label={t('debts.direction')} value={direction} onChange={setDirection} options={[
+          <SimpleSelect disabled={entryCount > 0} label={t('debts.direction')} value={direction} onChange={(nextDirection) => {
+            setDirection(nextDirection);
+            if (type === 'single') {
+              setFirstDueDate(nextDirection === 'receivable' ? null : toDateString(new Date()));
+            }
+          }} options={[
             { value: 'payable', label: t('debts.iOwe') },
             { value: 'receivable', label: t('debts.owedToMe') },
           ]} />
           {entryCount > 0 && <ThemedText style={styles.hint}>{t('debts.directionLockedHint')}</ThemedText>}
-          <SimpleSelect disabled={debtId != null} label={t('debts.type')} value={type} onChange={setType} options={[
+          <SimpleSelect disabled={debtId != null} label={t('debts.type')} value={type} onChange={(nextType) => {
+            setType(nextType);
+            if (nextType === 'single' && direction === 'receivable') setFirstDueDate(null);
+            else if (firstDueDate == null) setFirstDueDate(toDateString(new Date()));
+          }} options={[
             { value: 'fixed', label: t('debts.fixed') },
             { value: 'variable', label: t('debts.variable') },
             { value: 'single', label: t('debts.singlePayment') },
@@ -179,7 +188,17 @@ export default function DebtFormScreen() {
           {debtId != null && <ThemedText style={styles.hint}>{t('debts.typeLockedHint')}</ThemedText>}
           <Field label={t('debts.name')} testID="debt-name-input" value={name} onChangeText={setName} colors={colors} placeholder={t('debts.namePlaceholder')} />
           <SimpleSelect searchable label={t(direction === 'payable' ? 'debts.creditorContact' : 'debts.debtorContact')} value={contactId} onChange={setContactId} options={contactOptions} testID="debt-contact-select" />
-          <Field label={t(direction === 'payable' ? 'debts.creditor' : 'debts.debtor')} value={creditor} onChangeText={setCreditor} colors={colors} placeholder={t(direction === 'payable' ? 'debts.creditorPlaceholder' : 'debts.debtorPlaceholder')} />
+          <Field
+            label={t(contactId == null
+              ? direction === 'payable' ? 'debts.creditor' : 'debts.debtor'
+              : 'debts.contactReference')}
+            value={creditor}
+            onChangeText={setCreditor}
+            colors={colors}
+            placeholder={t(contactId == null
+              ? direction === 'payable' ? 'debts.creditorPlaceholder' : 'debts.debtorPlaceholder'
+              : 'debts.contactReferencePlaceholder')}
+          />
           <Field label={t('debts.initialReportedBalance')} testID="debt-initial-amount-input" value={initialAmount} onChangeText={setInitialAmount} colors={colors} keyboardType="number-pad" editable={entryCount === 0} />
           {entryCount > 0 && <ThemedText style={styles.hint}>{t('debts.initialLockedHint')}</ThemedText>}
           <View style={styles.group}>
@@ -214,21 +233,28 @@ export default function DebtFormScreen() {
               <View style={styles.group}>
                 <ThemedText style={styles.label}>{t('debts.firstDueDate')}</ThemedText>
                 <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
-                  <ThemedText>{formatDate(parseIsoDate(firstDueDate))}</ThemedText>
+                  <ThemedText>{formatDate(parseIsoDate(firstDueDate ?? toDateString(new Date())))}</ThemedText>
                 </Pressable>
-                {showDate && <DateTimePicker value={parseIsoDate(firstDueDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setFirstDueDate(toDateString(date)); }} />}
+                {showDate && <DateTimePicker value={parseIsoDate(firstDueDate ?? toDateString(new Date()))} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setFirstDueDate(toDateString(date)); }} />}
               </View>
             </>
           )}
           {type === 'single' && (
             <>
-              <ThemedText style={styles.hint}>{t('debts.singlePaymentHint')}</ThemedText>
+              <ThemedText style={styles.hint}>{t(direction === 'receivable' ? 'debts.singleCollectionHint' : 'debts.singlePaymentHint')}</ThemedText>
               <View style={styles.group}>
-                <ThemedText style={styles.label}>{t('debts.paymentDate')}</ThemedText>
+                <ThemedText style={styles.label}>{t(direction === 'receivable' ? 'debts.estimatedCollectionDate' : 'debts.paymentDate')}</ThemedText>
                 <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
-                  <ThemedText>{formatDate(parseIsoDate(firstDueDate))}</ThemedText>
+                  <ThemedText style={firstDueDate == null ? { color: colors.textSecondary } : undefined}>
+                    {firstDueDate == null ? t('debts.addEstimatedDate') : formatDate(parseIsoDate(firstDueDate))}
+                  </ThemedText>
                 </Pressable>
-                {showDate && <DateTimePicker value={parseIsoDate(firstDueDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setFirstDueDate(toDateString(date)); }} />}
+                {showDate && <DateTimePicker value={parseIsoDate(firstDueDate ?? toDateString(new Date()))} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setFirstDueDate(toDateString(date)); }} />}
+                {direction === 'receivable' && firstDueDate != null && (
+                  <Pressable onPress={() => setFirstDueDate(null)} hitSlop={8}>
+                    <ThemedText style={[styles.removeDate, { color: colors.action }]}>{t('debts.removeEstimatedDate')}</ThemedText>
+                  </Pressable>
+                )}
               </View>
             </>
           )}
@@ -238,8 +264,8 @@ export default function DebtFormScreen() {
               {parseAmount(installmentAmount) != null && (
                 <View style={styles.group}>
                   <ThemedText style={styles.label}>{t('debts.nextEstimatedPaymentDate')}</ThemedText>
-                  <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatDate(parseIsoDate(firstDueDate))}</ThemedText></Pressable>
-                  {showDate && <DateTimePicker value={parseIsoDate(firstDueDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setFirstDueDate(toDateString(date)); }} />}
+                  <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatDate(parseIsoDate(firstDueDate ?? toDateString(new Date())))}</ThemedText></Pressable>
+                  {showDate && <DateTimePicker value={parseIsoDate(firstDueDate ?? toDateString(new Date()))} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setFirstDueDate(toDateString(date)); }} />}
                 </View>
               )}
             </>
@@ -267,6 +293,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 }, content: { padding: 20, paddingBottom: LayoutTokens.formScrollBottom, gap: 16 }, description: { opacity: 0.68, lineHeight: 20 },
   card: { borderRadius: 13, padding: 16, gap: 15 }, group: { gap: 7 }, label: { fontWeight: '600' }, hint: { opacity: 0.62, fontSize: 12, lineHeight: 17 },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 16, fontFamily: Fonts.regular }, multiline: { minHeight: 90, paddingTop: 12, textAlignVertical: 'top' },
-  dateButton: { justifyContent: 'center' }, primary: { minHeight: 49, borderRadius: 10, backgroundColor: '#0B315B', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  dateButton: { justifyContent: 'center' }, removeDate: { alignSelf: 'flex-start', fontSize: 13, fontWeight: '700' }, primary: { minHeight: 49, borderRadius: 10, backgroundColor: '#0B315B', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   primaryText: { color: '#fff', fontWeight: '700' }, disabled: { opacity: 0.45 },
 });

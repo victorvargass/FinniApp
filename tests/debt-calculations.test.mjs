@@ -2,10 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  canOmitDebtDueDate,
   getDebtBalanceAdjustmentAmount,
   getNextDebtDueDate,
   isSinglePaymentDebt,
 } from '../lib/debt-calculations.ts';
+
+test('only a one-time receivable can omit its estimated due date', () => {
+  assert.equal(canOmitDebtDueDate('receivable', true), true);
+  assert.equal(canOmitDebtDueDate('receivable', false), false);
+  assert.equal(canOmitDebtDueDate('payable', true), false);
+});
 
 test('a historical payment covered by the balance snapshot does not skip the next due date', () => {
   assert.equal(getNextDebtDueDate('2026-09-25', 'monthly', 0), '2026-09-25');

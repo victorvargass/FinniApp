@@ -4,6 +4,7 @@ export {
   createIncome,
   createIncomeWithRecurrence,
   deleteExpense,
+  deleteFinancialAuditEntry,
   deleteIncome,
   getExpenseNames,
   getExpenseById,

@@ -9,9 +9,10 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { groupFinancialForecastItems } from '@/lib/financial-forecast';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import { toIsoDate } from '@/lib/recurrence';
-import type { BudgetForecast } from '@/lib/types';
+import type { BudgetForecast, FinancialForecastItem } from '@/lib/types';
 import { getBudgetForecast } from '@/repositories';
 
 const EMPTY: BudgetForecast = {
@@ -34,17 +35,44 @@ export default function BudgetForecastScreen() {
   const { selectedPeriodId } = usePeriodDatabase();
   const [forecast, setForecast] = useState<BudgetForecast>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const today = toIsoDate(new Date());
+  const groups = groupFinancialForecastItems(forecast.items, today);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     setLoading(true);
     (selectedPeriodId == null
       ? Promise.resolve(EMPTY)
-      : getBudgetForecast(selectedPeriodId, toIsoDate(new Date())))
+      : getBudgetForecast(selectedPeriodId, today))
       .then((next) => { if (active) setForecast(next); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [selectedPeriodId]));
+  }, [selectedPeriodId, today]));
+
+  const renderItem = (item: FinancialForecastItem) => {
+    const isIncome = item.kind === 'income' || item.kind === 'receivable';
+    const icon = isIncome
+      ? 'arrow-down-circle-outline'
+      : item.kind === 'debt'
+        ? 'people-outline'
+        : item.kind === 'installment' || item.kind === 'billed'
+          ? 'card-outline'
+          : 'repeat-outline';
+    return (
+      <ThemedView key={item.id} style={[styles.item, { borderBottomColor: colors.border }]}>
+        <Ionicons name={icon} size={23} color={isIncome ? colors.success : colors.warning} />
+        <View style={styles.itemCopy}>
+          <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
+          <ThemedText style={[styles.meta, { color: colors.textSecondary }]}>
+            {t(`budgetForecast.kinds.${item.kind}`)} · {date(item.date)}
+          </ThemedText>
+        </View>
+        <ThemedText style={{ color: isIncome ? colors.success : colors.expense }}>
+          {isIncome ? '+' : '−'}{money(item.amount)}
+        </ThemedText>
+      </ThemedView>
+    );
+  };
 
   if (loading) {
     return <View style={[styles.loading, { backgroundColor: colors.screen }]}><ActivityIndicator color={colors.primary} /></View>;
@@ -107,23 +135,17 @@ export default function BudgetForecastScreen() {
           <ThemedView style={[styles.emptyCard, { borderColor: colors.border }]}>
             <ThemedText style={{ color: colors.textSecondary }}>{t('budgetForecast.noUpcoming')}</ThemedText>
           </ThemedView>
-        ) : forecast.items.map((item) => (
-          <ThemedView key={item.id} style={[styles.item, { borderBottomColor: colors.border }]}>
-            <Ionicons
-              name={item.kind === 'income' ? 'arrow-down-circle-outline' : item.kind === 'debt' ? 'people-outline' : item.kind === 'installment' ? 'card-outline' : 'repeat-outline'}
-              size={23}
-              color={item.kind === 'income' ? colors.success : colors.warning}
-            />
-            <View style={styles.itemCopy}>
-              <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
-              <ThemedText style={[styles.meta, { color: colors.textSecondary }]}>
-                {t(`budgetForecast.kinds.${item.kind}`)} · {date(item.date)}
-              </ThemedText>
-            </View>
-            <ThemedText style={{ color: item.kind === 'income' ? colors.success : colors.expense }}>
-              {item.kind === 'income' ? '+' : '−'}{money(item.amount)}
+        ) : ([
+          ['overdue', groups.overdue],
+          ['soon', groups.soon],
+          ['later', groups.later],
+        ] as const).map(([group, items]) => items.length > 0 && (
+          <View key={group}>
+            <ThemedText style={[styles.groupLabel, { color: group === 'overdue' ? colors.danger : colors.textSecondary }]}>
+              {t(`budgetForecast.groups.${group}`)}
             </ThemedText>
-          </ThemedView>
+            {items.map(renderItem)}
+          </View>
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -140,4 +162,5 @@ const styles = StyleSheet.create({
   budgetCard: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 9 }, rowBetween: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   track: { height: 7, borderRadius: 4, overflow: 'hidden' }, progress: { height: '100%', borderRadius: 4 }, meta: { fontSize: 13 },
   item: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: StyleSheet.hairlineWidth }, itemCopy: { flex: 1, gap: 2 },
+  groupLabel: { fontFamily: Fonts.semiBold, fontSize: 12, marginTop: 8, marginBottom: 2, textTransform: 'uppercase' },
 });
