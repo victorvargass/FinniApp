@@ -295,21 +295,6 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
     ]);
   };
 
-  const handleActions = (income: Income) => {
-    Alert.alert(income.name, t('common.selectAction'), [
-      ...(income.savingsGoalId == null ? [{
-        text: t('common.repeat'),
-        onPress: () => router.push({ pathname: '/modal/income-form', params: { repeatId: String(income.id) } }),
-      }] : []),
-      {
-        text: t('common.edit'),
-        onPress: () => router.push({ pathname: '/modal/income-form', params: { id: String(income.id) } }),
-      },
-      { text: t('common.delete'), style: 'destructive', onPress: () => handleDelete(income.id, income.name) },
-      { text: t('common.cancel'), style: 'cancel' },
-    ]);
-  };
-
   const selectSort = (value: SortOption) => {
     setSortBy(value);
     setSortModalVisible(false);
@@ -498,12 +483,11 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
           <Pressable
             onPress={() =>
               router.push({
-                pathname: '/modal/income-form',
-                params: { id: String(income.id) },
-              })
+                pathname: '/modal/movement-detail',
+                params: { id: String(income.id), kind: 'income' },
+              } as never)
             }
-            onLongPress={() => handleDelete(income.id, income.name)}
-            delayLongPress={500}>
+          >
             <ThemedView
               style={[
                 styles.item,
@@ -551,11 +535,14 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
               <View style={styles.itemActions}>
                 <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatCLP(income.amount)}</ThemedText>
                 <Pressable
-                  onPress={() => handleActions(income)}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    handleDelete(income.id, income.name);
+                  }}
                   style={styles.itemActionButton}
                   accessibilityRole="button"
-                  accessibilityLabel={t('common.actionsFor', { name: income.name })}>
-                  <Ionicons name="ellipsis-vertical" size={20} color={colors.icon} />
+                  accessibilityLabel={t('movementDetail.deleteNamed', { name: income.name })}>
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
                 </Pressable>
               </View>
             </ThemedView>

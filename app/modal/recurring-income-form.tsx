@@ -31,7 +31,6 @@ export default function RecurringIncomeFormScreen() {
     recurringIncomes,
     addRecurringIncome,
     editRecurringIncome,
-    removeRecurringIncome,
   } = useRecurrenceDatabase();
   const { paymentMethods } = usePaymentDatabase();
   const { incomeCategories } = useOrganizerDatabase();
@@ -134,8 +133,7 @@ export default function RecurringIncomeFormScreen() {
       movementKind="ingreso"
     />
     <Pressable disabled={saving} onPress={save} style={styles.save}><ThemedText style={styles.saveText}>{saving ? t('common.saving') : t(recurring ? 'common.saveChanges' : 'recurrence.create')}</ThemedText></Pressable>
-    {recurring && <Pressable disabled={saving} onPress={() => Alert.alert(t('recurrence.delete'), t('recurrence.keepPreviousIncomes'), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => removeRecurringIncome(recurring.id).then(() => { showResult(t('recurrence.deleted')); router.back(); }).catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain'))) }])} style={styles.remove}><ThemedText style={styles.removeText}>{t('recurrence.delete')}</ThemedText></Pressable>}
   </ScrollView></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({ safe: { flex: 1 }, content: { padding: 20, paddingBottom: LayoutTokens.formScrollBottom, gap: 10 }, empty: { textAlign: 'center', marginTop: 40 }, label: { fontWeight: '700', marginTop: 6 }, input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 16, fontFamily: Fonts.regular }, save: { marginTop: 16, padding: 14, borderRadius: 10, alignItems: 'center', backgroundColor: '#0B315B' }, saveText: { color: '#fff', fontWeight: '700' }, remove: { padding: 14, alignItems: 'center' }, removeText: { color: '#C93F4B', fontWeight: '700' } });
+const styles = StyleSheet.create({ safe: { flex: 1 }, content: { padding: 20, paddingBottom: LayoutTokens.formScrollBottom, gap: 10 }, empty: { textAlign: 'center', marginTop: 40 }, label: { fontWeight: '700', marginTop: 6 }, input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 16, fontFamily: Fonts.regular }, save: { marginTop: 16, padding: 14, borderRadius: 10, alignItems: 'center', backgroundColor: '#0B315B' }, saveText: { color: '#fff', fontWeight: '700' } });

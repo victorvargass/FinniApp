@@ -21,7 +21,7 @@ const emptyAccount = (): AccountDraft => ({ bankName: '', holderName: null, rut:
 export default function ContactFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const contactId = id ? Number(id) : null;
-  const { contacts, relationshipTypes, saveContact, removeContact } = useOrganizerDatabase();
+  const { contacts, relationshipTypes, saveContact } = useOrganizerDatabase();
   const contact = contacts.find((item) => item.id === contactId);
   const colors = Colors[useColorScheme() ?? 'light'];
   const [name, setName] = useState('');
@@ -59,18 +59,6 @@ export default function ContactFormScreen() {
     finally { setSaving(false); }
   };
 
-  const confirmDelete = () => {
-    if (contactId == null) return;
-    Alert.alert(t('contacts.delete'), t('contacts.deleteHint'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.delete'), style: 'destructive', onPress: () => {
-        setSaving(true);
-        removeContact(contactId).then(() => { showFeedback(t('contacts.deleted')); router.back(); })
-          .catch((error) => Alert.alert(t('errors.couldNotDelete'), errorMessage(error))).finally(() => setSaving(false));
-      } },
-    ]);
-  };
-
   const relationshipOptions = [{ value: null, label: t('common.notSpecified') }, ...relationshipTypes.map((item) => ({ value: item.id, label: item.name, color: item.color }))];
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -99,7 +87,6 @@ export default function ContactFormScreen() {
           </ThemedView>
         ))}
         <Pressable accessibilityRole="button" disabled={saving} onPress={() => void save()} style={[styles.primary, saving && styles.disabled]} testID="contact-save"><ThemedText style={styles.primaryText}>{saving ? t('common.saving') : t('common.save')}</ThemedText></Pressable>
-        {contactId != null && <Pressable disabled={saving} onPress={confirmDelete} style={styles.danger}><ThemedText style={styles.dangerText}>{t('contacts.delete')}</ThemedText></Pressable>}
       </ScrollView>
     </SafeAreaView>
   );
@@ -115,5 +102,5 @@ const styles = StyleSheet.create({
   input: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 16, fontFamily: Fonts.regular }, multiline: { minHeight: 82, paddingTop: 12, textAlignVertical: 'top' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }, sectionCopy: { flex: 1, gap: 3 }, addAccount: { width: 42, height: 42, borderWidth: 1, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   accountTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, primary: { minHeight: 52, borderRadius: 11, backgroundColor: '#0B315B', alignItems: 'center', justifyContent: 'center' }, primaryText: { color: '#fff', fontWeight: '700' },
-  danger: { minHeight: 50, borderWidth: 1, borderColor: '#C43E50', borderRadius: 11, alignItems: 'center', justifyContent: 'center' }, dangerText: { color: '#C43E50', fontWeight: '700' }, disabled: { opacity: 0.5 },
+  disabled: { opacity: 0.5 },
 });

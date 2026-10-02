@@ -136,6 +136,23 @@ export default function RecurringExpensesScreen() {
     );
   };
 
+  const confirmRemoveIncome = (id: number, name: string) => {
+    Alert.alert(
+      t('recurrence.delete'),
+      t('recurrence.removeIncomeQuestion', { name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: () => removeRecurringIncome(id)
+            .then(() => showResult(t('recurrence.deleted')))
+            .catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain'))),
+        },
+      ]
+    );
+  };
+
   if (section === 'incomes') {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -154,7 +171,7 @@ export default function RecurringExpensesScreen() {
           renderItem={({ item }) => (
             <ThemedView style={[styles.card, !item.active && styles.inactive]}>
               <View style={styles.cardHeader}>
-                <Pressable onPress={() => router.push({ pathname: '/modal/recurring-income-form', params: { id: String(item.id) } })} style={styles.main}>
+                <Pressable onPress={() => router.push({ pathname: '/modal/recurrence-detail', params: { id: String(item.id), kind: 'income' } } as never)} style={styles.main}>
                   <View style={[styles.dot, { backgroundColor: '#1FAF78' }]} />
                   <View style={styles.copy}>
                     <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
@@ -177,8 +194,13 @@ export default function RecurringExpensesScreen() {
                   <ThemedText style={styles.modeText}>{item.registrationMode === 'automatic' ? t('common.automatic') : t('recurrence.confirmation')}</ThemedText>
                 </View>
                 {item.pendingCount > 0 && <ThemedText style={styles.pending}>{t('recurrence.pendingCount', { count: item.pendingCount, label: item.pendingCount === 1 ? t('recurrence.pendingOne') : t('recurrence.pendingOther') })}</ThemedText>}
-                <Pressable onPress={() => Alert.alert(t('recurrence.delete'), t('recurrence.removeIncomeQuestion', { name: item.name }), [{ text: t('common.cancel'), style: 'cancel' }, { text: t('common.delete'), style: 'destructive', onPress: () => removeRecurringIncome(item.id).then(() => showResult(t('recurrence.deleted'))).catch((error) => Alert.alert(t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain'))) }])}>
-                  <ThemedText style={styles.removeLink}>{t('common.delete')}</ThemedText>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('recurrence.removeAccessibility', { name: item.name })}
+                  hitSlop={8}
+                  onPress={() => confirmRemoveIncome(item.id, item.name)}
+                  style={styles.removeButton}>
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
                 </Pressable>
               </View>
               {item.pendingCount > 0 && item.nextDate && (
@@ -240,11 +262,9 @@ export default function RecurringExpensesScreen() {
             <View style={styles.cardHeader}>
               <Pressable
                 onPress={() => router.push({
-                  pathname: '/modal/recurring-expense-form',
-                  params: { id: String(item.id) },
-                })}
-                onLongPress={() => confirmRemove(item.id, item.name)}
-                delayLongPress={500}
+                  pathname: '/modal/recurrence-detail',
+                  params: { id: String(item.id), kind: 'expense' },
+                } as never)}
                 style={styles.main}>
                 <View style={[styles.dot, {
                   backgroundColor: isSavingsSection
@@ -300,8 +320,10 @@ export default function RecurringExpensesScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('recurrence.removeAccessibility', { name: item.name })}
-                onPress={() => confirmRemove(item.id, item.name)}>
-                <ThemedText style={styles.removeLink}>{t('common.delete')}</ThemedText>
+                hitSlop={8}
+                onPress={() => confirmRemove(item.id, item.name)}
+                style={styles.removeButton}>
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
               </Pressable>
             </View>
 
@@ -351,7 +373,7 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', borderWidth: 1, borderRadius: 10, padding: 3, marginBottom: 8 },
   tab: { flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 7 },
   selectedTab: { backgroundColor: '#0B315B' }, selectedTabText: { color: '#fff', fontWeight: '700' },
-  removeLink: { color: '#C93F4B', fontWeight: '700', fontSize: 13 },
+  removeButton: { width: 44, height: 44, marginVertical: -8, alignItems: 'center', justifyContent: 'center' },
   action: { flex: 1, borderWidth: 1, borderRadius: 9, padding: 10, alignItems: 'center' },
   approve: { borderColor: '#0B315B', backgroundColor: '#0B315B' },
   approveText: { color: '#fff', fontWeight: '700' },

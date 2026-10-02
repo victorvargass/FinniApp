@@ -62,7 +62,6 @@ export default function RecurringExpenseFormScreen() {
     recurringExpenses,
     addRecurringExpense,
     editRecurringExpense,
-    removeRecurringExpense,
   } = useRecurrenceDatabase();
   const { expenses } = useMovementDatabase();
   const { categories } = useOrganizerDatabase();
@@ -92,7 +91,6 @@ export default function RecurringExpenseFormScreen() {
       }
     : defaultSchedule(requestedSource ? parseIsoDate(requestedSource.date) : new Date()));
   const [saving, setSaving] = useState(false);
-  const [removing, setRemoving] = useState(false);
   const [useStoredNextDate, setUseStoredNextDate] = useState(recurring != null);
 
   const defaultPaymentMethodId = paymentMethods.find(
@@ -181,36 +179,6 @@ export default function RecurringExpenseFormScreen() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const confirmRemove = () => {
-    if (!recurring) return;
-    Alert.alert(
-      t('recurrence.delete'),
-      t(isSavingsRecurrence ? 'recurrence.deleteSavingsSchedule' : 'recurrence.deleteExpenseSchedule'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            setRemoving(true);
-            try {
-              await removeRecurringExpense(recurring.id);
-              showResult(t('recurrence.deleted'));
-              router.back();
-            } catch (error) {
-              Alert.alert(
-                t('errors.couldNotDelete'), error instanceof Error ? error.message : t('common.tryAgain')
-              );
-            } finally {
-              setRemoving(false);
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
   };
 
   return (
@@ -343,22 +311,11 @@ export default function RecurringExpenseFormScreen() {
         />
 
         <Pressable
-          disabled={saving || removing}
+          disabled={saving}
           onPress={save}
-          style={[styles.save, (saving || removing) && styles.disabled]}>
+          style={[styles.save, saving && styles.disabled]}>
           <ThemedText style={styles.saveText}>{recurring ? t('common.saveChanges') : t('recurrence.create')}</ThemedText>
         </Pressable>
-
-        {recurring && (
-          <Pressable
-            disabled={saving || removing}
-            onPress={confirmRemove}
-            style={[styles.remove, (saving || removing) && styles.disabled]}>
-            <ThemedText style={styles.removeText}>
-              {removing ? t('recurrence.deleting') : t('recurrence.delete')}
-            </ThemedText>
-          </Pressable>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -401,7 +358,5 @@ const styles = StyleSheet.create({
   divider: { borderTopWidth: 1, marginVertical: 10 },
   save: { marginTop: 18, borderRadius: 10, padding: 14, alignItems: 'center', backgroundColor: '#0B315B' },
   saveText: { color: '#fff', fontWeight: '700' },
-  remove: { marginTop: 4, borderRadius: 10, padding: 14, alignItems: 'center' },
-  removeText: { color: '#C93F4B', fontWeight: '700' },
   disabled: { opacity: 0.6 },
 });

@@ -85,6 +85,10 @@ function AppContent() {
                   options={{ presentation: 'modal', title: t('navigation.expense') }}
                 />
                 <Stack.Screen
+                  name="modal/movement-detail"
+                  options={{ presentation: 'fullScreenModal', title: t('movementDetail.title') }}
+                />
+                <Stack.Screen
                   name="modal/category-form"
                   options={{ presentation: 'modal', title: t('navigation.category') }}
                 />
@@ -107,6 +111,10 @@ function AppContent() {
                 <Stack.Screen
                   name="modal/contact-form"
                   options={{ presentation: 'modal', title: t('contacts.new') }}
+                />
+                <Stack.Screen
+                  name="modal/contact-detail"
+                  options={{ presentation: 'fullScreenModal', title: t('contacts.detail') }}
                 />
                 <Stack.Screen
                   name="modal/organizer-form"
@@ -143,6 +151,10 @@ function AppContent() {
                 <Stack.Screen
                   name="modal/recurring-expenses"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.recurringMovements') }}
+                />
+                <Stack.Screen
+                  name="modal/recurrence-detail"
+                  options={{ presentation: 'fullScreenModal', title: t('recurrence.detail') }}
                 />
                 <Stack.Screen
                   name="modal/recurring-confirmations"

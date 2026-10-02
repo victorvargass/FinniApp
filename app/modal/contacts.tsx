@@ -39,7 +39,7 @@ export default function ContactsScreen() {
               </ThemedView>
             )}
             {contacts.map((contact) => (
-              <Pressable key={contact.id} onPress={() => router.push({ pathname: '/modal/contact-form' as never, params: { id: String(contact.id) } })}>
+              <Pressable key={contact.id} onPress={() => router.push({ pathname: '/modal/contact-detail', params: { id: String(contact.id) } } as never)}>
                 <ThemedView style={[styles.row, { borderColor: colors.border }]}>
                   <View style={[styles.avatar, { backgroundColor: contact.relationshipTypeColor ?? colors.primary }]}>
                     <ThemedText style={styles.avatarText}>{contact.name.trim().charAt(0).toUpperCase()}</ThemedText>
@@ -71,7 +71,7 @@ export default function ContactsScreen() {
                 <ThemedView style={[styles.relationshipRow, { borderColor: colors.border }]}>
                   <View style={[styles.dot, { backgroundColor: relationship.color }]} />
                   <ThemedText style={styles.copy}>{relationship.name}</ThemedText>
-                  <Ionicons name="create-outline" size={20} color={colors.icon} />
+                  <Ionicons name="chevron-forward" size={21} color={colors.icon} />
                 </ThemedView>
               </Pressable>
             ))}

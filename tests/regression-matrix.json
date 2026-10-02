@@ -28,8 +28,8 @@
     {
       "id": "movement-list-and-filters",
       "priority": "critical",
-      "routes": ["app/(tabs)/movements.tsx", "app/(tabs)/add.tsx", "app/modal/global-search.tsx"],
-      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/global-search.test.mjs"]
+      "routes": ["app/(tabs)/movements.tsx", "app/(tabs)/add.tsx", "app/modal/global-search.tsx", "app/modal/movement-detail.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/global-search.test.mjs", "tests/movement-detail-navigation.test.mjs"]
     },
     {
       "id": "accounts-transfers-and-card-cycles",
@@ -46,14 +46,14 @@
     {
       "id": "debts-and-payments",
       "priority": "critical",
-      "routes": ["app/modal/debts.tsx", "app/modal/archived-debts.tsx", "app/modal/debt-detail.tsx", "app/modal/manual-debt-form.tsx", "app/modal/manual-debt-detail.tsx", "app/modal/manual-debt-payment.tsx", "app/modal/manual-debt-balance.tsx", "app/modal/contacts.tsx", "app/modal/contact-form.tsx"],
-      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/calculations.test.mjs"]
+      "routes": ["app/modal/debts.tsx", "app/modal/archived-debts.tsx", "app/modal/debt-detail.tsx", "app/modal/manual-debt-form.tsx", "app/modal/manual-debt-detail.tsx", "app/modal/manual-debt-payment.tsx", "app/modal/manual-debt-balance.tsx", "app/modal/contacts.tsx", "app/modal/contact-detail.tsx", "app/modal/contact-form.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/calculations.test.mjs", "tests/contact-detail-navigation.test.mjs"]
     },
     {
       "id": "recurring-movements",
       "priority": "critical",
-      "routes": ["app/modal/recurring-expenses.tsx", "app/modal/recurring-expense-form.tsx", "app/modal/recurring-income-form.tsx", "app/modal/recurring-confirmations.tsx"],
-      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/recurrence.test.mjs"]
+      "routes": ["app/modal/recurring-expenses.tsx", "app/modal/recurrence-detail.tsx", "app/modal/recurring-expense-form.tsx", "app/modal/recurring-income-form.tsx", "app/modal/recurring-confirmations.tsx"],
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/recurrence.test.mjs", "tests/recurrence-detail-navigation.test.mjs"]
     },
     {
       "id": "categories",

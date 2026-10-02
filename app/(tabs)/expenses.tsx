@@ -515,26 +515,6 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
     ]);
   };
 
-  const handleActions = (expense: ExpenseWithCategory) => {
-    const canRepeat = expense.debtPlanId == null
-      && expense.debtId == null
-      && expense.installmentNumber == null
-      && expense.savingsGoalId == null
-      && expense.creditPaymentTargetId == null;
-    Alert.alert(expense.name, t('common.selectAction'), [
-      ...(canRepeat ? [{
-        text: t('common.repeat'),
-        onPress: () => router.push({ pathname: '/modal/expense-form', params: { repeatId: String(expense.id) } }),
-      }] : []),
-      {
-        text: t('common.edit'),
-        onPress: () => router.push({ pathname: '/modal/expense-form', params: { id: String(expense.id) } }),
-      },
-      { text: t('common.delete'), style: 'destructive', onPress: () => handleDelete(expense.id, expense.name) },
-      { text: t('common.cancel'), style: 'cancel' },
-    ]);
-  };
-
   const clearAllFilters = () => {
     setSearch('');
     setCategoryFilter([]);
@@ -810,12 +790,11 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
             <Pressable
               onPress={() =>
                 router.push({
-                  pathname: '/modal/expense-form',
-                  params: { id: String(expense.id) },
-                })
+                  pathname: '/modal/movement-detail',
+                  params: { id: String(expense.id), kind: 'expense' },
+                } as never)
               }
-              onLongPress={() => handleDelete(expense.id, expense.name)}
-              delayLongPress={500}>
+            >
               <ThemedView style={[styles.item, { paddingVertical: 6, paddingHorizontal: 10, minHeight: 40 }]}>
                 <View style={[styles.itemLeft, { gap: 6 }]}>
                   {groupBy === 'none' && (
@@ -874,11 +853,14 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
                 <View style={styles.itemActions}>
                   <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>{formatMoney(expense.amount, expense.currency)}</ThemedText>
                   <Pressable
-                    onPress={() => handleActions(expense)}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      handleDelete(expense.id, expense.name);
+                    }}
                     style={styles.itemActionButton}
                     accessibilityRole="button"
-                    accessibilityLabel={t('common.actionsFor', { name: expense.name })}>
-                    <Ionicons name="ellipsis-vertical" size={20} color={colors.icon} />
+                    accessibilityLabel={t('movementDetail.deleteNamed', { name: expense.name })}>
+                    <Ionicons name="trash-outline" size={20} color={colors.danger} />
                   </Pressable>
                 </View>
               </ThemedView>

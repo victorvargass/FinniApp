@@ -70,7 +70,7 @@ type ExpenseFormProps = {
 
 export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, initialSavingsContribution = false, onSuccess }: ExpenseFormProps) {
   const { categories, contacts } = useOrganizerDatabase();
-  const { expenseNames, addExpense, editExpense, removeExpense } = useMovementDatabase();
+  const { expenseNames, addExpense, editExpense } = useMovementDatabase();
   const {
     paymentMethods,
     addCreditCardAdjustment,
@@ -765,36 +765,6 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
                 Alert.alert(
                   t('common.error'),
                   error instanceof Error ? error.message : t('errors.couldNotDelete')
-                );
-              })
-              .finally(() => setSaving(false));
-          },
-        },
-      ]
-    );
-  };
-
-  const confirmDeleteExpense = () => {
-    if (!expense || saving) return;
-    Alert.alert(
-      t('expenses.delete'),
-      t('expenses.deleteQuestion', { name: expense.name }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: () => {
-            setSaving(true);
-            void removeExpense(expense.id)
-              .then(() => {
-                showToast(t('expenses.deleted'));
-                onSuccess();
-              })
-              .catch((error) => {
-                Alert.alert(
-                  t('common.error'),
-                  error instanceof Error ? error.message : t('expenses.deleteError')
                 );
               })
               .finally(() => setSaving(false));
@@ -1735,32 +1705,13 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         </View>
       )}
 
-      {expense && (
-        <View style={styles.recurringExpenseActions}>
-          {expense.debtPlanId == null && !isCardPayment && receivableShares.length === 0 && (
-            <Pressable
-              onPress={() => router.push({
-                pathname: '/modal/recurring-expense-form',
-                params: expense.recurringExpenseId
-                  ? { id: String(expense.recurringExpenseId) }
-                  : { sourceExpenseId: String(expense.id) },
-              })}
-              style={[styles.secondaryAction, { borderColor: colors.border }]}> 
-              <Ionicons name="repeat-outline" size={19} color={colors.primary} />
-              <ThemedText type="defaultSemiBold">
-                {expense.recurringExpenseId ? t('recurrence.edit') : t('expenses.makeRecurring')}
-              </ThemedText>
-            </Pressable>
-          )}
-          {expense.debtPlanId != null && (
-            <Pressable
-              onPress={() => router.push({ pathname: '/modal/debt-detail', params: { id: String(expense.debtPlanId) } })}
-              style={[styles.secondaryAction, { borderColor: colors.border }]}> 
-              <Ionicons name="card-outline" size={19} color={colors.primary} />
-              <ThemedText type="defaultSemiBold">{t('installments.viewDetail')}</ThemedText>
-            </Pressable>
-          )}
-        </View>
+      {expense?.debtPlanId != null && (
+        <Pressable
+          onPress={() => router.push({ pathname: '/modal/debt-detail', params: { id: String(expense.debtPlanId) } })}
+          style={[styles.secondaryAction, { borderColor: colors.border }]}>
+          <Ionicons name="card-outline" size={19} color={colors.primary} />
+          <ThemedText type="defaultSemiBold">{t('installments.viewDetail')}</ThemedText>
+        </Pressable>
       )}
 
       {creditAdjustment && (
@@ -1771,18 +1722,6 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           style={styles.deleteButton}>
           <ThemedText style={styles.deleteButtonText}>
             {t('paymentMethods.deleteAdjustment')}
-          </ThemedText>
-        </Pressable>
-      )}
-
-      {expense && (
-        <Pressable
-          accessibilityRole="button"
-          disabled={saving}
-          onPress={confirmDeleteExpense}
-          style={styles.deleteButton}>
-          <ThemedText style={styles.deleteButtonText}>
-            {t('expenses.delete')}
           </ThemedText>
         </Pressable>
       )}
