@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -37,8 +38,8 @@ export function SimpleSelect<T extends string | number | null>({
   modalSize?: 'content' | 'large';
   testID?: string;
 }) {
-  const { height: windowHeight } = useWindowDimensions();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const insets = useSafeAreaInsets();
   const [visible, setVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const selected = options.find((option) => option.value === value) ?? options[0];
@@ -69,20 +70,22 @@ export function SimpleSelect<T extends string | number | null>({
         </View>
         <Ionicons name="chevron-down" size={20} color={colors.icon} />
       </Pressable>
-      <Modal transparent animationType="fade" visible={visible} onRequestClose={closeSelect}>
-        <Pressable accessible={false} style={styles.overlay} onPress={closeSelect}>
-          <Pressable accessible={false} style={styles.dialogPosition} onPress={(event) => event.stopPropagation()}>
-            <ThemedView style={[
-              styles.sheet,
-              {
-                backgroundColor: colors.surfaceRaised,
-                minHeight: modalSize === 'large'
-                  ? Math.min(Math.max(windowHeight * 0.68, 460), 720)
-                  : Math.min(520, 100 + options.length * 56),
-                maxHeight: modalSize === 'large' ? '82%' : '72%',
-              },
-            ]} accessibilityViewIsModal>
-              <ThemedText type="subtitle">{label}</ThemedText>
+      <Modal transparent animationType="slide" visible={visible} onRequestClose={closeSelect}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoider}>
+          <Pressable accessible={false} style={styles.overlay} onPress={closeSelect}>
+            <Pressable accessible={false} style={styles.dialogPosition} onPress={(event) => event.stopPropagation()}>
+              <ThemedView style={[
+                styles.sheet,
+                {
+                  backgroundColor: colors.surfaceRaised,
+                  height: modalSize === 'large' ? '82%' : undefined,
+                  paddingBottom: Math.max(insets.bottom, 16) + 12,
+                },
+              ]} accessibilityViewIsModal>
+                <View style={styles.handle} />
+                <ThemedText type="subtitle">{label}</ThemedText>
               {searchable && (
                 <View style={[styles.search, { borderColor: colors.border }]}>
                   <Ionicons name="search-outline" size={20} color={colors.icon} />
@@ -108,7 +111,10 @@ export function SimpleSelect<T extends string | number | null>({
                   )}
                 </View>
               )}
-              <ScrollView style={styles.options}>
+              <ScrollView
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                style={styles.options}>
                 {filteredOptions.map((option, index) => {
                   const active = option.value === value;
                   const showGroup = option.group != null && option.group !== filteredOptions[index - 1]?.group;
@@ -134,9 +140,10 @@ export function SimpleSelect<T extends string | number | null>({
                   <ThemedText style={styles.empty}>{t('common.noCategoriesFound')}</ThemedText>
                 )}
               </ScrollView>
-            </ThemedView>
+              </ThemedView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -146,13 +153,17 @@ const styles = StyleSheet.create({
   group: { gap: 7 }, label: { fontWeight: '600' },
   field: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   value: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 }, valueText: { flexShrink: 1 },
-  dot: { width: 13, height: 13, borderRadius: 5 }, overlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 20, backgroundColor: 'rgba(0,0,0,0.45)' },
-  dialogPosition: { width: '100%' }, sheet: { borderRadius: 18, padding: 20, gap: 14, maxHeight: '72%' },
+  dot: { width: 13, height: 13, borderRadius: 5 },
+  keyboardAvoider: { flex: 1 },
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  dialogPosition: { width: '100%', maxHeight: '82%', flexShrink: 1 },
+  sheet: { borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 20, gap: 14, maxHeight: '100%', flexShrink: 1 },
+  handle: { width: 38, height: 4, borderRadius: 2, backgroundColor: '#60758E', opacity: 0.55, alignSelf: 'center' },
   search: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
   searchInput: { flex: 1, fontSize: 16, paddingVertical: 10 },
   empty: { textAlign: 'center', opacity: 0.7, paddingHorizontal: 16, paddingVertical: 28 },
   groupLabel: { fontSize: 12, fontWeight: '700', opacity: 0.65, marginTop: 7, marginBottom: 7, paddingHorizontal: 2, textTransform: 'uppercase' },
-  options: { flex: 1, maxHeight: 420 },
+  options: { flexShrink: 1, maxHeight: 420 },
   option: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   disabled: { opacity: 0.6 },
 });

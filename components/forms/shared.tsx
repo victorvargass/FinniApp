@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -111,88 +111,96 @@ export function ColorSelect({
         transparent
         visible={visible && !disabled}
         onRequestClose={closeSelect}>
-        <Pressable accessible={false} style={styles.selectOverlay} onPress={closeSelect}>
-          <Pressable accessible={false} style={styles.selectSheet} onPress={(event) => event.stopPropagation()}>
-            <ThemedView
-              accessibilityViewIsModal
-              style={[
-                styles.selectContent,
-                {
-                  backgroundColor: colors.surfaceRaised,
-                  paddingBottom: Math.max(insets.bottom, 16) + 12,
-                },
-              ]}>
-              <View style={styles.selectHandle} />
-              <ThemedText type="subtitle">{label}</ThemedText>
-              {searchable && (
-                <View style={[styles.selectSearch, { borderColor: colors.border }]}>
-                  <Ionicons name="search-outline" size={20} color={colors.icon} />
-                  <TextInput
-                    accessibilityLabel={t('common.searchCategory')}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    onChangeText={setSearchQuery}
-                    placeholder={t('common.searchCategory')}
-                    placeholderTextColor={colors.icon}
-                    returnKeyType="search"
-                    style={[styles.selectSearchInput, { color: colors.text }]}
-                    value={searchQuery}
-                  />
-                  {searchQuery.length > 0 && (
-                    <Pressable
-                      accessibilityLabel={t('common.clearSearch')}
-                      accessibilityRole="button"
-                      hitSlop={10}
-                      onPress={() => setSearchQuery('')}>
-                      <Ionicons name="close-circle" size={20} color={colors.icon} />
-                    </Pressable>
-                  )}
-                </View>
-              )}
-              <ScrollView style={styles.selectOptions} showsVerticalScrollIndicator={false}>
-                {filteredOptions.map((option, index) => {
-                  const isSelected = option.value === value;
-                  const showGroup = option.group != null && option.group !== filteredOptions[index - 1]?.group;
-                  return (
-                    <View key={option.value ?? 'none'}>
-                      {showGroup && <ThemedText style={styles.selectGroup}>{option.group}</ThemedText>}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.selectKeyboardAvoider}>
+          <Pressable accessible={false} style={styles.selectOverlay} onPress={closeSelect}>
+            <Pressable accessible={false} style={styles.selectSheet} onPress={(event) => event.stopPropagation()}>
+              <ThemedView
+                accessibilityViewIsModal
+                style={[
+                  styles.selectContent,
+                  {
+                    backgroundColor: colors.surfaceRaised,
+                    paddingBottom: Math.max(insets.bottom, 16) + 12,
+                  },
+                ]}>
+                <View style={styles.selectHandle} />
+                <ThemedText type="subtitle">{label}</ThemedText>
+                {searchable && (
+                  <View style={[styles.selectSearch, { borderColor: colors.border }]}>
+                    <Ionicons name="search-outline" size={20} color={colors.icon} />
+                    <TextInput
+                      accessibilityLabel={t('common.searchCategory')}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onChangeText={setSearchQuery}
+                      placeholder={t('common.searchCategory')}
+                      placeholderTextColor={colors.icon}
+                      returnKeyType="search"
+                      style={[styles.selectSearchInput, { color: colors.text }]}
+                      value={searchQuery}
+                    />
+                    {searchQuery.length > 0 && (
                       <Pressable
-                        accessibilityLabel={option.label}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: isSelected }}
-                        onPress={() => {
-                          onChange(option.value);
-                          closeSelect();
-                        }}
-                        style={[
-                          styles.selectOption,
-                          { borderColor: isSelected ? option.color : colors.border },
-                          isSelected && { backgroundColor: option.color + '18' },
-                        ]}>
-                        <View style={styles.selectValue}>
-                          {showColor && <View style={[styles.selectDot, { backgroundColor: option.color }]} />}
-                          <ThemedText style={isSelected ? styles.selectOptionSelectedText : undefined}>
-                            {option.label}
-                          </ThemedText>
-                        </View>
-                        {isSelected && <Ionicons name="checkmark-circle" size={21} color={option.color} />}
+                        accessibilityLabel={t('common.clearSearch')}
+                        accessibilityRole="button"
+                        hitSlop={10}
+                        onPress={() => setSearchQuery('')}>
+                        <Ionicons name="close-circle" size={20} color={colors.icon} />
                       </Pressable>
-                    </View>
-                  );
-                })}
-                {filteredOptions.length === 0 && (
-                  <ThemedText style={styles.selectEmpty}>{t('common.noCategoriesFound')}</ThemedText>
+                    )}
+                  </View>
                 )}
-              </ScrollView>
-              <Pressable
-                accessibilityRole="button"
-                onPress={closeSelect}
-                style={[styles.selectClose, { borderColor: colors.border }]}>
-                <ThemedText type="defaultSemiBold">{t('common.cancel')}</ThemedText>
-              </Pressable>
-            </ThemedView>
+                <ScrollView
+                  keyboardDismissMode="on-drag"
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.selectOptions}
+                  showsVerticalScrollIndicator={false}>
+                  {filteredOptions.map((option, index) => {
+                    const isSelected = option.value === value;
+                    const showGroup = option.group != null && option.group !== filteredOptions[index - 1]?.group;
+                    return (
+                      <View key={option.value ?? 'none'}>
+                        {showGroup && <ThemedText style={styles.selectGroup}>{option.group}</ThemedText>}
+                        <Pressable
+                          accessibilityLabel={option.label}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: isSelected }}
+                          onPress={() => {
+                            onChange(option.value);
+                            closeSelect();
+                          }}
+                          style={[
+                            styles.selectOption,
+                            { borderColor: isSelected ? option.color : colors.border },
+                            isSelected && { backgroundColor: option.color + '18' },
+                          ]}>
+                          <View style={styles.selectValue}>
+                            {showColor && <View style={[styles.selectDot, { backgroundColor: option.color }]} />}
+                            <ThemedText style={isSelected ? styles.selectOptionSelectedText : undefined}>
+                              {option.label}
+                            </ThemedText>
+                          </View>
+                          {isSelected && <Ionicons name="checkmark-circle" size={21} color={option.color} />}
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                  {filteredOptions.length === 0 && (
+                    <ThemedText style={styles.selectEmpty}>{t('common.noCategoriesFound')}</ThemedText>
+                  )}
+                </ScrollView>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={closeSelect}
+                  style={[styles.selectClose, { borderColor: colors.border }]}>
+                  <ThemedText type="defaultSemiBold">{t('common.cancel')}</ThemedText>
+                </Pressable>
+              </ThemedView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
