@@ -561,21 +561,22 @@ export default function HomeScreen() {
 
   function openPeriodActions() {
     if (!isCurrentPeriod) return;
+    const actions = [
+      {
+        text: t('period.editDates'),
+        onPress: openPeriodDateEditor,
+      },
+      ...(hasPeriodMovements ? [{
+        text: t('period.close'),
+        style: 'destructive' as const,
+        onPress: confirmClosePeriod,
+      }] : []),
+      { text: t('common.cancel'), style: 'cancel' as const },
+    ];
     Alert.alert(
       t('period.manage'),
       t('common.selectAction'),
-      [
-        {
-          text: t('period.editDates'),
-          onPress: openPeriodDateEditor,
-        },
-        ...(hasPeriodMovements ? [{
-          text: t('period.close'),
-          style: 'destructive' as const,
-          onPress: confirmClosePeriod,
-        }] : []),
-        { text: t('common.cancel'), style: 'cancel' as const },
-      ]
+      Platform.OS === 'android' ? [...actions].reverse() : actions
     );
   }
 
