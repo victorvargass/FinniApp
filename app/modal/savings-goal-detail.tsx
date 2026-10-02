@@ -110,6 +110,14 @@ export default function SavingsGoalDetailScreen() {
           <OverflowMenu
             accessibilityLabel={t('common.moreOptions')}
             actions={[
+              ...(goal.status === 'active' ? [{
+                label: t('savings.enterContribution'),
+                icon: 'add-circle-outline' as const,
+                onPress: () => router.push({
+                  pathname: '/modal/expense-form',
+                  params: { savingsGoalId: String(goal.id) },
+                }),
+              }] : []),
               {
                 label: t('savings.editConfiguration'),
                 icon: 'settings-outline',
@@ -175,27 +183,6 @@ export default function SavingsGoalDetailScreen() {
             targetAmount={goal.targetAmount}
           />
         </ThemedView>
-
-        {goal.status === 'active' && (
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push({
-                pathname: '/modal/expense-form',
-                params: { savingsGoalId: String(goal.id) },
-              })}
-              style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.action }, pressed && styles.pressed]}>
-              <ThemedText type="defaultSemiBold" style={{ color: colors.onPrimary }}>
-                {t('savings.enterContribution')}
-              </ThemedText>
-            </Pressable>
-            {!goal.allowWithdrawals && (
-              <ThemedText style={[styles.hint, { color: colors.textSecondary }]}>
-                {t('savings.withdrawalsDisabled')}
-              </ThemedText>
-            )}
-          </View>
-        )}
 
         <ThemedView style={[styles.movementsSection, { borderColor: colors.border }]}>
           <ThemedText type="subtitle">{t('savings.movements')}</ThemedText>
@@ -276,9 +263,7 @@ const styles = StyleSheet.create({
   goalIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   titleCopy: { flex: 1, gap: 2 },
   metadata: { gap: 3 },
-  actions: { gap: 9 },
   primaryButton: { minHeight: 48, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
-  hint: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
   movementsSection: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 14, gap: 3 },
   movementRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 9 },
   movementCopy: { flex: 1, gap: 3 },
