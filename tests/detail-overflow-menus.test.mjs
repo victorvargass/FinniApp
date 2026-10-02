@@ -6,12 +6,16 @@ const debt = readFileSync(new URL('../app/modal/manual-debt-detail.tsx', import.
 const paymentMethod = readFileSync(new URL('../app/modal/payment-method-detail.tsx', import.meta.url), 'utf8');
 const overflowMenu = readFileSync(new URL('../components/overflow-menu.tsx', import.meta.url), 'utf8');
 
-test('debt detail groups configuration, archive and deletion in an overflow menu', () => {
+test('debt detail groups operational and management actions in its header overflow menu', () => {
+  assert.match(debt, /<Stack\.Screen options=\{\{/);
+  assert.match(debt, /headerRight: \(\) => \(/);
   assert.match(debt, /<OverflowMenu/);
+  assert.match(debt, /label: t\(debt\.direction === 'receivable' \? 'debts\.registerCollection' : 'debts\.registerPayment'\)/);
+  assert.match(debt, /label: t\('debts\.updateBalance'\)/);
   assert.match(debt, /t\('debts\.editConfiguration'\)/);
   assert.match(debt, /onPress: toggleArchive/);
   assert.match(debt, /onPress: deleteDebt/);
-  assert.doesNotMatch(debt, /styles\.management|styles\.danger/);
+  assert.doesNotMatch(debt, /styles\.management|styles\.danger|styles\.actions|styles\.secondaryButton/);
 });
 
 test('payment method detail moves secondary configuration actions to an overflow menu', () => {

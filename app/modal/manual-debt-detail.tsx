@@ -109,6 +109,22 @@ export default function DebtDetailScreen() {
           <OverflowMenu
             accessibilityLabel={t('common.moreOptions')}
             actions={[
+              ...(!isArchived && !isPaid ? [{
+                label: t(debt.direction === 'receivable' ? 'debts.registerCollection' : 'debts.registerPayment'),
+                icon: 'cash-outline' as const,
+                onPress: () => router.push({
+                  pathname: '/modal/manual-debt-payment',
+                  params: { debtId: String(debt.id) },
+                }),
+              }] : []),
+              ...(!isArchived && debt.type === 'variable' ? [{
+                label: t('debts.updateBalance'),
+                icon: 'sync-outline' as const,
+                onPress: () => router.push({
+                  pathname: '/modal/manual-debt-balance',
+                  params: { debtId: String(debt.id) },
+                }),
+              }] : []),
               {
                 label: t('debts.editConfiguration'),
                 icon: 'settings-outline',
@@ -177,13 +193,6 @@ export default function DebtDetailScreen() {
           </ThemedView>
         )}
 
-        {!isArchived && (
-          <View style={styles.actions}>
-            {!isPaid && <Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-payment', params: { debtId: String(debt.id) } })} style={styles.primary}><Ionicons name="cash-outline" size={20} color="#fff" /><ThemedText style={styles.primaryText}>{t(debt.direction === 'receivable' ? 'debts.registerCollection' : 'debts.registerPayment')}</ThemedText></Pressable>}
-            {debt.type === 'variable' && <Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-balance', params: { debtId: String(debt.id) } })} style={[styles.secondaryButton, { borderColor: colors.primary }]}><Ionicons name="sync-outline" size={20} color={colors.primary} /><ThemedText style={{ color: colors.primary, fontWeight: '700' }}>{t('debts.updateBalance')}</ThemedText></Pressable>}
-          </View>
-        )}
-
         <ThemedText type="subtitle">{t('debts.history')}</ThemedText>
         {debt.entries?.length === 0 && <ThemedView style={styles.empty}><ThemedText style={styles.secondary}>{t('debts.noHistory')}</ThemedText></ThemedView>}
         {debt.entries?.map((entry) => (
@@ -210,8 +219,7 @@ export default function DebtDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, paddingBottom: 45, gap: 14 }, titleCopy: { gap: 3 },
   summary: { borderRadius: 13, padding: 17, gap: 11 }, card: { borderRadius: 12, padding: 15, gap: 11 }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }, rowLargeText: { flexDirection: 'column', alignItems: 'flex-start', gap: 2 }, secondary: { opacity: 0.65 },
-  track: { height: 9, borderRadius: 5, overflow: 'hidden' }, fill: { height: '100%', borderRadius: 5 }, status: { fontSize: 12, fontWeight: '800' }, actions: { gap: 10 },
-  primary: { minHeight: 49, borderRadius: 10, backgroundColor: '#0B315B', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, primaryText: { color: '#fff', fontWeight: '700' },
-  secondaryButton: { minHeight: 47, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12 }, empty: { borderRadius: 12, padding: 18, alignItems: 'center' },
+  track: { height: 9, borderRadius: 5, overflow: 'hidden' }, fill: { height: '100%', borderRadius: 5 }, status: { fontSize: 12, fontWeight: '800' },
+  empty: { borderRadius: 12, padding: 18, alignItems: 'center' },
   entry: { borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, entryLargeText: { flexWrap: 'wrap', alignItems: 'flex-start' }, entryIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }, entryCopy: { flex: 1, minWidth: 0, gap: 2 }, entryMeta: { opacity: 0.62, fontSize: 12 }, entryAmount: { textAlign: 'right' }, entryAmountLargeText: { width: '100%', paddingLeft: 40 },
 });
