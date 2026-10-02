@@ -7,7 +7,7 @@ const database = readFileSync(new URL('../lib/database/notifications.ts', import
 const preferenceActions = readFileSync(new URL('../contexts/database/usePreferenceActions.ts', import.meta.url), 'utf8');
 
 test('notifications expose delete all from an overflow menu with confirmation', () => {
-  assert.match(screen, /name="ellipsis-vertical"/);
+  assert.match(screen, /<OverflowMenu/);
   assert.match(screen, /t\('notifications\.deleteAll'\)/);
   assert.match(screen, /t\('notifications\.deleteAllTitle'\)/);
   assert.match(screen, /deleteAppNotifications\(appNotifications\.map\(\(item\) => item\.id\)\)/);

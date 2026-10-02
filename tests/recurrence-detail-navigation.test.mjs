@@ -16,11 +16,11 @@ test('recurrence rows open read-only details and use compact trash actions', () 
 });
 
 test('recurrence detail centralizes edit, activation and confirmed deletion', () => {
-  assert.match(detail, /name="ellipsis-vertical"/);
-  assert.match(detail, /text: t\('common\.edit'\)/);
+  assert.match(detail, /<OverflowMenu/);
+  assert.match(detail, /label: t\('common\.edit'\)/);
   assert.match(detail, /recurrence\.deactivate/);
   assert.match(detail, /confirmDelete/);
-  assert.match(detail, /text: t\('common\.delete'\)/);
+  assert.match(detail, /label: t\('common\.delete'\)/);
   assert.doesNotMatch(expenseForm, /confirmRemove/);
   assert.doesNotMatch(expenseForm, /removeRecurringExpense/);
   assert.doesNotMatch(incomeForm, /removeRecurringIncome/);

@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SavingsGoalProgress } from '@/components/SavingsGoalProgress';
+import { OverflowMenu } from '@/components/overflow-menu';
 import { SavingsProgressChart } from '@/components/savings-progress-chart';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -102,36 +103,39 @@ export default function SavingsGoalDetailScreen() {
     );
   };
 
-  const openGoalActions = () => {
-    Alert.alert(
-      t('common.moreOptions'),
-      t('common.selectAction'),
-      [
-        {
-          text: t('savings.editConfiguration'),
-          onPress: () => router.push({ pathname: '/modal/savings-goal-form', params: { id: String(goal.id) } }),
-        },
-        ...(goal.status === 'active' ? [{
-          text: t('savings.updateBalance'),
-          onPress: () => router.push({
-            pathname: '/modal/savings-goal-balance',
-            params: { savingsGoalId: String(goal.id) },
-          }),
-        }] : []),
-        ...(goal.status === 'active' && goal.allowWithdrawals && goal.currentAmount > 0 ? [{
-          text: t('savings.withdraw'),
-          onPress: () => router.push({
-            pathname: '/modal/income-form',
-            params: { savingsGoalId: String(goal.id) },
-          }),
-        }] : []),
-        { text: t('common.cancel'), style: 'cancel' as const },
-      ]
-    );
-  };
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
+      <Stack.Screen options={{
+        headerRight: () => (
+          <OverflowMenu
+            accessibilityLabel={t('common.moreOptions')}
+            actions={[
+              {
+                label: t('savings.editConfiguration'),
+                icon: 'settings-outline',
+                onPress: () => router.push({ pathname: '/modal/savings-goal-form', params: { id: String(goal.id) } }),
+              },
+              ...(goal.status === 'active' ? [{
+                label: t('savings.updateBalance'),
+                icon: 'sync-outline' as const,
+                onPress: () => router.push({
+                  pathname: '/modal/savings-goal-balance',
+                  params: { savingsGoalId: String(goal.id) },
+                }),
+              }] : []),
+              ...(goal.status === 'active' && goal.allowWithdrawals && goal.currentAmount > 0 ? [{
+                label: t('savings.withdraw'),
+                icon: 'arrow-down-circle-outline' as const,
+                onPress: () => router.push({
+                  pathname: '/modal/income-form',
+                  params: { savingsGoalId: String(goal.id) },
+                }),
+              }] : []),
+              { label: t('common.cancel'), icon: 'close-outline' },
+            ]}
+          />
+        ),
+      }} />
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedView style={[styles.summaryCard, { borderColor: colors.border }]}>
           <View style={styles.titleRow}>
@@ -144,14 +148,6 @@ export default function SavingsGoalDetailScreen() {
                 {t(goal.status === 'archived' ? 'savings.archived' : 'savings.active')}
               </ThemedText>
             </View>
-            <Pressable
-              accessibilityLabel={t('common.moreOptions')}
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={openGoalActions}
-              style={({ pressed }) => [styles.overflowButton, pressed && styles.pressed]}>
-              <Ionicons name="ellipsis-vertical" size={22} color={colors.primary} />
-            </Pressable>
           </View>
           <SavingsGoalProgress
             color={goal.color}
@@ -279,7 +275,6 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   goalIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   titleCopy: { flex: 1, gap: 2 },
-  overflowButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   metadata: { gap: 3 },
   actions: { gap: 9 },
   primaryButton: { minHeight: 48, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },

@@ -5,6 +5,7 @@ import { Modal, Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/empty-state';
+import { OverflowMenu } from '@/components/overflow-menu';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -146,34 +147,28 @@ export default function NotificationsScreen() {
     );
   }, [appNotifications, deleteAppNotifications, deletingAll]);
 
-  const openNotificationMenu = useCallback(() => {
-    Alert.alert(t('common.moreOptions'), t('common.selectAction'), [
-      {
-        text: t('notifications.deleteAll'),
-        style: 'destructive',
-        onPress: confirmDeleteAll,
-      },
-      { text: t('common.cancel'), style: 'cancel' },
-    ]);
-  }, [confirmDeleteAll]);
-
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: appNotifications.length > 0
         ? () => (
-          <Pressable
+          <OverflowMenu
             accessibilityLabel={t('common.moreOptions')}
-            accessibilityRole="button"
+            actions={[
+              {
+                label: t('notifications.deleteAll'),
+                icon: 'trash-outline',
+                destructive: true,
+                onPress: confirmDeleteAll,
+              },
+              { label: t('common.cancel'), icon: 'close-outline' },
+            ]}
             disabled={deletingAll}
-            hitSlop={8}
-            onPress={openNotificationMenu}
-            style={({ pressed }) => [styles.headerMenuButton, pressed && styles.pressed]}>
-            <Ionicons name="ellipsis-vertical" size={23} color={colors.primary} />
-          </Pressable>
+            iconColor={colors.primary}
+          />
         )
         : () => null,
     });
-  }, [appNotifications.length, colors.primary, deletingAll, navigation, openNotificationMenu]);
+  }, [appNotifications.length, colors.primary, confirmDeleteAll, deletingAll, navigation]);
 
   const openDetails = (notification: AppNotification) => {
     setSelectedNotificationId(notification.id);
@@ -439,7 +434,6 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  headerMenuButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   list: { padding: 20, paddingBottom: 32 },
   emptyList: { flexGrow: 1, justifyContent: 'center' },
   intro: { opacity: 0.72, lineHeight: 21, marginBottom: 14 },

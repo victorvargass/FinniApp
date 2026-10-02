@@ -559,27 +559,6 @@ export default function HomeScreen() {
     Alert.alert(t('home.periodDetails'), t('period.editDatesHint'), actions);
   }
 
-  function openPeriodActions() {
-    if (!isCurrentPeriod) return;
-    const actions = [
-      {
-        text: t('period.editDates'),
-        onPress: openPeriodDateEditor,
-      },
-      ...(hasPeriodMovements ? [{
-        text: t('period.close'),
-        style: 'destructive' as const,
-        onPress: confirmClosePeriod,
-      }] : []),
-      { text: t('common.cancel'), style: 'cancel' as const },
-    ];
-    Alert.alert(
-      t('period.manage'),
-      t('common.selectAction'),
-      Platform.OS === 'android' ? [...actions].reverse() : actions
-    );
-  }
-
   function confirmClosePeriod() {
     let nextStartLabel = '';
     let nextEndLabel = '';
@@ -694,7 +673,18 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top']}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
         {!settings.homePreferences.hiddenSections.includes('search') && renderHomeSection('search')}
-        <PeriodSelector onOpenActions={isCurrentPeriod ? openPeriodActions : undefined} />
+        <PeriodSelector
+          actions={isCurrentPeriod ? [
+            { label: t('period.editDates'), icon: 'calendar-outline', onPress: openPeriodDateEditor },
+            ...(hasPeriodMovements ? [{
+              label: t('period.close'),
+              icon: 'lock-closed-outline' as const,
+              destructive: true,
+              onPress: confirmClosePeriod,
+            }] : []),
+            { label: t('common.cancel'), icon: 'close-outline' },
+          ] : undefined}
+        />
         {showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
           <DateTimePicker
             value={startDateDraft ?? startDate}

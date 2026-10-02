@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useCallback, useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { OverflowMenu } from '@/components/overflow-menu';
 import { Colors } from '@/constants/theme';
 import {
   useOrganizerDatabase,
@@ -118,35 +119,33 @@ export default function RecurrenceDetailScreen() {
     ]);
   }, [isSavings, kind, recurrence, removeRecurringExpense, removeRecurringIncome]);
 
-  const openActions = useCallback(() => {
-    if (!recurrence) return;
-    const hasSource = (recurringExpense?.sourceExpenseId ?? recurringIncome?.sourceIncomeId) != null;
-    Alert.alert(recurrence.name, t('common.selectAction'), [
-      { text: t('common.edit'), onPress: editRecurrence },
-      ...(hasSource ? [{ text: t('recurrence.viewSourceMovement'), onPress: viewSourceMovement }] : []),
-      { text: t(recurrence.active ? 'recurrence.deactivate' : 'recurrence.activate'), onPress: () => { void toggleActive(); } },
-      { text: t('common.delete'), style: 'destructive' as const, onPress: confirmDelete },
-      { text: t('common.cancel'), style: 'cancel' as const },
-    ]);
-  }, [confirmDelete, editRecurrence, recurrence, recurringExpense?.sourceExpenseId, recurringIncome?.sourceIncomeId, toggleActive, viewSourceMovement]);
-
   useEffect(() => {
     navigation.setOptions({
       title: t('recurrence.detail'),
       headerRight: () => (
-        <Pressable
-          accessibilityRole="button"
+        <OverflowMenu
           accessibilityLabel={t('common.moreOptions')}
+          actions={recurrence ? [
+            { label: t('common.edit'), icon: 'create-outline', onPress: editRecurrence },
+            ...((recurringExpense?.sourceExpenseId ?? recurringIncome?.sourceIncomeId) != null ? [{
+              label: t('recurrence.viewSourceMovement'),
+              icon: 'document-text-outline' as const,
+              onPress: viewSourceMovement,
+            }] : []),
+            {
+              label: t(recurrence.active ? 'recurrence.deactivate' : 'recurrence.activate'),
+              icon: recurrence.active ? 'pause-circle-outline' : 'play-circle-outline',
+              onPress: () => { void toggleActive(); },
+            },
+            { label: t('common.delete'), icon: 'trash-outline', destructive: true, onPress: confirmDelete },
+            { label: t('common.cancel'), icon: 'close-outline' },
+          ] : []}
           disabled={!recurrence}
-          hitSlop={10}
-          onPress={openActions}
-          style={styles.headerAction}
-        >
-          <Ionicons name="ellipsis-vertical" size={24} color={colors.primary} />
-        </Pressable>
+          iconColor={colors.primary}
+        />
       ),
     });
-  }, [colors.primary, navigation, openActions, recurrence]);
+  }, [colors.primary, confirmDelete, editRecurrence, navigation, recurrence, recurringExpense?.sourceExpenseId, recurringIncome?.sourceIncomeId, toggleActive, viewSourceMovement]);
 
   if (!recurrence) {
     return (
@@ -210,7 +209,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: 20, paddingBottom: 40, gap: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-  headerAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   hero: { borderRadius: 18, borderTopWidth: 5, padding: 24, alignItems: 'center', gap: 7 },
   iconBox: { width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   type: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },

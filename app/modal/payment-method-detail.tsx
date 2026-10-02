@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { OverflowMenu } from '@/components/overflow-menu';
 import { Colors } from '@/constants/theme';
 import { usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, formatEventDateTime, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getCardDueDate } from '@/lib/payment-method-calculations';
@@ -89,32 +89,35 @@ export default function PaymentMethodDetailScreen() {
       <Ionicons name="chevron-forward" size={20} color={colors.icon} />
     </Pressable>
   );
-  const openMethodActions = () => {
-    Alert.alert(
-      t('common.moreOptions'),
-      t('common.selectAction'),
-      [
-        ...(isCredit ? [
-          {
-            text: t('paymentMethods.installmentPurchases'),
-            onPress: () => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } }),
-          },
-          {
-            text: t('paymentMethods.cycles'),
-            onPress: () => router.push({ pathname: '/modal/card-cycles', params: { id: String(method.id) } }),
-          },
-        ] : []),
-        {
-          text: t('paymentMethods.editSettings'),
-          onPress: () => router.push({ pathname: '/modal/payment-method-form', params: { id: String(method.id) } }),
-        },
-        { text: t('common.cancel'), style: 'cancel' as const },
-      ]
-    );
-  };
-
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <Stack.Screen options={{
+        headerRight: () => (
+          <OverflowMenu
+            accessibilityLabel={t('common.moreOptions')}
+            actions={[
+              ...(isCredit ? [
+                {
+                  label: t('paymentMethods.installmentPurchases'),
+                  icon: 'wallet-outline' as const,
+                  onPress: () => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } }),
+                },
+                {
+                  label: t('paymentMethods.cycles'),
+                  icon: 'receipt-outline' as const,
+                  onPress: () => router.push({ pathname: '/modal/card-cycles', params: { id: String(method.id) } }),
+                },
+              ] : []),
+              {
+                label: t('paymentMethods.editSettings'),
+                icon: 'settings-outline',
+                onPress: () => router.push({ pathname: '/modal/payment-method-form', params: { id: String(method.id) } }),
+              },
+              { label: t('common.cancel'), icon: 'close-outline' },
+            ]}
+          />
+        ),
+      }} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.accountCard, { backgroundColor: method.color }]}>
           <View style={styles.accountHeader}>
@@ -122,17 +125,7 @@ export default function PaymentMethodDetailScreen() {
               <ThemedText style={styles.onCardType}>{typeLabel}</ThemedText>
               <ThemedText style={styles.onCardName}>{method.name}</ThemedText>
             </View>
-            <View style={styles.accountHeaderActions}>
-              <Ionicons name={isCredit ? 'card' : 'wallet'} size={30} color="#fff" />
-              <Pressable
-                accessibilityLabel={t('common.moreOptions')}
-                accessibilityRole="button"
-                hitSlop={8}
-                onPress={openMethodActions}
-                style={({ pressed }) => [styles.cardOverflowButton, pressed && styles.pressed]}>
-                <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
-              </Pressable>
-            </View>
+            <Ionicons name={isCredit ? 'card' : 'wallet'} size={30} color="#fff" />
           </View>
           {isCredit ? (
             <>
@@ -473,8 +466,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   accountCard: { borderRadius: 20, padding: 20, minHeight: 205, gap: 8, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, elevation: 5 },
   accountHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  accountHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardOverflowButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   onCardType: { color: '#fff', opacity: 0.82, fontSize: 13 },
   onCardName: { color: '#fff', fontSize: 20, fontWeight: '700' },
   onCardLabel: { color: '#fff', opacity: 0.82 },

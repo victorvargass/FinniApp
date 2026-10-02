@@ -12,9 +12,9 @@ test('contact rows open a read-only detail instead of the edit form', () => {
 });
 
 test('contact detail owns edit and confirmed deletion in its overflow menu', () => {
-  assert.match(detail, /name="ellipsis-vertical"/);
-  assert.match(detail, /text: t\('common\.edit'\)/);
-  assert.match(detail, /text: t\('common\.delete'\)/);
+  assert.match(detail, /<OverflowMenu/);
+  assert.match(detail, /label: t\('common\.edit'\)/);
+  assert.match(detail, /label: t\('common\.delete'\)/);
   assert.match(detail, /t\('contacts\.deleteHint'\)/);
   assert.doesNotMatch(form, /confirmDelete/);
   assert.doesNotMatch(form, /removeContact/);

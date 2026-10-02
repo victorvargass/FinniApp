@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { OverflowMenu } from '@/components/overflow-menu';
 import { Colors } from '@/constants/theme';
 import { useOrganizerDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -79,32 +80,23 @@ export default function ContactDetailScreen() {
     ]);
   }, [contact, removeContact]);
 
-  const openActions = useCallback(() => {
-    if (!contact) return;
-    Alert.alert(contact.name, t('common.selectAction'), [
-      { text: t('common.edit'), onPress: editContact },
-      { text: t('common.delete'), style: 'destructive', onPress: deleteContact },
-      { text: t('common.cancel'), style: 'cancel' },
-    ]);
-  }, [contact, deleteContact, editContact]);
-
   useEffect(() => {
     navigation.setOptions({
       title: t('contacts.detail'),
       headerRight: () => (
-        <Pressable
-          accessibilityRole="button"
+        <OverflowMenu
           accessibilityLabel={t('common.moreOptions')}
+          actions={contact ? [
+            { label: t('common.edit'), icon: 'create-outline', onPress: editContact },
+            { label: t('common.delete'), icon: 'trash-outline', destructive: true, onPress: deleteContact },
+            { label: t('common.cancel'), icon: 'close-outline' },
+          ] : []}
           disabled={!contact || working}
-          hitSlop={10}
-          onPress={openActions}
-          style={styles.headerAction}
-        >
-          <Ionicons name="ellipsis-vertical" size={24} color={colors.primary} />
-        </Pressable>
+          iconColor={colors.primary}
+        />
       ),
     });
-  }, [colors.primary, contact, navigation, openActions, working]);
+  }, [colors.primary, contact, deleteContact, editContact, navigation, working]);
 
   if (loading) {
     return (
@@ -198,7 +190,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: 20, paddingBottom: 40, gap: 16 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-  headerAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   hero: { borderRadius: 18, borderTopWidth: 5, alignItems: 'center', padding: 24, gap: 8 },
   avatar: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#FFFFFF', fontSize: 27, fontWeight: '800' },

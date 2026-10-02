@@ -21,8 +21,8 @@ test('goal detail owns progress, actions and movements with configuration in its
   assert.match(detail, /t\('savings\.movements'\)/);
   assert.match(detail, /t\('savings\.editConfiguration'\)/);
   assert.match(detail, /pathname: '\/modal\/savings-goal-form'/);
-  assert.match(detail, /name="ellipsis-vertical"/);
-  assert.match(detail, /openGoalActions/);
+  assert.match(detail, /<Stack\.Screen options=\{\{/);
+  assert.match(detail, /<OverflowMenu/);
   assert.doesNotMatch(detail, /styles\.editButton|styles\.secondaryButton/);
   assert.doesNotMatch(form, /<SavingsGoalProgress|t\('savings\.movements'\)/);
 });

@@ -19,10 +19,10 @@ test('ordinary movement rows open read-only details and retain direct confirmed 
 });
 
 test('movement detail keeps edit, duplicate and confirmed delete in its overflow menu', () => {
-  assert.match(detail, /name="ellipsis-vertical"/);
-  assert.match(detail, /text: t\('common\.edit'\)/);
-  assert.match(detail, /text: t\('common\.repeat'\)/);
-  assert.match(detail, /text: t\('common\.delete'\)/);
+  assert.match(detail, /<OverflowMenu/);
+  assert.match(detail, /label: t\('common\.edit'\)/);
+  assert.match(detail, /label: t\('common\.repeat'\)/);
+  assert.match(detail, /label: t\('common\.delete'\)/);
   assert.match(detail, /confirmDelete/);
   assert.match(detail, /expenses\.deleteQuestion/);
   assert.match(detail, /incomes\.deleteQuestion/);

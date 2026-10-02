@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs';
 
 const debt = readFileSync(new URL('../app/modal/manual-debt-detail.tsx', import.meta.url), 'utf8');
 const paymentMethod = readFileSync(new URL('../app/modal/payment-method-detail.tsx', import.meta.url), 'utf8');
+const overflowMenu = readFileSync(new URL('../components/overflow-menu.tsx', import.meta.url), 'utf8');
 
 test('debt detail groups configuration, archive and deletion in an overflow menu', () => {
-  assert.match(debt, /openDebtActions/);
-  assert.match(debt, /name="ellipsis-vertical"/);
+  assert.match(debt, /<OverflowMenu/);
   assert.match(debt, /t\('debts\.editConfiguration'\)/);
   assert.match(debt, /onPress: toggleArchive/);
   assert.match(debt, /onPress: deleteDebt/);
@@ -15,12 +15,20 @@ test('debt detail groups configuration, archive and deletion in an overflow menu
 });
 
 test('payment method detail moves secondary configuration actions to an overflow menu', () => {
-  assert.match(paymentMethod, /openMethodActions/);
-  assert.match(paymentMethod, /name="ellipsis-vertical"/);
+  assert.match(paymentMethod, /<Stack\.Screen options=\{\{/);
+  assert.match(paymentMethod, /headerRight: \(\) => \(/);
+  assert.match(paymentMethod, /<OverflowMenu/);
   assert.match(paymentMethod, /t\('paymentMethods\.installmentPurchases'\)/);
   assert.match(paymentMethod, /t\('paymentMethods\.cycles'\)/);
   assert.match(paymentMethod, /t\('paymentMethods\.editSettings'\)/);
   assert.doesNotMatch(paymentMethod, /showMoreOptions|styles\.secondaryActions/);
+});
+
+test('overflow actions expand below their trigger instead of using a centered alert', () => {
+  assert.match(overflowMenu, /measureInWindow/);
+  assert.match(overflowMenu, /top: \(anchor\?\.y \?\? 0\) \+ \(anchor\?\.height \?\? 0\) \+ 4/);
+  assert.match(overflowMenu, /accessibilityRole="menuitem"/);
+  assert.match(overflowMenu, /name="ellipsis-vertical"/);
 });
 
 test('payment method movement expansion is compact and stays beside the section title', () => {

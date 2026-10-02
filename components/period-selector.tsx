@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { OverflowMenu, type OverflowMenuAction } from '@/components/overflow-menu';
 import { Colors } from '@/constants/theme';
 import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -13,10 +14,10 @@ function formatPeriodDate(value: string) {
 }
 
 type PeriodSelectorProps = {
-  onOpenActions?: () => void;
+  actions?: OverflowMenuAction[];
 };
 
-export function PeriodSelector({ onOpenActions }: PeriodSelectorProps) {
+export function PeriodSelector({ actions }: PeriodSelectorProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { periods, selectedPeriod, settings, selectPeriod } = usePeriodDatabase();
@@ -46,22 +47,25 @@ export function PeriodSelector({ onOpenActions }: PeriodSelectorProps) {
         <Ionicons name="chevron-back" size={23} color={colors.icon} />
       </Pressable>
 
-      <Pressable
-        accessibilityLabel={onOpenActions ? t('period.manage') : undefined}
-        accessibilityRole={onOpenActions ? 'button' : undefined}
-        disabled={!onOpenActions}
-        onPress={onOpenActions}
-        style={({ pressed }) => [styles.copy, pressed && styles.pressed]}>
+      <View style={styles.copy}>
         <View style={styles.labelRow}>
           <ThemedText type="defaultSemiBold">
             {isCurrent ? t('period.current') : t('period.historical')}
           </ThemedText>
-          {onOpenActions && <Ionicons name="ellipsis-vertical" size={16} color={colors.icon} />}
+          {actions && actions.length > 0 && (
+            <OverflowMenu
+              accessibilityLabel={t('period.manage')}
+              actions={actions}
+              buttonStyle={styles.menuButton}
+              iconColor={colors.icon}
+              iconSize={17}
+            />
+          )}
         </View>
         <ThemedText style={styles.dates}>
           {formatPeriodDate(selectedPeriod.startDate)} – {formatPeriodDate(selectedPeriod.endDate)}
         </ThemedText>
-      </Pressable>
+      </View>
 
       <Pressable
         accessibilityLabel={t('accessibility.nextPeriod')}
@@ -107,6 +111,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 7,
   },
+  menuButton: { width: 30, height: 30, borderRadius: 15 },
   badge: {
     borderRadius: 10,
     paddingHorizontal: 7,
@@ -121,5 +126,4 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     textAlign: 'center',
   },
-  pressed: { opacity: 0.65 },
 });
