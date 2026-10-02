@@ -22,6 +22,13 @@ done
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb reverse tcp:8081 tcp:8081
 
+# The hosted Android emulator can report a transient Quickstep (launcher) ANR
+# while Metro is compiling the first development bundle. The FinniApp screen is
+# already responsive underneath, but the system dialog blocks Maestro selectors.
+# Keep CI focused on application failures instead of launcher instability.
+adb shell settings put global hide_error_dialogs 1
+adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS >/dev/null 2>&1 || true
+
 node scripts/create-upgrade-fixture.mjs "$RUNNER_TEMP/gastos-v27.db"
 adb shell pm clear com.vitoco18.FinniApp
 adb push "$RUNNER_TEMP/gastos-v27.db" /data/local/tmp/gastos.db

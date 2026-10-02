@@ -103,6 +103,8 @@ test('Android E2E distinguishes Maestro failures from emulator cleanup failures'
   assert.match(runner, /expo start --dev-client --localhost/);
   assert.match(runner, /packager-status:running/);
   assert.match(runner, /adb reverse tcp:8081 tcp:8081/);
+  assert.match(runner, /settings put global hide_error_dialogs 1/);
+  assert.match(runner, /android\.intent\.action\.CLOSE_SYSTEM_DIALOGS/);
   assert.match(runner, /touch "\$RUNNER_TEMP\/finniapp-maestro-passed"/);
   assert.match(workflow, /if \[\[ ! -f "\$RUNNER_TEMP\/finniapp-maestro-passed" \]\]/);
 });
