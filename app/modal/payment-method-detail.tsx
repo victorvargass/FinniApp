@@ -78,17 +78,6 @@ export default function PaymentMethodDetailScreen() {
   }[method.type];
   const recentMovements = showAllMovements ? movements : movements.slice(0, 3);
   const hasMoreMovements = movements.length > 3;
-  const action = (
-    icon: keyof typeof Ionicons.glyphMap,
-    label: string,
-    onPress: () => void
-  ) => (
-    <Pressable onPress={onPress} style={[styles.action, { borderColor: colors.border }]}>
-      <Ionicons name={icon} size={22} color={colors.action} />
-      <ThemedText type="defaultSemiBold" style={styles.actionText}>{label}</ThemedText>
-      <Ionicons name="chevron-forward" size={20} color={colors.icon} />
-    </Pressable>
-  );
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <Stack.Screen options={{
@@ -96,6 +85,29 @@ export default function PaymentMethodDetailScreen() {
           <OverflowMenu
             accessibilityLabel={t('common.moreOptions')}
             actions={[
+              ...(method.availableBalance != null ? [{
+                label: t('paymentMethods.updateBalance'),
+                icon: 'refresh-outline' as const,
+                onPress: () => router.push({
+                  pathname: '/modal/payment-method-balance',
+                  params: { id: String(method.id) },
+                }),
+              }] : []),
+              ...(isCredit ? [{
+                label: t('paymentMethods.payCard'),
+                icon: 'cash-outline' as const,
+                onPress: () => router.push({
+                  pathname: '/modal/expense-form',
+                  params: { creditPaymentTargetId: String(method.id) },
+                }),
+              }] : [{
+                label: t('transfers.action'),
+                icon: 'swap-horizontal-outline' as const,
+                onPress: () => router.push({
+                  pathname: '/modal/account-transfer-form',
+                  params: { sourcePaymentMethodId: String(method.id) },
+                } as never),
+              }]),
               ...(isCredit ? [
                 {
                   label: t('paymentMethods.installmentPurchases'),
@@ -231,24 +243,6 @@ export default function PaymentMethodDetailScreen() {
             </ThemedText>
           </ThemedView>
         )}
-
-        <View style={styles.actions}>
-          {method.availableBalance != null && action(
-            'refresh-outline',
-            t('paymentMethods.updateBalance'),
-            () => router.push({ pathname: '/modal/payment-method-balance', params: { id: String(method.id) } })
-          )}
-          {isCredit && action(
-            'cash-outline',
-            t('paymentMethods.payCard'),
-            () => router.push({ pathname: '/modal/expense-form', params: { creditPaymentTargetId: String(method.id) } })
-          )}
-          {!isCredit && action(
-            'swap-horizontal-outline',
-            t('transfers.action'),
-            () => router.push({ pathname: '/modal/account-transfer-form', params: { sourcePaymentMethodId: String(method.id) } } as never)
-          )}
-        </View>
 
         <View style={styles.movementsSection}>
           <View style={styles.sectionHeader}>
@@ -490,9 +484,6 @@ const styles = StyleSheet.create({
   calculationRow: { minHeight: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14, paddingTop: 4 },
   calculationTotal: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2, paddingTop: 10 },
   hint: { opacity: 0.68, lineHeight: 19 },
-  actions: { gap: 10 },
-  action: { minHeight: 56, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  actionText: { flex: 1 },
   movementsSection: { gap: 10, marginTop: 6 },
   sectionHeader: { gap: 2 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },

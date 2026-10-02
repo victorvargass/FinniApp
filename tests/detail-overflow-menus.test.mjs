@@ -29,14 +29,17 @@ test('debt detail groups operational and management actions in its header overfl
   assert.doesNotMatch(debt, /styles\.management|styles\.danger|styles\.actions|styles\.secondaryButton/);
 });
 
-test('payment method detail moves secondary configuration actions to an overflow menu', () => {
+test('payment method detail moves operational and configuration actions to an overflow menu', () => {
   assert.match(paymentMethod, /<Stack\.Screen options=\{\{/);
   assert.match(paymentMethod, /headerRight: \(\) => \(/);
   assert.match(paymentMethod, /<OverflowMenu/);
+  assert.match(paymentMethod, /label: t\('paymentMethods\.updateBalance'\)/);
+  assert.match(paymentMethod, /label: t\('paymentMethods\.payCard'\)/);
+  assert.match(paymentMethod, /label: t\('transfers\.action'\)/);
   assert.match(paymentMethod, /t\('paymentMethods\.installmentPurchases'\)/);
   assert.match(paymentMethod, /t\('paymentMethods\.cycles'\)/);
   assert.match(paymentMethod, /t\('paymentMethods\.editSettings'\)/);
-  assert.doesNotMatch(paymentMethod, /showMoreOptions|styles\.secondaryActions/);
+  assert.doesNotMatch(paymentMethod, /showMoreOptions|styles\.secondaryActions|styles\.actions|styles\.actionText/);
 });
 
 test('overflow actions expand below their trigger instead of using a centered alert', () => {
