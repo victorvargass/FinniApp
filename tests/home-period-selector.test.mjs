@@ -6,21 +6,21 @@ const home = readFileSync(new URL('../app/(tabs)/home.tsx', import.meta.url), 'u
 const selector = readFileSync(new URL('../components/period-selector.tsx', import.meta.url), 'utf8');
 
 test('Home keeps the period range only in the selector', () => {
-  assert.match(home, /<PeriodSelector onEditDates=/);
+  assert.match(home, /<PeriodSelector onOpenActions=/);
   assert.doesNotMatch(home, /styles\.dateRangeContainer|styles\.dateContainer|styles\.dateButton/);
 });
 
-test('the current period dates remain editable from the selector', () => {
-  assert.match(selector, /onEditDates\?: \(\) => void/);
-  assert.match(selector, /accessibilityLabel=\{onEditDates \? t\('period\.editDates'\)/);
+test('the current period opens its actions from an ellipsis menu', () => {
+  assert.match(selector, /onOpenActions\?: \(\) => void/);
+  assert.match(selector, /accessibilityLabel=\{onOpenActions \? t\('period\.manage'\)/);
+  assert.match(selector, /name="ellipsis-vertical"/);
+  assert.doesNotMatch(selector, /name="pencil-outline"/);
+  assert.match(home, /t\('period\.manage'\)[\s\S]*?t\('period\.editDates'\)[\s\S]*?openPeriodDateEditor/);
   assert.match(home, /Alert\.alert\(t\('home\.periodDetails'\), t\('period\.editDatesHint'\), actions\)/);
 });
 
-test('the close-period action stays directly below the period selector', () => {
-  const selectorIndex = home.indexOf('<PeriodSelector onEditDates=');
-  const closeIndex = home.indexOf('testID="period-close"');
-  const summaryIndex = home.indexOf('<HomeSummaryCards');
-  assert.ok(selectorIndex >= 0 && selectorIndex < closeIndex);
-  assert.ok(closeIndex < summaryIndex);
-  assert.equal(home.match(/testID="period-close"/g)?.length, 1);
+test('closing the period is a destructive menu action instead of a large Home button', () => {
+  assert.match(home, /hasPeriodMovements \? \[\{[\s\S]*?t\('period\.close'\)[\s\S]*?style: 'destructive'/);
+  assert.match(home, /onPress: confirmClosePeriod/);
+  assert.doesNotMatch(home, /testID="period-close"|periodCloseButton|periodCloseContainer/);
 });

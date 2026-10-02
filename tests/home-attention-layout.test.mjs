@@ -4,12 +4,14 @@ import { readFileSync } from 'node:fs';
 
 const source = readFileSync(new URL('../components/home-overview.tsx', import.meta.url), 'utf8');
 
-test('the notifications action is a compact link beside the attention title', () => {
+test('the notifications action is a clear counted link beside the attention title', () => {
   const titleIndex = source.indexOf("t('home.attention')");
-  const actionIndex = source.indexOf("t('home.viewNotificationsShort')");
+  const actionIndex = source.indexOf("t('home.viewNotificationsShort'");
   const itemsIndex = source.indexOf('items.length === 0');
   assert.ok(titleIndex >= 0 && titleIndex < actionIndex);
   assert.ok(actionIndex < itemsIndex);
   assert.match(source, /accessibilityLabel=\{t\('home\.viewNotifications'\)\}/);
+  assert.match(source, /t\('home\.viewNotificationsShort', \{ count: items\.length \}\)/);
+  assert.doesNotMatch(source, /name="notifications-outline"/);
   assert.doesNotMatch(source, /notificationsButton|notificationsButtonLabel/);
 });

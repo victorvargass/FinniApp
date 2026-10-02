@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -23,10 +23,19 @@ function showDefaultConfirmation(name: string) {
 }
 
 export default function PaymentMethodsScreen() {
+  const { section: requestedSectionParam } = useLocalSearchParams<{ section?: string }>();
   const { paymentMethods, setDefaultPaymentMethod } = usePaymentDatabase();
   const { settings } = usePreferenceDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const [methodSection, setMethodSection] = useState<'accounts' | 'prepaid' | 'credit'>('accounts');
+  const requestedSection = requestedSectionParam === 'credit'
+    || requestedSectionParam === 'prepaid'
+    || requestedSectionParam === 'accounts'
+    ? requestedSectionParam
+    : null;
+  const [methodSection, setMethodSection] = useState<'accounts' | 'prepaid' | 'credit'>(
+    requestedSection ?? 'accounts'
+  );
+  const appliedRequestedSection = useRef(false);
   const guide = useFeatureGuide('payment-methods');
   const guideSlides = [
     {
@@ -68,10 +77,20 @@ export default function PaymentMethodsScreen() {
       : t(`paymentMethods.${value}`),
   })), [paymentMethods]);
   useEffect(() => {
+    if (
+      !appliedRequestedSection.current
+      && requestedSection
+      && methodSections.some((section) => section.value === requestedSection)
+    ) {
+      appliedRequestedSection.current = true;
+      setMethodSection(requestedSection);
+      return;
+    }
+    if (methodSections.length === 0) return;
     if (!methodSections.some((section) => section.value === methodSection)) {
       setMethodSection(methodSections[0]?.value ?? 'accounts');
     }
-  }, [methodSection, methodSections]);
+  }, [methodSection, methodSections, requestedSection]);
   const visiblePaymentMethods = paymentMethods.filter((method) => {
     if (methodSection === 'accounts') return method.type === 'cash' || method.type === 'debit';
     return method.type === methodSection;
@@ -133,11 +152,6 @@ export default function PaymentMethodsScreen() {
               style={styles.main}>
               <View style={[styles.copy, compactAccount && styles.compactCopy]}>
                 <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
-                {!compactAccount && (
-                  <ThemedText style={styles.secondary}>
-                    {typeLabels[item.type]}{item.billingDay ? t('paymentMethods.approximateBilling', { day: item.billingDay }) : ''}
-                  </ThemedText>
-                )}
                 {item.type === 'credit' && (
                   <ThemedText type="defaultSemiBold" style={styles.balanceHeading}>
                     {t('paymentMethods.availableCredits')}
@@ -156,7 +170,9 @@ export default function PaymentMethodsScreen() {
                       style={styles.configureBalance}>
                       <Ionicons name="sync-outline" size={15} color={colors.action} />
                       <ThemedText type="defaultSemiBold" style={[styles.balance, { color: colors.action }]}>
-                        {t('paymentMethods.configureCurrentBalance')}
+                        {item.type === 'credit'
+                          ? `CLP — · ${t('paymentMethods.configureCurrentBalance')}`
+                          : t('paymentMethods.configureCurrentBalance')}
                       </ThemedText>
                     </Pressable>
                   ) : (
@@ -172,6 +188,18 @@ export default function PaymentMethodsScreen() {
                   <ThemedText type="defaultSemiBold" style={styles.balance}>
                     USD {formatMoney(item.usdAvailableCreditCents ?? 0, 'USD')}
                   </ThemedText>
+                )}
+                {item.type === 'credit' && (
+                  <View style={styles.billedRow}>
+                    <ThemedText style={[styles.billedLabel, { color: colors.textSecondary }]}>
+                      {t('paymentMethods.pendingBilled')}
+                    </ThemedText>
+                    <ThemedText
+                      type="defaultSemiBold"
+                      style={[styles.billedAmount, { color: item.billedAmount > 0 ? colors.expense : colors.textSecondary }]}>
+                      {formatCLP(item.billedAmount)}
+                    </ThemedText>
+                  </View>
                 )}
               </View>
             </Pressable>
@@ -243,11 +271,13 @@ const styles = StyleSheet.create({
   compactColorDot: { width: 16, height: 16, borderRadius: 5 },
   copy: { flex: 1, gap: 3 },
   compactCopy: { gap: 0 },
-  secondary: { opacity: 0.65, fontSize: 13 },
   balanceHeading: { fontSize: 12, marginTop: 5 },
   balance: { fontSize: 12, marginTop: 2 },
   compactBalance: { marginTop: 0 },
   configureBalance: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
+  billedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 5, flexWrap: 'wrap' },
+  billedLabel: { fontSize: 12 },
+  billedAmount: { fontSize: 12 },
   chevron: { minWidth: 44, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
   star: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   statementButton: { padding: 6 },

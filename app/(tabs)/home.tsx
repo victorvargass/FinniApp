@@ -379,7 +379,12 @@ export default function HomeScreen() {
           kind={section}
           paymentMethods={paymentMethods}
           backgroundColor={colors.surface}
-          onManage={() => router.push('/modal/payment-methods')}
+          onManage={() => section === 'credit'
+            ? router.push({
+                pathname: '/modal/payment-methods',
+                params: { section: 'credit' },
+              })
+            : router.push('/modal/payment-methods')}
           onOpenPaymentMethod={(id) => router.push({
             pathname: '/modal/payment-method-detail',
             params: { id: String(id) },
@@ -554,6 +559,26 @@ export default function HomeScreen() {
     Alert.alert(t('home.periodDetails'), t('period.editDatesHint'), actions);
   }
 
+  function openPeriodActions() {
+    if (!isCurrentPeriod) return;
+    Alert.alert(
+      t('period.manage'),
+      t('common.selectAction'),
+      [
+        {
+          text: t('period.editDates'),
+          onPress: openPeriodDateEditor,
+        },
+        ...(hasPeriodMovements ? [{
+          text: t('period.close'),
+          style: 'destructive' as const,
+          onPress: confirmClosePeriod,
+        }] : []),
+        { text: t('common.cancel'), style: 'cancel' as const },
+      ]
+    );
+  }
+
   function confirmClosePeriod() {
     let nextStartLabel = '';
     let nextEndLabel = '';
@@ -668,25 +693,7 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top']}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
         {!settings.homePreferences.hiddenSections.includes('search') && renderHomeSection('search')}
-        <PeriodSelector onEditDates={isCurrentPeriod ? openPeriodDateEditor : undefined} />
-        {isCurrentPeriod && hasPeriodMovements && (
-          <View style={styles.periodCloseContainer}>
-            <Pressable
-              accessibilityLabel={t('period.close')}
-              accessibilityRole="button"
-              onPress={confirmClosePeriod}
-              style={({ pressed }) => [
-                styles.periodCloseButton,
-                { backgroundColor: colors.danger },
-                pressed && styles.buttonPressed,
-              ]}
-              testID="period-close">
-              <ThemedText type="defaultSemiBold" style={{ color: colors.onPrimary }}>
-                {t('period.close')}
-              </ThemedText>
-            </Pressable>
-          </View>
-        )}
+        <PeriodSelector onOpenActions={isCurrentPeriod ? openPeriodActions : undefined} />
         {showStartDatePicker && isCurrentPeriod && selectedPeriod?.id === 1 && (
           <DateTimePicker
             value={startDateDraft ?? startDate}
@@ -921,14 +928,6 @@ const styles = StyleSheet.create({
   },
   doneDate: {
     alignSelf: 'flex-end',
-  },
-  periodCloseContainer: { alignItems: 'center', marginTop: -6 },
-  periodCloseButton: {
-    minHeight: 44,
-    borderRadius: 10,
-    paddingHorizontal: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   savingsBalanceNote: {
     fontSize: 12,

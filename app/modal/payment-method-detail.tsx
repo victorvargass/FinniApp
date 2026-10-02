@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, formatEventDateTime, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getCardDueDate } from '@/lib/payment-method-calculations';
@@ -26,7 +27,6 @@ export default function PaymentMethodDetailScreen() {
   const [movementsError, setMovementsError] = useState(false);
   const [showAllMovements, setShowAllMovements] = useState(false);
   const [showCalculation, setShowCalculation] = useState(false);
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
 
   useFocusEffect(useCallback(() => {
     if (!Number.isInteger(methodId)) return undefined;
@@ -89,6 +89,29 @@ export default function PaymentMethodDetailScreen() {
       <Ionicons name="chevron-forward" size={20} color={colors.icon} />
     </Pressable>
   );
+  const openMethodActions = () => {
+    Alert.alert(
+      t('common.moreOptions'),
+      t('common.selectAction'),
+      [
+        ...(isCredit ? [
+          {
+            text: t('paymentMethods.installmentPurchases'),
+            onPress: () => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } }),
+          },
+          {
+            text: t('paymentMethods.cycles'),
+            onPress: () => router.push({ pathname: '/modal/card-cycles', params: { id: String(method.id) } }),
+          },
+        ] : []),
+        {
+          text: t('paymentMethods.editSettings'),
+          onPress: () => router.push({ pathname: '/modal/payment-method-form', params: { id: String(method.id) } }),
+        },
+        { text: t('common.cancel'), style: 'cancel' as const },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -99,7 +122,17 @@ export default function PaymentMethodDetailScreen() {
               <ThemedText style={styles.onCardType}>{typeLabel}</ThemedText>
               <ThemedText style={styles.onCardName}>{method.name}</ThemedText>
             </View>
-            <Ionicons name={isCredit ? 'card' : 'wallet'} size={30} color="#fff" />
+            <View style={styles.accountHeaderActions}>
+              <Ionicons name={isCredit ? 'card' : 'wallet'} size={30} color="#fff" />
+              <Pressable
+                accessibilityLabel={t('common.moreOptions')}
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={openMethodActions}
+                style={({ pressed }) => [styles.cardOverflowButton, pressed && styles.pressed]}>
+                <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
+              </Pressable>
+            </View>
           </View>
           {isCredit ? (
             <>
@@ -227,7 +260,28 @@ export default function PaymentMethodDetailScreen() {
 
         <View style={styles.movementsSection}>
           <View style={styles.sectionHeader}>
-            <ThemedText type="subtitle">{t('paymentMethods.recentMovements')}</ThemedText>
+            <View style={styles.sectionTitleRow}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                {t('paymentMethods.recentMovements')}
+              </ThemedText>
+              {hasMoreMovements && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: showAllMovements }}
+                  testID="payment-method-view-all-movements"
+                  hitSlop={8}
+                  onPress={() => setShowAllMovements((current) => !current)}
+                  style={({ pressed }) => [
+                    styles.viewMoreButton,
+                    pressed && styles.pressed,
+                  ]}>
+                  <ThemedText type="defaultSemiBold" style={[styles.viewMoreText, { color: colors.primary }]}>
+                    {t(showAllMovements ? 'paymentMethods.showFewerMovements' : 'paymentMethods.viewMoreExpenses')}
+                  </ThemedText>
+                  <Ionicons name={showAllMovements ? 'chevron-up' : 'chevron-forward'} size={16} color={colors.primary} />
+                </Pressable>
+              )}
+            </View>
             <ThemedText style={styles.hint}>{t('paymentMethods.recentMovementsHint')}</ThemedText>
           </View>
           {loadingMovements ? (
@@ -315,23 +369,6 @@ export default function PaymentMethodDetailScreen() {
               </Pressable>
             );
           })}
-          {hasMoreMovements && (
-            <Pressable
-              accessibilityRole="button"
-              testID="payment-method-view-all-movements"
-              onPress={() => setShowAllMovements((current) => !current)}
-              style={({ pressed }) => [
-                styles.viewMoreButton,
-                { borderColor: colors.primary },
-                pressed && styles.pressed,
-              ]}>
-              <Ionicons name={showAllMovements ? 'chevron-up' : 'list-outline'} size={20} color={colors.primary} />
-              <ThemedText type="defaultSemiBold" style={[styles.viewMoreText, { color: colors.primary }]}>
-                {t(showAllMovements ? 'paymentMethods.showFewerMovements' : 'paymentMethods.viewMoreExpenses')}
-              </ThemedText>
-              <Ionicons name={showAllMovements ? 'chevron-up' : 'chevron-down'} size={19} color={colors.primary} />
-            </Pressable>
-          )}
         </View>
 
         {method.reportedBalance != null && method.availableBalance != null && (
@@ -425,40 +462,6 @@ export default function PaymentMethodDetailScreen() {
           </ThemedView>
         )}
 
-        <ThemedView style={styles.disclosureCard}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: showMoreOptions }}
-            onPress={() => setShowMoreOptions((current) => !current)}
-            style={({ pressed }) => [styles.disclosureHeader, pressed && styles.pressed]}>
-            <View style={styles.disclosureCopy}>
-              <ThemedText type="subtitle">{t('paymentMethods.moreOptions')}</ThemedText>
-              <ThemedText style={styles.hint}>
-                {t(isCredit ? 'paymentMethods.moreOptionsHint' : 'paymentMethods.moreOptionsAccountHint')}
-              </ThemedText>
-            </View>
-            <Ionicons name={showMoreOptions ? 'chevron-up' : 'chevron-down'} size={21} color={colors.icon} />
-          </Pressable>
-          {showMoreOptions && (
-            <View style={[styles.secondaryActions, { borderTopColor: colors.border }]}>
-              {isCredit && action(
-                'wallet-outline',
-                t('paymentMethods.installmentPurchases'),
-                () => router.push({ pathname: '/modal/debts', params: { paymentMethodId: String(method.id) } })
-              )}
-              {isCredit && action(
-                'receipt-outline',
-                t('paymentMethods.cycles'),
-                () => router.push({ pathname: '/modal/card-cycles', params: { id: String(method.id) } })
-              )}
-              {action(
-                'settings-outline',
-                t('paymentMethods.editSettings'),
-                () => router.push({ pathname: '/modal/payment-method-form', params: { id: String(method.id) } })
-              )}
-            </View>
-          )}
-        </ThemedView>
       </ScrollView>
     </SafeAreaView>
   );
@@ -470,6 +473,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   accountCard: { borderRadius: 20, padding: 20, minHeight: 205, gap: 8, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, elevation: 5 },
   accountHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  accountHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardOverflowButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   onCardType: { color: '#fff', opacity: 0.82, fontSize: 13 },
   onCardName: { color: '#fff', fontSize: 20, fontWeight: '700' },
   onCardLabel: { color: '#fff', opacity: 0.82 },
@@ -496,18 +501,19 @@ const styles = StyleSheet.create({
   calculationTotal: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2, paddingTop: 10 },
   hint: { opacity: 0.68, lineHeight: 19 },
   actions: { gap: 10 },
-  secondaryActions: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, gap: 9 },
   action: { minHeight: 56, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
   actionText: { flex: 1 },
   movementsSection: { gap: 10, marginTop: 6 },
   sectionHeader: { gap: 2 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  sectionTitle: { flex: 1 },
   movementState: { minHeight: 92, borderRadius: 14, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 18 },
   movementRow: { minHeight: 72, borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 11 },
   movementIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   movementCopy: { flex: 1, gap: 3 },
   movementMeta: { color: '#60758E', fontSize: 12 },
   movementAmount: { fontWeight: '700', fontSize: 14 },
-  viewMoreButton: { minHeight: 50, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  viewMoreText: { flex: 1 },
+  viewMoreButton: { minHeight: 36, borderRadius: 10, paddingHorizontal: 6, flexDirection: 'row', alignItems: 'center', gap: 3 },
+  viewMoreText: { fontSize: 14 },
   pressed: { opacity: 0.72 },
 });

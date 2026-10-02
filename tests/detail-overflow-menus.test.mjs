@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { readFileSync } from 'node:fs';
+
+const debt = readFileSync(new URL('../app/modal/manual-debt-detail.tsx', import.meta.url), 'utf8');
+const paymentMethod = readFileSync(new URL('../app/modal/payment-method-detail.tsx', import.meta.url), 'utf8');
+
+test('debt detail groups configuration, archive and deletion in an overflow menu', () => {
+  assert.match(debt, /openDebtActions/);
+  assert.match(debt, /name="ellipsis-vertical"/);
+  assert.match(debt, /t\('debts\.editConfiguration'\)/);
+  assert.match(debt, /onPress: toggleArchive/);
+  assert.match(debt, /onPress: deleteDebt/);
+  assert.doesNotMatch(debt, /styles\.management|styles\.danger/);
+});
+
+test('payment method detail moves secondary configuration actions to an overflow menu', () => {
+  assert.match(paymentMethod, /openMethodActions/);
+  assert.match(paymentMethod, /name="ellipsis-vertical"/);
+  assert.match(paymentMethod, /t\('paymentMethods\.installmentPurchases'\)/);
+  assert.match(paymentMethod, /t\('paymentMethods\.cycles'\)/);
+  assert.match(paymentMethod, /t\('paymentMethods\.editSettings'\)/);
+  assert.doesNotMatch(paymentMethod, /showMoreOptions|styles\.secondaryActions/);
+});
+
+test('payment method movement expansion is compact and stays beside the section title', () => {
+  assert.match(paymentMethod, /styles\.sectionTitleRow/);
+  assert.match(paymentMethod, /testID="payment-method-view-all-movements"/);
+  assert.match(paymentMethod, /viewMoreButton: \{ minHeight: 36/);
+  assert.doesNotMatch(paymentMethod, /viewMoreButton: \{[^\n]*borderWidth/);
+
+  const sectionTitle = paymentMethod.indexOf("t('paymentMethods.recentMovements')");
+  const compactAction = paymentMethod.indexOf('testID="payment-method-view-all-movements"');
+  const movementState = paymentMethod.indexOf('{loadingMovements ?');
+  assert.ok(sectionTitle < compactAction && compactAction < movementState);
+});

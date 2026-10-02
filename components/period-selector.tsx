@@ -13,10 +13,10 @@ function formatPeriodDate(value: string) {
 }
 
 type PeriodSelectorProps = {
-  onEditDates?: () => void;
+  onOpenActions?: () => void;
 };
 
-export function PeriodSelector({ onEditDates }: PeriodSelectorProps) {
+export function PeriodSelector({ onOpenActions }: PeriodSelectorProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { periods, selectedPeriod, settings, selectPeriod } = usePeriodDatabase();
@@ -47,16 +47,16 @@ export function PeriodSelector({ onEditDates }: PeriodSelectorProps) {
       </Pressable>
 
       <Pressable
-        accessibilityLabel={onEditDates ? t('period.editDates') : undefined}
-        accessibilityRole={onEditDates ? 'button' : undefined}
-        disabled={!onEditDates}
-        onPress={onEditDates}
+        accessibilityLabel={onOpenActions ? t('period.manage') : undefined}
+        accessibilityRole={onOpenActions ? 'button' : undefined}
+        disabled={!onOpenActions}
+        onPress={onOpenActions}
         style={({ pressed }) => [styles.copy, pressed && styles.pressed]}>
         <View style={styles.labelRow}>
           <ThemedText type="defaultSemiBold">
             {isCurrent ? t('period.current') : t('period.historical')}
           </ThemedText>
-          {onEditDates && <Ionicons name="pencil-outline" size={14} color={colors.icon} />}
+          {onOpenActions && <Ionicons name="ellipsis-vertical" size={16} color={colors.icon} />}
         </View>
         <ThemedText style={styles.dates}>
           {formatPeriodDate(selectedPeriod.startDate)} – {formatPeriodDate(selectedPeriod.endDate)}

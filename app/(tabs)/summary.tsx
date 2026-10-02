@@ -38,6 +38,10 @@ function shortPeriodLabel(date: string): string {
     .replace('.', '');
 }
 
+function periodAxisRange(period: Pick<PeriodHistory, 'startDate' | 'endDate'>): [string, string] {
+  return [shortPeriodLabel(period.startDate), shortPeriodLabel(period.endDate)];
+}
+
 function periodRange(period: Pick<PeriodHistory, 'startDate' | 'endDate'>): string {
   return `${formatDate(new Date(`${period.startDate}T12:00:00`))} – ${formatDate(new Date(`${period.endDate}T12:00:00`))}`;
 }
@@ -115,22 +119,35 @@ export default function HistoricalSummaryScreen() {
   const chartMaximum = niceChartMaximum(
     report.periods.flatMap((period) => [period.incomesTotal, period.expenseTotal])
   );
-  const chartWidth = Math.max(screenWidth - 112, report.periods.length * 72);
-  const chartData = report.periods.flatMap((period) => [
-    {
-      value: period.incomesTotal,
-      label: shortPeriodLabel(period.startDate),
-      frontColor: colors.success,
-      spacing: 5,
-      onPress: () => setSelectedPeriod(period),
-    },
-    {
-      value: period.expenseTotal,
-      frontColor: colors.expense,
-      spacing: 22,
-      onPress: () => setSelectedPeriod(period),
-    },
-  ]);
+  const chartWidth = Math.max(screenWidth - 144, report.periods.length * 88);
+  const chartData = report.periods.flatMap((period) => {
+    const [startLabel, endLabel] = periodAxisRange(period);
+    return [
+      {
+        value: period.incomesTotal,
+        frontColor: colors.success,
+        spacing: 6,
+        labelWidth: 84,
+        labelComponent: () => (
+          <View style={styles.periodAxisLabel}>
+            <ThemedText style={[styles.periodAxisDate, { color: colors.textSecondary }]}>
+              {startLabel}
+            </ThemedText>
+            <ThemedText style={[styles.periodAxisDate, { color: colors.textSecondary }]}>
+              – {endLabel}
+            </ThemedText>
+          </View>
+        ),
+        onPress: () => setSelectedPeriod(period),
+      },
+      {
+        value: period.expenseTotal,
+        frontColor: colors.expense,
+        spacing: 46,
+        onPress: () => setSelectedPeriod(period),
+      },
+    ];
+  });
 
   const insights = useMemo(() => {
     const items: { icon: keyof typeof Ionicons.glyphMap; text: string; color: string }[] = [];
@@ -284,15 +301,17 @@ export default function HistoricalSummaryScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <View style={styles.sectionHeading}>
-            <View>
-              <ThemedText type="subtitle">{t('history.flowEvolution')}</ThemedText>
-              <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>
-                {t('history.periodCount', { count: report.periods.length })}
-              </ThemedText>
-            </View>
-            <View style={styles.legend}>
+            <ThemedText type="subtitle">{t('history.flowEvolution')}</ThemedText>
+            <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>
+              {t('history.periodCount', { count: report.periods.length })}
+            </ThemedText>
+          </View>
+          <View style={styles.legend}>
+            <View style={[styles.legendItem, { backgroundColor: `${colors.success}14` }]}>
               <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
               <ThemedText style={styles.legendText}>{t('history.income')}</ThemedText>
+            </View>
+            <View style={[styles.legendItem, { backgroundColor: `${colors.expense}14` }]}>
               <View style={[styles.legendDot, { backgroundColor: colors.expense }]} />
               <ThemedText style={styles.legendText}>{t('history.outflows')}</ThemedText>
             </View>
@@ -308,7 +327,8 @@ export default function HistoricalSummaryScreen() {
               yAxisLabelWidth={62}
               yAxisLabelTexts={[0, 1, 2, 3, 4].map((index) => formatCompactCLP((chartMaximum / 4) * index))}
               yAxisTextStyle={{ color: colors.textSecondary, fontSize: 9 }}
-              xAxisLabelTextStyle={{ color: colors.textSecondary, fontSize: 9 }}
+              xAxisLabelsHeight={40}
+              xAxisTextNumberOfLines={2}
               xAxisColor={colors.border}
               yAxisColor={colors.border}
               rulesColor={colors.border}
@@ -536,11 +556,14 @@ const styles = StyleSheet.create({
   metricValue: { fontFamily: Fonts.bold, fontSize: 19 },
   metricLabel: { fontSize: 13 },
   card: { borderRadius: 18, padding: 16, gap: 15, elevation: 1 },
-  sectionHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  sectionHeading: { gap: 2 },
   caption: { fontSize: 12, lineHeight: 17 },
-  legend: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  legendItem: { minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, borderRadius: 15 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11 },
+  periodAxisLabel: { width: 90, alignItems: 'center' },
+  periodAxisDate: { fontSize: 9, lineHeight: 13, textAlign: 'center' },
   chartHint: { textAlign: 'center', fontSize: 12 },
   insightList: { gap: 12 },
   insightRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },

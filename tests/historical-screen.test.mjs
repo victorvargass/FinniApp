@@ -22,6 +22,14 @@ test('historical PDF and CSV exports both expose progress while generating', () 
   assert.match(screen, /exporting === 'csv'[\s\S]*?<ActivityIndicator/);
 });
 
+test('historical chart keeps its legend and complete period ranges inside the card', () => {
+  assert.match(screen, /const chartWidth = Math\.max\(screenWidth - 144, report\.periods\.length \* 88\)/);
+  assert.match(screen, /periodAxisRange\(period\)/);
+  assert.match(screen, /labelWidth: 84/);
+  assert.match(screen, /xAxisLabelsHeight=\{40\}/);
+  assert.match(screen, /styles\.legendItem/);
+});
+
 test('period history aggregates payable and receivable debt payments separately', () => {
   assert.match(database, /manual_debt_entries entry[\s\S]*debt\.direction[\s\S]*entry\.kind = 'payment'/);
   assert.match(database, /debtPaymentsTotal: debtPaymentsByPeriod/);

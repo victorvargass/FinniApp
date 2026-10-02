@@ -101,11 +101,33 @@ export default function DebtDetailScreen() {
   const remainingProjectedCount = debt.type === 'fixed' && debt.installmentAmount
     ? Math.ceil(debt.currentBalance / debt.installmentAmount)
     : 0;
+  const openDebtActions = () => {
+    Alert.alert(
+      t('common.moreOptions'),
+      t('common.selectAction'),
+      [
+        {
+          text: t('debts.editConfiguration'),
+          onPress: () => router.push({ pathname: '/modal/manual-debt-form', params: { id: String(debt.id) } }),
+        },
+        {
+          text: isArchived ? t('debts.reactivate') : t('debts.archive'),
+          onPress: toggleArchive,
+        },
+        ...(debt.entryCount === 0 ? [{
+          text: t('debts.delete'),
+          style: 'destructive' as const,
+          onPress: deleteDebt,
+        }] : []),
+        { text: t('common.cancel'), style: 'cancel' as const },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.titleRow}><View style={styles.titleCopy}><ThemedText type="title">{debt.name}</ThemedText>{(debt.contactName || debt.creditor) && <ThemedText style={styles.secondary}>{debt.contactName ?? debt.creditor}</ThemedText>}<ThemedText style={styles.secondary}>{t(debt.direction === 'receivable' ? 'debts.owedToMe' : 'debts.iOwe')}</ThemedText></View><Pressable onPress={() => router.push({ pathname: '/modal/manual-debt-form', params: { id: String(debt.id) } })} hitSlop={8}><Ionicons name="create-outline" size={25} color={colors.primary} /></Pressable></View>
+        <View style={styles.titleRow}><View style={styles.titleCopy}><ThemedText type="title">{debt.name}</ThemedText>{(debt.contactName || debt.creditor) && <ThemedText style={styles.secondary}>{debt.contactName ?? debt.creditor}</ThemedText>}<ThemedText style={styles.secondary}>{t(debt.direction === 'receivable' ? 'debts.owedToMe' : 'debts.iOwe')}</ThemedText></View><Pressable accessibilityLabel={t('common.moreOptions')} accessibilityRole="button" disabled={working} onPress={openDebtActions} hitSlop={8} style={styles.overflowButton}><Ionicons name="ellipsis-vertical" size={24} color={colors.primary} /></Pressable></View>
 
         <ThemedView style={styles.summary}>
           <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText style={styles.secondary}>{t('debts.currentBalance')}</ThemedText><ThemedText type="title">{formatCLP(debt.currentBalance)}</ThemedText></View>
@@ -175,21 +197,16 @@ export default function DebtDetailScreen() {
           </Pressable>
         ))}
 
-        <View style={styles.management}>
-          <Pressable disabled={working} onPress={toggleArchive} style={[styles.secondaryButton, { borderColor: colors.border }]}><ThemedText>{isArchived ? t('debts.reactivate') : t('debts.archive')}</ThemedText></Pressable>
-          {debt.entryCount === 0 && <Pressable disabled={working} onPress={deleteDebt} style={styles.danger}><ThemedText style={styles.dangerText}>{t('debts.delete')}</ThemedText></Pressable>}
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, paddingBottom: 45, gap: 14 }, titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, titleCopy: { flex: 1, gap: 3 },
+  safe: { flex: 1 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, paddingBottom: 45, gap: 14 }, titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 }, titleCopy: { flex: 1, gap: 3 }, overflowButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   summary: { borderRadius: 13, padding: 17, gap: 11 }, card: { borderRadius: 12, padding: 15, gap: 11 }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }, rowLargeText: { flexDirection: 'column', alignItems: 'flex-start', gap: 2 }, secondary: { opacity: 0.65 },
   track: { height: 9, borderRadius: 5, overflow: 'hidden' }, fill: { height: '100%', borderRadius: 5 }, status: { fontSize: 12, fontWeight: '800' }, actions: { gap: 10 },
   primary: { minHeight: 49, borderRadius: 10, backgroundColor: '#0B315B', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, primaryText: { color: '#fff', fontWeight: '700' },
   secondaryButton: { minHeight: 47, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12 }, empty: { borderRadius: 12, padding: 18, alignItems: 'center' },
   entry: { borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, entryLargeText: { flexWrap: 'wrap', alignItems: 'flex-start' }, entryIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }, entryCopy: { flex: 1, minWidth: 0, gap: 2 }, entryMeta: { opacity: 0.62, fontSize: 12 }, entryAmount: { textAlign: 'right' }, entryAmountLargeText: { width: '100%', paddingLeft: 40 },
-  management: { marginTop: 8, gap: 10 }, danger: { minHeight: 47, borderWidth: 1, borderColor: '#C93F4B', borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, dangerText: { color: '#C93F4B', fontWeight: '700' },
 });

@@ -102,6 +102,34 @@ export default function SavingsGoalDetailScreen() {
     );
   };
 
+  const openGoalActions = () => {
+    Alert.alert(
+      t('common.moreOptions'),
+      t('common.selectAction'),
+      [
+        {
+          text: t('savings.editConfiguration'),
+          onPress: () => router.push({ pathname: '/modal/savings-goal-form', params: { id: String(goal.id) } }),
+        },
+        ...(goal.status === 'active' ? [{
+          text: t('savings.updateBalance'),
+          onPress: () => router.push({
+            pathname: '/modal/savings-goal-balance',
+            params: { savingsGoalId: String(goal.id) },
+          }),
+        }] : []),
+        ...(goal.status === 'active' && goal.allowWithdrawals && goal.currentAmount > 0 ? [{
+          text: t('savings.withdraw'),
+          onPress: () => router.push({
+            pathname: '/modal/income-form',
+            params: { savingsGoalId: String(goal.id) },
+          }),
+        }] : []),
+        { text: t('common.cancel'), style: 'cancel' as const },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -116,6 +144,14 @@ export default function SavingsGoalDetailScreen() {
                 {t(goal.status === 'archived' ? 'savings.archived' : 'savings.active')}
               </ThemedText>
             </View>
+            <Pressable
+              accessibilityLabel={t('common.moreOptions')}
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={openGoalActions}
+              style={({ pressed }) => [styles.overflowButton, pressed && styles.pressed]}>
+              <Ionicons name="ellipsis-vertical" size={22} color={colors.primary} />
+            </Pressable>
           </View>
           <SavingsGoalProgress
             color={goal.color}
@@ -144,16 +180,6 @@ export default function SavingsGoalDetailScreen() {
           />
         </ThemedView>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push({ pathname: '/modal/savings-goal-form', params: { id: String(goal.id) } })}
-          style={({ pressed }) => [styles.editButton, { borderColor: colors.border }, pressed && styles.pressed]}>
-          <Ionicons name="settings-outline" size={19} color={colors.primary} />
-          <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
-            {t('savings.editConfiguration')}
-          </ThemedText>
-        </Pressable>
-
         {goal.status === 'active' && (
           <View style={styles.actions}>
             <Pressable
@@ -167,26 +193,6 @@ export default function SavingsGoalDetailScreen() {
                 {t('savings.enterContribution')}
               </ThemedText>
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push({
-                pathname: '/modal/savings-goal-balance',
-                params: { savingsGoalId: String(goal.id) },
-              })}
-              style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border }, pressed && styles.pressed]}>
-              <ThemedText type="defaultSemiBold">{t('savings.updateBalance')}</ThemedText>
-            </Pressable>
-            {goal.allowWithdrawals && goal.currentAmount > 0 && (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => router.push({
-                  pathname: '/modal/income-form',
-                  params: { savingsGoalId: String(goal.id) },
-                })}
-                style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border }, pressed && styles.pressed]}>
-                <ThemedText type="defaultSemiBold">{t('savings.withdraw')}</ThemedText>
-              </Pressable>
-            )}
             {!goal.allowWithdrawals && (
               <ThemedText style={[styles.hint, { color: colors.textSecondary }]}>
                 {t('savings.withdrawalsDisabled')}
@@ -273,11 +279,10 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   goalIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   titleCopy: { flex: 1, gap: 2 },
+  overflowButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   metadata: { gap: 3 },
-  editButton: { minHeight: 48, borderWidth: 1, borderRadius: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   actions: { gap: 9 },
   primaryButton: { minHeight: 48, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
-  secondaryButton: { minHeight: 46, borderWidth: 1, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   hint: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
   movementsSection: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 14, gap: 3 },
   movementRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 9 },

@@ -36,9 +36,8 @@ export function HomeAttentionSection({ items, onOpenNotifications, onUndoDismiss
           accessibilityRole="button"
           onPress={onOpenNotifications}
           style={({ pressed }) => [styles.notificationsLink, pressed && styles.pressed]}>
-          <Ionicons name="notifications-outline" size={17} color={colors.primary} />
           <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
-            {t('home.viewNotificationsShort')}
+            {t('home.viewNotificationsShort', { count: items.length })}
           </ThemedText>
         </Pressable>
       </View>
