@@ -23,7 +23,34 @@ test('debt copy uses monto instead of saldo throughout the debt workflow', () =>
   assert.equal(esLocale.debts.currentBalance, 'Monto pendiente');
   assert.equal(esLocale.debts.updateBalance, 'Actualizar monto');
   assert.equal(esLocale.debts.balanceAdjustment, 'Ajuste de monto');
-  for (const value of Object.values(esLocale.debts)) {
+  const debtRelatedCopy = [
+    ...Object.values(esLocale.debts),
+    esLocale.installments.manageBalance,
+    esLocale.installments.intro,
+    esLocale.installments.projectedBalance,
+    esLocale.installments.projectedBalanceValue,
+    esLocale.report.debtsSubtitle,
+    esLocale.report.openingBalance,
+    esLocale.report.closingBalance,
+    esLocale.database.noRemainingBalance,
+    esLocale.database.debtPaymentTooHigh,
+    esLocale.database.debtBalanceInvalid,
+    esLocale.database.debtAdjustmentFixed,
+    esLocale.database.debtBalanceUnchanged,
+    esLocale.database.debtAdjustmentDateInvalid,
+    esLocale.database.debtAdjustmentMissing,
+    esLocale.database.debtBalanceDateBeforeInitial,
+    esLocale.database.debtBalanceDateInvalid,
+    esLocale.database.debtBalanceDateAfterSnapshot,
+  ];
+  for (const value of debtRelatedCopy) {
     assert.doesNotMatch(value, /\bsaldo(?:s)?\b/i);
   }
+});
+
+test('debt date validation uses debt-specific amount terminology', () => {
+  const database = readFileSync(new URL('../lib/database/engine.ts', import.meta.url), 'utf8');
+  assert.match(database, /t\('database\.debtBalanceDateInvalid'\)/);
+  assert.match(database, /t\('database\.debtBalanceDateBeforeInitial'\)/);
+  assert.match(database, /t\('database\.debtBalanceDateAfterSnapshot'\)/);
 });

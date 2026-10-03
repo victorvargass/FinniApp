@@ -4741,7 +4741,7 @@ function validateDebt(data: NewDebt): void {
   if (!isValidIsoDate(data.creationDate)) throw new Error(t('database.creationDateInvalid'));
   if (!isValidIsoDate(data.balanceDate) || data.balanceDate < data.creationDate
     || data.balanceDate > toLocalIsoDate(new Date())) {
-    throw new Error(t('database.balanceDateInvalid'));
+    throw new Error(t('database.debtBalanceDateInvalid'));
   }
   if (!Number.isInteger(data.initialAmount) || data.initialAmount <= 0) {
     throw new Error(t('database.debtInitialAmountRequired'));
@@ -4962,7 +4962,7 @@ export async function updateDebt(id: number, data: NewDebt): Promise<void> {
       id
     );
     if (firstSnapshot && data.balanceDate > firstSnapshot.date) {
-      throw new Error(t('database.balanceDateAfterSnapshot'));
+      throw new Error(t('database.debtBalanceDateAfterSnapshot'));
     }
     const latestPayment = existing.balance_updated_at === data.balanceDate
       ? null
@@ -5379,7 +5379,7 @@ export async function addDebtBalanceAdjustment(debtId: number, data: NewDebtBala
     if (!debt) throw new Error(t('database.debtMissing'));
     if (debt.type !== 'variable') throw new Error(t('database.debtAdjustmentFixed'));
     if (debt.balance_updated_at && data.date < debt.balance_updated_at) {
-      throw new Error(t('database.balanceDateBeforeInitial'));
+      throw new Error(t('database.debtBalanceDateBeforeInitial'));
     }
     const current = await getDebtBalanceAtDate(transaction, debtId, data.date);
     const difference = getDebtBalanceAdjustmentAmount(data.balance, current);
