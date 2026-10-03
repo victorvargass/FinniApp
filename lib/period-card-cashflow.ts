@@ -32,7 +32,12 @@ export function calculatePeriodOverviewExpenses(
   expenses: readonly PeriodOverviewExpense[]
 ): number {
   return expenses.reduce(
-    (total, expense) => total + (expense.paymentMethodType === 'credit' || expense.currency === 'USD' ? 0 : expense.amount),
+    (total, expense) => total + (
+      expense.currency !== 'USD'
+      && (expense.paymentMethodType === 'cash' || expense.paymentMethodType === 'debit')
+        ? expense.amount
+        : 0
+    ),
     0
   );
 }
