@@ -30,6 +30,7 @@ type DebtRowProps = {
   amountDetail?: string;
   amountDetailColor?: string;
   total: number | null;
+  progressMode?: 'paid' | 'used';
   onPress: () => void;
 };
 
@@ -41,11 +42,12 @@ function DebtRow({
   amountDetail,
   amountDetailColor,
   total,
+  progressMode = 'paid',
   onPress,
 }: DebtRowProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const progress = total && total > 0
-    ? Math.min(1, Math.max(0, 1 - amount / total))
+    ? Math.min(1, Math.max(0, progressMode === 'used' ? amount / total : 1 - amount / total))
     : 0;
 
   return (
@@ -130,6 +132,7 @@ export function HomeDebtsCard({
                 : `${t('paymentMethods.billedToPay')}: ${formatCLP(card.billedAmount)}`}
               amountDetailColor={card.billedAmount > 0 ? colors.expense : colors.textSecondary}
               total={card.usedAmount == null ? null : card.creditLimit}
+              progressMode="used"
               onPress={() => onOpenPaymentMethod(card.id)}
             />
           );
