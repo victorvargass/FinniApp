@@ -5,6 +5,7 @@ import { t } from './i18n';
 export type LogContext =
   | 'database.initialize'
   | 'database.refresh'
+  | 'database.write'
   | 'database.restore'
   | 'forecast.load'
   | 'report.export'
@@ -31,6 +32,7 @@ export type DiagnosticStage =
   | 'replacement'
   | 'migration'
   | 'refresh'
+  | 'write'
   | 'export'
   | 'unknown';
 
@@ -86,6 +88,7 @@ function stageForContext(context: string): DiagnosticStage {
   if (context === 'database.restore') return 'opening';
   if (context === 'database.initialize') return 'migration';
   if (context === 'database.refresh') return 'refresh';
+  if (context === 'database.write') return 'write';
   if (context === 'report.export' || context === 'csv.export') return 'export';
   return 'unknown';
 }

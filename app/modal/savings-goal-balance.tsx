@@ -13,6 +13,7 @@ import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
 import { formatCLP, formatCLPInput, formatDate, formatTime, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { logAppError } from '@/lib/logger';
 import { showToast } from '@/lib/toast';
 
 export default function SavingsGoalBalanceScreen() {
@@ -46,6 +47,7 @@ export default function SavingsGoalBalanceScreen() {
       showToast(t('savings.balanceUpdated'));
       router.back();
     } catch (error) {
+      logAppError('database.write', error);
       Alert.alert(
         t('savings.balanceUpdateError'),
         error instanceof Error ? error.message : t('common.tryAgain')

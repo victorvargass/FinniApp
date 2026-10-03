@@ -52,3 +52,11 @@ test('crash monitoring only accepts HTTPS Sentry DSNs', () => {
   assert.equal(isValidSentryDsn('https://example.ingest.sentry.io/123'), false);
   assert.equal(isValidSentryDsn(''), false);
 });
+
+test('reported balance write failures keep a safe Sentry context', () => {
+  const event = sanitizeCrashMonitoringEvent({
+    tags: { error_context: 'database.write', debt_name: 'private' },
+  });
+
+  assert.deepEqual(event.tags, { error_context: 'database.write' });
+});

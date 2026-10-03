@@ -60,6 +60,7 @@ function groupDiagnostics(diagnostics: AppDiagnostic[]): DiagnosticGroup[] {
 function diagnosticProblem(context: AppDiagnostic['context']): string {
   if (context === 'database.restore') return t('settings.diagnosticRestoreProblem');
   if (context === 'database.initialize') return t('settings.diagnosticInitializeProblem');
+  if (context === 'database.write') return t('settings.diagnosticWriteProblem');
   if (context === 'database.refresh') return t('settings.diagnosticRefreshProblem');
   return t('settings.diagnosticExportProblem');
 }
@@ -73,6 +74,7 @@ function diagnosticStage(stage: DiagnosticStage): string {
     replacement: t('settings.diagnosticStageReplacement'),
     migration: t('settings.diagnosticStageMigration'),
     refresh: t('settings.diagnosticStageRefresh'),
+    write: t('settings.diagnosticStageWrite'),
     export: t('settings.diagnosticStageExport'),
     unknown: t('settings.unknown'),
   };

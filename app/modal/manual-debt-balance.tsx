@@ -14,6 +14,7 @@ import { errorMessage, showFeedback } from '@/lib/feedback';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
 import { formatCLP, formatCLPInput, formatDate, formatTime, parseNonNegativeAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { logAppError } from '@/lib/logger';
 import type { Debt } from '@/lib/types';
 
 function parseIsoDate(value: string) {
@@ -46,6 +47,7 @@ export default function DebtBalanceScreen() {
       showFeedback(t('debts.balanceUpdated'));
       router.back();
     } catch (error) {
+      logAppError('database.write', error);
       Alert.alert(t('debts.balanceUpdateError'), errorMessage(error));
     } finally { setSaving(false); }
   };

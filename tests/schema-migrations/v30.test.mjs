@@ -9,7 +9,7 @@ const registrySource = readFileSync(new URL('../../lib/schema-migrations.ts', im
 const fixtureSql = readFileSync(new URL('../fixtures/database/v27.sql', import.meta.url), 'utf8');
 
 test('schema v30 adds isolated USD ledgers while preserving all existing CLP data', () => {
-  assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = 30/);
+  assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = (?:30|31)/);
   assert.match(registrySource, /version: 30, name: 'credit-card-usd-ledger'/);
   assert.match(databaseSource, /ALTER TABLE expenses ADD COLUMN currency TEXT NOT NULL DEFAULT 'CLP'/);
   assert.match(databaseSource, /ALTER TABLE payment_methods ADD COLUMN usd_credit_limit_cents INTEGER/);

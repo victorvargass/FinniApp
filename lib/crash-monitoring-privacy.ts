@@ -43,6 +43,7 @@ const SAFE_CONTEXT_FIELDS: Record<string, readonly string[]> = {
 const SAFE_ERROR_CONTEXTS = new Set([
   'database.initialize',
   'database.refresh',
+  'database.write',
   'database.restore',
   'report.export',
   'updates.currentToast',

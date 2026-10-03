@@ -984,7 +984,7 @@ async function initializeDatabase(): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       debt_id INTEGER NOT NULL,
       kind TEXT NOT NULL CHECK (kind IN ('payment', 'adjustment')),
-      amount INTEGER NOT NULL CHECK (amount != 0),
+      amount INTEGER NOT NULL,
       date TEXT NOT NULL,
       time TEXT NOT NULL DEFAULT '12:00',
       period_id INTEGER,
@@ -1233,6 +1233,7 @@ async function initializeDatabase(): Promise<void> {
           goal_id INTEGER NOT NULL,
           amount INTEGER NOT NULL,
           date TEXT NOT NULL,
+          time TEXT NOT NULL DEFAULT '12:00',
           note TEXT,
           reported_balance INTEGER CHECK (reported_balance IS NULL OR reported_balance >= 0),
           movement_anchor_id INTEGER NOT NULL DEFAULT 0,
@@ -1241,8 +1242,8 @@ async function initializeDatabase(): Promise<void> {
           FOREIGN KEY(goal_id) REFERENCES savings_goals(id) ON DELETE RESTRICT
         );
         INSERT INTO savings_goal_adjustments_v15
-          (id, goal_id, amount, date, note, reported_balance, movement_anchor_id, created_at, updated_at)
-        SELECT id, goal_id, amount, date, note, reported_balance, movement_anchor_id, created_at, updated_at
+          (id, goal_id, amount, date, time, note, reported_balance, movement_anchor_id, created_at, updated_at)
+        SELECT id, goal_id, amount, date, time, note, reported_balance, movement_anchor_id, created_at, updated_at
         FROM savings_goal_adjustments;
         DROP TABLE savings_goal_adjustments;
         ALTER TABLE savings_goal_adjustments_v15 RENAME TO savings_goal_adjustments;
@@ -1327,6 +1328,43 @@ async function initializeDatabase(): Promise<void> {
   }
   if (!manualDebtEntryColumns.some((column) => column.name === 'payment_anchor_id')) {
     await db.execAsync('ALTER TABLE manual_debt_entries ADD COLUMN payment_anchor_id INTEGER NOT NULL DEFAULT 0;');
+  }
+  if (previousSchemaVersion < 31) {
+    const debtEntryTable = await db.getFirstAsync<{ sql: string | null }>(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'manual_debt_entries'"
+    );
+    if (/amount\s+INTEGER\s+NOT\s+NULL\s+CHECK\s*\(amount\s*!=\s*0\)/i.test(debtEntryTable?.sql ?? '')) {
+      await db.execAsync(`
+        DROP TABLE IF EXISTS manual_debt_entries_v31;
+        CREATE TABLE manual_debt_entries_v31 (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          debt_id INTEGER NOT NULL,
+          kind TEXT NOT NULL CHECK (kind IN ('payment', 'adjustment')),
+          amount INTEGER NOT NULL,
+          date TEXT NOT NULL,
+          time TEXT NOT NULL DEFAULT '12:00',
+          period_id INTEGER,
+          expense_id INTEGER UNIQUE,
+          income_id INTEGER UNIQUE,
+          note TEXT,
+          reported_balance INTEGER CHECK (reported_balance IS NULL OR reported_balance >= 0),
+          payment_anchor_id INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(debt_id) REFERENCES manual_debts(id) ON DELETE CASCADE,
+          FOREIGN KEY(period_id) REFERENCES periods(id),
+          FOREIGN KEY(expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
+          FOREIGN KEY(income_id) REFERENCES incomes(id) ON DELETE CASCADE
+        );
+        INSERT INTO manual_debt_entries_v31
+          (id, debt_id, kind, amount, date, time, period_id, expense_id, income_id, note,
+           reported_balance, payment_anchor_id, created_at)
+        SELECT id, debt_id, kind, amount, date, time, period_id, expense_id, income_id, note,
+          reported_balance, payment_anchor_id, created_at
+        FROM manual_debt_entries;
+        DROP TABLE manual_debt_entries;
+        ALTER TABLE manual_debt_entries_v31 RENAME TO manual_debt_entries;
+      `);
+    }
   }
   if (previousSchemaVersion < 14) {
     await db.runAsync(`
@@ -3005,6 +3043,7 @@ export async function addSavingsGoalBalanceAdjustment(
       goalId,
       difference,
       data.date,
+      resolveEventTime(data.time),
       data.note?.trim() || null,
       data.balance,
       Number(anchor?.id ?? 0)
