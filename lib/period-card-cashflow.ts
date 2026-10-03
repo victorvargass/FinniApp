@@ -34,7 +34,9 @@ export function calculatePeriodOverviewExpenses(
   return expenses.reduce(
     (total, expense) => total + (
       expense.currency !== 'USD'
-      && (expense.paymentMethodType === 'cash' || expense.paymentMethodType === 'debit')
+      && (expense.paymentMethodType === 'cash'
+        || expense.paymentMethodType === 'debit'
+        || expense.paymentMethodType === 'prepaid')
         ? expense.amount
         : 0
     ),

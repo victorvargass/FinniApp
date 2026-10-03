@@ -9,7 +9,7 @@ import {
   PERIOD_CARD_PAYMENTS_SQL,
 } from '../lib/period-card-cashflow.ts';
 
-test('the home expense metric includes only CLP cash and debit expenses', () => {
+test('the home expense metric includes only CLP cash, debit and prepaid expenses', () => {
   assert.equal(calculatePeriodOverviewExpenses([
     { amount: 30_000, paymentMethodType: 'credit' },
     { amount: 20_000, paymentMethodType: 'debit' },
@@ -17,7 +17,7 @@ test('the home expense metric includes only CLP cash and debit expenses', () => 
     { amount: 5_000, paymentMethodType: null },
     { amount: 7_000, paymentMethodType: 'prepaid' },
     { amount: 999_900, paymentMethodType: 'debit', currency: 'USD' },
-  ]), 30_000);
+  ]), 37_000);
 });
 
 test('a credit purchase affects period available only when paid from an account', () => {
