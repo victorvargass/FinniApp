@@ -59,7 +59,6 @@ export default function DebtFormScreen() {
   const [showOnHome, setShowOnHome] = useState(true);
   const [entryCount, setEntryCount] = useState(0);
   const [showDate, setShowDate] = useState(false);
-  const [showCreationDate, setShowCreationDate] = useState(false);
   const [showBalanceDate, setShowBalanceDate] = useState(false);
   const [showBalanceTime, setShowBalanceTime] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -202,12 +201,18 @@ export default function DebtFormScreen() {
           <Field label={t('debts.initialReportedBalance')} testID="debt-initial-amount-input" value={initialAmount} onChangeText={setInitialAmount} colors={colors} keyboardType="number-pad" editable={entryCount === 0} />
           {entryCount > 0 && <ThemedText style={styles.hint}>{t('debts.initialLockedHint')}</ThemedText>}
           <View style={styles.group}>
-            <ThemedText style={styles.label}>{t('common.reportedBalanceDate')}</ThemedText>
+            <ThemedText style={styles.label}>{t('debts.reportedDebtDate')}</ThemedText>
             <Pressable onPress={() => setShowBalanceDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
               <ThemedText>{formatDate(parseIsoDate(balanceDate))}</ThemedText>
             </Pressable>
-            <ThemedText style={styles.hint}>{t('common.reportedBalanceDateHint')}</ThemedText>
-            {showBalanceDate && <DateTimePicker maximumDate={new Date()} minimumDate={parseIsoDate(creationDate)} value={parseIsoDate(balanceDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowBalanceDate(false); if (date) setBalanceDate(toDateString(date)); }} />}
+            <ThemedText style={styles.hint}>{t('debts.reportedDebtDateHint')}</ThemedText>
+            {showBalanceDate && <DateTimePicker maximumDate={new Date()} minimumDate={debtId == null ? undefined : parseIsoDate(creationDate)} value={parseIsoDate(balanceDate)} mode="date" onChange={(_, date) => {
+              if (Platform.OS === 'android') setShowBalanceDate(false);
+              if (!date) return;
+              const nextDate = toDateString(date);
+              setBalanceDate(nextDate);
+              if (debtId == null) setCreationDate(nextDate);
+            }} />}
           </View>
           <View style={styles.group}>
             <ThemedText style={styles.label}>{t('common.time')}</ThemedText>
@@ -215,14 +220,6 @@ export default function DebtFormScreen() {
               <ThemedText>{formatTime(dateWithTime(parseIsoDate(balanceDate), balanceTime))}</ThemedText>
             </Pressable>
             {showBalanceTime && <DateTimePicker value={dateWithTime(parseIsoDate(balanceDate), balanceTime)} mode="time" onChange={(_, value) => { if (Platform.OS === 'android') setShowBalanceTime(false); if (value) setBalanceTime(toTimeString(value)); }} />}
-          </View>
-          <View style={styles.group}>
-            <ThemedText style={styles.label}>{t('common.creationDate')}</ThemedText>
-            <Pressable onPress={() => setShowCreationDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}>
-              <ThemedText>{formatDate(parseIsoDate(creationDate))}</ThemedText>
-            </Pressable>
-            <ThemedText style={styles.hint}>{t('debts.creationDateHint')}</ThemedText>
-            {showCreationDate && <DateTimePicker maximumDate={new Date()} value={parseIsoDate(creationDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowCreationDate(false); if (date) setCreationDate(toDateString(date)); }} />}
           </View>
           {type === 'fixed' && (
             <>

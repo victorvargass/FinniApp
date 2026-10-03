@@ -47,7 +47,7 @@
       "id": "debts-and-payments",
       "priority": "critical",
       "routes": ["app/modal/debts.tsx", "app/modal/archived-debts.tsx", "app/modal/debt-detail.tsx", "app/modal/manual-debt-form.tsx", "app/modal/manual-debt-detail.tsx", "app/modal/manual-debt-payment.tsx", "app/modal/manual-debt-balance.tsx", "app/modal/contacts.tsx", "app/modal/contact-detail.tsx", "app/modal/contact-form.tsx"],
-      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/calculations.test.mjs", "tests/contact-detail-navigation.test.mjs"]
+      "automatedArtifacts": [".maestro/smoke-financial.yml", "tests/calculations.test.mjs", "tests/contact-detail-navigation.test.mjs", "tests/manual-debt-form.test.mjs"]
     },
     {
       "id": "recurring-movements",
