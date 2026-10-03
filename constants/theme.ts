@@ -112,3 +112,9 @@ export const LayoutTokens = {
   formFooterBottom: 24,
   formScrollBottom: 88,
 } as const;
+
+export const AccessibilityTokens = {
+  largeTextScale: 1.2,
+  maxFontSizeMultiplier: 1.5,
+  compactTextMaxFontSizeMultiplier: 1.25,
+} as const;

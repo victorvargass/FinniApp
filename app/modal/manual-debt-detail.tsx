@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +10,7 @@ import { OverflowMenu } from '@/components/overflow-menu';
 import { Colors } from '@/constants/theme';
 import { useDebtDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { Alert } from '@/lib/alert';
 import { errorMessage, showFeedback } from '@/lib/feedback';
 import { isSinglePaymentDebt } from '@/lib/debt-calculations';
@@ -28,8 +29,7 @@ export default function DebtDetailScreen() {
   const debtId = Number(id);
   const { getDebt, setDebtArchived, removeDebt, removeDebtBalanceAdjustment } = useDebtDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const { fontScale } = useWindowDimensions();
-  const usesLargeText = fontScale >= 1.2;
+  const usesLargeText = useLargeTextLayout();
   const [debt, setDebt] = useState<Debt | null>(null);
   const [working, setWorking] = useState(false);
   const load = useCallback(async () => setDebt(await getDebt(debtId)), [debtId, getDebt]);

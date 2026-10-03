@@ -1,7 +1,7 @@
 import { StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
 
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { Colors, Fonts } from '@/constants/theme';
+import { AccessibilityTokens, Colors, Fonts } from '@/constants/theme';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -14,6 +14,7 @@ export function ThemedText({
   lightColor,
   darkColor,
   type = 'default',
+  maxFontSizeMultiplier = AccessibilityTokens.maxFontSizeMultiplier,
   ...rest
 }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
@@ -24,6 +25,7 @@ export function ThemedText({
 
   return (
     <Text
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       style={[
         { color, flexShrink: 1 },
         type === 'default' ? styles.default : undefined,

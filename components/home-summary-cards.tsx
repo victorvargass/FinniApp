@@ -4,6 +4,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { formatCLP, formatMoney } from '@/lib/format';
 import type { HomeGlobalMetricId, HomePeriodMetricId } from '@/lib/home-preferences';
 import { t } from '@/lib/i18n';
@@ -28,10 +29,10 @@ type MetricRowProps = {
   labelColor?: string;
 };
 
-function MetricRow({ label, value, color, labelColor }: MetricRowProps) {
+function MetricRow({ label, value, color, labelColor, largeText = false }: MetricRowProps & { largeText?: boolean }) {
   const colors = Colors[useColorScheme() ?? 'light'];
   return (
-    <View style={styles.metric}>
+    <View style={[styles.metric, largeText && styles.metricLargeText]}>
       <ThemedText style={[styles.metricLabel, { color: labelColor ?? colors.textSecondary }]}>{label}</ThemedText>
       <ThemedText type="defaultSemiBold" style={[styles.metricValue, color ? { color } : undefined]}>
         {formatCLP(value)}
@@ -49,6 +50,7 @@ export function HomeSummaryCards({
 }: HomeSummaryCardsProps) {
   const scheme = useColorScheme() ?? 'light';
   const colors = Colors[scheme];
+  const usesLargeText = useLargeTextLayout();
   const periodColors = scheme === 'dark'
     ? {
         positive: '#087052',
@@ -94,6 +96,7 @@ export function HomeSummaryCards({
                     : periodValues[metric] < 0
                       ? periodColors.negative
                       : periodColors.positive}
+              largeText={usesLargeText}
             />
           ))}
         </View>
@@ -103,7 +106,7 @@ export function HomeSummaryCards({
         <ThemedText type="subtitle">{t('home.globalSummary')}</ThemedText>
         <View style={styles.grid}>
           {globalMetrics.map((metric) => metric === 'credit' ? (
-            <View key={metric} style={styles.metric}>
+            <View key={metric} style={[styles.metric, usesLargeText && styles.metricLargeText]}>
               <ThemedText style={[styles.metricLabel, { color: colors.textSecondary }]}>
                 {globalLabels[metric]}
               </ThemedText>
@@ -133,6 +136,7 @@ export function HomeSummaryCards({
                 color={metric === 'debt' || metric === 'billedCredit'
                   ? colors.expense
                   : metric === 'savings' ? colors.savings : undefined}
+                largeText={usesLargeText}
               />
             ))}
         </View>
@@ -147,6 +151,7 @@ const styles = StyleSheet.create({
   periodCard: { borderWidth: 0 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6, rowGap: 14 },
   metric: { width: '50%', paddingHorizontal: 6, gap: 3 },
+  metricLargeText: { width: '100%' },
   metricLabel: { fontSize: 12, lineHeight: 17 },
   metricValue: { fontFamily: Fonts.bold, fontSize: 18, lineHeight: 24 },
   currencyMetricValue: { fontSize: 14, lineHeight: 19 },

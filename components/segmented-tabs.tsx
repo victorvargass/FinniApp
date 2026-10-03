@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 
 export type SegmentedTabOption<T extends string> = {
   value: T;
@@ -19,9 +20,10 @@ export function SegmentedTabs<T extends string>({
   onChange: (value: T) => void;
 }) {
   const colors = Colors[useColorScheme() ?? 'light'];
+  const usesLargeText = useLargeTextLayout();
 
   return (
-    <View style={[styles.container, { borderColor: colors.border }]}>
+    <View style={[styles.container, usesLargeText && styles.containerLargeText, { borderColor: colors.border }]}>
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -32,6 +34,7 @@ export function SegmentedTabs<T extends string>({
             onPress={() => onChange(option.value)}
             style={({ pressed }) => [
               styles.tab,
+              usesLargeText && styles.tabLargeText,
               selected && { backgroundColor: colors.primary },
               pressed && styles.pressed,
             ]}>
@@ -49,7 +52,9 @@ export function SegmentedTabs<T extends string>({
 
 const styles = StyleSheet.create({
   container: { flexDirection: 'row', borderWidth: 1, borderRadius: 12, padding: 4, gap: 4 },
+  containerLargeText: { flexDirection: 'column' },
   tab: { flex: 1, minHeight: 43, borderRadius: 9, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  tabLargeText: { flex: 0, width: '100%', paddingVertical: 8 },
   label: { fontSize: 13, lineHeight: 16, fontWeight: '700', textAlign: 'center' },
   pressed: { opacity: 0.68 },
 });

@@ -13,6 +13,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useDebtDatabase, usePaymentDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { formatCLP } from '@/lib/format';
 import { APP_LOCALE, t } from '@/lib/i18n';
 import type { Debt, DebtPlan } from '@/lib/types';
@@ -60,6 +61,7 @@ export default function DebtsScreen() {
   const { paymentMethods } = usePaymentDatabase();
   const navigation = useNavigation();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const usesLargeText = useLargeTextLayout();
   const [plans, setPlans] = useState<DebtPlan[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [debtSection, setDebtSection] = useState<'cards' | 'other'>(() =>
@@ -118,12 +120,12 @@ export default function DebtsScreen() {
   const renderDebt = (debt: Debt) => (
     <Pressable key={debt.id} onPress={() => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(debt.id) } })}>
       <ThemedView style={[styles.card, debt.status === 'archived' && styles.archived]}>
-        <View style={styles.header}>
+        <View style={[styles.header, usesLargeText && styles.headerLargeText]}>
           <View style={[styles.debtIcon, { backgroundColor: debt.direction === 'receivable' ? '#20A486' : debt.type === 'fixed' ? '#0B315B' : '#D88916' }]}><Ionicons name={debt.direction === 'receivable' ? 'arrow-down-outline' : debt.type === 'fixed' ? 'calendar-outline' : 'analytics-outline'} size={17} color="#fff" /></View>
           <View style={styles.copy}><ThemedText type="defaultSemiBold">{debt.name}</ThemedText><ThemedText style={styles.secondary}>{debt.contactName ?? debt.creditor ?? (debt.type === 'fixed' ? t('debts.fixed') : t('debts.variable'))}</ThemedText></View>
           <Ionicons name="chevron-forward" size={21} color={colors.icon} />
         </View>
-        <View style={styles.row}><ThemedText>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
+        <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
         {debt.nextDueDate && <ThemedText style={styles.secondary}>{t('debts.nextDueValue', { date: new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${debt.nextDueDate}T12:00:00`)) })}</ThemedText>}
         <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#1FAF78' : debt.status === 'archived' ? '#60758E' : colors.primary }]}>{debt.status === 'paid' ? t('debts.statusPaid') : debt.status === 'archived' ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
       </ThemedView>
@@ -132,7 +134,7 @@ export default function DebtsScreen() {
   const renderContactGroup = (group: ContactDebtGroup, direction: Debt['direction']) => (
     <View key={`${direction}-contact-${group.contactId}`} style={styles.contactGroup}>
       <ThemedView style={[styles.contactSummary, { borderColor: colors.border }]}>
-        <View style={styles.header}>
+        <View style={[styles.header, usesLargeText && styles.headerLargeText]}>
           <View style={[styles.debtIcon, { backgroundColor: direction === 'receivable' ? '#20A486' : '#0B315B' }]}>
             <Ionicons name="people-outline" size={18} color="#fff" />
           </View>
@@ -165,7 +167,7 @@ export default function DebtsScreen() {
         params: { id: String(plan.id) },
       })}>
       <ThemedView style={[styles.card, styles.planCard]}>
-        <View style={styles.header}>
+        <View style={[styles.header, usesLargeText && styles.headerLargeText]}>
           <View style={[styles.dot, { backgroundColor: plan.paymentMethodColor }]} />
           <View style={styles.copy}>
             <ThemedText type="defaultSemiBold">{plan.name}</ThemedText>
@@ -246,13 +248,13 @@ export default function DebtsScreen() {
                     <View key={`card-${card.id}`} style={styles.cardGroup}>
                       <Pressable onPress={() => router.push({ pathname: '/modal/payment-method-detail', params: { id: String(card.id) } })}>
                         <ThemedView style={styles.card}>
-                          <View style={styles.header}>
+                          <View style={[styles.header, usesLargeText && styles.headerLargeText]}>
                             <View style={[styles.debtIcon, { backgroundColor: card.color }]}><Ionicons name="card-outline" size={18} color="#fff" /></View>
                             <View style={styles.copy}><ThemedText type="defaultSemiBold">{card.name}</ThemedText><ThemedText style={styles.secondary}>{t('paymentMethods.availableCredit')}: {card.availableBalance == null ? '—' : formatCLP(card.availableBalance)}</ThemedText></View>
                             <Ionicons name="chevron-forward" size={21} color={colors.icon} />
                           </View>
-                          <View style={styles.row}><ThemedText>{t('paymentMethods.used')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(card.usedAmount ?? 0)}</ThemedText></View>
-                          <View style={styles.row}><ThemedText>{t('paymentMethods.billedToPay')}</ThemedText><ThemedText>{formatCLP(card.billedAmount)}</ThemedText></View>
+                          <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('paymentMethods.used')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(card.usedAmount ?? 0)}</ThemedText></View>
+                          <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('paymentMethods.billedToPay')}</ThemedText><ThemedText>{formatCLP(card.billedAmount)}</ThemedText></View>
                         </ThemedView>
                       </Pressable>
                       {cardPlans.length > 0 && (
@@ -287,8 +289,8 @@ export default function DebtsScreen() {
         )}
         {method?.type === 'credit' && (
           <ThemedView style={styles.methodSummary}>
-            <View style={styles.row}><ThemedText>{t('paymentMethods.availableCredit')}</ThemedText><ThemedText type="defaultSemiBold">{method.availableBalance == null ? '—' : formatCLP(method.availableBalance)}</ThemedText></View>
-            <View style={styles.row}><ThemedText>{t('paymentMethods.used')}</ThemedText><ThemedText>{formatCLP(method.usedAmount ?? 0)}</ThemedText></View>
+            <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('paymentMethods.availableCredit')}</ThemedText><ThemedText type="defaultSemiBold">{method.availableBalance == null ? '—' : formatCLP(method.availableBalance)}</ThemedText></View>
+            <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('paymentMethods.used')}</ThemedText><ThemedText>{formatCLP(method.usedAmount ?? 0)}</ThemedText></View>
             <View style={styles.methodActions}>
               <Pressable onPress={() => router.push({ pathname: '/modal/expense-form', params: { creditPaymentTargetId: String(method.id) } })} style={[styles.methodButton, { backgroundColor: colors.action }]}><ThemedText style={{ color: colors.onSecondary, fontWeight: '700' }}>{t('paymentMethods.payCard')}</ThemedText></Pressable>
             </View>
@@ -323,6 +325,7 @@ const styles = StyleSheet.create({
   guideHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 }, guideTitle: { flex: 1 },
   intro: { opacity: 0.7, lineHeight: 20 }, empty: { borderRadius: 12, padding: 24, alignItems: 'center', gap: 8 },
   card: { borderRadius: 12, padding: 15, gap: 10 }, header: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  headerLargeText: { flexWrap: 'wrap', alignItems: 'flex-start' },
   planCard: { paddingVertical: 11, gap: 6 },
   planMeta: { paddingLeft: 25, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5 },
   planMetaText: { fontSize: 12, opacity: 0.72 },
@@ -330,6 +333,7 @@ const styles = StyleSheet.create({
   cardGroup: { gap: 9 }, cardPlans: { marginLeft: 16, paddingLeft: 12, borderLeftWidth: 2, gap: 8 }, cardPlansTitle: { fontSize: 12, fontWeight: '700', opacity: 0.68 },
   dot: { width: 16, height: 16, borderRadius: 6 }, copy: { flex: 1 }, secondary: { opacity: 0.62, fontSize: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 }, status: { fontSize: 12, fontWeight: '700' },
+  rowLargeText: { flexDirection: 'column', alignItems: 'flex-start', gap: 2 },
   summaryCard: { borderRadius: 12, padding: 16, gap: 5 },
   receivable: { color: '#138F73', fontWeight: '700', marginTop: 4 },
   debtIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, archived: { opacity: 0.62 },

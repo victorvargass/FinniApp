@@ -5,6 +5,7 @@ import { ExpandableFinanceCard } from '@/components/expandable-finance-card';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { formatCLP, formatDate } from '@/lib/format';
 import { visibleHomeDebtPlans, visibleHomeDebts, visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
@@ -46,6 +47,7 @@ function DebtRow({
   onPress,
 }: DebtRowProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
+  const usesLargeText = useLargeTextLayout();
   const progress = total && total > 0
     ? Math.min(1, Math.max(0, progressMode === 'used' ? amount / total : 1 - amount / total))
     : 0;
@@ -55,13 +57,13 @@ function DebtRow({
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
-      <View style={styles.itemHeader}>
+      <View style={[styles.itemHeader, usesLargeText && styles.itemHeaderLargeText]}>
         <View style={[styles.dot, { backgroundColor: color }]} />
         <View style={styles.itemCopy}>
-          <ThemedText type="defaultSemiBold" numberOfLines={1}>{name}</ThemedText>
+          <ThemedText type="defaultSemiBold" numberOfLines={usesLargeText ? undefined : 1}>{name}</ThemedText>
           <ThemedText style={[styles.detail, { color: colors.textSecondary }]}>{detail}</ThemedText>
         </View>
-        <View style={styles.amountCopy}>
+        <View style={[styles.amountCopy, usesLargeText && styles.amountCopyLargeText]}>
           <ThemedText type="defaultSemiBold">{formatCLP(amount)}</ThemedText>
           {amountDetail && (
             <ThemedText style={[styles.amountDetail, { color: amountDetailColor ?? colors.textSecondary }]}>
@@ -206,10 +208,12 @@ const styles = StyleSheet.create({
   },
   item: { gap: 8 },
   itemHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  itemHeaderLargeText: { flexWrap: 'wrap', alignItems: 'flex-start' },
   dot: { width: 10, height: 10, borderRadius: 5 },
   itemCopy: { minWidth: 0, flex: 1, gap: 1 },
   detail: { fontSize: 11, lineHeight: 15 },
   amountCopy: { maxWidth: '55%', alignItems: 'flex-end' },
+  amountCopyLargeText: { width: '100%', maxWidth: '100%', alignItems: 'flex-start', paddingLeft: 18 },
   amountDetail: { fontSize: 11, lineHeight: 15, textAlign: 'right' },
   track: { height: 7, borderRadius: 4, overflow: 'hidden', marginLeft: 18 },
   fill: { height: '100%', borderRadius: 4 },

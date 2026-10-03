@@ -5,12 +5,12 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import ReanimatedColorPicker, { HueSlider, Panel1 } from 'reanimated-color-picker';
 
+import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Colors, Fonts, SemanticColors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { t } from '@/lib/i18n';
@@ -70,7 +70,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
           <View
             accessibilityViewIsModal
             style={[styles.modalContent, { backgroundColor: colors.background }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('categories.pickerTitle')}</Text>
+            <ThemedText style={[styles.modalTitle, { color: colors.text }]}>{t('categories.pickerTitle')}</ThemedText>
             <View style={[styles.modalPreview, { backgroundColor: isDraftValid ? draftColor : '#D8E1E8' }]} />
             <ReanimatedColorPicker
               value={isDraftValid ? draftColor : '#0B315B'}
@@ -81,7 +81,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
               <Panel1 style={styles.colorPanel} />
               <HueSlider style={styles.hueSlider} />
             </ReanimatedColorPicker>
-            <Text style={[styles.modalHint, { color: colors.icon }]}>{t('categories.colorHex')}</Text>
+            <ThemedText style={[styles.modalHint, { color: colors.icon }]}>{t('categories.colorHex')}</ThemedText>
             <TextInput
               accessibilityLabel={t('accessibility.colorHexInput')}
               autoCapitalize="none"
@@ -93,13 +93,13 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
               style={[styles.modalInput, { color: colors.text, borderColor: colors.icon }]}
               value={draftColor}
             />
-            {!isDraftValid && <Text style={styles.errorText}>{t('validation.invalidColorFormat')}</Text>}
+            {!isDraftValid && <ThemedText style={styles.errorText}>{t('validation.invalidColorFormat')}</ThemedText>}
             <View style={styles.modalActions}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setModalVisible(false)}
                 style={[styles.button, styles.cancelButton, { borderColor: colors.icon }]}>
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
+                <ThemedText style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</ThemedText>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -110,7 +110,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
                   setModalVisible(false);
                 }}
                 style={[styles.button, styles.confirmButton, !isDraftValid && styles.disabledButton]}>
-                <Text style={styles.confirmButtonText}>{t('common.apply')}</Text>
+                <ThemedText style={styles.confirmButtonText}>{t('common.apply')}</ThemedText>
               </Pressable>
             </View>
           </View>

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +10,7 @@ import { OverflowMenu } from '@/components/overflow-menu';
 import { Colors, Fonts } from '@/constants/theme';
 import { useDebtDatabase, usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatCLPInput, formatDate, parseAmount } from '@/lib/format';
 import { t } from '@/lib/i18n';
@@ -31,8 +32,7 @@ export default function DebtDetailScreen() {
   const { periods, selectedPeriodId } = usePeriodDatabase();
   const { getDebtPlan, activateInstallmentPlan, settleInstallmentPlan, setDebtPlanShowOnHome, removeInstallmentPlan } = useDebtDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
-  const { fontScale } = useWindowDimensions();
-  const usesLargeText = fontScale >= 1.2;
+  const usesLargeText = useLargeTextLayout();
   const [plan, setPlan] = useState<DebtPlan | null>(null);
   const [periodId, setPeriodId] = useState<number | null>(selectedPeriodId);
   const [amountText, setAmountText] = useState('');

@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { t } from '@/lib/i18n';
 
 type ExpandableFinanceCardProps = {
@@ -27,11 +28,12 @@ export function ExpandableFinanceCard({
   onManage,
 }: ExpandableFinanceCardProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
+  const usesLargeText = useLargeTextLayout();
   const [expanded, setExpanded] = useState(initiallyExpanded);
 
   return (
     <View style={[styles.card, { backgroundColor }]}>
-      <View style={styles.header}>
+      <View style={[styles.header, usesLargeText && styles.headerLargeText]}>
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ expanded }}
@@ -52,7 +54,7 @@ export function ExpandableFinanceCard({
           accessibilityRole="button"
           accessibilityLabel={manageAccessibilityLabel}
           onPress={onManage}
-          style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}>
+          style={({ pressed }) => [styles.manageButton, usesLargeText && styles.manageButtonLargeText, pressed && styles.pressed]}>
           <ThemedText style={styles.manageButtonText}>{t('common.details')}</ThemedText>
         </Pressable>
       </View>
@@ -72,6 +74,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  headerLargeText: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   toggle: {
     minWidth: 0,
@@ -96,6 +102,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B315B',
     paddingHorizontal: 13,
     paddingVertical: 8,
+  },
+  manageButtonLargeText: {
+    alignSelf: 'flex-start',
   },
   manageButtonText: {
     color: '#fff',

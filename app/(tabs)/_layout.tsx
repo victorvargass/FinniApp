@@ -4,14 +4,29 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
+import { ThemedText } from '@/components/themed-text';
 import { t } from '@/lib/i18n';
-import { Colors } from '@/constants/theme';
+import { AccessibilityTokens, Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const colors = Colors[colorScheme ?? 'light'];
+  const usesLargeText = useLargeTextLayout();
+  const tabLabel = (label: string) => usesLargeText
+    ? ({ color }: { color: string }) => (
+        <ThemedText
+          adjustsFontSizeToFit
+          maxFontSizeMultiplier={AccessibilityTokens.compactTextMaxFontSizeMultiplier}
+          minimumFontScale={0.75}
+          numberOfLines={1}
+          style={[styles.tabLabel, { color }]}>
+          {label}
+        </ThemedText>
+      )
+    : label;
 
   return (
     <Tabs
@@ -34,7 +49,7 @@ export default function TabLayout() {
         options={{
           title: t('navigation.home'),
           tabBarButtonTestID: 'tab-home',
-          tabBarLabel: t('navigation.home'),
+          tabBarLabel: tabLabel(t('navigation.home')),
           tabBarIcon: ({ color }) => <Ionicons name="home" size={24} color={color} />,
         }}
       />
@@ -55,7 +70,7 @@ export default function TabLayout() {
         options={{
           title: t('navigation.movements'),
           tabBarButtonTestID: 'tab-movements',
-          tabBarLabel: t('navigation.movements'),
+          tabBarLabel: tabLabel(t('navigation.movements')),
           tabBarIcon: ({ color }) => <Ionicons name="swap-horizontal" size={24} color={color} />,
         }}
       />
@@ -64,7 +79,7 @@ export default function TabLayout() {
         options={{
           title: t('navigation.addMovement'),
           tabBarButtonTestID: 'tab-add-movement',
-          tabBarLabel: t('navigation.add'),
+          tabBarLabel: tabLabel(t('navigation.add')),
           tabBarIcon: () => (
             <View style={[styles.addIcon, { backgroundColor: colors.action }]}>
               <Ionicons name="add" size={22} color={colors.onPrimary} />
@@ -84,7 +99,7 @@ export default function TabLayout() {
         options={{
           title: t('navigation.history'),
           tabBarButtonTestID: 'tab-history',
-          tabBarLabel: t('navigation.history'),
+          tabBarLabel: tabLabel(t('navigation.history')),
           tabBarIcon: ({ color }) => <Ionicons name="bar-chart" size={24} color={color} />,
         }}
       />
@@ -93,7 +108,7 @@ export default function TabLayout() {
         options={{
           title: t('navigation.settings'),
           tabBarButtonTestID: 'tab-user',
-          tabBarLabel: t('navigation.settings'),
+          tabBarLabel: tabLabel(t('navigation.settings')),
           tabBarIcon: ({ color }) => <Ionicons name="settings-outline" size={24} color={color} />,
         }}
       />
@@ -102,6 +117,12 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabLabel: {
+    width: '100%',
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
+  },
   addIcon: {
     width: 34,
     height: 34,

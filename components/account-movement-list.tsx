@@ -19,6 +19,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { formatCLP, formatEventDateTime, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { matchesSearchQuery } from '@/lib/search';
@@ -162,6 +163,7 @@ export function AccountMovementList({
   fabAccessibilityLabel: string;
 }) {
   const colors = Colors[useColorScheme() ?? 'light'];
+  const usesLargeText = useLargeTextLayout();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [groupBy, setGroupBy] = useState<GroupOption['value']>(defaultGroup);
@@ -273,7 +275,7 @@ export function AccountMovementList({
           </ScrollView>
         )}
 
-        <View style={styles.toolbar}>
+        <View style={[styles.toolbar, usesLargeText && styles.toolbarLargeText]}>
           <Pressable
             accessibilityLabel={`${t('filters.order')}: ${selectedSort}`}
             accessibilityRole="button"
@@ -348,7 +350,7 @@ export function AccountMovementList({
                 onPress={() => setCollapsedGroups((current) => current.includes(item.key)
                   ? current.filter((key) => key !== item.key)
                   : [...current, item.key])}
-                style={[styles.groupHeader, { borderLeftColor: item.color, backgroundColor: `${item.color}18` }]}>
+                style={[styles.groupHeader, usesLargeText && styles.groupHeaderLargeText, { borderLeftColor: item.color, backgroundColor: `${item.color}18` }]}>
                 <View style={styles.groupName}>
                   <View style={[styles.dot, { backgroundColor: item.color }]} />
                   <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
@@ -370,17 +372,17 @@ export function AccountMovementList({
               accessibilityRole="button"
               onPress={movement.onPress}
               style={styles.movementPressable}>
-              <ThemedView style={styles.movement}>
+              <ThemedView style={[styles.movement, usesLargeText && styles.movementLargeText]}>
                 <View style={[styles.icon, { backgroundColor: `${movement.color}18` }]}>
                   <Ionicons name={movement.icon} size={20} color={movement.color} />
                 </View>
                 <View style={styles.movementCopy}>
-                  <ThemedText numberOfLines={1} type="defaultSemiBold">{movement.title}</ThemedText>
+                  <ThemedText numberOfLines={usesLargeText ? undefined : 1} type="defaultSemiBold">{movement.title}</ThemedText>
                   <ThemedText numberOfLines={2} style={styles.movementMeta}>
                     {movement.description} · {formatEventDateTime(movement.date, movement.time)}
                   </ThemedText>
                 </View>
-                <View style={styles.amountColumn}>
+                <View style={[styles.amountColumn, usesLargeText && styles.amountColumnLargeText]}>
                   <ThemedText type="defaultSemiBold">{formatMoney(movement.amount, movement.currency)}</ThemedText>
                   <View style={styles.movementActions}>
                     <Ionicons name="chevron-forward" size={18} color={colors.icon} />
@@ -417,20 +419,24 @@ const styles = StyleSheet.create({
   chips: { gap: 8 },
   chip: { minHeight: 44, borderWidth: 1, borderRadius: 22, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   toolbar: { flexDirection: 'row', gap: 10 },
+  toolbarLargeText: { flexDirection: 'column' },
   toolbarButton: { flex: 1, minHeight: 60, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
   toolbarCopy: { flex: 1, gap: 1 },
   toolbarDetail: { fontSize: 12, opacity: 0.6 },
   list: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 105 },
   groupHeader: { minHeight: 48, borderLeftWidth: 5, borderRadius: 10, marginBottom: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  groupHeaderLargeText: { flexWrap: 'wrap', paddingVertical: 10 },
   groupName: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 },
   groupTotal: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dot: { width: 13, height: 13, borderRadius: 6.5 },
   movementPressable: { marginBottom: 4 },
   movement: { minHeight: 64, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  movementLargeText: { flexWrap: 'wrap', alignItems: 'flex-start' },
   icon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   movementCopy: { flex: 1, gap: 3 },
   movementMeta: { fontSize: 12, lineHeight: 17, opacity: 0.62 },
   amountColumn: { alignItems: 'flex-end', gap: 4 },
+  amountColumnLargeText: { width: '100%', alignItems: 'flex-start', paddingLeft: 48 },
   movementActions: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   deleteAction: { width: 32, height: 28, alignItems: 'center', justifyContent: 'center' },
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },

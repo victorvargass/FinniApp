@@ -12,6 +12,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { t } from '@/lib/i18n';
 
 type MovementType = 'expenses' | 'incomes' | 'card-payments' | 'transfers';
@@ -29,6 +30,7 @@ export default function MovementsScreen() {
   }>();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
+  const usesLargeText = useLargeTextLayout();
   const [movementType, setMovementType] = useState<MovementType>('expenses');
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export default function MovementsScreen() {
               key={type.key}
               style={[
                 styles.segment,
+                usesLargeText && styles.segmentLargeText,
                 { borderColor: selected ? colors.primary : colors.border,
                   backgroundColor: selected ? colors.primary : colors.background },
               ]}
@@ -112,6 +115,9 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 8,
+  },
+  segmentLargeText: {
+    flexBasis: '100%',
   },
   segmentLabel: {
     fontWeight: '700',
