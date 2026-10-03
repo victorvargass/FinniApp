@@ -145,6 +145,10 @@ function AppContent() {
                   options={{ presentation: 'modal', title: t('navigation.transfer') }}
                 />
                 <Stack.Screen
+                  name="modal/account-movement-detail"
+                  options={{ presentation: 'fullScreenModal', title: t('accountMovementDetail.title') }}
+                />
+                <Stack.Screen
                   name="modal/card-cycles"
                   options={{ presentation: 'fullScreenModal', title: t('navigation.reconciliation') }}
                 />

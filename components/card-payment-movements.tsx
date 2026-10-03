@@ -68,9 +68,10 @@ export function CardPaymentMovements() {
               name: t('movementLedger.adjustments'),
               color: colors.success,
             },
-        onPress: () => router.push((isPayment
-          ? { pathname: '/modal/expense-form', params: { id: String(movement.id) } }
-          : { pathname: '/modal/expense-form', params: { adjustmentId: String(movement.id) } }) as never),
+        onPress: () => router.push({
+          pathname: '/modal/account-movement-detail',
+          params: { id: String(movement.id), kind: isPayment ? 'payment' : 'adjustment' },
+        } as never),
       };
     })
   ), [cardPaymentMovements, colors.icon, colors.success, colors.warning]);

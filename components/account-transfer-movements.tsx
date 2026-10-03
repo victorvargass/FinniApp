@@ -39,8 +39,8 @@ export function AccountTransferMovements() {
         color: transfer.destinationPaymentMethodColor || colors.secondary,
       },
       onPress: () => router.push({
-        pathname: '/modal/account-transfer-form',
-        params: { id: String(transfer.id) },
+        pathname: '/modal/account-movement-detail',
+        params: { id: String(transfer.id), kind: 'transfer' },
       } as never),
     }))
   ), [accountTransfers, colors.secondary]);

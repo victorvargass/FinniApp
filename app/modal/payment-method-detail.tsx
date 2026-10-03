@@ -317,9 +317,11 @@ export default function PaymentMethodDetailScreen() {
                 accessibilityRole="button"
                 key={`${movement.kind}-${movement.id}`}
                 onPress={() => router.push((isTransfer
-                  ? { pathname: '/modal/account-transfer-form', params: { id: String(movement.id) } }
+                  ? { pathname: '/modal/account-movement-detail', params: { id: String(movement.id), kind: 'transfer' } }
                   : isAdjustment
-                    ? { pathname: '/modal/expense-form', params: { adjustmentId: String(movement.id) } }
+                    ? { pathname: '/modal/account-movement-detail', params: { id: String(movement.id), kind: 'adjustment' } }
+                  : isPaymentReceived
+                    ? { pathname: '/modal/account-movement-detail', params: { id: String(movement.id), kind: 'payment' } }
                   : isInstallmentPurchase
                   ? { pathname: '/modal/debt-detail', params: { id: String(movement.id) } }
                   : isIncome
