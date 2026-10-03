@@ -70,8 +70,8 @@
     {
       "id": "settings-localization-and-privacy",
       "priority": "critical",
-      "routes": ["app/(tabs)/user.tsx", "app/modal/privacy.tsx", "app/modal/movement-reminder.tsx", "app/modal/home-settings.tsx", "app/modal/period-csv-export.tsx", "app/modal/financial-audit.tsx", "app/modal/budget-forecast.tsx"],
-      "automatedArtifacts": [".maestro/settings-and-localization.yml", "tests/locales.test.mjs"]
+      "routes": ["app/(tabs)/user.tsx", "app/modal/privacy.tsx", "app/modal/movement-reminder.tsx", "app/modal/home-settings.tsx", "app/modal/period-csv-export.tsx", "app/modal/financial-audit.tsx", "app/modal/budget-forecast.tsx", "app/modal/pending-movements.tsx"],
+      "automatedArtifacts": [".maestro/settings-and-localization.yml", "tests/locales.test.mjs", "tests/notification-movement-import.test.mjs"]
     },
     {
       "id": "database-backup-boundary",

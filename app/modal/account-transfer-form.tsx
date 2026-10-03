@@ -17,11 +17,20 @@ import { dateWithTime, toTimeString } from '@/lib/event-time';
 import { formatCLP, formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
+import { removePendingNotificationMovement } from '@/lib/notification-movements';
 import { showToast } from '@/lib/toast';
 import type { AccountTransfer, NewAccountTransfer } from '@/lib/types';
 
 export default function AccountTransferFormScreen() {
-  const { id, sourcePaymentMethodId } = useLocalSearchParams<{ id?: string; sourcePaymentMethodId?: string }>();
+  const { id, sourcePaymentMethodId, candidateId, initialName, initialAmount, initialDate, initialTime } = useLocalSearchParams<{
+    id?: string;
+    sourcePaymentMethodId?: string;
+    candidateId?: string;
+    initialName?: string;
+    initialAmount?: string;
+    initialDate?: string;
+    initialTime?: string;
+  }>();
   const transferId = Number(id);
   const requestedSourceId = Number(sourcePaymentMethodId);
   const navigation = useNavigation();
@@ -39,10 +48,10 @@ export default function AccountTransferFormScreen() {
   const [loading, setLoading] = useState(Number.isInteger(transferId));
   const [sourceId, setSourceId] = useState<number | null>(null);
   const [destinationId, setDestinationId] = useState<number | null>(null);
-  const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(toDateString(new Date()));
-  const [time, setTime] = useState(toTimeString(new Date()));
-  const [note, setNote] = useState('');
+  const [amount, setAmount] = useState(initialAmount ? formatCLPInput(initialAmount) : '');
+  const [date, setDate] = useState(initialDate ?? toDateString(new Date()));
+  const [time, setTime] = useState(initialTime ?? toTimeString(new Date()));
+  const [note, setNote] = useState(initialName ?? '');
   const [showDate, setShowDate] = useState(false);
   const [showTime, setShowTime] = useState(false);
   const [transferAll, setTransferAll] = useState(false);
@@ -155,6 +164,7 @@ export default function AccountTransferFormScreen() {
         await addAccountTransfer(data);
         showToast(t('transfers.created'));
       }
+      if (candidateId) await removePendingNotificationMovement(candidateId);
       router.back();
     } catch (error) {
       Alert.alert(t('common.error'), error instanceof Error ? error.message : t('errors.couldNotSave'));

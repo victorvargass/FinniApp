@@ -383,6 +383,21 @@ export default function UserScreen() {
             </View>
             <Ionicons name="trending-up-outline" size={22} color={colors.primary} />
           </Pressable>
+          {Platform.OS === 'android' && (
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/modal/pending-movements' as never)}
+                style={({ pressed }) => [styles.settingsLink, pressed && styles.buttonPressed]}>
+                <View style={styles.settingCopy}>
+                  <ThemedText type="subtitle">{t('pendingMovements.title')}</ThemedText>
+                  <ThemedText style={styles.description}>{t('pendingMovements.menuHint')}</ThemedText>
+                </View>
+                <Ionicons name="receipt-outline" size={22} color={colors.action} />
+              </Pressable>
+            </>
+          )}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
             accessibilityLabel={t('navigation.groupings')}

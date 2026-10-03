@@ -35,10 +35,14 @@ type IncomeFormProps = {
   income?: Income;
   templateIncome?: Income;
   initialSavingsGoalId?: number | null;
+  initialName?: string;
+  initialAmount?: number;
+  initialDate?: string;
+  initialTime?: string;
   onSuccess: () => void;
 };
 
-export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null, onSuccess }: IncomeFormProps) {
+export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null, initialName, initialAmount, initialDate, initialTime, onSuccess }: IncomeFormProps) {
   const { incomes, incomeNames, addIncome, editIncome, removeIncome } = useMovementDatabase();
   const { incomeCategories } = useOrganizerDatabase();
   const { addRecurringIncomeFromSource } = useRecurrenceDatabase();
@@ -68,10 +72,12 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   const [name, setName] = useState(
     initialIncome?.name ?? (initialSavingsGoal
       ? t('savings.withdrawalName', { name: initialSavingsGoal.name })
-      : '')
+      : initialName ?? '')
   );
   const [isNameFocused, setIsNameFocused] = useState(false);
-  const [amountText, setAmountText] = useState<string>(initialIncome?.amount ? formatCLPInput(initialIncome.amount) : '');
+  const [amountText, setAmountText] = useState<string>(initialIncome?.amount
+    ? formatCLPInput(initialIncome.amount)
+    : initialAmount != null ? formatCLPInput(initialAmount) : '');
   const [savingsGoalId, setSavingsGoalId] = useState<number | null>(
     income?.savingsGoalId ?? initialSavingsGoal?.id ?? null
   );
@@ -83,8 +89,8 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
   );
   const [categoryId, setCategoryId] = useState<number | null>(initialIncome?.categoryId ?? null);
   const [date, setDate] = useState(
-    income?.date
-      ? dateWithTime(parseDateString(income.date), income.time ?? toTimeString(new Date()))
+    income?.date || initialDate
+      ? dateWithTime(parseDateString(income?.date ?? initialDate!), income?.time ?? initialTime ?? toTimeString(new Date()))
       : selectedPeriod
         ? (() => {
             const today = new Date();

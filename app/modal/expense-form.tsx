@@ -9,10 +9,11 @@ import { ThemedView } from '@/components/themed-view';
 import { useMovementDatabase } from '@/contexts/DatabaseDomainContexts';
 import { getExpenseById } from '@/repositories/movements';
 import { getCreditCardAdjustment } from '@/repositories/payment-methods';
+import { removePendingNotificationMovement } from '@/lib/notification-movements';
 import type { CreditCardAdjustment, ExpenseWithCategory } from '@/lib/types';
 
 export default function ExpenseFormModal() {
-  const { id, repeatId, creditPaymentTargetId, cardPayment, adjustmentId, savingsGoalId, savingsContribution } = useLocalSearchParams<{
+  const { id, repeatId, creditPaymentTargetId, cardPayment, adjustmentId, savingsGoalId, savingsContribution, candidateId, initialName, initialAmount, initialDate, initialTime } = useLocalSearchParams<{
     id?: string;
     repeatId?: string;
     creditPaymentTargetId?: string;
@@ -20,6 +21,11 @@ export default function ExpenseFormModal() {
     adjustmentId?: string;
     savingsGoalId?: string;
     savingsContribution?: string;
+    candidateId?: string;
+    initialName?: string;
+    initialAmount?: string;
+    initialDate?: string;
+    initialTime?: string;
   }>();
   const { expenses } = useMovementDatabase();
   const navigation = useNavigation();
@@ -138,7 +144,17 @@ export default function ExpenseFormModal() {
         initialCreditPaymentTargetId={creditPaymentTargetId ? Number(creditPaymentTargetId) : undefined}
         initialSavingsGoalId={savingsGoalId ? Number(savingsGoalId) : undefined}
         initialSavingsContribution={savingsContribution === 'true'}
-        onSuccess={() => router.back()}
+        initialName={initialName}
+        initialAmount={initialAmount ? Number(initialAmount) : undefined}
+        initialDate={initialDate}
+        initialTime={initialTime}
+        onSuccess={() => {
+          if (!candidateId) {
+            router.back();
+            return;
+          }
+          void removePendingNotificationMovement(candidateId).finally(() => router.back());
+        }}
       />
     </ThemedView>
   );

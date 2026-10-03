@@ -9,9 +9,19 @@ import { useMovementDatabase } from '@/contexts/DatabaseDomainContexts';
 import { getIncomeById } from '@/repositories/movements';
 import { t } from '@/lib/i18n';
 import type { Income } from '@/lib/types';
+import { removePendingNotificationMovement } from '@/lib/notification-movements';
 
 export default function IncomeFormModal() {
-  const { id, repeatId, savingsGoalId } = useLocalSearchParams<{ id?: string; repeatId?: string; savingsGoalId?: string }>();
+  const { id, repeatId, savingsGoalId, candidateId, initialName, initialAmount, initialDate, initialTime } = useLocalSearchParams<{
+    id?: string;
+    repeatId?: string;
+    savingsGoalId?: string;
+    candidateId?: string;
+    initialName?: string;
+    initialAmount?: string;
+    initialDate?: string;
+    initialTime?: string;
+  }>();
   const { incomes } = useMovementDatabase();
   const navigation = useNavigation();
   const sourceId = id ?? repeatId;
@@ -89,7 +99,17 @@ export default function IncomeFormModal() {
         income={income}
         templateIncome={isRepeating ? sourceIncome : undefined}
         initialSavingsGoalId={Number.isInteger(requestedSavingsGoalId) ? requestedSavingsGoalId : null}
-        onSuccess={() => router.back()}
+        initialName={initialName}
+        initialAmount={initialAmount ? Number(initialAmount) : undefined}
+        initialDate={initialDate}
+        initialTime={initialTime}
+        onSuccess={() => {
+          if (!candidateId) {
+            router.back();
+            return;
+          }
+          void removePendingNotificationMovement(candidateId).finally(() => router.back());
+        }}
       />
     </ThemedView>
   );

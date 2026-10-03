@@ -17,6 +17,7 @@ import { BiometricGate } from '@/components/biometric-gate';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppUpdateToastController } from '@/components/app-update-toast-controller';
 import { AutomaticBackupController } from '@/components/automatic-backup-controller';
+import { AutomaticMovementController } from '@/components/automatic-movement-controller';
 import { RecurringNotificationController } from '@/components/recurring-notification-controller';
 import { t } from '@/lib/i18n';
 import { BiometricProvider } from '@/contexts/BiometricContext';
@@ -66,6 +67,7 @@ function AppContent() {
           <DatabaseProvider>
             <AppUpdateToastController enabled={hasCompletedOnboarding} />
             <AutomaticBackupController enabled={hasCompletedOnboarding} />
+            <AutomaticMovementController enabled={hasCompletedOnboarding} />
             <RecurringNotificationController />
             <ThemeProvider value={navigationTheme}>
               <Stack>
@@ -75,6 +77,10 @@ function AppContent() {
                 <Stack.Screen
                   name="modal/quick-add"
                   options={{ presentation: 'modal', title: t('navigation.addMovement') }}
+                />
+                <Stack.Screen
+                  name="modal/pending-movements"
+                  options={{ presentation: 'fullScreenModal', title: t('pendingMovements.title') }}
                 />
                 <Stack.Screen
                   name="modal/income-form"

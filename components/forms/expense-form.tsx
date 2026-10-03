@@ -66,10 +66,14 @@ type ExpenseFormProps = {
   initialCreditPaymentTargetId?: number;
   initialSavingsGoalId?: number;
   initialSavingsContribution?: boolean;
+  initialName?: string;
+  initialAmount?: number;
+  initialDate?: string;
+  initialTime?: string;
   onSuccess: () => void;
 };
 
-export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, initialSavingsContribution = false, onSuccess }: ExpenseFormProps) {
+export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, initialSavingsContribution = false, initialName, initialAmount, initialDate, initialTime, onSuccess }: ExpenseFormProps) {
   const { categories, contacts } = useOrganizerDatabase();
   const { expenses, expenseNames, addExpense, editExpense } = useMovementDatabase();
   const {
@@ -91,7 +95,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     creditAdjustment?.currency ?? initialExpense?.currency ?? 'CLP'
   );
 
-  const [name, setName] = useState(creditAdjustment?.note ?? initialExpense?.name ?? '');
+  const [name, setName] = useState(creditAdjustment?.note ?? initialExpense?.name ?? initialName ?? '');
   const [isNameFocused, setIsNameFocused] = useState(false);
   const expenseWasSplit =
     initialExpense?.originalAmount != null && initialExpense.splitPercentage != null;
@@ -106,7 +110,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         ? (initialExpense.currency === 'USD'
           ? formatUSDInput(initialExpense.originalAmount ?? initialExpense.amount)
           : formatCLPInput(initialExpense.originalAmount ?? initialExpense.amount))
-        : ''
+        : initialAmount != null ? formatCLPInput(initialAmount) : ''
   );
   const [isSplitAmount, setIsSplitAmount] = useState(expenseWasSplit);
   const [splitMode, setSplitMode] = useState<'percentage' | 'amount'>(initialSplitMode);
@@ -151,10 +155,10 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
   );
   const [hasLoadedLastPaymentMethod, setHasLoadedLastPaymentMethod] = useState(false);
   const [date, setDate] = useState(
-    creditAdjustment?.date || expense?.date
+    creditAdjustment?.date || expense?.date || initialDate
       ? dateWithTime(
-          parseDateString(creditAdjustment?.date ?? expense!.date),
-          creditAdjustment?.time ?? expense?.time ?? toTimeString(new Date())
+          parseDateString(creditAdjustment?.date ?? expense?.date ?? initialDate!),
+          creditAdjustment?.time ?? expense?.time ?? initialTime ?? toTimeString(new Date())
         )
       : selectedPeriod
         ? (() => {

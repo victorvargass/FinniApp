@@ -6,7 +6,9 @@ FinniApp es una aplicación de finanzas personales que funciona principalmente e
 
 ## Información tratada
 
-La aplicación permite registrar períodos, ingresos, gastos, categorías, límites, cuentas y tarjetas, saldos de referencia, transferencias, abonos, cuotas, deudas, metas de ahorro, recurrencias, notas y preferencias. Esta información se guarda localmente en una base SQLite cifrada en el dispositivo. También conserva localmente hasta 20 códigos de diagnóstico técnico con fecha, zona del código y tipo de error; no incluyen mensajes de error, nombres, notas ni montos.
+La aplicación permite registrar períodos, ingresos, gastos, categorías, límites, cuentas y tarjetas, montos de referencia, transferencias, abonos, cuotas, deudas, metas de ahorro, recurrencias, notas y preferencias. Esta información se guarda localmente en una base SQLite cifrada en el dispositivo. También conserva localmente hasta 20 códigos de diagnóstico técnico con fecha, zona del código y tipo de error; no incluyen mensajes de error, nombres, notas ni montos.
+
+En Android, si el usuario concede voluntariamente el acceso especial a notificaciones, FinniApp puede analizar en el dispositivo notificaciones de otras aplicaciones para proponer movimientos. Solo guarda como sugerencia el nombre detectado, monto, fecha y hora, aplicación de origen y tipo probable; no conserva el texto completo de la notificación. Estas sugerencias permanecen cifradas en el almacenamiento privado local hasta que se registran o eliminan. No se envían a Sentry ni a un servidor del desarrollador. El acceso puede revocarse en cualquier momento desde la configuración de Android.
 
 FinniApp no se conecta a bancos ni consulta datos de instituciones financieras. El usuario ingresa manualmente un saldo o cupo de referencia y su fecha. La aplicación calcula su evolución a partir de los movimientos registrados y permite conciliar el valor nuevamente.
 
@@ -17,6 +19,7 @@ Si el usuario decide conectar Google Drive, FinniApp accede al nombre, correo el
 - Administrar y mostrar la información financiera ingresada por el usuario.
 - Generar reportes PDF solicitados por el usuario.
 - Programar recordatorios locales elegidos por el usuario.
+- Proponer, con autorización previa en Android, movimientos detectados desde notificaciones para que el usuario los revise antes de registrarlos.
 - Crear y restaurar respaldos opcionales en Google Drive.
 - Permitir el bloqueo local de la interfaz mediante la autenticación biométrica del sistema operativo.
 - Detectar crashes y bloqueos técnicos, únicamente cuando el usuario da su consentimiento.
