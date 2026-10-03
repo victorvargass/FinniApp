@@ -1,14 +1,17 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   AccountMovementList,
   type AccountMovementListItem,
 } from '@/components/account-movement-list';
 import { Colors } from '@/constants/theme';
-import { usePaymentDatabase, usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
+import { useMovementDatabase, usePaymentDatabase, usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Alert } from '@/lib/alert';
+import { errorMessage } from '@/lib/feedback';
 import { t } from '@/lib/i18n';
+import { showToast } from '@/lib/toast';
 import type { CreditCardAdjustmentKind } from '@/lib/types';
 
 function getAdjustmentLabel(kind: CreditCardAdjustmentKind | null) {
@@ -26,8 +29,41 @@ function getAdjustmentLabel(kind: CreditCardAdjustmentKind | null) {
 
 export function CardPaymentMovements() {
   const colors = Colors[useColorScheme() ?? 'light'];
-  const { cardPaymentMovements } = usePaymentDatabase();
+  const { removeExpense } = useMovementDatabase();
+  const { cardPaymentMovements, removeCreditCardAdjustment } = usePaymentDatabase();
   const { selectedPeriodId } = usePeriodDatabase();
+
+  const confirmDelete = useCallback((movement: (typeof cardPaymentMovements)[number]) => {
+    const isPayment = movement.kind === 'payment';
+    const title = movement.name?.trim()
+      || (isPayment ? t('movementLedger.cardPayment') : getAdjustmentLabel(movement.adjustmentKind));
+    Alert.alert(
+      isPayment ? t('expenses.delete') : t('paymentMethods.deleteAdjustment'),
+      isPayment
+        ? t('expenses.deleteQuestion', { name: title })
+        : t('paymentMethods.deleteAdjustmentQuestion'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (isPayment) {
+                await removeExpense(movement.id);
+                showToast(t('expenses.deleted'));
+              } else {
+                await removeCreditCardAdjustment(movement.id);
+                showToast(t('paymentMethods.adjustmentDeleted'));
+              }
+            } catch (error) {
+              Alert.alert(t('common.error'), errorMessage(error, 'errors.couldNotDelete'));
+            }
+          },
+        },
+      ]
+    );
+  }, [removeCreditCardAdjustment, removeExpense]);
 
   const movements = useMemo<AccountMovementListItem[]>(() => (
     cardPaymentMovements.map((movement) => {
@@ -72,9 +108,14 @@ export function CardPaymentMovements() {
           pathname: '/modal/account-movement-detail',
           params: { id: String(movement.id), kind: isPayment ? 'payment' : 'adjustment' },
         } as never),
+        onDelete: () => confirmDelete(movement),
+        deleteAccessibilityLabel: t('movementDetail.deleteNamed', {
+          name: movement.name?.trim()
+            || (isPayment ? t('movementLedger.cardPayment') : getAdjustmentLabel(movement.adjustmentKind)),
+        }),
       };
     })
-  ), [cardPaymentMovements, colors.icon, colors.success, colors.warning]);
+  ), [cardPaymentMovements, colors.icon, colors.success, colors.warning, confirmDelete]);
 
   return (
     <AccountMovementList

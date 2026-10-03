@@ -40,6 +40,8 @@ export type AccountMovementListItem = {
   primaryGroup: { key: string; name: string; color: string };
   secondaryGroup: { key: string; name: string; color: string };
   onPress: () => void;
+  onDelete?: () => void;
+  deleteAccessibilityLabel?: string;
 };
 
 type GroupOption = {
@@ -380,7 +382,22 @@ export function AccountMovementList({
                 </View>
                 <View style={styles.amountColumn}>
                   <ThemedText type="defaultSemiBold">{formatMoney(movement.amount, movement.currency)}</ThemedText>
-                  <Ionicons name="chevron-forward" size={18} color={colors.icon} />
+                  <View style={styles.movementActions}>
+                    <Ionicons name="chevron-forward" size={18} color={colors.icon} />
+                    {movement.onDelete && (
+                      <Pressable
+                        accessibilityLabel={movement.deleteAccessibilityLabel ?? t('common.delete')}
+                        accessibilityRole="button"
+                        hitSlop={8}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          movement.onDelete?.();
+                        }}
+                        style={styles.deleteAction}>
+                        <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
               </ThemedView>
             </Pressable>
@@ -414,6 +431,8 @@ const styles = StyleSheet.create({
   movementCopy: { flex: 1, gap: 3 },
   movementMeta: { fontSize: 12, lineHeight: 17, opacity: 0.62 },
   amountColumn: { alignItems: 'flex-end', gap: 4 },
+  movementActions: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
+  deleteAction: { width: 32, height: 28, alignItems: 'center', justifyContent: 'center' },
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
   sheetPosition: { maxHeight: '75%' },
   sheet: { borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 20, paddingTop: 20, gap: 10 },
