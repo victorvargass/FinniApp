@@ -11,7 +11,7 @@ jobs:
       - uses: eas/checkout
       - uses: eas/install_node_modules
       - name: Database migration contract
-        run: npm run check:database-schema -- --base "${{ github.event.before }}"
+        run: npm run check:database-schema
       - name: Lint, types and tests
         run: npm run check
 
