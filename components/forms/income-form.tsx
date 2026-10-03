@@ -22,6 +22,7 @@ import { Alert } from '@/lib/alert';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
 import { formatCLP, formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { findDuplicateMovement } from '@/lib/movement-duplicate';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
 import type { Income, NewRecurringSchedule } from '@/lib/types';
@@ -38,7 +39,7 @@ type IncomeFormProps = {
 };
 
 export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null, onSuccess }: IncomeFormProps) {
-  const { incomeNames, addIncome, editIncome, removeIncome } = useMovementDatabase();
+  const { incomes, incomeNames, addIncome, editIncome, removeIncome } = useMovementDatabase();
   const { incomeCategories } = useOrganizerDatabase();
   const { addRecurringIncomeFromSource } = useRecurrenceDatabase();
   const { savingsGoals } = useSavingsDatabase();
@@ -163,7 +164,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     setShowAdvancedOptions((current) => !current);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (skipDuplicateWarning = false) => {
     if (!name.trim()) {
       Alert.alert(t('common.error'), t('validation.invalidIncomeName'));
       return;
@@ -205,6 +206,26 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
         );
         return;
       }
+    }
+
+    const duplicate = !income && !templateIncome && !skipDuplicateWarning
+      ? findDuplicateMovement(incomes, { name, amount })
+      : null;
+    if (duplicate) {
+      Alert.alert(
+        t('incomes.duplicateTitle'),
+        t('incomes.duplicateQuestion', {
+          date: formatDate(parseDateString(duplicate.date)),
+        }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.saveAnyway'),
+            onPress: () => { void handleSave(true); },
+          },
+        ]
+      );
+      return;
     }
 
     setSaving(true);
@@ -559,7 +580,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
       <Pressable
         testID="income-save"
         style={[styles.button, styles.footerButton, saving && styles.buttonDisabled]}
-        onPress={handleSave}
+        onPress={() => { void handleSave(); }}
         disabled={saving}>
         <ThemedText style={styles.buttonText}>{income ? t('common.update') : t('common.save')}</ThemedText>
       </Pressable>

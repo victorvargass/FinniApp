@@ -39,6 +39,7 @@ const es = {
     retry: 'Reintentar',
     repeat: 'Duplicar',
     save: 'Guardar',
+    saveAnyway: 'Guardar de todas maneras',
     saveChanges: 'Guardar cambios',
     searchCategory: 'Buscar categoría...',
     select: 'Seleccionar',
@@ -522,6 +523,8 @@ const es = {
     insufficientBalanceTitle: 'Saldo disponible insuficiente',
     availableBalanceWarning: 'El gasto de %{amount} supera el monto disponible de %{available} en %{difference}. El saldo registrado podría estar desactualizado. ¿Deseas continuar de todas formas?',
     continueAnyway: 'Continuar de todas formas',
+    duplicateTitle: 'Posible gasto duplicado',
+    duplicateQuestion: 'Ya existe un gasto con el mismo nombre y monto, registrado el %{date}. ¿Deseas guardarlo de todas maneras?',
     historicalBalanceHint: 'Este movimiento es anterior al saldo sincronizado del %{date}. Se guardará en el historial sin modificar nuevamente el saldo o cupo actual.',
   },
   incomes: {
@@ -554,6 +557,8 @@ const es = {
     destinationHint: 'El ingreso aumentará automáticamente el saldo disponible de este medio.',
     withdrawalDestinationHint: 'El retiro saldrá de la meta y aumentará el saldo disponible de este medio.',
     destinationRequired: 'Selecciona dónde recibirás el dinero.',
+    duplicateTitle: 'Posible ingreso duplicado',
+    duplicateQuestion: 'Ya existe un ingreso con el mismo nombre y monto, registrado el %{date}. ¿Deseas guardarlo de todas maneras?',
     receivedInMeta: ' · Recibido en %{name}',
   },
   movementDetail: {

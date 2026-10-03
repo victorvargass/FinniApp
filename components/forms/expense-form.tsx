@@ -27,6 +27,7 @@ import {
 } from '@/lib/expense-split-mode';
 import { formatCLP, formatCLPInput, formatDate, formatMoney, formatTime, formatUSDInput, parseAmount, parseUSDAmount, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { findDuplicateMovement } from '@/lib/movement-duplicate';
 import { getPaymentMethodOptionGroup } from '@/lib/payment-method-options';
 import { showToast } from '@/lib/toast';
 import { getExpenseShares } from '@/repositories/movements';
@@ -70,7 +71,7 @@ type ExpenseFormProps = {
 
 export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, initialSavingsContribution = false, onSuccess }: ExpenseFormProps) {
   const { categories, contacts } = useOrganizerDatabase();
-  const { expenseNames, addExpense, editExpense } = useMovementDatabase();
+  const { expenses, expenseNames, addExpense, editExpense } = useMovementDatabase();
   const {
     paymentMethods,
     addCreditCardAdjustment,
@@ -545,7 +546,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     }));
   }, [date, expense, makeRecurring]);
 
-  const handleSave = async (skipAvailableBalanceWarning = false) => {
+  const handleSave = async (skipAvailableBalanceWarning = false, skipDuplicateWarning = false) => {
     if (sharesLoading) return;
     if (!name.trim() && !isCardAdjustment) {
       Alert.alert(t('common.error'), t('validation.invalidExpenseName'));
@@ -651,6 +652,30 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         );
         return;
       }
+    }
+
+    const duplicate = !expense && !templateExpense && !isCardAdjustment && !skipDuplicateWarning
+      ? findDuplicateMovement(expenses, {
+          name,
+          amount: totalAmount ?? amountToSave,
+          currency,
+        })
+      : null;
+    if (duplicate) {
+      Alert.alert(
+        t('expenses.duplicateTitle'),
+        t('expenses.duplicateQuestion', {
+          date: formatDate(parseDateString(duplicate.date)),
+        }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.saveAnyway'),
+            onPress: () => { void handleSave(skipAvailableBalanceWarning, true); },
+          },
+        ]
+      );
+      return;
     }
     
     setSaving(true);

@@ -39,6 +39,7 @@ const en = {
     retry: 'Retry',
     repeat: 'Duplicate',
     save: 'Save',
+    saveAnyway: 'Save anyway',
     saveChanges: 'Save changes',
     searchCategory: 'Search categories...',
     select: 'Select',
@@ -522,6 +523,8 @@ const en = {
     insufficientBalanceTitle: 'Insufficient available balance',
     availableBalanceWarning: 'The %{amount} expense exceeds the available %{available} by %{difference}. The recorded balance may be outdated. Do you want to continue anyway?',
     continueAnyway: 'Continue anyway',
+    duplicateTitle: 'Possible duplicate expense',
+    duplicateQuestion: 'An expense with the same name and amount was already recorded on %{date}. Do you want to save it anyway?',
     historicalBalanceHint: 'This transaction predates the balance synced on %{date}. It will remain in your history without changing the current balance or credit again.',
   },
   incomes: {
@@ -554,6 +557,8 @@ const en = {
     destinationHint: 'The income will automatically increase this payment method’s available balance.',
     withdrawalDestinationHint: 'The withdrawal will leave the goal and increase this payment method’s available balance.',
     destinationRequired: 'Select where you will receive the money.',
+    duplicateTitle: 'Possible duplicate income',
+    duplicateQuestion: 'Income with the same name and amount was already recorded on %{date}. Do you want to save it anyway?',
     receivedInMeta: ' · Received in %{name}',
   },
   movementDetail: {
