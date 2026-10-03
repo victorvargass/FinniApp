@@ -5,6 +5,8 @@ import {
   buildHistoricalReport,
   getPeriodCashflow,
 } from '../lib/historical-report.ts';
+import en from '../locales/en.ts';
+import es from '../locales/es.ts';
 
 function period(overrides = {}) {
   return {
@@ -41,6 +43,13 @@ function period(overrides = {}) {
 
 test('historical cashflow includes savings withdrawals without counting them as income', () => {
   assert.equal(getPeriodCashflow(period({ savingsWithdrawalTotal: 200 })), 600);
+});
+
+test('historical copy describes the net result instead of an available account balance', () => {
+  assert.equal(es.history.cashflow, 'Resultado neto');
+  assert.match(es.history.dataNote, /ingresos más retiros de ahorro, menos salidas/);
+  assert.equal(en.history.cashflow, 'Net result');
+  assert.match(en.history.dataNote, /income plus savings withdrawals, minus outflows/);
 });
 
 test('historical report combines periods, categories, savings and debts', () => {
