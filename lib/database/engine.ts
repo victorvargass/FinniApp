@@ -5392,14 +5392,42 @@ export async function setDebtArchived(id: number, archived: boolean): Promise<vo
 export async function deleteDebt(id: number): Promise<void> {
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
-    const managedShare = await transaction.getFirstAsync<{ id: number }>(
-      'SELECT id FROM expense_shares WHERE debt_id = ?', id
+    const debt = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT id FROM manual_debts WHERE id = ?', id
     );
-    if (managedShare) throw new Error(t('database.splitDebtManagedByExpense'));
-    const entries = await transaction.getFirstAsync<{ count: number }>(
-      'SELECT COUNT(*) AS count FROM manual_debt_entries WHERE debt_id = ?', id
+    if (!debt) throw new Error(t('database.debtMissing'));
+    const entries = await transaction.getAllAsync<{
+      expense_id: number | null;
+      income_id: number | null;
+      expense_date: string | null;
+      payment_method_id: number | null;
+    }>(
+      `SELECT entry.expense_id, entry.income_id, expense.date AS expense_date,
+         expense.payment_method_id
+       FROM manual_debt_entries entry
+       LEFT JOIN expenses expense ON expense.id = entry.expense_id
+       WHERE entry.debt_id = ?`,
+      id
     );
-    if (Number(entries?.count ?? 0) > 0) throw new Error(t('database.debtHasHistory'));
+    for (const entry of entries) {
+      if (entry.expense_id != null && entry.expense_date != null) {
+        await assertCreditCardCycleIsEditable(
+          transaction,
+          entry.payment_method_id,
+          entry.expense_date
+        );
+      }
+    }
+    await transaction.runAsync('DELETE FROM expense_shares WHERE debt_id = ?', id);
+    await transaction.runAsync('DELETE FROM manual_debt_entries WHERE debt_id = ?', id);
+    for (const entry of entries) {
+      if (entry.expense_id != null) {
+        await transaction.runAsync('DELETE FROM expenses WHERE id = ?', entry.expense_id);
+      }
+      if (entry.income_id != null) {
+        await transaction.runAsync('DELETE FROM incomes WHERE id = ?', entry.income_id);
+      }
+    }
     const result = await transaction.runAsync('DELETE FROM manual_debts WHERE id = ?', id);
     if (result.changes === 0) throw new Error(t('database.debtMissing'));
   });

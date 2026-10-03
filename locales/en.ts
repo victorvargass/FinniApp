@@ -1220,6 +1220,7 @@ const en = {
     reactivated: 'Debt reactivated successfully',
     delete: 'Delete debt',
     deleteHint: 'This debt will be deleted. This action cannot be undone.',
+    deleteWithHistoryHint: 'This debt and all related movements will be deleted, including payments, collections, adjustments, and associated expenses or income. This action cannot be undone.',
     deleted: 'Debt deleted successfully',
     cannotDelete: 'Can\'t delete',
     cannotDeleteHint: 'This debt has payments or adjustments. You can archive it to preserve its history.',

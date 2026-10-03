@@ -52,8 +52,7 @@ export default function DebtDetailScreen() {
 
   const deleteDebt = () => {
     if (!debt) return;
-    if (debt.entryCount > 0) return Alert.alert(t('debts.cannotDelete'), t('debts.cannotDeleteHint'));
-    Alert.alert(t('debts.delete'), t('debts.deleteHint'), [
+    Alert.alert(t('debts.delete'), t(debt.entryCount > 0 ? 'debts.deleteWithHistoryHint' : 'debts.deleteHint'), [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('common.delete'), style: 'destructive', onPress: () => {
         setWorking(true);
@@ -135,12 +134,12 @@ export default function DebtDetailScreen() {
                 icon: isArchived ? 'refresh-outline' : 'archive-outline',
                 onPress: toggleArchive,
               },
-              ...(debt.entryCount === 0 ? [{
+              {
                 label: t('debts.delete'),
                 icon: 'trash-outline' as const,
                 destructive: true,
                 onPress: deleteDebt,
-              }] : []),
+              },
             ]}
             disabled={working}
           />

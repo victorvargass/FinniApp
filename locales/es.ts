@@ -1220,6 +1220,7 @@ const es = {
     reactivated: 'Deuda reactivada correctamente',
     delete: 'Eliminar deuda',
     deleteHint: 'Se eliminará esta deuda. Esta acción no se puede deshacer.',
+    deleteWithHistoryHint: 'Se eliminarán esta deuda y todos sus movimientos relacionados, incluidos pagos, cobros, ajustes y los gastos o ingresos asociados. Esta acción no se puede deshacer.',
     deleted: 'Deuda eliminada correctamente',
     cannotDelete: 'No se puede eliminar',
     cannotDeleteHint: 'Esta deuda tiene pagos o ajustes. Puedes archivarla para conservar su historial.',
