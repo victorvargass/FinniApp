@@ -3,7 +3,7 @@
     "name": "FinniApp",
     "slug": "GastosApp",
     "description": "Finanzas personales simples para organizar períodos, movimientos, ahorros y deudas.",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
