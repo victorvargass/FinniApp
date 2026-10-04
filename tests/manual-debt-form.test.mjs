@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import esLocale from '../locales/es.ts';
 
 const form = readFileSync(new URL('../app/modal/manual-debt-form.tsx', import.meta.url), 'utf8');
+const detail = readFileSync(new URL('../app/modal/manual-debt-detail.tsx', import.meta.url), 'utf8');
 const esSource = readFileSync(new URL('../locales/es.ts', import.meta.url), 'utf8');
 
 test('new debts use one reported-debt date for creation and balance tracking', () => {
@@ -53,4 +54,11 @@ test('debt date validation uses debt-specific amount terminology', () => {
   assert.match(database, /t\('database\.debtBalanceDateInvalid'\)/);
   assert.match(database, /t\('database\.debtBalanceDateBeforeInitial'\)/);
   assert.match(database, /t\('database\.debtBalanceDateAfterSnapshot'\)/);
+});
+
+test('same-amount debt updates are presented as dated confirmations', () => {
+  assert.equal(esLocale.debts.balanceConfirmation, 'Monto confirmado');
+  assert.match(detail, /entry\.reportedBalance != null && entry\.amount === 0/);
+  assert.match(detail, /latestReportedEntry\?\.date \?\? debt\.balanceDate/);
+  assert.match(detail, /!isBalanceConfirmation && <ThemedText/);
 });
