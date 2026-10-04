@@ -20,6 +20,24 @@ test('Android notification capture is explicit and stores only parsed movement f
   assert.doesNotMatch(store, /notificationBody|rawBody|rawText/);
 });
 
+test('notification access has a prominent local-processing disclosure before Android settings', () => {
+  const screen = read('app/modal/pending-movements.tsx');
+  const es = read('locales/es.ts');
+  const disclosure = es.match(/permissionDescription:[^\n]+/)?.[0] ?? '';
+
+  assert.match(screen, /pendingMovements\.permissionDescription/);
+  assert.match(screen, /pendingMovements\.openAccessSettings/);
+  assert.ok(
+    screen.lastIndexOf('pendingMovements.permissionDescription')
+      < screen.lastIndexOf('openNotificationMovementAccessSettings')
+  );
+  assert.match(disclosure, /título y contenido de notificaciones/);
+  assert.match(disclosure, /nombre, monto, fecha, hora, aplicación de origen y tipo probable/);
+  assert.match(disclosure, /no conservará el texto completo/);
+  assert.match(disclosure, /ni enviará estos datos a servidores/);
+  assert.match(disclosure, /revocar el acceso/);
+});
+
 test('detected movements can be deferred, reviewed, prefilled and removed after saving', () => {
   const controller = read('components/automatic-movement-controller.tsx');
   const screen = read('app/modal/pending-movements.tsx');

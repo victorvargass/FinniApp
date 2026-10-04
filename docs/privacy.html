@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Política de privacidad de FinniApp</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; line-height: 1.55; color: #0b315b; background: #f8f7f4; }
+    body { margin: 0; }
+    main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+    article { background: white; color: #17324d; border-radius: 20px; padding: clamp(20px, 5vw, 44px); box-shadow: 0 8px 28px #0b315b14; }
+    h1, h2 { color: #0b315b; line-height: 1.2; }
+    h1 { margin-top: 0; }
+    h2 { margin-top: 2rem; }
+    .updated { color: #60758a; }
+    a { color: #007f73; }
+    @media (prefers-color-scheme: dark) {
+      :root { background: #071c2f; color: #e8f4fa; }
+      article { background: #0d2943; color: #e8f4fa; box-shadow: none; }
+      h1, h2 { color: #f4fbff; }
+      .updated { color: #afc4d5; }
+      a { color: #5ce1d2; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Política de privacidad de FinniApp</h1>
+      <p class="updated">Vigente desde el 4 de octubre de 2026.</p>
+      <p>FinniApp es una aplicación de finanzas personales que funciona principalmente en el dispositivo. No vende información personal, no incluye publicidad ni analítica de terceros y no opera un servidor propio para almacenar los movimientos financieros del usuario.</p>
+
+      <h2>Información tratada</h2>
+      <p>La aplicación permite registrar períodos, ingresos, gastos, categorías, límites, cuentas y tarjetas, montos de referencia, transferencias, abonos, cuotas, deudas, metas de ahorro, recurrencias, contactos, notas y preferencias. Esta información se guarda localmente en una base SQLite cifrada. También conserva localmente hasta 20 códigos de diagnóstico técnico sin mensajes de error, nombres, notas ni montos.</p>
+      <p>En Android, si el usuario concede voluntariamente el acceso especial a notificaciones, FinniApp puede leer en el dispositivo el título y contenido de notificaciones de otras aplicaciones para detectar posibles movimientos financieros. Solo conserva como sugerencia el nombre detectado, monto, fecha y hora, aplicación de origen y tipo probable; no guarda el texto completo. Estas sugerencias permanecen cifradas en el almacenamiento privado local y no se envían a Sentry ni a servidores. El acceso puede revocarse desde la configuración de Android.</p>
+      <p>FinniApp no se conecta a bancos ni consulta información de instituciones financieras. Los saldos, cupos y movimientos son informados por el usuario.</p>
+
+      <h2>Google Drive opcional</h2>
+      <p>Si el usuario conecta Google Drive, FinniApp accede al nombre, correo electrónico e identificador básico de la cuenta y solicita acceso únicamente a la carpeta privada de datos de la aplicación (<code>drive.appdata</code>). La app funciona sin iniciar sesión.</p>
+      <p>Al respaldar, una copia de la base financiera viaja mediante HTTPS directamente a Google Drive y se almacena en el espacio privado de FinniApp. Esta copia no incorpora cifrado adicional administrado por FinniApp. Se aplican las medidas de seguridad, condiciones y política de privacidad de Google. FinniApp no envía esta información a un servidor del desarrollador.</p>
+
+      <h2>Reportes, soporte y biometría</h2>
+      <p>Los reportes PDF se generan localmente y solo salen del dispositivo si el usuario decide compartirlos, imprimirlos o guardarlos. Al contactar a soporte, FinniApp prepara un correo con códigos y contexto técnico sin datos financieros; se envía únicamente si el usuario lo confirma.</p>
+      <p>Las notificaciones de recordatorio se programan localmente. La autenticación biométrica es realizada por el sistema operativo; FinniApp no recibe ni almacena huellas, rostros ni plantillas biométricas.</p>
+
+      <h2>Monitoreo técnico opcional</h2>
+      <p>El monitoreo de fallos está desactivado por defecto. Si el usuario lo activa, FinniApp utiliza Sentry para recibir el tipo de excepción, stack trace sin variables locales, versión de la app, sistema operativo y modelo general del dispositivo. Antes del envío se eliminan mensajes, usuario, peticiones, navegación, datos adicionales y contextos personalizados. No se envían nombres, montos, notas, movimientos, cuentas, respaldos, capturas ni grabaciones de sesión. El consentimiento puede retirarse en cualquier momento.</p>
+
+      <h2>Conservación y eliminación</h2>
+      <p>Los datos locales permanecen hasta que el usuario los borra desde Configuración, restablece FinniApp o desinstala la aplicación. FinniApp conserva hasta tres respaldos en su carpeta privada de Google Drive e intenta eliminar los más antiguos al crear uno nuevo. Cerrar sesión no elimina los respaldos; pueden eliminarse desde la configuración de aplicaciones de Google Drive. Los eventos ya enviados a Sentry se conservan según la retención configurada para ese proyecto.</p>
+
+      <h2>Seguridad</h2>
+      <p>La base local usa SQLCipher con una clave aleatoria de 256 bits protegida por el almacén seguro del sistema. Los respaldos viajan mediante HTTPS a la carpeta privada de la aplicación, pero no incorporan cifrado adicional administrado por FinniApp. Antes de restaurar, la app valida el formato, tamaño, compatibilidad e integridad SQLite y conserva una copia temporal de recuperación.</p>
+
+      <h2>Menores</h2>
+      <p>FinniApp no está dirigida a menores de edad y no recopila deliberadamente información de menores mediante un servicio propio.</p>
+
+      <h2>Cambios y contacto</h2>
+      <p>Esta política puede actualizarse cuando cambien las funciones o proveedores de la aplicación. Las consultas de privacidad pueden enviarse a <a href="mailto:victorvargassandoval93@gmail.com">victorvargassandoval93@gmail.com</a>.</p>
+    </article>
+  </main>
+</body>
+</html>

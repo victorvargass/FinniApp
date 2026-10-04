@@ -1,6 +1,8 @@
-# Respaldos cifrados de Google Drive
+# Compatibilidad con respaldos cifrados de Google Drive
 
-Los respaldos nuevos se cifran en el dispositivo antes de enviarse a la
+FinniApp puede restaurar respaldos históricos con el sobre cifrado
+`FINNIAPP-BACKUP`. La creación actual de respaldos genera una copia SQLite sin
+cifrado adicional administrado por FinniApp y la envía mediante HTTPS a la
 carpeta privada `appDataFolder` de Google Drive.
 
 ## Formato y controles
@@ -14,26 +16,24 @@ carpeta privada `appDataFolder` de Google Drive.
   invalida el archivo completo.
 - La clave derivada y el SQLite temporal no se envían a logs ni a Sentry.
 
-La contraseña queda asociada localmente a la cuenta Google en SecureStore para
-permitir el respaldo automático. No se sube a Drive ni a servidores de
-FinniApp. En otro dispositivo debe ingresarse nuevamente y no existe un flujo
-de recuperación si se pierde.
+Cuando se restaura un respaldo histórico cifrado, la contraseña debe estar
+disponible en el dispositivo. No se sube a Drive ni a servidores de FinniApp.
 
 ## Compatibilidad
 
-La restauración detecta el sobre cifrado. Los respaldos históricos `.db`
-continúan pasando por la validación SQLite anterior y se pueden restaurar sin
-contraseña. Todos los respaldos creados por esta versión se guardan como
-`.finni`; no existe una opción para crear nuevas copias sin cifrar.
+La restauración detecta el sobre cifrado `.finni`. Los respaldos SQLite `.db`
+continúan pasando por las validaciones de tamaño, formato, esquema e integridad
+y se pueden restaurar sin contraseña. Los respaldos creados por la versión
+actual se guardan como `.db` en el espacio privado de la aplicación.
 
 ## Validación por candidata
 
-1. Configurar una contraseña ficticia y crear un respaldo.
-2. Confirmar que el archivo remoto termina en `.finni` y no contiene la
-   cabecera `SQLite format 3` en claro.
-3. Restaurarlo con la contraseña correcta en otro dispositivo de QA.
+1. Crear un respaldo actual y confirmar que se guarda como `.db` dentro de
+   `appDataFolder`.
+2. Restaurarlo en otro dispositivo de QA y comprobar la migración posterior.
+3. Restaurar un respaldo histórico `.finni` con la contraseña correcta.
 4. Comprobar que una contraseña incorrecta no reemplaza la base local.
-5. Alterar un byte del archivo de prueba y comprobar que falla la autenticidad.
-6. Restaurar un respaldo SQLite legado y comprobar la migración posterior.
-7. Verificar que el respaldo automático se omite antes de configurar la
-   contraseña y funciona después de hacerlo.
+5. Alterar un byte del archivo cifrado de prueba y comprobar que falla la
+   autenticidad.
+6. Confirmar que la política y Data Safety declaran que los respaldos actuales
+   no incorporan cifrado adicional administrado por FinniApp.

@@ -1,6 +1,6 @@
 # Política de privacidad de FinniApp
 
-Vigente desde el 30 de septiembre de 2026.
+Vigente desde el 4 de octubre de 2026.
 
 FinniApp es una aplicación de finanzas personales que funciona principalmente en el dispositivo. No vende información personal, no incluye publicidad ni analítica de terceros y no opera un servidor propio para almacenar los movimientos financieros del usuario.
 
@@ -26,7 +26,7 @@ Si el usuario decide conectar Google Drive, FinniApp accede al nombre, correo el
 
 ## Transferencias y terceros
 
-Cuando se usa el respaldo, la información se cifra en el dispositivo y viaja mediante HTTPS directamente a Google Drive. El archivo cifrado se almacena en el espacio privado de la aplicación dentro de la cuenta del usuario. Se aplican las condiciones y la política de privacidad de Google. FinniApp no envía esta información ni la contraseña a un servidor del desarrollador.
+Cuando se usa el respaldo, una copia de la base financiera viaja mediante HTTPS directamente a Google Drive y se almacena en el espacio privado de la aplicación dentro de la cuenta del usuario. Esta copia no incorpora cifrado adicional administrado por FinniApp. Se aplican las medidas de seguridad, condiciones y política de privacidad de Google. FinniApp no envía esta información a un servidor del desarrollador.
 
 Los reportes PDF se generan localmente. Al generarlos, FinniApp solicita al sistema abrirlos en un lector PDF compatible. Solo salen del dispositivo si el usuario decide compartirlos, imprimirlos o guardarlos mediante el lector o el sistema.
 
@@ -38,11 +38,11 @@ El monitoreo técnico de fallos también es opcional y está desactivado por def
 
 ## Conservación y eliminación
 
-La información local permanece hasta que el usuario la elimina, restablece los datos de FinniApp o desinstala la aplicación. Desde Configuración se pueden borrar los datos locales; esa acción también retira el consentimiento de monitoreo técnico. Al crear un respaldo nuevo, la aplicación intenta eliminar los respaldos anteriores de su carpeta privada. Cerrar sesión no elimina automáticamente el respaldo ya almacenado en Google Drive; este permanece hasta ser reemplazado o eliminado desde la configuración de aplicaciones de Drive. Los eventos técnicos ya enviados a Sentry se conservan según la retención configurada para ese proyecto.
+La información local permanece hasta que el usuario la elimina, restablece los datos de FinniApp o desinstala la aplicación. Desde Configuración se pueden borrar los datos locales; esa acción también retira el consentimiento de monitoreo técnico. FinniApp conserva hasta tres respaldos en su carpeta privada de Google Drive e intenta eliminar los más antiguos al crear uno nuevo. Cerrar sesión no elimina automáticamente los respaldos ya almacenados; permanecen hasta ser reemplazados por la rotación o eliminados desde la configuración de aplicaciones de Drive. Los eventos técnicos ya enviados a Sentry se conservan según la retención configurada para ese proyecto.
 
 ## Seguridad
 
-FinniApp cifra la base local con SQLCipher y una clave aleatoria de 256 bits guardada mediante el almacén seguro del sistema operativo. Al actualizar desde una versión anterior, convierte la base existente sin borrar los movimientos y valida el resultado antes de reemplazar el archivo original. También cifra los respaldos nuevos con una contraseña elegida por el usuario antes de subirlos a Drive y verifica su autenticidad antes de descifrarlos. La contraseña se guarda cifrada por el sistema operativo en este dispositivo para permitir respaldos automáticos y debe ingresarse nuevamente al restaurar en otro teléfono; FinniApp no puede recuperarla. Además valida formato, tamaño, compatibilidad e integridad SQLite antes de reemplazar datos y conserva una copia temporal de recuperación durante la restauración. Los respaldos SQLite antiguos siguen siendo compatibles. La protección biométrica restringe la interfaz y complementa, pero no reemplaza, el cifrado del archivo.
+FinniApp cifra la base local con SQLCipher y una clave aleatoria de 256 bits guardada mediante el almacén seguro del sistema operativo. Al actualizar desde una versión anterior, convierte la base existente sin borrar los movimientos y valida el resultado antes de reemplazar el archivo original. Para respaldar en Google Drive exporta temporalmente una copia SQLite compatible con restauración; esa copia se transmite mediante HTTPS a la carpeta privada de la aplicación, pero no incorpora cifrado adicional administrado por FinniApp. Antes de reemplazar datos durante una restauración, FinniApp valida el formato, tamaño, compatibilidad e integridad SQLite y conserva una copia temporal de recuperación. La protección biométrica restringe la interfaz y complementa, pero no reemplaza, el cifrado del archivo local.
 
 ## Menores
 
