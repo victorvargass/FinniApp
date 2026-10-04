@@ -385,7 +385,6 @@ export function AccountMovementList({
                 <View style={[styles.amountColumn, usesLargeText && styles.amountColumnLargeText]}>
                   <ThemedText type="defaultSemiBold">{formatMoney(movement.amount, movement.currency)}</ThemedText>
                   <View style={styles.movementActions}>
-                    <Ionicons name="chevron-forward" size={18} color={colors.icon} />
                     {movement.onDelete && (
                       <Pressable
                         accessibilityLabel={movement.deleteAccessibilityLabel ?? t('common.delete')}

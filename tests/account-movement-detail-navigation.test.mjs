@@ -30,6 +30,7 @@ test('account movement detail exposes edit and confirmed delete actions', () => 
 test('card payments, adjustments and transfers expose confirmed deletion from their rows', () => {
   assert.match(list, /movement\.onDelete/);
   assert.match(list, /name="trash-outline"/);
+  assert.doesNotMatch(list, /name="chevron-forward"/);
   assert.match(list, /event\.stopPropagation\(\)/);
   assert.match(payments, /onDelete: \(\) => confirmDelete\(movement\)/);
   assert.match(payments, /removeExpense\(movement\.id\)/);
