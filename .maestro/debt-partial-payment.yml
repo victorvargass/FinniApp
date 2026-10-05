@@ -97,6 +97,7 @@ name: FinniApp contact debt and partial payment
 # Un pago parcial debe conservar la deuda y recalcular el saldo.
 - tapOn: 'Prestamo E2E'
 - assertVisible: '$60.000'
+- tapOn: 'Más opciones'
 - tapOn: 'Registrar pago'
 - tapOn:
     id: 'debt-payment-amount-input'
