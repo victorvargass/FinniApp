@@ -18,3 +18,10 @@ test('the Home search shortcut uses the same single-line text', () => {
   assert.match(home, /testID="home-global-search"[\s\S]*ellipsizeMode="tail"[\s\S]*numberOfLines=\{1\}[\s\S]*t\('globalSearch\.placeholder'\)/);
   assert.match(home, /hiddenSections\.includes\('search'\)[\s\S]*renderHomeSection\('search'\)/);
 });
+
+test('movement results open their read-only detail instead of an edit form', () => {
+  assert.match(screen, /result\.kind === 'expense' \|\| result\.kind === 'income'/);
+  assert.match(screen, /pathname: '\/modal\/movement-detail' as never/);
+  assert.match(screen, /params: \{ id: String\(result\.id\), kind: result\.kind \}/);
+  assert.doesNotMatch(screen, /expense: '\/modal\/expense-form'|income: '\/modal\/income-form'/);
+});

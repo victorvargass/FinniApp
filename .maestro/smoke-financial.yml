@@ -148,7 +148,9 @@ name: FinniApp financial smoke test
 - hideKeyboard
 - assertVisible: 'Movimiento para cierre'
 - tapOn: 'Movimiento para cierre'
-- assertVisible: 'Detalle del gasto'
+- extendedWaitUntil:
+    visible: 'Información del movimiento'
+    timeout: 15000
 - back
 
 # Con un solo gasto, cerrar período debe estar habilitado.

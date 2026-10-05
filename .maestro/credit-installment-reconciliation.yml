@@ -152,6 +152,12 @@ name: FinniApp credit installment and reconciliation
     id: 'card-cycle-statement-input'
 - inputText: '0'
 - hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'card-cycle-consolidate'
+    direction: DOWN
+    visibilityPercentage: 80
+    timeout: 30000
 - tapOn:
     id: 'card-cycle-consolidate'
 - extendedWaitUntil:

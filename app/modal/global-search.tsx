@@ -30,15 +30,21 @@ const ICONS: Record<GlobalSearchKind, keyof typeof Ionicons.glyphMap> = {
 };
 
 function openResult(result: GlobalSearchResult) {
+  if (result.kind === 'expense' || result.kind === 'income') {
+    router.push({
+      pathname: '/modal/movement-detail' as never,
+      params: { id: String(result.id), kind: result.kind },
+    });
+    return;
+  }
+
   const pathname = {
-    expense: '/modal/expense-form',
-    income: '/modal/income-form',
     contact: '/modal/contact-form',
     debt: '/modal/manual-debt-detail',
     installment: '/modal/debt-detail',
     'payment-method': '/modal/payment-method-detail',
     'savings-goal': '/modal/savings-goal-detail',
-  }[result.kind];
+  }[result.kind as Exclude<GlobalSearchKind, 'expense' | 'income'>];
   router.push({ pathname: pathname as never, params: { id: String(result.id) } });
 }
 
