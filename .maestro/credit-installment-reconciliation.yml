@@ -31,14 +31,35 @@ name: FinniApp credit installment and reconciliation
 - tapOn:
     id: 'payment-method-credit-limit-input'
 - inputText: '500000'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'payment-method-billing-day-input'
+    direction: DOWN
+    visibilityPercentage: 60
+    timeout: 30000
 - tapOn:
     id: 'payment-method-billing-day-input'
 - eraseText: 4
 - inputText: '28'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'payment-method-due-day-input'
+    direction: DOWN
+    visibilityPercentage: 60
+    timeout: 30000
 - tapOn:
     id: 'payment-method-due-day-input'
 - eraseText: 4
 - inputText: '10'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'payment-method-reported-balance-input'
+    direction: DOWN
+    visibilityPercentage: 60
+    timeout: 30000
 - tapOn:
     id: 'payment-method-reported-balance-input'
 - inputText: '500000'

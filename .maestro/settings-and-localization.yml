@@ -19,6 +19,12 @@ name: FinniApp settings and localization
     direction: DOWN
     visibilityPercentage: 50
     timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: 'EN'
+    direction: DOWN
+    visibilityPercentage: 80
+    timeout: 30000
 - tapOn: 'EN'
 - extendedWaitUntil:
     visible: 'Settings'

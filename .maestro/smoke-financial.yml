@@ -31,7 +31,7 @@ name: FinniApp financial smoke test
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Gestionar metas de ahorro'
-- assertVisible: 'Aún no tienes metas activas'
+- assertVisible: 'No hay metas en este grupo'
 - back
 - scrollUntilVisible:
     element:

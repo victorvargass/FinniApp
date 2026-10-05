@@ -31,6 +31,12 @@ name: FinniApp contact debt and partial payment
     id: 'contact-nickname-input'
 - inputText: 'QA'
 - hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'contact-save'
+    direction: DOWN
+    visibilityPercentage: 80
+    timeout: 30000
 - tapOn:
     id: 'contact-save'
 - extendedWaitUntil:
