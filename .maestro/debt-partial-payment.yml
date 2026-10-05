@@ -60,7 +60,7 @@ name: FinniApp contact debt and partial payment
 - inputText: 'Prestamo E2E'
 - tapOn:
     id: 'debt-contact-select'
-- tapOn: 'Contacto E2E'
+- tapOn: 'Contacto E2E.*'
 - tapOn:
     id: 'debt-initial-amount-input'
 - inputText: '60000'

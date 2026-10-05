@@ -76,6 +76,7 @@ name: FinniApp credit installment and reconciliation
 - extendedWaitUntil:
     visible: 'Tarjeta E2E'
     timeout: 15000
+- back
 
 # Registra una compra proyectada en tres cuotas.
 - tapOn:

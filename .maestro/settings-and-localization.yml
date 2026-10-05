@@ -27,12 +27,12 @@ name: FinniApp settings and localization
     timeout: 30000
 - tapOn: 'EN'
 - extendedWaitUntil:
-    visible: 'Settings'
+    visible: 'Language'
     timeout: 15000
 - assertNotVisible: 'Welcome to FinniApp'
 - tapOn: 'ES'
 - extendedWaitUntil:
-    visible: 'Configuración'
+    visible: 'Idioma'
     timeout: 15000
 - scrollUntilVisible:
     element:

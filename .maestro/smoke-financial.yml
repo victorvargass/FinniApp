@@ -66,6 +66,8 @@ name: FinniApp financial smoke test
 - hideKeyboard
 - tapOn:
     id: 'expense-save'
+- tapOn:
+    id: 'tab-movements'
 - extendedWaitUntil:
     visible: 'Compra E2E'
     timeout: 15000
