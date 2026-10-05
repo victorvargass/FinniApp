@@ -11,6 +11,15 @@ name: FinniApp upgrades a populated v27 database
     visible: 'Período actual'
     timeout: 30000
 
+# Los avisos propios del build de desarrollo pueden cubrir la barra inferior.
+# Se cierran solo en CI; el contenido completo sigue disponible en metro.log.
+- runFlow:
+    when:
+      visible: 'Open debugger to view warnings.'
+    commands:
+      - tapOn:
+          point: '92%,89%'
+
 # Los movimientos anteriores sobreviven a la inicialización y migración real.
 - tapOn:
     id: 'tab-movements'
