@@ -23,5 +23,6 @@ test('movement results open their read-only detail instead of an edit form', () 
   assert.match(screen, /result\.kind === 'expense' \|\| result\.kind === 'income'/);
   assert.match(screen, /pathname: '\/modal\/movement-detail' as never/);
   assert.match(screen, /params: \{ id: String\(result\.id\), kind: result\.kind \}/);
+  assert.match(screen, /testID=\{`global-search-result-\$\{item\.kind\}`\}/);
   assert.doesNotMatch(screen, /expense: '\/modal\/expense-form'|income: '\/modal\/income-form'/);
 });

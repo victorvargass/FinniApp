@@ -136,11 +136,13 @@ test('Android E2E hides the development LogBox overlay without dropping Metro lo
 test('Android E2E follows read-only details and overflow actions', () => {
   const smoke = readFileSync(path.join(root, '.maestro/smoke-financial.yml'), 'utf8');
   const debt = readFileSync(path.join(root, '.maestro/debt-partial-payment.yml'), 'utf8');
+  const credit = readFileSync(path.join(root, '.maestro/credit-installment-reconciliation.yml'), 'utf8');
 
-  assert.match(smoke, /tapOn: 'Movimiento para cierre'\s+- extendedWaitUntil:\s+visible: 'Información del movimiento'/);
+  assert.match(smoke, /id: 'global-search-result-expense'\s+- extendedWaitUntil:\s+visible: 'Información del movimiento'/);
   assert.match(smoke, /tapOn: 'Administrar período'\s+- tapOn: 'Cerrar período'/);
   assert.doesNotMatch(smoke, /id: 'period-close'|assertVisible: 'Editar gasto'/);
   assert.match(debt, /tapOn: 'Más opciones'\s+- tapOn: 'Registrar pago'/);
+  assert.match(credit, /id: 'card-cycle-consolidate'\s+- tapOn: 'Consolidar'/);
 });
 
 test('the preview update workflow uses the Node version required by the test suite', () => {

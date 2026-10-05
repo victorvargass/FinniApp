@@ -147,7 +147,8 @@ name: FinniApp financial smoke test
 - inputText: 'Movimiento para cierre'
 - hideKeyboard
 - assertVisible: 'Movimiento para cierre'
-- tapOn: 'Movimiento para cierre'
+- tapOn:
+    id: 'global-search-result-expense'
 - extendedWaitUntil:
     visible: 'Información del movimiento'
     timeout: 15000

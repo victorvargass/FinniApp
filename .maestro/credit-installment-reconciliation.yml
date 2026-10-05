@@ -160,6 +160,7 @@ name: FinniApp credit installment and reconciliation
     timeout: 30000
 - tapOn:
     id: 'card-cycle-consolidate'
+- tapOn: 'Consolidar'
 - extendedWaitUntil:
     visible: 'Consolidado · historial protegido'
     timeout: 15000

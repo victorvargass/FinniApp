@@ -112,7 +112,8 @@ export default function GlobalSearchScreen() {
                 accessibilityRole="button"
                 key={item.key}
                 onPress={() => openResult(item)}
-                style={({ pressed }) => pressed && styles.pressed}>
+                style={({ pressed }) => pressed && styles.pressed}
+                testID={`global-search-result-${item.kind}`}>
                 <ThemedView style={[styles.result, { borderColor: colors.border }]}>
                   <View style={[styles.icon, { backgroundColor: `${colors.action}18` }]}><Ionicons name={ICONS[item.kind]} size={20} color={colors.action} /></View>
                   <View style={styles.copy}>
