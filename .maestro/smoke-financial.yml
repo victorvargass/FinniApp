@@ -153,6 +153,7 @@ name: FinniApp financial smoke test
     visible: 'Información del movimiento'
     timeout: 15000
 - back
+- back
 
 # Con un solo gasto, cerrar período debe estar habilitado.
 - tapOn:

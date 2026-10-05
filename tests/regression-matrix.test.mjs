@@ -138,7 +138,7 @@ test('Android E2E follows read-only details and overflow actions', () => {
   const debt = readFileSync(path.join(root, '.maestro/debt-partial-payment.yml'), 'utf8');
   const credit = readFileSync(path.join(root, '.maestro/credit-installment-reconciliation.yml'), 'utf8');
 
-  assert.match(smoke, /id: 'global-search-result-expense'\s+- extendedWaitUntil:\s+visible: 'Información del movimiento'/);
+  assert.match(smoke, /id: 'global-search-result-expense'\s+- extendedWaitUntil:\s+visible: 'Información del movimiento'[\s\S]*?- back\s+- back\s+\n# Con un solo gasto/);
   assert.match(smoke, /tapOn: 'Administrar período'\s+- tapOn: 'Cerrar período'/);
   assert.doesNotMatch(smoke, /id: 'period-close'|assertVisible: 'Editar gasto'/);
   assert.match(debt, /tapOn: 'Más opciones'\s+- tapOn: 'Registrar pago'/);
