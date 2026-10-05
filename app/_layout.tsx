@@ -10,6 +10,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/quicksand';
 import { useEffect, useState } from 'react';
+import { LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -28,6 +29,12 @@ import { OnboardingProvider, useOnboarding } from '@/contexts/OnboardingContext'
 import { ThemePreferenceProvider } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors, Fonts } from '@/constants/theme';
+
+if (__DEV__ && process.env.EXPO_PUBLIC_E2E_DISABLE_LOGBOX === '1') {
+  // Maestro still captures every warning in metro.log; only the touch-blocking
+  // development overlay is disabled for automated journeys.
+  LogBox.ignoreAllLogs();
+}
 
 export const unstable_settings = {
   anchor: '(tabs)',

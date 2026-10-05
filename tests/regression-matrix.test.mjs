@@ -101,6 +101,7 @@ test('Android E2E distinguishes Maestro failures from emulator cleanup failures'
   assert.match(runner, /set -euo pipefail/);
   assert.match(runner, /EXPO_PUBLIC_E2E_LANGUAGE=es/);
   assert.match(runner, /EXPO_PUBLIC_E2E_DISABLE_FEATURE_GUIDES=1/);
+  assert.match(runner, /EXPO_PUBLIC_E2E_DISABLE_LOGBOX=1/);
   assert.match(runner, /expo start --dev-client --localhost/);
   assert.match(runner, /packager-status:running/);
   assert.match(runner, /adb reverse tcp:8081 tcp:8081/);
@@ -122,6 +123,14 @@ test('Android E2E feature-guide override is isolated from normal application bui
   assert.match(featureGuide, /process\.env\.EXPO_PUBLIC_E2E_DISABLE_FEATURE_GUIDES === '1'/);
   assert.match(featureGuide, /if \(FEATURE_GUIDES_DISABLED_FOR_E2E\) return/);
   assert.match(featureGuide, /if \(!FEATURE_GUIDES_DISABLED_FOR_E2E\) setVisible\(true\)/);
+});
+
+test('Android E2E hides the development LogBox overlay without dropping Metro logs', () => {
+  const layout = readFileSync(path.join(root, 'app/_layout.tsx'), 'utf8');
+  const runner = readFileSync(path.join(root, 'scripts/run-android-e2e.sh'), 'utf8');
+  assert.match(layout, /__DEV__ && process\.env\.EXPO_PUBLIC_E2E_DISABLE_LOGBOX === '1'/);
+  assert.match(layout, /LogBox\.ignoreAllLogs\(\)/);
+  assert.match(runner, /> "\$RUNNER_TEMP\/metro\.log" 2>&1/);
 });
 
 test('the preview update workflow uses the Node version required by the test suite', () => {
