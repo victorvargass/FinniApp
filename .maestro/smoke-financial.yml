@@ -18,7 +18,7 @@ name: FinniApp financial smoke test
 - scrollUntilVisible:
     element:
       text: 'Deudas y pagos'
-    direction: UP
+    direction: DOWN
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Gestionar deudas y cuotas'
@@ -27,7 +27,7 @@ name: FinniApp financial smoke test
 - scrollUntilVisible:
     element:
       text: 'Metas de ahorro'
-    direction: UP
+    direction: DOWN
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Gestionar metas de ahorro'
@@ -111,7 +111,7 @@ name: FinniApp financial smoke test
 - scrollUntilVisible:
     element:
       id: 'income-delete'
-    direction: UP
+    direction: DOWN
     visibilityPercentage: 50
     timeout: 30000
 - tapOn:

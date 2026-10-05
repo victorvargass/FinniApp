@@ -18,7 +18,7 @@ name: FinniApp credit installment and reconciliation
 - scrollUntilVisible:
     element:
       text: 'Medios de pago'
-    direction: UP
+    direction: DOWN
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Configurar medios de pago'
@@ -99,7 +99,7 @@ name: FinniApp credit installment and reconciliation
 - scrollUntilVisible:
     element:
       text: 'Deudas y pagos'
-    direction: UP
+    direction: DOWN
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Gestionar deudas y cuotas'

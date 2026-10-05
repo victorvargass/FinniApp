@@ -47,7 +47,7 @@ name: FinniApp upgrades a populated v27 database
 - scrollUntilVisible:
     element:
       text: 'Metas de ahorro'
-    direction: UP
+    direction: DOWN
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Gestionar metas de ahorro'

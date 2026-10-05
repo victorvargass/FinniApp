@@ -18,7 +18,7 @@ name: FinniApp contact debt and partial payment
 - scrollUntilVisible:
     element:
       text: 'Grupos y categorías'
-    direction: UP
+    direction: DOWN
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Grupos y categorías'
@@ -43,7 +43,7 @@ name: FinniApp contact debt and partial payment
 - scrollUntilVisible:
     element:
       text: 'Deudas y pagos'
-    direction: UP
+    direction: DOWN
     visibilityPercentage: 50
     timeout: 30000
 - tapOn: 'Gestionar deudas y cuotas'
