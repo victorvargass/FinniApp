@@ -72,6 +72,8 @@ name: FinniApp financial smoke test
     visible: 'Compra E2E'
     timeout: 15000
 - tapOn: 'Compra E2E'
+- tapOn: 'Más opciones'
+- tapOn: 'Editar'
 - tapOn:
     id: 'expense-name-input'
 - eraseText: 50
@@ -82,8 +84,7 @@ name: FinniApp financial smoke test
 - extendedWaitUntil:
     visible: 'Compra E2E editada'
     timeout: 15000
-- tapOn: 'Acciones para Compra E2E editada'
-- assertVisible: 'Selecciona qué deseas hacer'
+- tapOn: 'Más opciones'
 - tapOn: 'Eliminar'
 - assertVisible: '¿Eliminar "Compra E2E editada"?'
 - tapOn: 'Eliminar'
@@ -106,18 +107,13 @@ name: FinniApp financial smoke test
 - extendedWaitUntil:
     visible: 'Ingreso E2E'
     timeout: 15000
-- tapOn: 'Acciones para Ingreso E2E'
-- assertVisible: 'Selecciona qué deseas hacer'
+- tapOn: 'Ingreso E2E'
+- tapOn: 'Más opciones'
 - tapOn: 'Editar'
 - assertVisible: 'Editar ingreso'
-- scrollUntilVisible:
-    element:
-      id: 'income-delete'
-    direction: DOWN
-    visibilityPercentage: 50
-    timeout: 30000
-- tapOn:
-    id: 'income-delete'
+- back
+- tapOn: 'Más opciones'
+- tapOn: 'Eliminar'
 - assertVisible: '¿Eliminar "Ingreso E2E"?'
 - tapOn: 'Eliminar'
 - assertNotVisible: 'Ingreso E2E'

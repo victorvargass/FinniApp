@@ -61,6 +61,13 @@ name: FinniApp contact debt and partial payment
 - tapOn:
     id: 'debt-contact-select'
 - tapOn: 'Contacto E2E.*'
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: 'debt-initial-amount-input'
+    direction: DOWN
+    visibilityPercentage: 60
+    timeout: 30000
 - tapOn:
     id: 'debt-initial-amount-input'
 - inputText: '60000'
