@@ -4,7 +4,7 @@ set -euo pipefail
 
 : "${RUNNER_TEMP:?RUNNER_TEMP must be set by GitHub Actions}"
 
-EXPO_PUBLIC_E2E_LANGUAGE=es CI=1 npx expo start --dev-client --localhost > "$RUNNER_TEMP/metro.log" 2>&1 &
+EXPO_PUBLIC_E2E_LANGUAGE=es EXPO_PUBLIC_E2E_DISABLE_FEATURE_GUIDES=1 CI=1 npx expo start --dev-client --localhost > "$RUNNER_TEMP/metro.log" 2>&1 &
 METRO_PID=$!
 trap 'kill "$METRO_PID" 2>/dev/null || true' EXIT
 

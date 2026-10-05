@@ -100,6 +100,7 @@ test('Android E2E distinguishes Maestro failures from emulator cleanup failures'
   assert.match(workflow, /runner\.temp.*metro\.log/);
   assert.match(runner, /set -euo pipefail/);
   assert.match(runner, /EXPO_PUBLIC_E2E_LANGUAGE=es/);
+  assert.match(runner, /EXPO_PUBLIC_E2E_DISABLE_FEATURE_GUIDES=1/);
   assert.match(runner, /expo start --dev-client --localhost/);
   assert.match(runner, /packager-status:running/);
   assert.match(runner, /adb reverse tcp:8081 tcp:8081/);
@@ -114,6 +115,13 @@ test('Android E2E language override is isolated from normal device language dete
   assert.match(i18n, /process\.env\.EXPO_PUBLIC_E2E_LANGUAGE/);
   assert.match(i18n, /e2eLanguage === 'es' \|\| e2eLanguage === 'en'/);
   assert.match(i18n, /getLocales\(\)\[0\]\?\.languageCode/);
+});
+
+test('Android E2E feature-guide override is isolated from normal application builds', () => {
+  const featureGuide = readFileSync(path.join(root, 'components/feature-guide.tsx'), 'utf8');
+  assert.match(featureGuide, /process\.env\.EXPO_PUBLIC_E2E_DISABLE_FEATURE_GUIDES === '1'/);
+  assert.match(featureGuide, /if \(FEATURE_GUIDES_DISABLED_FOR_E2E\) return/);
+  assert.match(featureGuide, /if \(!FEATURE_GUIDES_DISABLED_FOR_E2E\) setVisible\(true\)/);
 });
 
 test('the preview update workflow uses the Node version required by the test suite', () => {

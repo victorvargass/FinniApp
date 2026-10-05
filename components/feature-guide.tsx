@@ -24,11 +24,13 @@ export type FeatureGuideSlide = {
 };
 
 const GUIDE_STORAGE_PREFIX = '@finniapp/feature-guide-v1/';
+const FEATURE_GUIDES_DISABLED_FOR_E2E = process.env.EXPO_PUBLIC_E2E_DISABLE_FEATURE_GUIDES === '1';
 
 export function useFeatureGuide(key: FeatureGuideKey) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    if (FEATURE_GUIDES_DISABLED_FOR_E2E) return;
     let active = true;
     AsyncStorage.getItem(`${GUIDE_STORAGE_PREFIX}${key}`)
       .then((value) => {
@@ -45,7 +47,9 @@ export function useFeatureGuide(key: FeatureGuideKey) {
 
   return {
     visible,
-    open: () => setVisible(true),
+    open: () => {
+      if (!FEATURE_GUIDES_DISABLED_FOR_E2E) setVisible(true);
+    },
     close,
   };
 }
