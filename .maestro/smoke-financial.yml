@@ -104,6 +104,7 @@ name: FinniApp financial smoke test
 - hideKeyboard
 - tapOn:
     id: 'income-save'
+- tapOn: 'Ingresos'
 - extendedWaitUntil:
     visible: 'Ingreso E2E'
     timeout: 15000
@@ -131,6 +132,7 @@ name: FinniApp financial smoke test
 - hideKeyboard
 - tapOn:
     id: 'expense-save'
+- tapOn: 'Gastos'
 - extendedWaitUntil:
     visible: 'Movimiento para cierre'
     timeout: 15000

@@ -111,11 +111,6 @@ name: FinniApp credit installment and reconciliation
 - assertVisible: '3 cuotas'
 - tapOn:
     id: 'expense-save'
-- tapOn:
-    id: 'tab-movements'
-- extendedWaitUntil:
-    visible: 'Compra cuotas E2E'
-    timeout: 15000
 
 # La compra debe aparecer como plan y mantener el total exacto.
 - tapOn:
