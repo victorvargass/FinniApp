@@ -1,17 +1,13 @@
-import type { PublishedUpdateStatus } from './app-update-info';
-
 type CurrentUpdateToastInput = {
   activeUpdateId: string | null;
-  lastConfirmedUpdateId: string | null;
-  status: PublishedUpdateStatus;
+  previousActiveUpdateId: string | null;
 };
 
 export function shouldShowCurrentUpdateToast({
   activeUpdateId,
-  lastConfirmedUpdateId,
-  status,
+  previousActiveUpdateId,
 }: CurrentUpdateToastInput): boolean {
   return activeUpdateId != null
-    && activeUpdateId !== lastConfirmedUpdateId
-    && status.kind === 'current';
+    && previousActiveUpdateId != null
+    && activeUpdateId !== previousActiveUpdateId;
 }

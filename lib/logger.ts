@@ -10,7 +10,9 @@ export type LogContext =
   | 'forecast.load'
   | 'report.export'
   | 'csv.export'
-  | 'updates.currentToast';
+  | 'updates.currentToast'
+  | 'updates.reload'
+  | 'updates.storeCheck';
 
 export type AppDiagnostic = {
   timestamp: string;

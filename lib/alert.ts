@@ -26,7 +26,7 @@ export const Alert = {
     }
     NativeAlert.alert(title, safeMessage, buttons, {
       ...options,
-      cancelable: true,
+      cancelable: options?.cancelable ?? true,
     });
   },
 };
