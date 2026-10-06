@@ -18,6 +18,7 @@ import kotlin.math.abs
 internal data class PendingMovement(
   val id: String,
   val sourceApp: String,
+  val sourcePackage: String = id.substringBefore(':'),
   val name: String,
   val amount: Long,
   val occurredAt: Long,
@@ -29,6 +30,7 @@ internal data class PendingMovement(
   fun toJson() = JSONObject().apply {
     put("id", id)
     put("sourceApp", sourceApp)
+    put("sourcePackage", sourcePackage)
     put("name", name)
     put("amount", amount)
     put("currency", "CLP")
@@ -43,6 +45,11 @@ internal data class PendingMovement(
     fun fromJson(json: JSONObject) = PendingMovement(
       id = json.getString("id"),
       sourceApp = json.getString("sourceApp"),
+      sourcePackage = if (json.isNull("sourcePackage")) {
+        json.getString("id").substringBefore(':')
+      } else {
+        json.getString("sourcePackage")
+      },
       name = json.getString("name"),
       amount = json.getLong("amount"),
       occurredAt = json.getLong("occurredAt"),

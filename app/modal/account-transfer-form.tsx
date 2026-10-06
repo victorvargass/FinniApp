@@ -22,7 +22,7 @@ import { showToast } from '@/lib/toast';
 import type { AccountTransfer, NewAccountTransfer } from '@/lib/types';
 
 export default function AccountTransferFormScreen() {
-  const { id, sourcePaymentMethodId, candidateId, initialName, initialAmount, initialDate, initialTime } = useLocalSearchParams<{
+  const { id, sourcePaymentMethodId, candidateId, initialName, initialAmount, initialDate, initialTime, fromDetectedMovement } = useLocalSearchParams<{
     id?: string;
     sourcePaymentMethodId?: string;
     candidateId?: string;
@@ -30,6 +30,7 @@ export default function AccountTransferFormScreen() {
     initialAmount?: string;
     initialDate?: string;
     initialTime?: string;
+    fromDetectedMovement?: string;
   }>();
   const transferId = Number(id);
   const requestedSourceId = Number(sourcePaymentMethodId);
@@ -87,14 +88,19 @@ export default function AccountTransferFormScreen() {
 
   useEffect(() => {
     if (Number.isInteger(transferId) || transferAccounts.length < 1 || sourceId != null) return;
+    if (fromDetectedMovement === 'true' && !Number.isInteger(requestedSourceId)) return;
     const preferredId = Number.isInteger(requestedSourceId)
       ? requestedSourceId
       : settings.defaultPaymentMethodId;
     const preferred = transferAccounts.find((method) => method.id === preferredId) ?? transferAccounts[0];
     setSourceId(preferred.id);
-  }, [requestedSourceId, settings.defaultPaymentMethodId, sourceId, transferAccounts, transferId]);
+  }, [fromDetectedMovement, requestedSourceId, settings.defaultPaymentMethodId, sourceId, transferAccounts, transferId]);
 
   useEffect(() => {
+    if (sourceId == null) {
+      setDestinationId(null);
+      return;
+    }
     if (destinationId != null && destinationId !== sourceId) return;
     setDestinationId(transferAccounts.find((method) => method.id !== sourceId)?.id ?? null);
   }, [destinationId, sourceId, transferAccounts]);

@@ -13,12 +13,13 @@ import { removePendingNotificationMovement } from '@/lib/notification-movements'
 import type { CreditCardAdjustment, ExpenseWithCategory } from '@/lib/types';
 
 export default function ExpenseFormModal() {
-  const { id, repeatId, creditPaymentTargetId, initialCreditPaymentTargetId, initialPaymentMethodId, cardPayment, adjustmentId, savingsGoalId, savingsContribution, candidateId, initialName, initialAmount, initialDate, initialTime } = useLocalSearchParams<{
+  const { id, repeatId, creditPaymentTargetId, initialCreditPaymentTargetId, initialPaymentMethodId, fromDetectedMovement, cardPayment, adjustmentId, savingsGoalId, savingsContribution, candidateId, initialName, initialAmount, initialDate, initialTime } = useLocalSearchParams<{
     id?: string;
     repeatId?: string;
     creditPaymentTargetId?: string;
     initialCreditPaymentTargetId?: string;
     initialPaymentMethodId?: string;
+    fromDetectedMovement?: string;
     cardPayment?: string;
     adjustmentId?: string;
     savingsGoalId?: string;
@@ -147,6 +148,7 @@ export default function ExpenseFormModal() {
           ? Number(creditPaymentTargetId ?? initialCreditPaymentTargetId)
           : undefined}
         initialPaymentMethodId={initialPaymentMethodId ? Number(initialPaymentMethodId) : undefined}
+        preferNoPaymentMethod={fromDetectedMovement === 'true' && !initialPaymentMethodId}
         initialSavingsGoalId={savingsGoalId ? Number(savingsGoalId) : undefined}
         initialSavingsContribution={savingsContribution === 'true'}
         initialName={initialName}

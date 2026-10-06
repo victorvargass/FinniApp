@@ -15,6 +15,7 @@ class FinancialNotificationListenerService : NotificationListenerService() {
   override fun onNotificationPosted(sbn: StatusBarNotification) {
     if (sbn.packageName == packageName || sbn.notification.flags and Notification.FLAG_ONGOING_EVENT != 0) return
     if (sbn.packageName in NotificationMovementParser.EXCLUDED_SOURCE_PACKAGES) return
+    if (!NotificationMovementSourceStore.isEnabled(applicationContext, sbn.packageName)) return
     val trustedFinancialSource = sbn.packageName in NotificationMovementParser.TRUSTED_FINANCIAL_PACKAGES
     if (!trustedFinancialSource && sbn.notification.category in setOf(
         Notification.CATEGORY_MESSAGE,
@@ -31,9 +32,11 @@ class FinancialNotificationListenerService : NotificationListenerService() {
     } catch (_: Exception) {
       sbn.packageName
     }
+    NotificationMovementSourceStore.remember(applicationContext, sbn.packageName, sourceApp)
     val movement = PendingMovement(
       id = "${sbn.packageName}:${sbn.id}:${sbn.postTime}",
       sourceApp = sourceApp,
+      sourcePackage = sbn.packageName,
       name = parsed.name.ifBlank { sourceApp },
       amount = parsed.amount,
       occurredAt = sbn.postTime,

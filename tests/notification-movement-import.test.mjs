@@ -97,3 +97,33 @@ test('home highlights detected pending movements and opens their review screen',
   assert.match(es, /pendingNotificationMovementsTitle: 'Movimientos pendientes por revisar'/);
   assert.match(en, /pendingNotificationMovementsTitle: 'Pending transactions to review'/);
 });
+
+test('detected financial apps can be enabled or disabled independently', () => {
+  const listener = read('modules/notification-movements/android/src/main/java/com/vitoco18/finniapp/notificationmovements/FinancialNotificationListenerService.kt');
+  const sourceStore = read('modules/notification-movements/android/src/main/java/com/vitoco18/finniapp/notificationmovements/NotificationMovementSourceStore.kt');
+  const nativeModule = read('modules/notification-movements/android/src/main/java/com/vitoco18/finniapp/notificationmovements/NotificationMovementsModule.kt');
+  const screen = read('app/modal/pending-movements.tsx');
+
+  assert.ok(listener.indexOf('NotificationMovementSourceStore.isEnabled') < listener.indexOf('Notification.EXTRA_TITLE'));
+  assert.match(listener, /NotificationMovementSourceStore\.remember/);
+  assert.match(sourceStore, /DISABLED_PACKAGES/);
+  assert.match(nativeModule, /getSourcesAsync/);
+  assert.match(nativeModule, /setSourceEnabledAsync/);
+  assert.match(screen, /pendingMovements\.sourcesTitle/);
+  assert.match(screen, /setNotificationMovementSourceEnabled/);
+  assert.match(screen, /<Switch/);
+});
+
+test('detected movements do not fall back to an unrelated default payment method', () => {
+  const routes = read('lib/notification-movements.ts');
+  const expenseModal = read('app/modal/expense-form.tsx');
+  const incomeModal = read('app/modal/income-form.tsx');
+  const expenseForm = read('components/forms/expense-form.tsx');
+  const incomeForm = read('components/forms/income-form.tsx');
+
+  assert.match(routes, /fromDetectedMovement: 'true'/);
+  assert.match(expenseModal, /preferNoPaymentMethod=\{fromDetectedMovement === 'true' && !initialPaymentMethodId\}/);
+  assert.match(incomeModal, /preferNoPaymentMethod=\{fromDetectedMovement === 'true' && !initialPaymentMethodId\}/);
+  assert.match(expenseForm, /preferNoPaymentMethod \? null : settings\.defaultPaymentMethodId/);
+  assert.match(incomeForm, /preferNoPaymentMethod \? null : defaultPaymentMethodId/);
+});

@@ -36,6 +36,22 @@ class NotificationMovementsModule : Module() {
       val context = requireNotNull(appContext.reactContext)
       PendingMovementStore.remove(context, id)
     }
+
+    AsyncFunction("getSourcesAsync") {
+      val context = requireNotNull(appContext.reactContext)
+      NotificationMovementSourceStore.list(context).map { source ->
+        mapOf(
+          "packageName" to source.packageName,
+          "name" to source.name,
+          "enabled" to source.enabled,
+        )
+      }
+    }
+
+    AsyncFunction("setSourceEnabledAsync") { packageName: String, enabled: Boolean ->
+      val context = requireNotNull(appContext.reactContext)
+      NotificationMovementSourceStore.setEnabled(context, packageName, enabled)
+    }
   }
 }
 
