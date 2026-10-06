@@ -35,6 +35,9 @@ test('payment method detail moves operational and configuration actions to an ov
   assert.match(paymentMethod, /<OverflowMenu/);
   assert.match(paymentMethod, /label: t\('paymentMethods\.updateBalance'\)/);
   assert.match(paymentMethod, /label: t\('paymentMethods\.payCard'\)/);
+  assert.match(paymentMethod, /label: t\('paymentMethods\.payBilledAmount'\)/);
+  assert.match(paymentMethod, /initialAmount: String\(method\.billedAmount\)/);
+  assert.match(paymentMethod, /initialName: t\('paymentMethods\.billedPaymentName'/);
   assert.match(paymentMethod, /label: t\('transfers\.action'\)/);
   assert.match(paymentMethod, /t\('paymentMethods\.installmentPurchases'\)/);
   assert.match(paymentMethod, /t\('paymentMethods\.cycles'\)/);

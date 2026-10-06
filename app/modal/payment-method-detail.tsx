@@ -93,7 +93,18 @@ export default function PaymentMethodDetailScreen() {
                   params: { id: String(method.id) },
                 }),
               }] : []),
-              ...(isCredit ? [{
+              ...(isCredit ? [...(method.billedAmount > 0 ? [{
+                label: t('paymentMethods.payBilledAmount'),
+                icon: 'checkmark-circle-outline' as const,
+                onPress: () => router.push({
+                  pathname: '/modal/expense-form',
+                  params: {
+                    creditPaymentTargetId: String(method.id),
+                    initialAmount: String(method.billedAmount),
+                    initialName: t('paymentMethods.billedPaymentName', { name: method.name }),
+                  },
+                }),
+              }] : []), {
                 label: t('paymentMethods.payCard'),
                 icon: 'cash-outline' as const,
                 onPress: () => router.push({

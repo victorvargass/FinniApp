@@ -19,6 +19,18 @@ export const styles = StyleSheet.create({
     marginBottom: 4,
     fontWeight: '600',
   },
+  amountHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  amountShortcut: {
+    marginTop: 8,
+    marginBottom: 4,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   input: {
     borderWidth: 1,
     borderRadius: 8,

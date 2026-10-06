@@ -834,7 +834,22 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
       )}
 
       <View style={styles.formRemainder} onTouchStart={() => setIsNameFocused(false)}>
-        <ThemedText style={styles.label}>{totalAmountLabel}</ThemedText>
+        <View style={styles.amountHeader}>
+          <ThemedText style={styles.label}>{totalAmountLabel}</ThemedText>
+          {isDedicatedCardPaymentFlow
+            && currency === 'CLP'
+            && targetCreditCard != null
+            && targetCreditCard.billedAmount > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => setAmountText(formatCLPInput(targetCreditCard.billedAmount))}>
+                <ThemedText style={[styles.amountShortcut, { color: colors.action }]}>
+                  {t('paymentMethods.useBilledAmount')}
+                </ThemedText>
+              </Pressable>
+            )}
+        </View>
         <TextInput
           accessibilityLabel={totalAmountLabel}
           testID="expense-amount-input"
