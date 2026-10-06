@@ -51,6 +51,10 @@ jobs:
           api-level: 35
           arch: x86_64
           profile: pixel_6
+          # Pin the headless software renderer used by the action. Running the
+          # Maestro flows sequentially below prevents concurrent drivers from
+          # exhausting this single emulator.
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           disable-linux-hw-accel: false
           script: bash scripts/run-android-e2e.sh

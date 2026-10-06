@@ -95,6 +95,7 @@ test('Android E2E distinguishes Maestro failures from emulator cleanup failures'
   const runner = readFileSync(path.join(root, 'scripts/run-android-e2e.sh'), 'utf8');
   assert.match(workflow, /MODE="0666"/);
   assert.match(workflow, /disable-linux-hw-accel: false/);
+  assert.match(workflow, /emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none/);
   assert.match(workflow, /continue-on-error: true/);
   assert.match(workflow, /script: bash scripts\/run-android-e2e\.sh/);
   assert.match(workflow, /runner\.temp.*metro\.log/);
@@ -107,6 +108,8 @@ test('Android E2E distinguishes Maestro failures from emulator cleanup failures'
   assert.match(runner, /adb reverse tcp:8081 tcp:8081/);
   assert.match(runner, /settings put global hide_error_dialogs 1/);
   assert.match(runner, /android\.intent\.action\.CLOSE_SYSTEM_DIALOGS/);
+  assert.match(runner, /for flow in "\$\{MAESTRO_FLOWS\[@\]\}"/);
+  assert.match(runner, /"\$HOME\/\.maestro\/bin\/maestro" test "\$flow"/);
   assert.match(runner, /touch "\$RUNNER_TEMP\/finniapp-maestro-passed"/);
   assert.match(workflow, /if \[\[ ! -f "\$RUNNER_TEMP\/finniapp-maestro-passed" \]\]/);
 });

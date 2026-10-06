@@ -35,13 +35,36 @@ adb push "$RUNNER_TEMP/gastos-v27.db" /data/local/tmp/gastos.db
 adb shell run-as com.vitoco18.FinniApp mkdir -p files/SQLite
 adb shell run-as com.vitoco18.FinniApp cp /data/local/tmp/gastos.db files/SQLite/gastos.db
 
-"$HOME/.maestro/bin/maestro" test .maestro/upgrade-from-v27.yml
-"$HOME/.maestro/bin/maestro" test \
-  .maestro/onboarding-full.yml \
-  .maestro/smoke-financial.yml \
-  .maestro/debt-partial-payment.yml \
-  .maestro/credit-installment-reconciliation.yml \
-  .maestro/settings-and-localization.yml \
+run_maestro_flow() {
+  local flow="$1"
+
+  # Passing several files to a single Maestro invocation runs them concurrently.
+  # A single hosted emulator cannot reliably serve several Android drivers at
+  # once, and eventually becomes offline. Keep the critical journeys isolated.
+  adb wait-for-device
+  if [[ "$(adb get-state)" != "device" ]]; then
+    echo "::error::Android emulator is unavailable before $flow"
+    exit 1
+  fi
+
+  echo "::group::Maestro $flow"
+  "$HOME/.maestro/bin/maestro" test "$flow"
+  echo "::endgroup::"
+}
+
+run_maestro_flow .maestro/upgrade-from-v27.yml
+
+MAESTRO_FLOWS=(
+  .maestro/onboarding-full.yml
+  .maestro/smoke-financial.yml
+  .maestro/debt-partial-payment.yml
+  .maestro/credit-installment-reconciliation.yml
+  .maestro/settings-and-localization.yml
   .maestro/google-drive-boundary.yml
+)
+
+for flow in "${MAESTRO_FLOWS[@]}"; do
+  run_maestro_flow "$flow"
+done
 
 touch "$RUNNER_TEMP/finniapp-maestro-passed"
