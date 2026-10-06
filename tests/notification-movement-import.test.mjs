@@ -64,3 +64,12 @@ test('detected movements can be deferred, reviewed, prefilled and removed after 
     assert.match(modal, /removePendingNotificationMovement/);
   }
 });
+
+test('notification access refreshes immediately after returning from Android settings', () => {
+  const screen = read('app/modal/pending-movements.tsx');
+
+  assert.match(screen, /AppState\.addEventListener\('change'/);
+  assert.match(screen, /nextState === 'active'/);
+  assert.match(screen, /if \(nextState === 'active'\) void load\(\)/);
+  assert.match(screen, /appStateSubscription\.remove\(\)/);
+});
