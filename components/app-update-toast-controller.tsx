@@ -9,34 +9,51 @@ import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
 import { checkStoreUpdate } from '@/lib/store-update';
 import { showToast } from '@/lib/toast';
-import { shouldShowCurrentUpdateToast } from '@/lib/update-toast';
+import { parseSeenActiveUpdateIds, resolveCurrentUpdateToastState } from '@/lib/update-toast';
 
 const LAST_ACTIVE_UPDATE_KEY = '@finniapp/last-active-update-v2';
 const LEGACY_LAST_CONFIRMED_UPDATE_KEY = '@finniapp/last-confirmed-current-update-v1';
+const SEEN_ACTIVE_UPDATES_KEY = '@finniapp/seen-active-updates-v1';
 
 let currentUpdateConfirmation: Promise<boolean> | null = null;
 let storeUpdateCheck: Promise<void> | null = null;
+const confirmedUpdatesInSession = new Set<string>();
 
 async function confirmCurrentUpdateOnce(): Promise<boolean> {
   const activeUpdateId = getActiveUpdate().id;
   if (!activeUpdateId) return false;
+  if (confirmedUpdatesInSession.has(activeUpdateId)) return false;
 
-  const storedActiveUpdateId = await AsyncStorage.getItem(LAST_ACTIVE_UPDATE_KEY);
-  const previousActiveUpdateId = storedActiveUpdateId
-    ?? await AsyncStorage.getItem(LEGACY_LAST_CONFIRMED_UPDATE_KEY);
+  const [storedSeenUpdates, storedActiveUpdateId, legacyActiveUpdateId] = await Promise.all([
+    AsyncStorage.getItem(SEEN_ACTIVE_UPDATES_KEY),
+    AsyncStorage.getItem(LAST_ACTIVE_UPDATE_KEY),
+    AsyncStorage.getItem(LEGACY_LAST_CONFIRMED_UPDATE_KEY),
+  ]);
+  const seenActiveUpdateIds = parseSeenActiveUpdateIds(storedSeenUpdates);
+  const previousActiveUpdateId = storedActiveUpdateId ?? legacyActiveUpdateId;
+  if (previousActiveUpdateId && !seenActiveUpdateIds.includes(previousActiveUpdateId)) {
+    seenActiveUpdateIds.push(previousActiveUpdateId);
+  }
+  const state = resolveCurrentUpdateToastState({ activeUpdateId, seenActiveUpdateIds });
 
   // Record what is really executing. A downloaded update is not considered
-  // installed until Expo launches with its new updateId.
-  await AsyncStorage.setItem(LAST_ACTIVE_UPDATE_KEY, activeUpdateId);
-  return shouldShowCurrentUpdateToast({ activeUpdateId, previousActiveUpdateId });
+  // installed until Expo launches with its new updateId. Keeping a bounded
+  // history also avoids announcing the same update again after a rollback.
+  await AsyncStorage.multiSet([
+    [LAST_ACTIVE_UPDATE_KEY, activeUpdateId],
+    [SEEN_ACTIVE_UPDATES_KEY, JSON.stringify(state.seenActiveUpdateIds)],
+  ]);
+  confirmedUpdatesInSession.add(activeUpdateId);
+  return state.shouldShow;
 }
 
 function sharedCurrentUpdateConfirmation(): Promise<boolean> {
   if (!currentUpdateConfirmation) {
-    currentUpdateConfirmation = confirmCurrentUpdateOnce().catch((error) => {
-      currentUpdateConfirmation = null;
-      throw error;
-    });
+    const confirmation = confirmCurrentUpdateOnce();
+    currentUpdateConfirmation = confirmation;
+    void confirmation.finally(() => {
+      if (currentUpdateConfirmation === confirmation) currentUpdateConfirmation = null;
+    }).catch(() => undefined);
   }
   return currentUpdateConfirmation;
 }
