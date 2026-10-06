@@ -16,6 +16,12 @@ name: FinniApp complete onboarding
 - assertVisible: 'Parte con una base clara'
 - tapOn:
     id: 'onboarding-next'
+- assertVisible: 'Registra menos, mantén el control'
+- tapOn:
+    id: 'onboarding-next'
+- assertVisible: 'Tus datos, bajo tu control'
+- tapOn:
+    id: 'onboarding-next'
 - assertVisible: 'Entiende tu panorama completo'
 - tapOn:
     id: 'onboarding-next'

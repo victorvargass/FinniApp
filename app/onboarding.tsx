@@ -188,6 +188,77 @@ function PeriodSetupOverview() {
   );
 }
 
+function AutomationOverview() {
+  return (
+    <View style={styles.automationCard}>
+      <View style={styles.automationHeader}>
+        <View style={styles.automationIcon}>
+          <Ionicons name="notifications-outline" size={25} color={BrandColors.navy} />
+        </View>
+        <View style={styles.automationHeading}>
+          <ThemedText style={styles.setupTitle}>{t('onboarding.detectedMovement')}</ThemedText>
+          <ThemedText style={styles.setupHint}>{t('onboarding.detectedMovementHint')}</ThemedText>
+        </View>
+        <View style={styles.androidBadge}><ThemedText style={styles.androidBadgeText}>Android</ThemedText></View>
+      </View>
+      <View style={styles.detectedMovement}>
+        <View style={styles.detectedMerchantIcon}>
+          <Ionicons name="storefront-outline" size={22} color={BrandColors.blueSecondary} />
+        </View>
+        <View style={styles.detectedCopy}>
+          <ThemedText style={styles.detectedName}>{t('onboarding.detectedMerchant')}</ThemedText>
+          <ThemedText style={styles.setupHint}>{t('onboarding.detectedSource')}</ThemedText>
+        </View>
+        <View style={styles.detectedAmountCopy}>
+          <ThemedText style={styles.detectedAmount}>$1.300</ThemedText>
+          <ThemedText style={styles.reviewLabel}>{t('onboarding.reviewBeforeSaving')}</ThemedText>
+        </View>
+      </View>
+      <View style={styles.automationDivider} />
+      <View style={styles.automationTools}>
+        <View style={styles.automationTool}>
+          <Ionicons name="repeat-outline" size={22} color={BrandColors.turquoise} />
+          <ThemedText style={styles.automationToolText}>{t('onboarding.recurringMovements')}</ThemedText>
+        </View>
+        <View style={styles.automationTool}>
+          <Ionicons name="alarm-outline" size={22} color={BrandColors.turquoise} />
+          <ThemedText style={styles.automationToolText}>{t('onboarding.localReminders')}</ThemedText>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function PrivacyOverview() {
+  const protections: [React.ComponentProps<typeof Ionicons>['name'], string, string][] = [
+    ['phone-portrait-outline', t('onboarding.localData'), t('onboarding.localDataHint')],
+    ['cloud-outline', t('onboarding.optionalBackup'), t('onboarding.optionalBackupHint')],
+    ['finger-print-outline', t('onboarding.optionalPermissions'), t('onboarding.optionalPermissionsHint')],
+  ];
+  return (
+    <View style={styles.privacyCard}>
+      <View style={styles.privacyShield}>
+        <Ionicons name="shield-checkmark-outline" size={34} color={BrandColors.navy} />
+      </View>
+      <ThemedText style={styles.privacyLead}>{t('onboarding.permissionControl')}</ThemedText>
+      <View style={styles.protectionList}>
+        {protections.map(([icon, title, hint]) => (
+          <View key={title} style={styles.protectionRow}>
+            <View style={styles.protectionIcon}>
+              <Ionicons name={icon} size={21} color={BrandColors.blueSecondary} />
+            </View>
+            <View style={styles.setupCopy}>
+              <ThemedText style={styles.setupTitle}>{title}</ThemedText>
+              <ThemedText style={styles.setupHint}>{hint}</ThemedText>
+            </View>
+            <Ionicons name="checkmark-circle-outline" size={21} color={BrandColors.turquoise} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function ReportOverview() {
   return (
     <View style={styles.reportCard}>
@@ -227,6 +298,8 @@ const slides = [
   { title: 'onboarding.welcomeTitle', body: 'onboarding.welcomeBody', visual: MoneyOverview },
   { title: 'onboarding.periodSetupTitle', body: 'onboarding.periodSetupBody', visual: PeriodSetupOverview },
   { title: 'onboarding.setupTitle', body: 'onboarding.setupBody', visual: SetupOverview },
+  { title: 'onboarding.automationTitle', body: 'onboarding.automationBody', visual: AutomationOverview },
+  { title: 'onboarding.privacyTitle', body: 'onboarding.privacyBody', visual: PrivacyOverview },
   { title: 'onboarding.understandTitle', body: 'onboarding.understandBody', visual: ReportOverview },
 ] as const;
 
@@ -372,6 +445,12 @@ const styles = StyleSheet.create({
   periodDateButton: { minHeight: 48, borderWidth: 1, borderColor: '#D8E1E8', borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   periodDate: { color: BrandColors.navy, fontFamily: Fonts.semiBold, fontSize: 12, lineHeight: 16 }, periodDone: { alignSelf: 'flex-end', paddingHorizontal: 12, paddingVertical: 6 }, periodDoneText: { color: BrandColors.blueSecondary, fontFamily: Fonts.bold },
   periodSave: { minHeight: 48, borderRadius: 13, backgroundColor: BrandColors.navy, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, periodSaved: { backgroundColor: BrandColors.turquoise }, periodSaveText: { color: '#FFFFFF', fontFamily: Fonts.bold, fontSize: 14 },
+  automationCard: { width: '100%', maxWidth: 420, padding: 19, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E1E8', gap: 16, shadowColor: BrandColors.navy, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 22, elevation: 7 },
+  automationHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 }, automationIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#E8F9F6', alignItems: 'center', justifyContent: 'center' }, automationHeading: { flex: 1, gap: 3 },
+  androidBadge: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: '#E8F4FA' }, androidBadgeText: { color: BrandColors.blueSecondary, fontFamily: Fonts.bold, fontSize: 9 },
+  detectedMovement: { minHeight: 82, borderRadius: 15, padding: 12, backgroundColor: '#F5F8FA', flexDirection: 'row', alignItems: 'center', gap: 10 }, detectedMerchantIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: '#E8F4FA', alignItems: 'center', justifyContent: 'center' }, detectedCopy: { flex: 1, gap: 3 }, detectedName: { color: BrandColors.navy, fontFamily: Fonts.bold, fontSize: 13 }, detectedAmountCopy: { alignItems: 'flex-end', gap: 4 }, detectedAmount: { color: Colors.light.expense, fontFamily: Fonts.bold, fontSize: 15 }, reviewLabel: { color: BrandColors.turquoise, fontFamily: Fonts.bold, fontSize: 9 },
+  automationDivider: { height: 1, backgroundColor: '#E8EEF2' }, automationTools: { flexDirection: 'row', gap: 9 }, automationTool: { flex: 1, minHeight: 67, borderRadius: 13, padding: 10, backgroundColor: '#E8F9F6', alignItems: 'center', justifyContent: 'center', gap: 6 }, automationToolText: { color: BrandColors.navy, fontFamily: Fonts.semiBold, fontSize: 10, lineHeight: 13, textAlign: 'center' },
+  privacyCard: { width: '100%', maxWidth: 420, padding: 18, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E1E8', gap: 13, shadowColor: BrandColors.navy, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 22, elevation: 7 }, privacyShield: { width: 62, height: 62, borderRadius: 20, alignSelf: 'center', backgroundColor: '#E8F9F6', alignItems: 'center', justifyContent: 'center' }, privacyLead: { color: BrandColors.navy, fontFamily: Fonts.bold, fontSize: 13, lineHeight: 18, textAlign: 'center' }, protectionList: { gap: 7 }, protectionRow: { minHeight: 58, borderRadius: 13, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#F5F8FA', flexDirection: 'row', alignItems: 'center', gap: 10 }, protectionIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: '#E8F4FA', alignItems: 'center', justifyContent: 'center' },
   setupCard: { width: '100%', maxWidth: 420, padding: 8, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E1E8', shadowColor: BrandColors.navy, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 22, elevation: 7 },
   setupRow: { minHeight: 88, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 12 },
   setupIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: '#F5F8FA', alignItems: 'center', justifyContent: 'center' },
