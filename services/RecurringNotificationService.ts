@@ -1,9 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
-import { parseIsoDate } from '@/lib/recurrence';
+import { parseIsoDate, toIsoDate } from '@/lib/recurrence';
 import { shouldScheduleRecurringNotification } from '@/lib/recurring-notification-sync';
 import type {
   GeneratedRecurringExpenseNotification,
@@ -12,11 +13,11 @@ import type {
 } from '@/lib/types';
 import {
   replaceFutureAppNotifications,
-  getExistingAppNotificationSourceKeys,
   upsertAppNotifications,
 } from '@/repositories/notifications';
 
 const RECURRING_CHANNEL = 'recurring-expenses';
+const NOTIFIED_RECURRING_KEYS = '@finniapp/notified-recurring-keys-v1';
 const DATA_KINDS = [
   'recurring-expense',
   'recurring-income',
@@ -118,9 +119,26 @@ export async function notifyGeneratedRecurringExpenses(
 
 function notificationDate(scheduledDate: string): Date {
   const date = parseIsoDate(scheduledDate);
+  if (scheduledDate <= toIsoDate(new Date())) return new Date(Date.now() + 3000);
   date.setHours(9, 0, 0, 0);
-  if (date.getTime() <= Date.now()) return new Date(Date.now() + 3000);
   return date;
+}
+
+async function getNotifiedRecurringKeys(): Promise<Set<string>> {
+  try {
+    const stored = await AsyncStorage.getItem(NOTIFIED_RECURRING_KEYS);
+    if (!stored) return new Set();
+    const parsed: unknown = JSON.parse(stored);
+    return new Set(Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : []);
+  } catch {
+    return new Set();
+  }
+}
+
+async function saveNotifiedRecurringKeys(keys: ReadonlySet<string>): Promise<void> {
+  await AsyncStorage.setItem(NOTIFIED_RECURRING_KEYS, JSON.stringify([...keys]));
 }
 
 function inboxNotificationDate(scheduledDate: string): Date {
@@ -167,6 +185,7 @@ export async function cancelRecurringNotifications(): Promise<void> {
       .map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier))
   );
   await replaceFutureAppNotifications([...DATA_KINDS], []);
+  await AsyncStorage.removeItem(NOTIFIED_RECURRING_KEYS);
 }
 
 export async function syncRecurringNotifications(
@@ -205,7 +224,11 @@ export async function syncRecurringNotifications(
   await Promise.all(cancellationIds.map((identifier) =>
     Notifications.cancelScheduledNotificationAsync(identifier)
   ));
-  const existingInboxKeys = new Set(await getExistingAppNotificationSourceKeys([...desiredKeys]));
+  const notifiedKeys = await getNotifiedRecurringKeys();
+  for (const key of [...notifiedKeys]) {
+    if (!desiredKeys.has(key)) notifiedKeys.delete(key);
+  }
+  for (const key of scheduledKeys) notifiedKeys.add(key);
   await replaceFutureAppNotifications([...DATA_KINDS], inboxItems);
   for (const [index, schedule] of limited.entries()) {
     const noun = schedule.isSavingsContribution
@@ -217,9 +240,9 @@ export async function syncRecurringNotifications(
     const triggerDate = notificationDate(schedule.scheduledDate);
     if (!shouldScheduleRecurringNotification({
       inboxKey: inboxItem.sourceKey,
-      triggerTime: inboxItem.scheduledFor,
+      triggerTime: parseIsoDate(schedule.scheduledDate).getTime(),
       scheduledKeys,
-      existingInboxKeys,
+      notifiedKeys,
     })) continue;
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -242,7 +265,9 @@ export async function syncRecurringNotifications(
         channelId: RECURRING_CHANNEL,
       },
     });
+    notifiedKeys.add(inboxItem.sourceKey);
   }
+  await saveNotifiedRecurringKeys(notifiedKeys);
 }
 
 export function getRecurringNotificationData(response: Notifications.NotificationResponse): {

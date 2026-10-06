@@ -11,17 +11,17 @@ test('keeps an already scheduled recurring notification without duplicating it',
     inboxKey: key,
     triggerTime: now + 60_000,
     scheduledKeys: new Set([key]),
-    existingInboxKeys: new Set(),
+    notifiedKeys: new Set(),
     now,
   }), false);
 });
 
-test('does not notify an overdue recurring occurrence again after it reached the inbox', () => {
+test('does not notify an overdue recurring occurrence again after it was scheduled', () => {
   assert.equal(shouldScheduleRecurringNotification({
     inboxKey: key,
     triggerTime: now - 60_000,
     scheduledKeys: new Set(),
-    existingInboxKeys: new Set([key]),
+    notifiedKeys: new Set([key]),
     now,
   }), false);
 });
@@ -31,17 +31,17 @@ test('schedules an overdue occurrence once when it has never been notified', () 
     inboxKey: key,
     triggerTime: now - 60_000,
     scheduledKeys: new Set(),
-    existingInboxKeys: new Set(),
+    notifiedKeys: new Set(),
     now,
   }), true);
 });
 
-test('restores a missing future schedule even when its inbox preview exists', () => {
+test('restores a missing future schedule even when it was previously scheduled', () => {
   assert.equal(shouldScheduleRecurringNotification({
     inboxKey: key,
     triggerTime: now + 60_000,
     scheduledKeys: new Set(),
-    existingInboxKeys: new Set([key]),
+    notifiedKeys: new Set([key]),
     now,
   }), true);
 });
