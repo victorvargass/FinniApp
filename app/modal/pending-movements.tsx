@@ -7,7 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
-import { useRecurrenceDatabase } from '@/contexts/DatabaseDomainContexts';
+import { usePaymentDatabase, useRecurrenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, formatTime } from '@/lib/format';
@@ -37,6 +37,7 @@ export default function PendingMovementsScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
   const insets = useSafeAreaInsets();
   const { recurringDecisions, approveRecurringOccurrence } = useRecurrenceDatabase();
+  const { paymentMethods } = usePaymentDatabase();
   const { fontScale } = useWindowDimensions();
   const usesLargeText = fontScale >= 1.2;
   const [items, setItems] = useState<PendingMovementCandidate[]>([]);
@@ -179,7 +180,7 @@ export default function PendingMovementsScreen() {
                   } else if (recurringMatches.length > 1) {
                     setChoosingCandidateId(candidate.id);
                   } else {
-                    router.push(pendingMovementHref(candidate));
+                    router.push(pendingMovementHref(candidate, paymentMethods));
                   }
                 }}
                 style={({ pressed }) => [styles.cardMain, usesLargeText && styles.cardMainLarge, pressed && styles.pressed]}>
@@ -230,7 +231,7 @@ export default function PendingMovementsScreen() {
                   <Pressable
                     accessibilityRole="button"
                     disabled={approvingCandidateId != null}
-                    onPress={() => router.push(pendingMovementHref(candidate))}
+                    onPress={() => router.push(pendingMovementHref(candidate, paymentMethods))}
                     style={({ pressed }) => [
                       styles.separateButton,
                       { borderColor: colors.border },

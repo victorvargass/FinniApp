@@ -18,6 +18,8 @@ class NotificationMovementParserTest {
     assertEquals("PANADERIA LA VECINA SP", movement?.name)
     assertEquals(1_300L, movement?.amount)
     assertEquals("expense", movement?.suggestedType)
+    assertEquals("Banco Chile Débito", movement?.paymentMethodHint)
+    assertEquals("debit", movement?.suggestedPaymentMethodType)
   }
 
   @Test
@@ -53,6 +55,18 @@ class NotificationMovementParserTest {
     assertNotNull(movement)
     assertEquals(12_990L, movement?.amount)
     assertEquals("Mercado", movement?.name)
+  }
+
+  @Test
+  fun recognizesCreditAsTheSuggestedPaymentMethodType() {
+    val movement = NotificationMovementParser.parse(
+      NotificationMovementParser.COOPEUCH_PACKAGE,
+      "Compra con Tarjeta de Crédito",
+      "Compra con tu Tarjeta de Crédito **** 2067 en ONECLICK por \$12.990 CLP",
+    )
+
+    assertEquals("credit", movement?.suggestedPaymentMethodType)
+    assertNull(movement?.paymentMethodHint)
   }
 
   @Test

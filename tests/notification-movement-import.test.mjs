@@ -24,6 +24,8 @@ test('Android notification capture is explicit and stores only parsed movement f
   assert.match(listener, /extractWalletMerchant/);
   assert.match(store, /sourceApp/);
   assert.match(store, /suggestedType/);
+  assert.match(store, /paymentMethodHint/);
+  assert.match(store, /suggestedPaymentMethodType/);
   assert.match(store, /DUPLICATE_WINDOW_MS/);
   assert.match(store, /isLikelyDuplicate/);
   assert.match(store, /AndroidKeyStore/);
@@ -65,6 +67,8 @@ test('detected movements can be deferred, reviewed, prefilled and removed after 
   assert.match(routes, /initialAmount/);
   assert.match(routes, /initialDate/);
   assert.match(routes, /initialTime/);
+  assert.match(routes, /findClosestPaymentMethod/);
+  assert.match(routes, /initialPaymentMethodId/);
   for (const modal of [expenseModal, incomeModal, transferModal]) {
     assert.match(modal, /candidateId/);
     assert.match(modal, /removePendingNotificationMovement/);
@@ -78,4 +82,18 @@ test('notification access refreshes immediately after returning from Android set
   assert.match(screen, /nextState === 'active'/);
   assert.match(screen, /if \(nextState === 'active'\) void load\(\)/);
   assert.match(screen, /appStateSubscription\.remove\(\)/);
+});
+
+test('home highlights detected pending movements and opens their review screen', () => {
+  const home = read('app/(tabs)/home.tsx');
+  const es = read('locales/es.ts');
+  const en = read('locales/en.ts');
+
+  assert.match(home, /getPendingNotificationMovements/);
+  assert.match(home, /pendingNotificationMovementIds\.length > 0/);
+  assert.match(home, /notification-movements-\$\{pendingNotificationMovementIds\.join\('_'\)\}/);
+  assert.match(home, /router\.push\('\/modal\/pending-movements'/);
+  assert.match(home, /clearInterval\(interval\)/);
+  assert.match(es, /pendingNotificationMovementsTitle: 'Movimientos pendientes por revisar'/);
+  assert.match(en, /pendingNotificationMovementsTitle: 'Pending transactions to review'/);
 });

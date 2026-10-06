@@ -37,6 +37,7 @@ import type { HomeSectionId } from '@/lib/home-preferences';
 import { visibleHomeDebts, visibleHomePaymentMethods } from '@/lib/home-visibility';
 import { t } from '@/lib/i18n';
 import { logAppError } from '@/lib/logger';
+import { getPendingNotificationMovements } from '@/lib/notification-movements';
 import { findUrgentCardPayments, getCreditCardDebtAmount } from '@/lib/payment-method-calculations';
 import { getHomePaymentMethods, sumKnownAvailableBalances } from '@/lib/payment-method-groups';
 import {
@@ -110,6 +111,7 @@ export default function HomeScreen() {
   const [homeDebts, setHomeDebts] = useState<Debt[]>([]);
   const [homeDebtPlans, setHomeDebtPlans] = useState<DebtPlan[]>([]);
   const [overdueForecastItems, setOverdueForecastItems] = useState<FinancialForecastItem[]>([]);
+  const [pendingNotificationMovementIds, setPendingNotificationMovementIds] = useState<string[]>([]);
   const [dismissedAttentionIds, setDismissedAttentionIds] = useState<string[] | null>(null);
   const [lastDismissedAttentionId, setLastDismissedAttentionId] = useState<string | null>(null);
   const undoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -156,6 +158,32 @@ export default function HomeScreen() {
       .then((ids) => { if (active) setDismissedAttentionIds(ids); })
       .catch(() => { if (active) setDismissedAttentionIds([]); });
     return () => { active = false; };
+  }, []));
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    const loadPendingNotificationMovements = async () => {
+      try {
+        const pendingMovements = await getPendingNotificationMovements();
+        if (active) {
+          setPendingNotificationMovementIds(pendingMovements.map((item) => item.id).sort());
+        }
+      } catch (error) {
+        if (!active) return;
+        setPendingNotificationMovementIds([]);
+        logAppError('home.pendingNotificationMovements', error);
+      }
+    };
+
+    void loadPendingNotificationMovements();
+    const interval = setInterval(() => {
+      void loadPendingNotificationMovements();
+    }, 10_000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, []));
 
   const dismissAttention = useCallback((id: string) => {
@@ -250,6 +278,25 @@ export default function HomeScreen() {
     )
     : null;
   const attentionItems: HomeAttentionItem[] = [];
+
+  if (isCurrentPeriod && pendingNotificationMovementIds.length > 0) {
+    const pendingMovementCount = pendingNotificationMovementIds.length;
+    const attentionId = `notification-movements-${pendingNotificationMovementIds.join('_')}`;
+    attentionItems.push({
+      key: attentionId,
+      icon: 'receipt-outline',
+      title: t('home.pendingNotificationMovementsTitle'),
+      body: t(
+        pendingMovementCount === 1
+          ? 'home.pendingNotificationMovementsBodyOne'
+          : 'home.pendingNotificationMovementsBodyOther',
+        { count: pendingMovementCount }
+      ),
+      tone: 'warning',
+      onPress: () => router.push('/modal/pending-movements' as never),
+      onDismiss: () => dismissAttention(attentionId),
+    });
+  }
 
   if (isCurrentPeriod) {
     for (const urgentCardPayment of urgentCardPayments) {

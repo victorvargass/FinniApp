@@ -8,6 +8,7 @@ export type LogContext =
   | 'database.write'
   | 'database.restore'
   | 'forecast.load'
+  | 'home.pendingNotificationMovements'
   | 'report.export'
   | 'csv.export'
   | 'updates.currentToast'

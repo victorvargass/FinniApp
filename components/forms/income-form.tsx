@@ -39,10 +39,11 @@ type IncomeFormProps = {
   initialAmount?: number;
   initialDate?: string;
   initialTime?: string;
+  initialPaymentMethodId?: number;
   onSuccess: () => void;
 };
 
-export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null, initialName, initialAmount, initialDate, initialTime, onSuccess }: IncomeFormProps) {
+export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null, initialName, initialAmount, initialDate, initialTime, initialPaymentMethodId, onSuccess }: IncomeFormProps) {
   const { incomes, incomeNames, addIncome, editIncome, removeIncome } = useMovementDatabase();
   const { incomeCategories } = useOrganizerDatabase();
   const { addRecurringIncomeFromSource } = useRecurrenceDatabase();
@@ -85,7 +86,7 @@ export function IncomeForm({ income, templateIncome, initialSavingsGoalId = null
     (income?.savingsGoalId ?? initialSavingsGoal?.id) != null
   );
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
-    initialIncome?.paymentMethodId ?? defaultPaymentMethodId
+    initialIncome?.paymentMethodId ?? initialPaymentMethodId ?? defaultPaymentMethodId
   );
   const [categoryId, setCategoryId] = useState<number | null>(initialIncome?.categoryId ?? null);
   const [date, setDate] = useState(

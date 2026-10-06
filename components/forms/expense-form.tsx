@@ -64,6 +64,7 @@ type ExpenseFormProps = {
   templateExpense?: Expense;
   initialCardPayment?: boolean;
   initialCreditPaymentTargetId?: number;
+  initialPaymentMethodId?: number;
   initialSavingsGoalId?: number;
   initialSavingsContribution?: boolean;
   initialName?: string;
@@ -73,7 +74,7 @@ type ExpenseFormProps = {
   onSuccess: () => void;
 };
 
-export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialSavingsGoalId, initialSavingsContribution = false, initialName, initialAmount, initialDate, initialTime, onSuccess }: ExpenseFormProps) {
+export function ExpenseForm({ expense, creditAdjustment, templateExpense, initialCardPayment = false, initialCreditPaymentTargetId, initialPaymentMethodId, initialSavingsGoalId, initialSavingsContribution = false, initialName, initialAmount, initialDate, initialTime, onSuccess }: ExpenseFormProps) {
   const { categories, contacts } = useOrganizerDatabase();
   const { expenses, expenseNames, addExpense, editExpense } = useMovementDatabase();
   const {
@@ -151,7 +152,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
     expense?.savingsKind ?? (initialSavingsGoalId != null ? 'contribution' : null)
   );
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(
-    initialExpense?.paymentMethodId ?? settings.defaultPaymentMethodId
+    initialExpense?.paymentMethodId ?? initialPaymentMethodId ?? settings.defaultPaymentMethodId
   );
   const [hasLoadedLastPaymentMethod, setHasLoadedLastPaymentMethod] = useState(false);
   const [date, setDate] = useState(
@@ -402,7 +403,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
 
   useEffect(() => {
     if (hasLoadedLastPaymentMethod) return;
-    if (initialExpense || creditAdjustment || initialCreditPaymentTargetId || settings.defaultPaymentMethodId != null) {
+    if (initialExpense || creditAdjustment || initialCreditPaymentTargetId || initialPaymentMethodId || settings.defaultPaymentMethodId != null) {
       setHasLoadedLastPaymentMethod(true);
       return;
     }
@@ -422,7 +423,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
         if (!cancelled) setHasLoadedLastPaymentMethod(true);
       });
     return () => { cancelled = true; };
-  }, [creditAdjustment, hasLoadedLastPaymentMethod, initialCreditPaymentTargetId, initialExpense, paymentMethods, settings.defaultPaymentMethodId]);
+  }, [creditAdjustment, hasLoadedLastPaymentMethod, initialCreditPaymentTargetId, initialExpense, initialPaymentMethodId, paymentMethods, settings.defaultPaymentMethodId]);
 
   useEffect(() => {
     if (!isCreditPurchase) setIsInstallmentPurchase(false);

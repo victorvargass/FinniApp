@@ -22,6 +22,8 @@ internal data class PendingMovement(
   val amount: Long,
   val occurredAt: Long,
   val suggestedType: String,
+  val paymentMethodHint: String? = null,
+  val suggestedPaymentMethodType: String? = null,
   val promptedAt: Long? = null,
 ) {
   fun toJson() = JSONObject().apply {
@@ -32,6 +34,8 @@ internal data class PendingMovement(
     put("currency", "CLP")
     put("occurredAt", occurredAt)
     put("suggestedType", suggestedType)
+    if (paymentMethodHint == null) put("paymentMethodHint", JSONObject.NULL) else put("paymentMethodHint", paymentMethodHint)
+    if (suggestedPaymentMethodType == null) put("suggestedPaymentMethodType", JSONObject.NULL) else put("suggestedPaymentMethodType", suggestedPaymentMethodType)
     if (promptedAt == null) put("promptedAt", JSONObject.NULL) else put("promptedAt", promptedAt)
   }
 
@@ -43,6 +47,8 @@ internal data class PendingMovement(
       amount = json.getLong("amount"),
       occurredAt = json.getLong("occurredAt"),
       suggestedType = json.getString("suggestedType"),
+      paymentMethodHint = if (json.isNull("paymentMethodHint")) null else json.getString("paymentMethodHint"),
+      suggestedPaymentMethodType = if (json.isNull("suggestedPaymentMethodType")) null else json.getString("suggestedPaymentMethodType"),
       promptedAt = if (json.isNull("promptedAt")) null else json.getLong("promptedAt"),
     )
   }

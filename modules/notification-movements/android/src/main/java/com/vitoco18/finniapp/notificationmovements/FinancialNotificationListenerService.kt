@@ -38,6 +38,8 @@ class FinancialNotificationListenerService : NotificationListenerService() {
       amount = parsed.amount,
       occurredAt = sbn.postTime,
       suggestedType = parsed.suggestedType,
+      paymentMethodHint = parsed.paymentMethodHint ?: sourceApp,
+      suggestedPaymentMethodType = parsed.suggestedPaymentMethodType,
     )
     PendingMovementStore.add(applicationContext, movement)
     showDetectedNotification(movement)
@@ -76,7 +78,13 @@ class FinancialNotificationListenerService : NotificationListenerService() {
   }
 }
 
-internal data class ParsedNotificationMovement(val name: String, val amount: Long, val suggestedType: String)
+internal data class ParsedNotificationMovement(
+  val name: String,
+  val amount: Long,
+  val suggestedType: String,
+  val paymentMethodHint: String?,
+  val suggestedPaymentMethodType: String?,
+)
 
 internal object NotificationMovementParser {
   internal const val GOOGLE_WALLET_PACKAGE = "com.google.android.apps.walletnfcrel"
@@ -132,8 +140,25 @@ internal object NotificationMovementParser {
       .find(combined)?.groupValues?.getOrNull(1)?.let(::sanitizeName)
     val fallbackTitle = usableName(title)
     val walletMerchant = if (isGoogleWallet) extractWalletMerchant(title, body) else null
-    return ParsedNotificationMovement(walletMerchant ?: merchant ?: fallbackTitle.orEmpty(), amount, type)
+    val paymentMethodHint = if (isGoogleWallet) extractWalletPaymentMethod(body) else null
+    val paymentMethodType = when {
+      listOf("tarjeta de credito", "credito", "credit card", "credit").any { normalized.contains(it) } -> "credit"
+      listOf("tarjeta de debito", "debito", "debit card", "debit").any { normalized.contains(it) } -> "debit"
+      listOf("tarjeta de prepago", "prepago", "prepaid card", "prepaid").any { normalized.contains(it) } -> "prepaid"
+      else -> null
+    }
+    return ParsedNotificationMovement(
+      walletMerchant ?: merchant ?: fallbackTitle.orEmpty(),
+      amount,
+      type,
+      paymentMethodHint,
+      paymentMethodType,
+    )
   }
+
+  private fun extractWalletPaymentMethod(body: String): String? = Regex(
+    "(?i)(?:with|con)\\s+(.+?)(?=\\s+(?:[•*xX]{2,}\\s*)?\\d{2,4}(?:\\D|$)|[.,]|$)"
+  ).find(body)?.groupValues?.getOrNull(1)?.let(::sanitizePaymentMethod)?.takeIf { it.isNotEmpty() }
 
   private fun extractWalletMerchant(title: String, body: String): String? {
     usableName(title)?.let { return it }
@@ -151,6 +176,12 @@ internal object NotificationMovementParser {
   }
 
   private fun sanitizeName(value: String): String = amountPattern.replace(value, "")
+    .replace(Regex("\\s+"), " ")
+    .trim(' ', '-', ':', '.', ',')
+    .take(48)
+
+  private fun sanitizePaymentMethod(value: String): String = value
+    .replace(Regex("(?i)\\b(?:terminada|terminado|ending)\\s+(?:en|in)\\b"), "")
     .replace(Regex("\\s+"), " ")
     .trim(' ', '-', ':', '.', ',')
     .take(48)

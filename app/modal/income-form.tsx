@@ -12,7 +12,7 @@ import type { Income } from '@/lib/types';
 import { removePendingNotificationMovement } from '@/lib/notification-movements';
 
 export default function IncomeFormModal() {
-  const { id, repeatId, savingsGoalId, candidateId, initialName, initialAmount, initialDate, initialTime } = useLocalSearchParams<{
+  const { id, repeatId, savingsGoalId, candidateId, initialName, initialAmount, initialDate, initialTime, initialPaymentMethodId } = useLocalSearchParams<{
     id?: string;
     repeatId?: string;
     savingsGoalId?: string;
@@ -21,6 +21,7 @@ export default function IncomeFormModal() {
     initialAmount?: string;
     initialDate?: string;
     initialTime?: string;
+    initialPaymentMethodId?: string;
   }>();
   const { incomes } = useMovementDatabase();
   const navigation = useNavigation();
@@ -103,6 +104,7 @@ export default function IncomeFormModal() {
         initialAmount={initialAmount ? Number(initialAmount) : undefined}
         initialDate={initialDate}
         initialTime={initialTime}
+        initialPaymentMethodId={initialPaymentMethodId ? Number(initialPaymentMethodId) : undefined}
         onSuccess={() => {
           if (!candidateId) {
             router.back();

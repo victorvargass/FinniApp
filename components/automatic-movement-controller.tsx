@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
-import { useRecurrenceDatabase } from '@/contexts/DatabaseDomainContexts';
+import { usePaymentDatabase, useRecurrenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, formatTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
@@ -17,6 +17,7 @@ import { showToast } from '@/lib/toast';
 
 export function AutomaticMovementController({ enabled }: { enabled: boolean }) {
   const { recurringDecisions, approveRecurringOccurrence } = useRecurrenceDatabase();
+  const { paymentMethods } = usePaymentDatabase();
   const checkingRef = useRef(false);
   const alertVisibleRef = useRef(false);
 
@@ -48,7 +49,7 @@ export function AutomaticMovementController({ enabled }: { enabled: boolean }) {
               text: t('pendingMovements.registerSeparate'),
               onPress: () => {
                 alertVisibleRef.current = false;
-                router.push(pendingMovementHref(candidate));
+                router.push(pendingMovementHref(candidate, paymentMethods));
               },
             },
             {
@@ -76,7 +77,7 @@ export function AutomaticMovementController({ enabled }: { enabled: boolean }) {
                 text: t('pendingMovements.register'),
                 onPress: () => {
                   alertVisibleRef.current = false;
-                  router.push(pendingMovementHref(candidate));
+                  router.push(pendingMovementHref(candidate, paymentMethods));
                 },
               },
             ];
@@ -94,7 +95,7 @@ export function AutomaticMovementController({ enabled }: { enabled: boolean }) {
     } finally {
       checkingRef.current = false;
     }
-  }, [approveRecurringOccurrence, enabled, recurringDecisions]);
+  }, [approveRecurringOccurrence, enabled, paymentMethods, recurringDecisions]);
 
   useEffect(() => {
     void check();

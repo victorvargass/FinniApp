@@ -8,6 +8,8 @@ export type NativePendingMovement = {
   currency: 'CLP';
   occurredAt: number;
   suggestedType: 'expense' | 'income' | 'card-payment' | 'transfer';
+  paymentMethodHint?: string | null;
+  suggestedPaymentMethodType?: 'cash' | 'debit' | 'prepaid' | 'credit' | null;
   promptedAt?: number | null;
 };
 
