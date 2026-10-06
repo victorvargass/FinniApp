@@ -14,6 +14,12 @@ test('Android notification capture is explicit and stores only parsed movement f
   assert.match(listener, /CATEGORY_EMAIL/);
   assert.match(listener, /amountPattern/);
   assert.match(listener, /com\.google\.android\.apps\.walletnfcrel/);
+  assert.match(listener, /com\.coopeuchapp/);
+  assert.match(listener, /cl\.bancochile\.mi_banco/);
+  assert.match(listener, /cl\.bci\.sismo\.mach/);
+  assert.match(listener, /TRUSTED_FINANCIAL_PACKAGES/);
+  assert.match(listener, /EXCLUDED_SOURCE_PACKAGES/);
+  assert.match(listener, /com\.google\.android\.gm/);
   assert.match(listener, /isGoogleWallet/);
   assert.match(listener, /extractWalletMerchant/);
   assert.match(store, /sourceApp/);

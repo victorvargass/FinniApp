@@ -14,7 +14,13 @@ import java.util.Locale
 class FinancialNotificationListenerService : NotificationListenerService() {
   override fun onNotificationPosted(sbn: StatusBarNotification) {
     if (sbn.packageName == packageName || sbn.notification.flags and Notification.FLAG_ONGOING_EVENT != 0) return
-    if (sbn.notification.category in setOf(Notification.CATEGORY_MESSAGE, Notification.CATEGORY_SOCIAL, Notification.CATEGORY_EMAIL)) return
+    if (sbn.packageName in NotificationMovementParser.EXCLUDED_SOURCE_PACKAGES) return
+    val trustedFinancialSource = sbn.packageName in NotificationMovementParser.TRUSTED_FINANCIAL_PACKAGES
+    if (!trustedFinancialSource && sbn.notification.category in setOf(
+        Notification.CATEGORY_MESSAGE,
+        Notification.CATEGORY_SOCIAL,
+        Notification.CATEGORY_EMAIL,
+      )) return
     val extras = sbn.notification.extras
     val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
     val body = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
@@ -74,6 +80,25 @@ internal data class ParsedNotificationMovement(val name: String, val amount: Lon
 
 internal object NotificationMovementParser {
   internal const val GOOGLE_WALLET_PACKAGE = "com.google.android.apps.walletnfcrel"
+  internal const val COOPEUCH_PACKAGE = "com.coopeuchapp"
+  internal const val BANCO_DE_CHILE_PACKAGE = "cl.bancochile.mi_banco"
+  internal const val MACH_PACKAGE = "cl.bci.sismo.mach"
+
+  internal val TRUSTED_FINANCIAL_PACKAGES = setOf(
+    GOOGLE_WALLET_PACKAGE,
+    COOPEUCH_PACKAGE,
+    BANCO_DE_CHILE_PACKAGE,
+    MACH_PACKAGE,
+  )
+  internal val EXCLUDED_SOURCE_PACKAGES = setOf(
+    "com.google.android.gm",
+    "com.microsoft.office.outlook",
+    "com.whatsapp",
+    "com.facebook.orca",
+    "org.telegram.messenger",
+    "com.google.android.apps.messaging",
+    "com.samsung.android.messaging",
+  )
 
   private const val CLP_NUMBER = "[0-9]{1,3}(?:[.,\\s][0-9]{3})+|[0-9]+"
   private val amountPattern = Regex(

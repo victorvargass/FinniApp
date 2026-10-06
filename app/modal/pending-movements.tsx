@@ -1,16 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, AppState, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
+import { useRecurrenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, formatTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { findPendingRecurringMatches } from '@/lib/notification-recurrence-match';
 import {
   getPendingNotificationMovements,
   isNotificationMovementAccessEnabled,
@@ -21,6 +23,7 @@ import {
   type PendingMovementCandidate,
 } from '@/lib/notification-movements';
 import { showToast } from '@/lib/toast';
+import type { RecurringDecisionItem } from '@/lib/types';
 import { ensurePushNotificationPermission } from '@/services/NotificationPreferencesService';
 
 const typeIcons: Record<PendingMovementCandidate['suggestedType'], keyof typeof Ionicons.glyphMap> = {
@@ -32,11 +35,25 @@ const typeIcons: Record<PendingMovementCandidate['suggestedType'], keyof typeof 
 
 export default function PendingMovementsScreen() {
   const colors = Colors[useColorScheme() ?? 'light'];
+  const insets = useSafeAreaInsets();
+  const { recurringDecisions, approveRecurringOccurrence } = useRecurrenceDatabase();
   const { fontScale } = useWindowDimensions();
   const usesLargeText = fontScale >= 1.2;
   const [items, setItems] = useState<PendingMovementCandidate[]>([]);
   const [accessEnabled, setAccessEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [approvingCandidateId, setApprovingCandidateId] = useState<string | null>(null);
+  const [choosingCandidateId, setChoosingCandidateId] = useState<string | null>(null);
+  const matchesByCandidateId = useMemo(() => new Map(
+    items.map((candidate) => [
+      candidate.id,
+      findPendingRecurringMatches(candidate, recurringDecisions),
+    ])
+  ), [items, recurringDecisions]);
+  const choosingCandidate = items.find((item) => item.id === choosingCandidateId) ?? null;
+  const choosingMatches = choosingCandidateId == null
+    ? []
+    : matchesByCandidateId.get(choosingCandidateId) ?? [];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +97,28 @@ export default function PendingMovementsScreen() {
         },
       ]
     );
+  };
+
+  const approveCandidate = async (
+    candidate: PendingMovementCandidate,
+    decision: RecurringDecisionItem
+  ) => {
+    if (approvingCandidateId != null) return;
+    setApprovingCandidateId(candidate.id);
+    try {
+      await approveRecurringOccurrence(decision.kind, decision.recurringId, decision.scheduledDate);
+      await removePendingNotificationMovement(candidate.id);
+      setItems((current) => current.filter((item) => item.id !== candidate.id));
+      setChoosingCandidateId(null);
+      showToast(t('pendingMovements.recurringApproved', { name: decision.name }));
+    } catch (error) {
+      Alert.alert(
+        t('errors.couldNotSave'),
+        error instanceof Error ? error.message : t('common.tryAgain')
+      );
+    } finally {
+      setApprovingCandidateId(null);
+    }
   };
 
   return (
@@ -129,11 +168,20 @@ export default function PendingMovementsScreen() {
           </ThemedView>
         ) : items.map((candidate) => {
           const occurredAt = new Date(candidate.occurredAt);
+          const recurringMatches = matchesByCandidateId.get(candidate.id) ?? [];
           return (
             <ThemedView key={candidate.id} style={[styles.card, { borderColor: colors.border }]}>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => router.push(pendingMovementHref(candidate))}
+                onPress={() => {
+                  if (recurringMatches.length === 1) {
+                    void approveCandidate(candidate, recurringMatches[0]);
+                  } else if (recurringMatches.length > 1) {
+                    setChoosingCandidateId(candidate.id);
+                  } else {
+                    router.push(pendingMovementHref(candidate));
+                  }
+                }}
                 style={({ pressed }) => [styles.cardMain, usesLargeText && styles.cardMainLarge, pressed && styles.pressed]}>
                 <Ionicons name={typeIcons[candidate.suggestedType]} size={27} color={colors.action} />
                 <View style={styles.cardCopy}>
@@ -147,6 +195,51 @@ export default function PendingMovementsScreen() {
                 </View>
                 <ThemedText style={[styles.amount, usesLargeText && styles.amountLarge]}>{formatCLP(candidate.amount)}</ThemedText>
               </Pressable>
+              {recurringMatches.length > 0 && (
+                <View style={[styles.matchActions, { borderTopColor: colors.border }]}>
+                  <ThemedText style={[styles.matchHint, { color: colors.textSecondary }]}>
+                    {t(recurringMatches.length === 1
+                      ? 'pendingMovements.recurringMatchFound'
+                      : 'pendingMovements.multipleRecurringMatches')}
+                  </ThemedText>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={approvingCandidateId != null}
+                    onPress={() => {
+                      if (recurringMatches.length === 1) {
+                        void approveCandidate(candidate, recurringMatches[0]);
+                      } else {
+                        setChoosingCandidateId(candidate.id);
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.matchButton,
+                      { backgroundColor: colors.primary },
+                      pressed && styles.pressed,
+                    ]}>
+                    {approvingCandidateId === candidate.id ? (
+                      <ActivityIndicator color={colors.onPrimary} />
+                    ) : (
+                      <ThemedText style={[styles.primaryText, { color: colors.onPrimary }]}>
+                        {recurringMatches.length === 1
+                          ? t('pendingMovements.approveRecurring', { name: recurringMatches[0].name })
+                          : t('pendingMovements.chooseRecurring')}
+                      </ThemedText>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={approvingCandidateId != null}
+                    onPress={() => router.push(pendingMovementHref(candidate))}
+                    style={({ pressed }) => [
+                      styles.separateButton,
+                      { borderColor: colors.border },
+                      pressed && styles.pressed,
+                    ]}>
+                    <ThemedText type="defaultSemiBold">{t('pendingMovements.registerSeparate')}</ThemedText>
+                  </Pressable>
+                </View>
+              )}
               <Pressable
                 accessibilityLabel={t('pendingMovements.deleteAccessibility', { name: candidate.name })}
                 accessibilityRole="button"
@@ -159,6 +252,49 @@ export default function PendingMovementsScreen() {
           );
         })}
       </ScrollView>
+      <Modal
+        animationType="slide"
+        transparent
+        visible={choosingCandidate != null}
+        onRequestClose={() => setChoosingCandidateId(null)}>
+        <Pressable style={styles.overlay} onPress={() => setChoosingCandidateId(null)}>
+          <Pressable style={styles.sheetPosition} onPress={(event) => event.stopPropagation()}>
+            <ThemedView
+              accessibilityViewIsModal
+              style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
+              <View style={styles.handle} />
+              <ThemedText type="subtitle">{t('pendingMovements.chooseRecurringTitle')}</ThemedText>
+              <ThemedText style={{ color: colors.textSecondary }}>
+                {t('pendingMovements.chooseRecurringDescription')}
+              </ThemedText>
+              {choosingCandidate && choosingMatches.map((decision) => (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={approvingCandidateId != null}
+                  key={`${decision.kind}-${decision.recurringId}-${decision.scheduledDate}`}
+                  onPress={() => { void approveCandidate(choosingCandidate, decision); }}
+                  style={({ pressed }) => [
+                    styles.choice,
+                    { borderColor: colors.border },
+                    pressed && styles.pressed,
+                  ]}>
+                  <View style={styles.choiceCopy}>
+                    <ThemedText type="defaultSemiBold">{decision.name}</ThemedText>
+                    <ThemedText style={{ color: colors.textSecondary }}>{formatCLP(decision.amount)}</ThemedText>
+                  </View>
+                  <Ionicons name="checkmark-circle-outline" size={23} color={colors.primary} />
+                </Pressable>
+              ))}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setChoosingCandidateId(null)}
+                style={[styles.separateButton, { borderColor: colors.border }]}>
+                <ThemedText type="defaultSemiBold">{t('common.close')}</ThemedText>
+              </Pressable>
+            </ThemedView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -182,5 +318,15 @@ const styles = StyleSheet.create({
   amount: { fontFamily: Fonts.bold, flexShrink: 0 },
   amountLarge: { marginLeft: 39 },
   deleteButton: { alignSelf: 'flex-end', minWidth: 52, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  matchActions: { borderTopWidth: StyleSheet.hairlineWidth, padding: 14, gap: 10 },
+  matchHint: { lineHeight: 20 },
+  matchButton: { minHeight: 48, borderRadius: LayoutTokens.radiusMedium, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  separateButton: { minHeight: 48, borderWidth: 1, borderRadius: LayoutTokens.radiusMedium, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  sheetPosition: { width: '100%', maxHeight: '82%', flexShrink: 1 },
+  sheet: { borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 20, gap: 12, maxHeight: '100%', flexShrink: 1 },
+  handle: { width: 38, height: 4, borderRadius: 2, backgroundColor: '#60758E', opacity: 0.55, alignSelf: 'center' },
+  choice: { minHeight: 58, borderWidth: 1, borderRadius: LayoutTokens.radiusMedium, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  choiceCopy: { flex: 1, gap: 2 },
   pressed: { opacity: 0.65 },
 });

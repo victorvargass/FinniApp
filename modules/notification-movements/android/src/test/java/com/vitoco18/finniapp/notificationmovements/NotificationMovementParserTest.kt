@@ -56,6 +56,20 @@ class NotificationMovementParserTest {
   }
 
   @Test
+  fun recognizesSupportedChileanFinancialPackages() {
+    assertEquals(true, NotificationMovementParser.TRUSTED_FINANCIAL_PACKAGES.contains("com.coopeuchapp"))
+    assertEquals(true, NotificationMovementParser.TRUSTED_FINANCIAL_PACKAGES.contains("cl.bancochile.mi_banco"))
+    assertEquals(true, NotificationMovementParser.TRUSTED_FINANCIAL_PACKAGES.contains("cl.bci.sismo.mach"))
+  }
+
+  @Test
+  fun keepsEmailAndMessagingPackagesExplicitlyExcluded() {
+    assertEquals(true, NotificationMovementParser.EXCLUDED_SOURCE_PACKAGES.contains("com.google.android.gm"))
+    assertEquals(true, NotificationMovementParser.EXCLUDED_SOURCE_PACKAGES.contains("com.whatsapp"))
+    assertEquals(true, NotificationMovementParser.EXCLUDED_SOURCE_PACKAGES.contains("com.google.android.apps.messaging"))
+  }
+
+  @Test
   fun identifiesEquivalentCrossAppNotificationsAsDuplicates() {
     val walletMovement = pendingMovement(
       id = "wallet:1",

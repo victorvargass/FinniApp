@@ -2,16 +2,21 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
+import { useRecurrenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatDate, formatTime } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { findPendingRecurringMatches } from '@/lib/notification-recurrence-match';
 import {
   claimNextPendingNotificationMovement,
   notificationMovementCaptureSupported,
   pendingMovementHref,
+  removePendingNotificationMovement,
 } from '@/lib/notification-movements';
+import { showToast } from '@/lib/toast';
 
 export function AutomaticMovementController({ enabled }: { enabled: boolean }) {
+  const { recurringDecisions, approveRecurringOccurrence } = useRecurrenceDatabase();
   const checkingRef = useRef(false);
   const alertVisibleRef = useRef(false);
 
@@ -22,7 +27,59 @@ export function AutomaticMovementController({ enabled }: { enabled: boolean }) {
       const candidate = await claimNextPendingNotificationMovement();
       if (!candidate) return;
       const occurredAt = new Date(candidate.occurredAt);
+      const recurringMatches = findPendingRecurringMatches(candidate, recurringDecisions);
       alertVisibleRef.current = true;
+      const approveMatch = async (match: (typeof recurringMatches)[number]) => {
+        try {
+          await approveRecurringOccurrence(match.kind, match.recurringId, match.scheduledDate);
+          await removePendingNotificationMovement(candidate.id);
+          showToast(t('pendingMovements.recurringApproved', { name: match.name }));
+        } catch (error) {
+          Alert.alert(
+            t('errors.couldNotSave'),
+            error instanceof Error ? error.message : t('common.tryAgain')
+          );
+        }
+      };
+      const actions = recurringMatches.length === 1
+        ? [
+            { text: t('pendingMovements.later'), style: 'cancel' as const, onPress: () => { alertVisibleRef.current = false; } },
+            {
+              text: t('pendingMovements.registerSeparate'),
+              onPress: () => {
+                alertVisibleRef.current = false;
+                router.push(pendingMovementHref(candidate));
+              },
+            },
+            {
+              text: t('pendingMovements.approveRecurring', { name: recurringMatches[0].name }),
+              onPress: () => {
+                alertVisibleRef.current = false;
+                void approveMatch(recurringMatches[0]);
+              },
+            },
+          ]
+        : recurringMatches.length > 1
+          ? [
+              { text: t('pendingMovements.later'), style: 'cancel' as const, onPress: () => { alertVisibleRef.current = false; } },
+              {
+                text: t('pendingMovements.chooseRecurring'),
+                onPress: () => {
+                  alertVisibleRef.current = false;
+                  router.push('/modal/pending-movements' as never);
+                },
+              },
+            ]
+          : [
+              { text: t('pendingMovements.later'), style: 'cancel' as const, onPress: () => { alertVisibleRef.current = false; } },
+              {
+                text: t('pendingMovements.register'),
+                onPress: () => {
+                  alertVisibleRef.current = false;
+                  router.push(pendingMovementHref(candidate));
+                },
+              },
+            ];
       Alert.alert(
         t('pendingMovements.detectedTitle'),
         t('pendingMovements.detectedQuestion', {
@@ -31,22 +88,13 @@ export function AutomaticMovementController({ enabled }: { enabled: boolean }) {
           date: formatDate(occurredAt),
           time: formatTime(occurredAt),
         }),
-        [
-          { text: t('pendingMovements.later'), style: 'cancel', onPress: () => { alertVisibleRef.current = false; } },
-          {
-            text: t('pendingMovements.register'),
-            onPress: () => {
-              alertVisibleRef.current = false;
-              router.push(pendingMovementHref(candidate));
-            },
-          },
-        ],
+        actions,
         { onDismiss: () => { alertVisibleRef.current = false; } }
       );
     } finally {
       checkingRef.current = false;
     }
-  }, [enabled]);
+  }, [approveRecurringOccurrence, enabled, recurringDecisions]);
 
   useEffect(() => {
     void check();
