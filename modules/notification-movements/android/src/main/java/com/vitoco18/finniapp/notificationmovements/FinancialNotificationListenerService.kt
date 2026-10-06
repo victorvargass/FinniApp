@@ -19,7 +19,7 @@ class FinancialNotificationListenerService : NotificationListenerService() {
     val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
     val body = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
       ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty()
-    val parsed = NotificationMovementParser.parse(title, body) ?: return
+    val parsed = NotificationMovementParser.parse(sbn.packageName, title, body) ?: return
     val sourceApp = try {
       packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString()
     } catch (_: Exception) {
@@ -73,19 +73,30 @@ class FinancialNotificationListenerService : NotificationListenerService() {
 internal data class ParsedNotificationMovement(val name: String, val amount: Long, val suggestedType: String)
 
 internal object NotificationMovementParser {
-  private val amountPattern = Regex("(?i)(?:CLP\\s*|\\$\\s*)([0-9]{1,3}(?:[.]?[0-9]{3})+|[0-9]+)|([0-9]{1,3}(?:[.]?[0-9]{3})+|[0-9]+)\\s*CLP")
+  internal const val GOOGLE_WALLET_PACKAGE = "com.google.android.apps.walletnfcrel"
+
+  private const val CLP_NUMBER = "[0-9]{1,3}(?:[.,\\s][0-9]{3})+|[0-9]+"
+  private val amountPattern = Regex(
+    "(?i)(?<![A-Z])\\$\\s*($CLP_NUMBER)(?![0-9.,])|" +
+      "CLP\\s*\\$?\\s*($CLP_NUMBER)(?![0-9.,])|" +
+      "($CLP_NUMBER)\\s*CLP(?![A-Z])"
+  )
   private val financialWords = listOf(
     "compra", "consumo", "pago", "transferencia", "abono", "deposito", "cargo", "giro", "retiro", "transaccion"
   )
-  private val genericTitles = listOf("notificacion", "movimiento", "compra", "pago", "transferencia")
+  private val genericTitles = listOf(
+    "notificacion", "movimiento", "compra", "pago", "transferencia",
+    "google wallet", "billetera de google", "wallet"
+  )
 
-  fun parse(title: String, body: String): ParsedNotificationMovement? {
+  fun parse(sourcePackage: String, title: String, body: String): ParsedNotificationMovement? {
     val combined = "$title $body".trim()
     val normalized = normalize(combined)
-    if (financialWords.none { normalized.contains(it) }) return null
+    val isGoogleWallet = sourcePackage == GOOGLE_WALLET_PACKAGE
+    if (!isGoogleWallet && financialWords.none { normalized.contains(it) }) return null
     val amountMatch = amountPattern.find(combined) ?: return null
     val amount = amountMatch.groupValues.drop(1).firstOrNull { it.isNotEmpty() }
-      ?.replace(".", "")?.toLongOrNull()?.takeIf { it > 0 } ?: return null
+      ?.replace(Regex("[.,\\s]"), "")?.toLongOrNull()?.takeIf { it > 0 } ?: return null
     val type = when {
       listOf("pago de tarjeta", "pagaste tu tarjeta", "abono a tarjeta").any { normalized.contains(it) } -> "card-payment"
       listOf("recibiste", "recibido", "transferencia recibida", "deposito recibido", "abono en tu cuenta").any { normalized.contains(it) } -> "income"
@@ -94,10 +105,24 @@ internal object NotificationMovementParser {
     }
     val merchant = Regex("(?i)(?:\\ben\\s+|\\ba\\s+)([\\p{L}0-9][\\p{L}0-9 .&'_-]{1,40}?)(?=\\s+(?:por|de|el|a las|CLP|\\$)|[.,]|$)")
       .find(combined)?.groupValues?.getOrNull(1)?.let(::sanitizeName)
-    val fallbackTitle = title.trim().takeIf { candidate ->
-      candidate.isNotEmpty() && genericTitles.none { normalize(candidate) == it }
-    }?.let(::sanitizeName)
-    return ParsedNotificationMovement(merchant ?: fallbackTitle.orEmpty(), amount, type)
+    val fallbackTitle = usableName(title)
+    val walletMerchant = if (isGoogleWallet) extractWalletMerchant(title, body) else null
+    return ParsedNotificationMovement(walletMerchant ?: merchant ?: fallbackTitle.orEmpty(), amount, type)
+  }
+
+  private fun extractWalletMerchant(title: String, body: String): String? {
+    usableName(title)?.let { return it }
+    return body.lineSequence()
+      .flatMap { line -> line.split(Regex("(?i)\\s+(?:with|con)\\s+")).asSequence() }
+      .mapNotNull(::usableName)
+      .firstOrNull { candidate ->
+        val normalized = normalize(candidate)
+        !normalized.contains("tarjeta") && !normalized.contains("card") && !normalized.contains("debito")
+      }
+  }
+
+  private fun usableName(value: String): String? = sanitizeName(value).takeIf { candidate ->
+    candidate.isNotEmpty() && genericTitles.none { normalize(candidate) == it }
   }
 
   private fun sanitizeName(value: String): String = amountPattern.replace(value, "")

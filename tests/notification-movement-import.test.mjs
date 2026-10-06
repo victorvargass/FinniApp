@@ -13,8 +13,13 @@ test('Android notification capture is explicit and stores only parsed movement f
   assert.match(listener, /CATEGORY_MESSAGE/);
   assert.match(listener, /CATEGORY_EMAIL/);
   assert.match(listener, /amountPattern/);
+  assert.match(listener, /com\.google\.android\.apps\.walletnfcrel/);
+  assert.match(listener, /isGoogleWallet/);
+  assert.match(listener, /extractWalletMerchant/);
   assert.match(store, /sourceApp/);
   assert.match(store, /suggestedType/);
+  assert.match(store, /DUPLICATE_WINDOW_MS/);
+  assert.match(store, /isLikelyDuplicate/);
   assert.match(store, /AndroidKeyStore/);
   assert.match(store, /AES\/GCM\/NoPadding/);
   assert.doesNotMatch(store, /notificationBody|rawBody|rawText/);

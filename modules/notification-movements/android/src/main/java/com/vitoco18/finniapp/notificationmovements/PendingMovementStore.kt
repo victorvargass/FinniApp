@@ -7,10 +7,13 @@ import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.KeyStore
+import java.text.Normalizer
+import java.util.Locale
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import kotlin.math.abs
 
 internal data class PendingMovement(
   val id: String,
@@ -50,6 +53,7 @@ internal object PendingMovementStore {
   private const val ITEMS = "items"
   private const val MAX_ITEMS = 100
   private const val KEY_ALIAS = "finni_pending_notification_movements_key"
+  private const val DUPLICATE_WINDOW_MS = 2 * 60 * 1000L
 
   @Synchronized
   fun list(context: Context): MutableList<PendingMovement> {
@@ -67,9 +71,21 @@ internal object PendingMovementStore {
   fun add(context: Context, movement: PendingMovement) {
     val items = list(context)
     if (items.any { it.id == movement.id }) return
+    if (items.any { existing -> isLikelyDuplicate(existing, movement) }) return
     items.add(0, movement)
     save(context, items.take(MAX_ITEMS))
   }
+
+  internal fun isLikelyDuplicate(first: PendingMovement, second: PendingMovement): Boolean =
+    first.amount == second.amount &&
+      first.suggestedType == second.suggestedType &&
+      comparableName(first.name) == comparableName(second.name) &&
+      abs(first.occurredAt - second.occurredAt) <= DUPLICATE_WINDOW_MS
+
+  private fun comparableName(value: String): String = Normalizer
+    .normalize(value.lowercase(Locale.ROOT), Normalizer.Form.NFD)
+    .replace(Regex("\\p{Mn}+"), "")
+    .replace(Regex("[^a-z0-9]+"), "")
 
   @Synchronized
   fun claimNext(context: Context): PendingMovement? {
