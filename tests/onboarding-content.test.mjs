@@ -15,8 +15,11 @@ test('first-run onboarding explains automation and privacy before the financial 
   assert.match(es, /privacyBody: '[^']+cifrada[^']+opcionales[^']+autorización/);
 });
 
-test('onboarding informs about optional permissions without requesting them', () => {
+test('onboarding requests notifications only from an explicit activation control', () => {
   assert.doesNotMatch(screen, /requestPermissionsAsync|openNotificationAccessSettings|authenticateAsync|signIn/);
+  assert.match(screen, /setPushNotificationsEnabled\(true\)/);
+  assert.match(screen, /testID="onboarding-enable-notifications"/);
+  assert.match(screen, /onboarding\.enableNotifications/);
   assert.match(screen, /onboarding\.optionalPermissions/);
   assert.match(screen, /onboarding\.permissionControl/);
 });

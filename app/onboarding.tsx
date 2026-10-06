@@ -4,14 +4,14 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Linking, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GoogleLogo } from '@/components/google-logo';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { ThemedText } from '@/components/themed-text';
 import { BrandColors, Colors, Fonts } from '@/constants/theme';
-import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
+import { usePeriodDatabase, usePreferenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
@@ -19,6 +19,7 @@ import { formatDate, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { markFirstPeriodConfigured } from '@/lib/setup-progress';
 import { showToast } from '@/lib/toast';
+import { NotificationPermissionError } from '@/services/MovementReminderService';
 
 const wordmark = require('@/assets/images/splash-icon.png');
 const darkWordmark = require('@/assets/images/splash-icon-dark.png');
@@ -189,6 +190,36 @@ function PeriodSetupOverview() {
 }
 
 function AutomationOverview() {
+  const { settings, setPushNotificationsEnabled } = usePreferenceDatabase();
+  const [requestingNotifications, setRequestingNotifications] = useState(false);
+
+  const enableNotifications = async () => {
+    if (requestingNotifications || settings.pushNotificationsEnabled) return;
+    setRequestingNotifications(true);
+    try {
+      await setPushNotificationsEnabled(true);
+      showToast(t('onboarding.notificationsEnabledToast'));
+    } catch (error) {
+      if (error instanceof NotificationPermissionError && !error.canAskAgain) {
+        Alert.alert(
+          t('settings.notificationPermissionTitle'),
+          t('settings.notificationPermissionSettingsHint'),
+          [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('settings.openSettings'), onPress: () => { void Linking.openSettings(); } },
+          ]
+        );
+      } else {
+        Alert.alert(
+          t('errors.couldNotUpdate'),
+          error instanceof Error ? error.message : t('common.tryAgain')
+        );
+      }
+    } finally {
+      setRequestingNotifications(false);
+    }
+  };
+
   return (
     <View style={styles.automationCard}>
       <View style={styles.automationHeader}>
@@ -224,6 +255,36 @@ function AutomationOverview() {
           <Ionicons name="alarm-outline" size={22} color={BrandColors.turquoise} />
           <ThemedText style={styles.automationToolText}>{t('onboarding.localReminders')}</ThemedText>
         </View>
+      </View>
+      <View style={styles.notificationPermission}>
+        <View style={styles.notificationPermissionCopy}>
+          <ThemedText style={styles.setupTitle}>{t('onboarding.notificationsTitle')}</ThemedText>
+          <ThemedText style={styles.setupHint}>{t('onboarding.notificationsHint')}</ThemedText>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          disabled={requestingNotifications || settings.pushNotificationsEnabled}
+          onPress={() => { void enableNotifications(); }}
+          style={[
+            styles.notificationPermissionButton,
+            settings.pushNotificationsEnabled && styles.notificationPermissionEnabled,
+          ]}
+          testID="onboarding-enable-notifications">
+          {requestingNotifications ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Ionicons
+              name={settings.pushNotificationsEnabled ? 'checkmark-circle' : 'notifications'}
+              size={18}
+              color="#FFFFFF"
+            />
+          )}
+          <ThemedText style={styles.notificationPermissionButtonText}>
+            {t(settings.pushNotificationsEnabled
+              ? 'onboarding.notificationsEnabled'
+              : 'onboarding.enableNotifications')}
+          </ThemedText>
+        </Pressable>
       </View>
     </View>
   );
@@ -450,6 +511,9 @@ const styles = StyleSheet.create({
   androidBadge: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: '#E8F4FA' }, androidBadgeText: { color: BrandColors.blueSecondary, fontFamily: Fonts.bold, fontSize: 9 },
   detectedMovement: { minHeight: 82, borderRadius: 15, padding: 12, backgroundColor: '#F5F8FA', flexDirection: 'row', alignItems: 'center', gap: 10 }, detectedMerchantIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: '#E8F4FA', alignItems: 'center', justifyContent: 'center' }, detectedCopy: { flex: 1, gap: 3 }, detectedName: { color: BrandColors.navy, fontFamily: Fonts.bold, fontSize: 13 }, detectedAmountCopy: { alignItems: 'flex-end', gap: 4 }, detectedAmount: { color: Colors.light.expense, fontFamily: Fonts.bold, fontSize: 15 }, reviewLabel: { color: BrandColors.turquoise, fontFamily: Fonts.bold, fontSize: 9 },
   automationDivider: { height: 1, backgroundColor: '#E8EEF2' }, automationTools: { flexDirection: 'row', gap: 9 }, automationTool: { flex: 1, minHeight: 67, borderRadius: 13, padding: 10, backgroundColor: '#E8F9F6', alignItems: 'center', justifyContent: 'center', gap: 6 }, automationToolText: { color: BrandColors.navy, fontFamily: Fonts.semiBold, fontSize: 10, lineHeight: 13, textAlign: 'center' },
+  notificationPermission: { gap: 10, paddingTop: 2 }, notificationPermissionCopy: { gap: 3 },
+  notificationPermissionButton: { minHeight: 46, borderRadius: 13, paddingHorizontal: 14, backgroundColor: BrandColors.navy, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  notificationPermissionEnabled: { backgroundColor: BrandColors.turquoise }, notificationPermissionButtonText: { color: '#FFFFFF', fontFamily: Fonts.bold, fontSize: 13 },
   privacyCard: { width: '100%', maxWidth: 420, padding: 18, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E1E8', gap: 13, shadowColor: BrandColors.navy, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 22, elevation: 7 }, privacyShield: { width: 62, height: 62, borderRadius: 20, alignSelf: 'center', backgroundColor: '#E8F9F6', alignItems: 'center', justifyContent: 'center' }, privacyLead: { color: BrandColors.navy, fontFamily: Fonts.bold, fontSize: 13, lineHeight: 18, textAlign: 'center' }, protectionList: { gap: 7 }, protectionRow: { minHeight: 58, borderRadius: 13, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#F5F8FA', flexDirection: 'row', alignItems: 'center', gap: 10 }, protectionIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: '#E8F4FA', alignItems: 'center', justifyContent: 'center' },
   setupCard: { width: '100%', maxWidth: 420, padding: 8, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E1E8', shadowColor: BrandColors.navy, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 22, elevation: 7 },
   setupRow: { minHeight: 88, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 12 },
