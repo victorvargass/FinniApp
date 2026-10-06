@@ -25,7 +25,7 @@ test('forecast uses the calendar month end instead of the selected period end', 
   assert.equal(getForecastMonthEnd('2028-02-10'), '2028-02-29');
 });
 
-test('forecast groups overdue, next seven days, and later movements', () => {
+test('forecast groups overdue, today, next seven days, and later movements', () => {
   const items = [
     { id: 'overdue', kind: 'debt', name: 'A', amount: 1, date: '2026-10-01' },
     { id: 'today', kind: 'income', name: 'B', amount: 1, date: '2026-10-02' },
@@ -34,7 +34,8 @@ test('forecast groups overdue, next seven days, and later movements', () => {
   ];
   const groups = groupFinancialForecastItems(items, '2026-10-02');
   assert.deepEqual(groups.overdue.map((item) => item.id), ['overdue']);
-  assert.deepEqual(groups.soon.map((item) => item.id), ['today', 'edge']);
+  assert.deepEqual(groups.today.map((item) => item.id), ['today']);
+  assert.deepEqual(groups.soon.map((item) => item.id), ['edge']);
   assert.deepEqual(groups.later.map((item) => item.id), ['later']);
 });
 
@@ -59,4 +60,13 @@ test('forecast load failures are handled instead of becoming unhandled rejection
   assert.match(source, /\.catch\(\(error\) => \{/);
   assert.match(source, /logAppError\('forecast\.load', error\)/);
   assert.match(source, /budgetForecast\.loadError/);
+});
+
+test('Home surfaces overdue forecast items without duplicating existing card or recurrence alerts', () => {
+  const source = readFileSync(new URL('../app/(tabs)/home.tsx', import.meta.url), 'utf8');
+  assert.match(source, /getBudgetForecast\(selectedPeriod\.id, today\)/);
+  assert.match(source, /groupFinancialForecastItems\(forecast\.items, today\)\.overdue/);
+  assert.match(source, /item\.kind === 'billed'/);
+  assert.match(source, /pendingRecurrenceIds\.has\(item\.id\)/);
+  assert.match(source, /home\.overdueForecastBody/);
 });

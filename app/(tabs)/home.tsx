@@ -29,6 +29,7 @@ import {
 } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { groupFinancialForecastItems } from '@/lib/financial-forecast';
 import { formatCLP, formatDate, toDateString } from '@/lib/format';
 import { findMostUrgentCategoryLimit } from '@/lib/home-insights';
 import { dismissHomeAttention, getHomeAttentionDismissals, restoreHomeAttention } from '@/lib/home-attention-dismissals';
@@ -43,7 +44,7 @@ import {
   calculatePeriodOverviewExpenses,
 } from '@/lib/period-card-cashflow';
 import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
-import type { Debt, DebtPlan } from '@/lib/types';
+import type { Debt, DebtPlan, FinancialForecastItem } from '@/lib/types';
 import { hasUserCreatedCategory } from '@/lib/setup-progress-state';
 import {
   confirmFirstPeriodDate,
@@ -52,6 +53,7 @@ import {
 } from '@/lib/setup-progress';
 import { showToast } from '@/lib/toast';
 import { buildWeeklyInsight, findSavingsMilestone } from '@/lib/weekly-insights';
+import { getBudgetForecast } from '@/repositories';
 import { exportPeriodReport } from '@/services/PeriodReportService';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -92,6 +94,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const isCurrentPeriod = selectedPeriod?.id === settings.currentPeriodId;
+  const today = toDateString(new Date());
 
   // Initial states are just some default dates; sync with settings later.
   const [startDate, setStartDate] = useState(new Date());
@@ -106,6 +109,7 @@ export default function HomeScreen() {
   const [hasConfiguredPeriod, setHasConfiguredPeriod] = useState(false);
   const [homeDebts, setHomeDebts] = useState<Debt[]>([]);
   const [homeDebtPlans, setHomeDebtPlans] = useState<DebtPlan[]>([]);
+  const [overdueForecastItems, setOverdueForecastItems] = useState<FinancialForecastItem[]>([]);
   const [dismissedAttentionIds, setDismissedAttentionIds] = useState<string[] | null>(null);
   const [lastDismissedAttentionId, setLastDismissedAttentionId] = useState<string | null>(null);
   const undoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,6 +129,26 @@ export default function HomeScreen() {
       .catch(() => undefined);
     return () => { active = false; };
   }, [getDebtPlans, getDebts]));
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    if (!isCurrentPeriod || selectedPeriod?.id == null) {
+      setOverdueForecastItems([]);
+      return () => { active = false; };
+    }
+    getBudgetForecast(selectedPeriod.id, today)
+      .then((forecast) => {
+        if (active) {
+          setOverdueForecastItems(groupFinancialForecastItems(forecast.items, today).overdue);
+        }
+      })
+      .catch((error) => {
+        if (!active) return;
+        setOverdueForecastItems([]);
+        logAppError('forecast.load', error);
+      });
+    return () => { active = false; };
+  }, [isCurrentPeriod, selectedPeriod?.id, today]));
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -202,8 +226,8 @@ export default function HomeScreen() {
     : undefined;
   const hasPeriodMovements = expenses.length > 0 || incomes.length > 0;
   const weeklyInsight = useMemo(
-    () => buildWeeklyInsight(expenses, incomes, toDateString(new Date())),
-    [expenses, incomes]
+    () => buildWeeklyInsight(expenses, incomes, today),
+    [expenses, incomes, today]
   );
   const savingsMilestone = useMemo(
     () => findSavingsMilestone(periodSavingsGoalActivity),
@@ -245,6 +269,49 @@ export default function HomeScreen() {
           pathname: '/modal/payment-method-detail',
           params: { id: String(urgentCardPayment.method.id) },
         }),
+        onDismiss: () => dismissAttention(attentionId),
+      });
+    }
+  }
+
+  if (isCurrentPeriod) {
+    const pendingRecurrenceIds = new Set(recurringDecisions
+      .filter((item) => item.status === 'pending')
+      .map((item) => `${item.kind}-${item.recurringId}-${item.scheduledDate}`));
+    for (const item of overdueForecastItems) {
+      const coveredByExistingAlert = item.kind === 'billed'
+        || ((item.kind === 'expense' || item.kind === 'income') && pendingRecurrenceIds.has(item.id));
+      if (coveredByExistingAlert) continue;
+
+      const attentionId = `forecast-overdue-${item.id}-${item.date}-${item.amount}`;
+      const isReceivable = item.kind === 'receivable' || item.kind === 'income';
+      attentionItems.push({
+        key: attentionId,
+        icon: isReceivable ? 'arrow-down-circle-outline' : 'alert-circle-outline',
+        title: t(isReceivable ? 'home.overdueReceivableTitle' : 'home.overdueMovementTitle'),
+        body: t('home.overdueForecastBody', {
+          name: item.name,
+          amount: formatCLP(item.amount),
+          date: formatDate(parseDateString(item.date)),
+        }),
+        tone: 'danger',
+        onPress: () => {
+          const debtMatch = item.id.match(/^debt-(\d+)$/);
+          const recurrenceMatch = item.id.match(/^(expense|income)-(\d+)-/);
+          if (debtMatch) {
+            router.push({
+              pathname: '/modal/manual-debt-detail',
+              params: { id: debtMatch[1] },
+            });
+          } else if (recurrenceMatch) {
+            router.push({
+              pathname: '/modal/recurrence-detail',
+              params: { id: recurrenceMatch[2], kind: recurrenceMatch[1] },
+            } as never);
+          } else {
+            router.push('/modal/budget-forecast' as never);
+          }
+        },
         onDismiss: () => dismissAttention(attentionId),
       });
     }

@@ -157,6 +157,7 @@ export default function BudgetForecastScreen() {
           </ThemedView>
         ) : ([
           ['overdue', groups.overdue],
+          ['today', groups.today],
           ['soon', groups.soon],
           ['later', groups.later],
         ] as const).map(([group, items]) => items.length > 0 && (

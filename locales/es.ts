@@ -753,6 +753,9 @@ const es = {
     globalMetricDebt: 'Deuda total',
     pendingRecurringTitle: 'Movimientos por confirmar',
     pendingRecurringBody: 'Tienes %{count} movimientos recurrentes pendientes.',
+    overdueReceivableTitle: 'Cobro vencido',
+    overdueMovementTitle: 'Movimiento vencido',
+    overdueForecastBody: '%{name}: %{amount} venció el %{date}.',
     cardPaymentDueTitle: 'Tarjeta próxima a vencer',
     cardPaymentDueBody: '%{name}: tienes %{amount} facturados con vencimiento el %{date}.',
     cardPaymentOverdueTitle: 'Pago de tarjeta vencido',
@@ -1556,7 +1559,7 @@ const es = {
     upcomingHint: 'Incluye vencidos y movimientos programados hasta fin de mes.',
     noUpcoming: 'No hay movimientos pendientes hasta fin de mes.',
     loadError: 'No se pudo cargar la proyección. Vuelve atrás e inténtalo nuevamente.',
-    groups: { overdue: 'Vencidos', soon: 'Próximos 7 días', later: 'Más adelante este mes' },
+    groups: { overdue: 'Vencidos', today: 'Hoy', soon: 'Próximos 7 días', later: 'Más adelante este mes' },
     kinds: {
       expense: 'Gasto recurrente',
       income: 'Ingreso recurrente',

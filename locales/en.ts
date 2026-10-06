@@ -753,6 +753,9 @@ const en = {
     globalMetricDebt: 'Total debt',
     pendingRecurringTitle: 'Transactions to confirm',
     pendingRecurringBody: 'You have %{count} pending recurring transactions.',
+    overdueReceivableTitle: 'Overdue collection',
+    overdueMovementTitle: 'Overdue transaction',
+    overdueForecastBody: '%{name}: %{amount} was due on %{date}.',
     cardPaymentDueTitle: 'Card payment due soon',
     cardPaymentDueBody: '%{name}: %{amount} is billed and due on %{date}.',
     cardPaymentOverdueTitle: 'Card payment overdue',
@@ -1556,7 +1559,7 @@ const en = {
     upcomingHint: 'Includes overdue and scheduled movements through month-end.',
     noUpcoming: 'There are no pending movements through month-end.',
     loadError: 'The forecast could not be loaded. Go back and try again.',
-    groups: { overdue: 'Overdue', soon: 'Next 7 days', later: 'Later this month' },
+    groups: { overdue: 'Overdue', today: 'Today', soon: 'Next 7 days', later: 'Later this month' },
     kinds: {
       expense: 'Recurring expense',
       income: 'Recurring income',

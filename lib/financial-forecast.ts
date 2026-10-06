@@ -2,6 +2,7 @@ import type { FinancialForecastItem } from './types';
 
 export type FinancialForecastGroups = {
   overdue: FinancialForecastItem[];
+  today: FinancialForecastItem[];
   soon: FinancialForecastItem[];
   later: FinancialForecastItem[];
 };
@@ -25,7 +26,8 @@ export function groupFinancialForecastItems(
   ].join('-');
   return {
     overdue: items.filter((item) => item.date < referenceDate),
-    soon: items.filter((item) => item.date >= referenceDate && item.date <= soonThrough),
+    today: items.filter((item) => item.date === referenceDate),
+    soon: items.filter((item) => item.date > referenceDate && item.date <= soonThrough),
     later: items.filter((item) => item.date > soonThrough),
   };
 }
