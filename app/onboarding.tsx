@@ -3,8 +3,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, AppState, Linking, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GoogleLogo } from '@/components/google-logo';
@@ -17,6 +17,11 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatDate, toDateString } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import {
+  isNotificationMovementAccessEnabled,
+  notificationMovementCaptureSupported,
+  openNotificationMovementAccessSettings,
+} from '@/lib/notification-movements';
 import { markFirstPeriodConfigured } from '@/lib/setup-progress';
 import { showToast } from '@/lib/toast';
 import { NotificationPermissionError } from '@/services/MovementReminderService';
@@ -192,6 +197,20 @@ function PeriodSetupOverview() {
 function AutomationOverview() {
   const { settings, setPushNotificationsEnabled } = usePreferenceDatabase();
   const [requestingNotifications, setRequestingNotifications] = useState(false);
+  const [bankDetectionEnabled, setBankDetectionEnabled] = useState(false);
+
+  const refreshBankDetection = useCallback(() => {
+    if (!notificationMovementCaptureSupported) return;
+    void isNotificationMovementAccessEnabled().then(setBankDetectionEnabled);
+  }, []);
+
+  useEffect(() => {
+    refreshBankDetection();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshBankDetection();
+    });
+    return () => subscription.remove();
+  }, [refreshBankDetection]);
 
   const enableNotifications = async () => {
     if (requestingNotifications || settings.pushNotificationsEnabled) return;
@@ -218,6 +237,20 @@ function AutomationOverview() {
     } finally {
       setRequestingNotifications(false);
     }
+  };
+
+  const openBankDetectionSettings = () => {
+    Alert.alert(
+      t('pendingMovements.permissionTitle'),
+      t('pendingMovements.permissionDescription'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('pendingMovements.openAccessSettings'),
+          onPress: () => { void openNotificationMovementAccessSettings(); },
+        },
+      ]
+    );
   };
 
   return (
@@ -286,6 +319,34 @@ function AutomationOverview() {
           </ThemedText>
         </Pressable>
       </View>
+      {notificationMovementCaptureSupported && (
+        <View style={[styles.notificationPermission, styles.bankDetectionPermission]}>
+          <View style={styles.notificationPermissionCopy}>
+            <ThemedText style={styles.setupTitle}>{t('onboarding.bankDetectionTitle')}</ThemedText>
+            <ThemedText style={styles.setupHint}>{t('onboarding.bankDetectionHint')}</ThemedText>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            disabled={bankDetectionEnabled}
+            onPress={openBankDetectionSettings}
+            style={[
+              styles.notificationPermissionButton,
+              bankDetectionEnabled && styles.notificationPermissionEnabled,
+            ]}
+            testID="onboarding-enable-bank-detection">
+            <Ionicons
+              name={bankDetectionEnabled ? 'checkmark-circle' : 'shield-checkmark-outline'}
+              size={18}
+              color="#FFFFFF"
+            />
+            <ThemedText style={styles.notificationPermissionButtonText}>
+              {t(bankDetectionEnabled
+                ? 'onboarding.bankDetectionEnabled'
+                : 'onboarding.enableBankDetection')}
+            </ThemedText>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -512,6 +573,7 @@ const styles = StyleSheet.create({
   detectedMovement: { minHeight: 82, borderRadius: 15, padding: 12, backgroundColor: '#F5F8FA', flexDirection: 'row', alignItems: 'center', gap: 10 }, detectedMerchantIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: '#E8F4FA', alignItems: 'center', justifyContent: 'center' }, detectedCopy: { flex: 1, gap: 3 }, detectedName: { color: BrandColors.navy, fontFamily: Fonts.bold, fontSize: 13 }, detectedAmountCopy: { alignItems: 'flex-end', gap: 4 }, detectedAmount: { color: Colors.light.expense, fontFamily: Fonts.bold, fontSize: 15 }, reviewLabel: { color: BrandColors.turquoise, fontFamily: Fonts.bold, fontSize: 9 },
   automationDivider: { height: 1, backgroundColor: '#E8EEF2' }, automationTools: { flexDirection: 'row', gap: 9 }, automationTool: { flex: 1, minHeight: 67, borderRadius: 13, padding: 10, backgroundColor: '#E8F9F6', alignItems: 'center', justifyContent: 'center', gap: 6 }, automationToolText: { color: BrandColors.navy, fontFamily: Fonts.semiBold, fontSize: 10, lineHeight: 13, textAlign: 'center' },
   notificationPermission: { gap: 10, paddingTop: 2 }, notificationPermissionCopy: { gap: 3 },
+  bankDetectionPermission: { borderTopWidth: 1, borderTopColor: '#E8EEF2', paddingTop: 12 },
   notificationPermissionButton: { minHeight: 46, borderRadius: 13, paddingHorizontal: 14, backgroundColor: BrandColors.navy, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   notificationPermissionEnabled: { backgroundColor: BrandColors.turquoise }, notificationPermissionButtonText: { color: '#FFFFFF', fontFamily: Fonts.bold, fontSize: 13 },
   privacyCard: { width: '100%', maxWidth: 420, padding: 18, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D8E1E8', gap: 13, shadowColor: BrandColors.navy, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 22, elevation: 7 }, privacyShield: { width: 62, height: 62, borderRadius: 20, alignSelf: 'center', backgroundColor: '#E8F9F6', alignItems: 'center', justifyContent: 'center' }, privacyLead: { color: BrandColors.navy, fontFamily: Fonts.bold, fontSize: 13, lineHeight: 18, textAlign: 'center' }, protectionList: { gap: 7 }, protectionRow: { minHeight: 58, borderRadius: 13, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: '#F5F8FA', flexDirection: 'row', alignItems: 'center', gap: 10 }, protectionIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: '#E8F4FA', alignItems: 'center', justifyContent: 'center' },

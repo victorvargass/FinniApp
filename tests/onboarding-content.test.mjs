@@ -23,3 +23,11 @@ test('onboarding requests notifications only from an explicit activation control
   assert.match(screen, /onboarding\.optionalPermissions/);
   assert.match(screen, /onboarding\.permissionControl/);
 });
+
+test('onboarding offers Android bank detection after a privacy disclosure', () => {
+  assert.match(screen, /testID="onboarding-enable-bank-detection"/);
+  assert.match(screen, /pendingMovements\.permissionDescription/);
+  assert.match(screen, /openNotificationMovementAccessSettings/);
+  assert.match(screen, /AppState\.addEventListener/);
+  assert.match(screen, /isNotificationMovementAccessEnabled/);
+});
