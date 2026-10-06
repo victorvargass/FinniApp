@@ -340,6 +340,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         ).catch(() => undefined);
         await refreshStep('REFRESH_INSTALLMENTS', db.processProjectedInstallments());
         await refreshStep('REFRESH_RECURRING_INCOMES', db.processDueRecurringIncomes());
+        await refreshStep(
+          'REFRESH_RECONCILE_LATE_RECURRING',
+          db.reconcileLateRecurringOccurrences()
+        );
         const allPeriods = await refreshStep('REFRESH_PERIODS', db.getPeriods());
         setSettings(nextSettings);
         setPeriods(allPeriods);

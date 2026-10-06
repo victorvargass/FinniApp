@@ -29,9 +29,7 @@ export async function recordDeliveredNotification(
   const actionUrl = typeof data?.url === 'string'
     ? data.url
     : recurringKind && Number.isInteger(recurringId)
-      ? recurringKind === 'expense'
-        ? `/modal/recurring-expense-form?id=${recurringId}`
-        : `/modal/recurring-income-form?id=${recurringId}`
+      ? `/modal/recurrence-detail?id=${recurringId}&kind=${recurringKind}`
       : null;
 
   await upsertAppNotifications([{

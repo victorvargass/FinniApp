@@ -16,6 +16,7 @@ export {
   markRecurringOccurrencePending,
   processDueRecurringExpenses,
   processDueRecurringIncomes,
+  reconcileLateRecurringOccurrences,
   restoreRecurringIncomeOccurrence,
   restoreRecurringOccurrence,
   setRecurringExpenseActive,

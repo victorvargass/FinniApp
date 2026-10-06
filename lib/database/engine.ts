@@ -46,7 +46,13 @@ import {
   LEGACY_SAVINGS_BALANCE_DATE_SQL,
   recordAppliedSchema,
 } from '../schema-migrations';
-import { addIsoDays, addIsoMonths, getNextOccurrenceDate, getOccurrenceDates } from '../recurrence';
+import {
+  addIsoDays,
+  addIsoMonths,
+  getNextOccurrenceDate,
+  getOccurrenceDates,
+  isLateRecurringOccurrence,
+} from '../recurrence';
 import {
   getSavingsBalanceAdjustmentAmount,
   isSavingsMovementCoveredByBalance,
@@ -7572,6 +7578,110 @@ export async function processDueRecurringIncomes(
       );
     }
   });
+}
+
+type LateRecurringOccurrence = {
+  pending_occurrence_id: number;
+  generated_occurrence_id: number;
+  pending_date: string;
+  generated_date: string;
+  movement_id: number;
+};
+
+async function reconcileLateExpenseOccurrences(
+  transaction: SQLite.SQLiteDatabase
+): Promise<number> {
+  const candidates = await transaction.getAllAsync<LateRecurringOccurrence>(`
+    SELECT
+      pending.id AS pending_occurrence_id,
+      generated.id AS generated_occurrence_id,
+      pending.scheduled_date AS pending_date,
+      generated.scheduled_date AS generated_date,
+      generated.expense_id AS movement_id
+    FROM recurring_expense_occurrences pending
+    INNER JOIN recurring_expense_occurrences generated
+      ON generated.recurring_expense_id = pending.recurring_expense_id
+     AND generated.status = 'generated'
+     AND generated.expense_id IS NOT NULL
+    INNER JOIN expenses movement ON movement.id = generated.expense_id
+    INNER JOIN recurring_expenses recurring ON recurring.id = pending.recurring_expense_id
+    WHERE pending.status = 'pending'
+      AND movement.date = generated.scheduled_date
+      AND (recurring.source_expense_id IS NULL OR movement.id != recurring.source_expense_id)
+    ORDER BY pending.scheduled_date ASC, generated.scheduled_date ASC
+  `);
+  let reconciled = 0;
+  for (const candidate of candidates) {
+    if (!isLateRecurringOccurrence(candidate.pending_date, candidate.generated_date)) continue;
+    const result = await transaction.runAsync(
+      `UPDATE recurring_expense_occurrences
+       SET status = 'generated', expense_id = ?, dismissed = 0,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status = 'pending'`,
+      candidate.movement_id,
+      candidate.pending_occurrence_id
+    );
+    if (result.changes === 0) continue;
+    await transaction.runAsync(
+      'DELETE FROM recurring_expense_occurrences WHERE id = ?',
+      candidate.generated_occurrence_id
+    );
+    reconciled += 1;
+  }
+  return reconciled;
+}
+
+async function reconcileLateIncomeOccurrences(
+  transaction: SQLite.SQLiteDatabase
+): Promise<number> {
+  const candidates = await transaction.getAllAsync<LateRecurringOccurrence>(`
+    SELECT
+      pending.id AS pending_occurrence_id,
+      generated.id AS generated_occurrence_id,
+      pending.scheduled_date AS pending_date,
+      generated.scheduled_date AS generated_date,
+      generated.income_id AS movement_id
+    FROM recurring_income_occurrences pending
+    INNER JOIN recurring_income_occurrences generated
+      ON generated.recurring_income_id = pending.recurring_income_id
+     AND generated.status = 'generated'
+     AND generated.income_id IS NOT NULL
+    INNER JOIN incomes movement ON movement.id = generated.income_id
+    INNER JOIN recurring_incomes recurring ON recurring.id = pending.recurring_income_id
+    WHERE pending.status = 'pending'
+      AND movement.date = generated.scheduled_date
+      AND (recurring.source_income_id IS NULL OR movement.id != recurring.source_income_id)
+    ORDER BY pending.scheduled_date ASC, generated.scheduled_date ASC
+  `);
+  let reconciled = 0;
+  for (const candidate of candidates) {
+    if (!isLateRecurringOccurrence(candidate.pending_date, candidate.generated_date)) continue;
+    const result = await transaction.runAsync(
+      `UPDATE recurring_income_occurrences
+       SET status = 'generated', income_id = ?, dismissed = 0,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status = 'pending'`,
+      candidate.movement_id,
+      candidate.pending_occurrence_id
+    );
+    if (result.changes === 0) continue;
+    await transaction.runAsync(
+      'DELETE FROM recurring_income_occurrences WHERE id = ?',
+      candidate.generated_occurrence_id
+    );
+    reconciled += 1;
+  }
+  return reconciled;
+}
+
+export async function reconcileLateRecurringOccurrences(): Promise<number> {
+  const db = await getDb();
+  let reconciled = 0;
+  await withExclusiveTransaction(db, async (transaction) => {
+    reconciled += await reconcileLateExpenseOccurrences(transaction);
+    reconciled += await reconcileLateIncomeOccurrences(transaction);
+  });
+  return reconciled;
 }
 
 export async function approveRecurringIncomeOccurrence(

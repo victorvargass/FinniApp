@@ -6,6 +6,7 @@ import {
   getNextOccurrenceDate,
   getNextMonthlyExecutionDate,
   getOccurrenceDates,
+  isLateRecurringOccurrence,
   parseIsoDate,
   toIsoDate,
 } from './recurrence-core';
@@ -16,6 +17,7 @@ export {
   getNextOccurrenceDate,
   getNextMonthlyExecutionDate,
   getOccurrenceDates,
+  isLateRecurringOccurrence,
   parseIsoDate,
   toIsoDate,
 } from './recurrence-core';

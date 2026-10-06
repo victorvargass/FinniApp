@@ -21,6 +21,13 @@ export function addIsoDays(value: string, days: number): string {
   return toIsoDate(date);
 }
 
+export function isLateRecurringOccurrence(
+  pendingDate: string,
+  generatedDate: string
+): boolean {
+  return addIsoDays(pendingDate, 1) === generatedDate;
+}
+
 export function addIsoMonths(value: string, months: number, preferredDay?: number | null): string {
   const date = parseIsoDate(value);
   const targetMonth = date.getMonth() + months;

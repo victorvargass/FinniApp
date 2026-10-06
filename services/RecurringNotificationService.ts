@@ -162,9 +162,7 @@ function recurringInboxItem(schedule: RecurringConfirmationSchedule) {
       amount: formatCLP(schedule.amount),
     }),
     scheduledFor: inboxNotificationDate(schedule.scheduledDate).getTime(),
-    actionUrl: schedule.kind === 'expense'
-      ? `/modal/recurring-expense-form?id=${schedule.recurringId}`
-      : `/modal/recurring-income-form?id=${schedule.recurringId}`,
+    actionUrl: `/modal/recurrence-detail?id=${schedule.recurringId}&kind=${schedule.kind}`,
     recurringKind: schedule.kind,
     recurringId: schedule.recurringId,
     recurringDate: schedule.scheduledDate,

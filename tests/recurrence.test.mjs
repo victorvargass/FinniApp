@@ -6,6 +6,7 @@ import {
   getNextOccurrenceDate,
   getNextMonthlyExecutionDate,
   getOccurrenceDates,
+  isLateRecurringOccurrence,
 } from '../lib/recurrence-core.ts';
 
 test('editing a monthly day chooses the first date strictly after today', () => {
@@ -90,4 +91,10 @@ test('occurrence generation observes its safety limit', () => {
     startDate: '2026-01-01',
     endDate: null,
   }, '2026-01-01', '2030-01-01', 3).length, 3);
+});
+
+test('a movement from the following day can satisfy the prior pending occurrence', () => {
+  assert.equal(isLateRecurringOccurrence('2026-10-05', '2026-10-06'), true);
+  assert.equal(isLateRecurringOccurrence('2026-10-05', '2026-10-05'), false);
+  assert.equal(isLateRecurringOccurrence('2026-10-05', '2026-10-07'), false);
 });
