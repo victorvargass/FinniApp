@@ -223,6 +223,36 @@ export default function HistoricalSummaryScreen() {
     totalLabel: t('financialExplanation.total'),
     total: formatCLP(total),
   });
+  const showSavingsContributions = () => showExplanation(
+    t('history.savingsContributions'),
+    'financialExplanation.descriptions.savings',
+    periodLines((period) => period.savingsContributionTotal),
+    report.savingsContributionTotal
+  );
+  const showSavingsWithdrawals = () => showExplanation(
+    t('history.savingsWithdrawals'),
+    'financialExplanation.descriptions.savingsWithdrawals',
+    periodLines((period) => period.savingsWithdrawalTotal),
+    report.savingsWithdrawalTotal
+  );
+  const showDebtPayments = () => showExplanation(
+    t('history.debtPayments'),
+    'financialExplanation.descriptions.debtPayments',
+    periodLines((period) => period.debtPaymentsTotal),
+    report.debtPaymentsTotal
+  );
+  const showDebtCollections = () => showExplanation(
+    t('history.debtCollections'),
+    'financialExplanation.descriptions.debtCollections',
+    periodLines((period) => period.debtCollectionsTotal),
+    report.debtCollectionsTotal
+  );
+  const showCardPayments = () => showExplanation(
+    t('history.cardPayments'),
+    'financialExplanation.descriptions.cardPayments',
+    periodLines((period) => period.cardPaymentsFromAccountsTotal),
+    report.cardPaymentsTotal
+  );
 
   const runExport = async (kind: Exclude<ExportKind, null>) => {
     if (exporting || report.periods.length === 0) return;
@@ -402,15 +432,7 @@ export default function HistoricalSummaryScreen() {
           </View>
           <View style={styles.rankingList}>
             {visibleCategories.map((category, index) => (
-              <Pressable
-                key={category.categoryId ?? 'none'}
-                accessibilityRole="button"
-                onPress={() => {
-                  const latestWithCategory = [...report.periods].reverse().find((period) =>
-                    period.categories.some((item) => item.categoryId === category.categoryId)
-                  );
-                  if (latestWithCategory) setSelectedPeriod(latestWithCategory);
-                }}>
+              <View key={category.categoryId ?? 'none'}>
                 <View style={styles.rankingHeader}>
                   <View style={styles.rankingName}>
                     <ThemedText style={[styles.rank, { color: colors.textSecondary }]}>{index + 1}</ThemedText>
@@ -428,7 +450,7 @@ export default function HistoricalSummaryScreen() {
                     },
                   ]} />
                 </View>
-              </Pressable>
+              </View>
             ))}
           </View>
           {report.categories.length > 5 && (
@@ -444,31 +466,46 @@ export default function HistoricalSummaryScreen() {
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <ThemedText type="subtitle">{t('history.activity')}</ThemedText>
           <View style={styles.activityGrid}>
-            <Pressable style={styles.activityItem} onPress={() => showExplanation(t('history.savingsContributions'), 'financialExplanation.descriptions.savings', periodLines((period) => period.savingsContributionTotal), report.savingsContributionTotal)}>
+            <Pressable style={styles.activityItem} onPress={showSavingsContributions}>
               <Ionicons name="add-circle-outline" color={colors.savings} size={21} />
-              <ThemedText style={styles.activityValue}>{formatCLP(report.savingsContributionTotal)}</ThemedText>
+              <View style={styles.activityValueRow}>
+                <ThemedText style={styles.activityValue}>{formatCLP(report.savingsContributionTotal)}</ThemedText>
+                <FinancialInfoButton onPress={showSavingsContributions} />
+              </View>
               <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>{t('history.savingsContributions')}</ThemedText>
             </Pressable>
-            <Pressable style={styles.activityItem} onPress={() => showExplanation(t('history.savingsWithdrawals'), 'financialExplanation.descriptions.savingsWithdrawals', periodLines((period) => period.savingsWithdrawalTotal), report.savingsWithdrawalTotal)}>
+            <Pressable style={styles.activityItem} onPress={showSavingsWithdrawals}>
               <Ionicons name="remove-circle-outline" color={colors.warning} size={21} />
-              <ThemedText style={styles.activityValue}>{formatCLP(report.savingsWithdrawalTotal)}</ThemedText>
+              <View style={styles.activityValueRow}>
+                <ThemedText style={styles.activityValue}>{formatCLP(report.savingsWithdrawalTotal)}</ThemedText>
+                <FinancialInfoButton onPress={showSavingsWithdrawals} />
+              </View>
               <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>{t('history.savingsWithdrawals')}</ThemedText>
             </Pressable>
-            <Pressable style={styles.activityItem} onPress={() => showExplanation(t('history.debtPayments'), 'financialExplanation.descriptions.debtPayments', periodLines((period) => period.debtPaymentsTotal), report.debtPaymentsTotal)}>
+            <Pressable style={styles.activityItem} onPress={showDebtPayments}>
               <Ionicons name="card-outline" color={colors.expense} size={21} />
-              <ThemedText style={styles.activityValue}>{formatCLP(report.debtPaymentsTotal)}</ThemedText>
+              <View style={styles.activityValueRow}>
+                <ThemedText style={styles.activityValue}>{formatCLP(report.debtPaymentsTotal)}</ThemedText>
+                <FinancialInfoButton onPress={showDebtPayments} />
+              </View>
               <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>{t('history.debtPayments')}</ThemedText>
             </Pressable>
-            <Pressable style={styles.activityItem} onPress={() => showExplanation(t('history.debtCollections'), 'financialExplanation.descriptions.debtCollections', periodLines((period) => period.debtCollectionsTotal), report.debtCollectionsTotal)}>
+            <Pressable style={styles.activityItem} onPress={showDebtCollections}>
               <Ionicons name="cash-outline" color={colors.success} size={21} />
-              <ThemedText style={styles.activityValue}>{formatCLP(report.debtCollectionsTotal)}</ThemedText>
+              <View style={styles.activityValueRow}>
+                <ThemedText style={styles.activityValue}>{formatCLP(report.debtCollectionsTotal)}</ThemedText>
+                <FinancialInfoButton onPress={showDebtCollections} />
+              </View>
               <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>{t('history.debtCollections')}</ThemedText>
             </Pressable>
           </View>
           {report.cardPaymentsTotal > 0 && (
-            <Pressable onPress={() => showExplanation(t('history.cardPayments'), 'financialExplanation.descriptions.cardPayments', periodLines((period) => period.cardPaymentsFromAccountsTotal), report.cardPaymentsTotal)} style={[styles.inlineSummary, { borderTopColor: colors.border }]}>
+            <Pressable onPress={showCardPayments} style={[styles.inlineSummary, { borderTopColor: colors.border }]}>
               <ThemedText style={{ color: colors.textSecondary }}>{t('history.cardPayments')}</ThemedText>
-              <ThemedText style={styles.rankingAmount}>{formatCLP(report.cardPaymentsTotal)}</ThemedText>
+              <View style={styles.inlineValueRow}>
+                <ThemedText style={styles.rankingAmount}>{formatCLP(report.cardPaymentsTotal)}</ThemedText>
+                <FinancialInfoButton onPress={showCardPayments} />
+              </View>
             </Pressable>
           )}
         </View>
@@ -616,8 +653,10 @@ const styles = StyleSheet.create({
   textButton: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 40, paddingHorizontal: 12, justifyContent: 'center' },
   activityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   activityItem: { width: '48%', minHeight: 92, gap: 4 },
+  activityValueRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   activityValue: { fontFamily: Fonts.bold, fontSize: 16 },
   inlineSummary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 13 },
+  inlineValueRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   methodList: { gap: 13 },
   methodRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   periodSection: { gap: 10 },

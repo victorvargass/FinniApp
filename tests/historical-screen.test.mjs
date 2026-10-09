@@ -30,6 +30,11 @@ test('historical chart keeps its legend and complete period ranges inside the ca
   assert.match(screen, /styles\.legendItem/);
 });
 
+test('main category ranking is informative and does not open a period', () => {
+  assert.doesNotMatch(screen, /latestWithCategory/);
+  assert.match(screen, /visibleCategories\.map\(\(category, index\) => \(\s*<View key=/);
+});
+
 test('period history aggregates payable and receivable debt payments separately', () => {
   assert.match(database, /manual_debt_entries entry[\s\S]*debt\.direction[\s\S]*entry\.kind = 'payment'/);
   assert.match(database, /debtPaymentsTotal: debtPaymentsByPeriod/);
@@ -48,4 +53,16 @@ test('historical totals open the shared financial explanation', () => {
   assert.match(screen, /financialExplanation\.descriptions\.income/);
   assert.match(screen, /financialExplanation\.descriptions\.net/);
   assert.match(screen, /financialExplanation\.descriptions\.savings/);
+});
+
+test('every savings and debt amount exposes a compact explanation button', () => {
+  for (const handler of [
+    'showSavingsContributions',
+    'showSavingsWithdrawals',
+    'showDebtPayments',
+    'showDebtCollections',
+    'showCardPayments',
+  ]) {
+    assert.match(screen, new RegExp(`<FinancialInfoButton onPress=\\{${handler}\\}`));
+  }
 });
