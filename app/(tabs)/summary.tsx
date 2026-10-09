@@ -13,6 +13,12 @@ import { BarChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/empty-state';
+import { FinancialInfoButton } from '@/components/financial-info-button';
+import {
+  FinancialExplanationModal,
+  type FinancialExplanation,
+  type FinancialExplanationLine,
+} from '@/components/financial-explanation-modal';
 import { HistoricalPeriodModal } from '@/components/HistoricalPeriodModal';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts } from '@/constants/theme';
@@ -71,15 +77,21 @@ function MetricCard({
   value,
   color,
   surface,
+  onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
   color: string;
   surface: string;
+  onPress?: () => void;
 }) {
   return (
-    <View style={[styles.metricCard, { backgroundColor: surface }]}>
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
+      onPress={onPress}
+      disabled={!onPress}
+      style={({ pressed }) => [styles.metricCard, { backgroundColor: surface }, pressed && styles.pressed]}>
       <View style={[styles.metricIcon, { backgroundColor: `${color}18` }]}>
         <Ionicons name={icon} size={18} color={color} />
       </View>
@@ -87,7 +99,8 @@ function MetricCard({
         {value}
       </ThemedText>
       <ThemedText style={styles.metricLabel}>{label}</ThemedText>
-    </View>
+      {onPress && <FinancialInfoButton onPress={onPress} style={styles.metricInfo} />}
+    </Pressable>
   );
 }
 
@@ -104,6 +117,7 @@ export default function HistoricalSummaryScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodHistory | null>(null);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [exporting, setExporting] = useState<ExportKind>(null);
+  const [explanation, setExplanation] = useState<FinancialExplanation | null>(null);
 
   const effectiveScope: Scope = scope ?? years[0] ?? 'all';
   const filteredPeriods = useMemo(
@@ -173,7 +187,7 @@ export default function HistoricalSummaryScreen() {
         }),
       });
     }
-    if (report.savingsRate != null && report.savingsFundingTotal > 0) {
+    if (report.savingsRate != null && report.savingsContributionTotal > 0) {
       items.push({
         icon: 'leaf-outline',
         color: colors.savings,
@@ -192,6 +206,23 @@ export default function HistoricalSummaryScreen() {
     }
     return items;
   }, [colors, report]);
+
+  const periodLines = (value: (period: typeof report.periods[number]) => number): FinancialExplanationLine[] =>
+    report.periods
+      .map((period) => ({ label: periodRange(period), value: formatCLP(value(period)) }))
+      .filter((line) => line.value !== formatCLP(0));
+  const showExplanation = (
+    title: string,
+    description: Parameters<typeof t>[0],
+    lines: FinancialExplanationLine[],
+    total: number
+  ) => setExplanation({
+    title,
+    description: t(description),
+    lines,
+    totalLabel: t('financialExplanation.total'),
+    total: formatCLP(total),
+  });
 
   const runExport = async (kind: Exclude<ExportKind, null>) => {
     if (exporting || report.periods.length === 0) return;
@@ -293,10 +324,14 @@ export default function HistoricalSummaryScreen() {
         </ScrollView>
 
         <View style={styles.metricGrid}>
-          <MetricCard icon="arrow-down-circle-outline" label={t('history.income')} value={formatCLP(report.incomeTotal)} color={colors.success} surface={colors.surface} />
-          <MetricCard icon="arrow-up-circle-outline" label={t('history.outflows')} value={formatCLP(report.expenseTotal)} color={colors.expense} surface={colors.surface} />
-          <MetricCard icon="swap-vertical-outline" label={t('history.cashflow')} value={formatCLP(report.cashflowTotal)} color={report.cashflowTotal >= 0 ? colors.success : colors.expense} surface={colors.surface} />
-          <MetricCard icon="leaf-outline" label={t('history.savings')} value={formatCLP(report.savingsFundingTotal)} color={colors.savings} surface={colors.surface} />
+          <MetricCard icon="arrow-down-circle-outline" label={t('history.income')} value={formatCLP(report.incomeTotal)} color={colors.success} surface={colors.surface} onPress={() => showExplanation(t('history.income'), 'financialExplanation.descriptions.income', periodLines((period) => period.incomesTotal), report.incomeTotal)} />
+          <MetricCard icon="arrow-up-circle-outline" label={t('history.outflows')} value={formatCLP(report.expenseTotal)} color={colors.expense} surface={colors.surface} onPress={() => showExplanation(t('history.outflows'), 'financialExplanation.descriptions.outflows', periodLines((period) => period.expenseTotal), report.expenseTotal)} />
+          <MetricCard icon="swap-vertical-outline" label={t('history.cashflow')} value={formatCLP(report.cashflowTotal)} color={report.cashflowTotal >= 0 ? colors.success : colors.expense} surface={colors.surface} onPress={() => showExplanation(t('history.cashflow'), 'financialExplanation.descriptions.net', [
+            { label: t('history.income'), value: formatCLP(report.incomeTotal) },
+            { label: t('history.savingsWithdrawals'), value: formatCLP(report.savingsWithdrawalTotal) },
+            { label: t('history.outflows'), value: formatCLP(report.expenseTotal), operator: '−' },
+          ], report.cashflowTotal)} />
+          <MetricCard icon="leaf-outline" label={t('history.savings')} value={formatCLP(report.savingsContributionTotal)} color={colors.savings} surface={colors.surface} onPress={() => showExplanation(t('history.savings'), 'financialExplanation.descriptions.savings', periodLines((period) => period.savingsContributionTotal), report.savingsContributionTotal)} />
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
@@ -307,14 +342,14 @@ export default function HistoricalSummaryScreen() {
             </ThemedText>
           </View>
           <View style={styles.legend}>
-            <View style={[styles.legendItem, { backgroundColor: `${colors.success}14` }]}>
+            <Pressable onPress={() => showExplanation(t('history.income'), 'financialExplanation.descriptions.income', periodLines((period) => period.incomesTotal), report.incomeTotal)} style={[styles.legendItem, { backgroundColor: `${colors.success}14` }]}>
               <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
               <ThemedText style={styles.legendText}>{t('history.income')}</ThemedText>
-            </View>
-            <View style={[styles.legendItem, { backgroundColor: `${colors.expense}14` }]}>
+            </Pressable>
+            <Pressable onPress={() => showExplanation(t('history.outflows'), 'financialExplanation.descriptions.outflows', periodLines((period) => period.expenseTotal), report.expenseTotal)} style={[styles.legendItem, { backgroundColor: `${colors.expense}14` }]}>
               <View style={[styles.legendDot, { backgroundColor: colors.expense }]} />
               <ThemedText style={styles.legendText}>{t('history.outflows')}</ThemedText>
-            </View>
+            </Pressable>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <BarChart
@@ -409,32 +444,32 @@ export default function HistoricalSummaryScreen() {
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <ThemedText type="subtitle">{t('history.activity')}</ThemedText>
           <View style={styles.activityGrid}>
-            <View style={styles.activityItem}>
+            <Pressable style={styles.activityItem} onPress={() => showExplanation(t('history.savingsContributions'), 'financialExplanation.descriptions.savings', periodLines((period) => period.savingsContributionTotal), report.savingsContributionTotal)}>
               <Ionicons name="add-circle-outline" color={colors.savings} size={21} />
-              <ThemedText style={styles.activityValue}>{formatCLP(report.savingsFundingTotal)}</ThemedText>
+              <ThemedText style={styles.activityValue}>{formatCLP(report.savingsContributionTotal)}</ThemedText>
               <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>{t('history.savingsContributions')}</ThemedText>
-            </View>
-            <View style={styles.activityItem}>
+            </Pressable>
+            <Pressable style={styles.activityItem} onPress={() => showExplanation(t('history.savingsWithdrawals'), 'financialExplanation.descriptions.savingsWithdrawals', periodLines((period) => period.savingsWithdrawalTotal), report.savingsWithdrawalTotal)}>
               <Ionicons name="remove-circle-outline" color={colors.warning} size={21} />
               <ThemedText style={styles.activityValue}>{formatCLP(report.savingsWithdrawalTotal)}</ThemedText>
               <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>{t('history.savingsWithdrawals')}</ThemedText>
-            </View>
-            <View style={styles.activityItem}>
+            </Pressable>
+            <Pressable style={styles.activityItem} onPress={() => showExplanation(t('history.debtPayments'), 'financialExplanation.descriptions.debtPayments', periodLines((period) => period.debtPaymentsTotal), report.debtPaymentsTotal)}>
               <Ionicons name="card-outline" color={colors.expense} size={21} />
               <ThemedText style={styles.activityValue}>{formatCLP(report.debtPaymentsTotal)}</ThemedText>
               <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>{t('history.debtPayments')}</ThemedText>
-            </View>
-            <View style={styles.activityItem}>
+            </Pressable>
+            <Pressable style={styles.activityItem} onPress={() => showExplanation(t('history.debtCollections'), 'financialExplanation.descriptions.debtCollections', periodLines((period) => period.debtCollectionsTotal), report.debtCollectionsTotal)}>
               <Ionicons name="cash-outline" color={colors.success} size={21} />
               <ThemedText style={styles.activityValue}>{formatCLP(report.debtCollectionsTotal)}</ThemedText>
               <ThemedText style={[styles.caption, { color: colors.textSecondary }]}>{t('history.debtCollections')}</ThemedText>
-            </View>
+            </Pressable>
           </View>
           {report.cardPaymentsTotal > 0 && (
-            <View style={[styles.inlineSummary, { borderTopColor: colors.border }]}>
+            <Pressable onPress={() => showExplanation(t('history.cardPayments'), 'financialExplanation.descriptions.cardPayments', periodLines((period) => period.cardPaymentsFromAccountsTotal), report.cardPaymentsTotal)} style={[styles.inlineSummary, { borderTopColor: colors.border }]}>
               <ThemedText style={{ color: colors.textSecondary }}>{t('history.cardPayments')}</ThemedText>
               <ThemedText style={styles.rankingAmount}>{formatCLP(report.cardPaymentsTotal)}</ThemedText>
-            </View>
+            </Pressable>
           )}
         </View>
 
@@ -484,9 +519,7 @@ export default function HistoricalSummaryScreen() {
               </View>
               <View style={[styles.periodResult, { borderTopColor: colors.border }]}>
                 <ThemedText style={{ color: colors.textSecondary }}>{t('history.cashflow')}</ThemedText>
-                <ThemedText style={{ color: period.cashflow >= 0 ? colors.success : colors.expense, fontFamily: Fonts.bold }}>
-                  {formatCLP(period.cashflow)}
-                </ThemedText>
+                <View style={styles.periodValueRow}><ThemedText style={{ color: period.cashflow >= 0 ? colors.success : colors.expense, fontFamily: Fonts.bold }}>{formatCLP(period.cashflow)}</ThemedText><FinancialInfoButton onPress={() => setExplanation({ title: periodRange(period), description: t('financialExplanation.descriptions.historicalPeriod'), lines: [{ label: t('history.income'), value: formatCLP(period.incomesTotal) }, { label: t('history.savingsWithdrawals'), value: formatCLP(period.savingsWithdrawalTotal) }, { label: t('history.outflows'), value: formatCLP(period.expenseTotal), operator: '−' }], totalLabel: t('history.cashflow'), total: formatCLP(period.cashflow) })} /></View>
               </View>
             </Pressable>
           ))}
@@ -533,6 +566,7 @@ export default function HistoricalSummaryScreen() {
           });
         }}
       />
+      <FinancialExplanationModal explanation={explanation} onClose={() => setExplanation(null)} />
     </SafeAreaView>
   );
 }
@@ -551,7 +585,8 @@ const styles = StyleSheet.create({
   scopeRow: { gap: 9, paddingRight: 4 },
   scopeChip: { minWidth: 64, minHeight: 42, paddingHorizontal: 15, borderRadius: 22, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  metricCard: { width: '48%', minHeight: 118, borderRadius: 16, padding: 14, gap: 5, elevation: 1 },
+  metricCard: { width: '48%', minHeight: 118, borderRadius: 16, padding: 14, paddingRight: 34, gap: 5, elevation: 1, position: 'relative' },
+  metricInfo: { position: 'absolute', right: 8, top: 8 },
   metricIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginBottom: 3 },
   metricValue: { fontFamily: Fonts.bold, fontSize: 19 },
   metricLabel: { fontSize: 13 },
@@ -592,5 +627,6 @@ const styles = StyleSheet.create({
   periodCopy: { flex: 1, gap: 3 },
   periodTitle: { fontFamily: Fonts.bold },
   periodResult: { borderTopWidth: 1, paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between' },
+  periodValueRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   dataNote: { fontSize: 12, lineHeight: 18, textAlign: 'center', paddingHorizontal: 12 },
 });

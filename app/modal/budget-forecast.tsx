@@ -5,6 +5,8 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { FinancialExplanationModal, type FinancialExplanation } from '@/components/financial-explanation-modal';
+import { FinancialInfoButton } from '@/components/financial-info-button';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { usePeriodDatabase } from '@/contexts/DatabaseDomainContexts';
@@ -37,6 +39,7 @@ export default function BudgetForecastScreen() {
   const [forecast, setForecast] = useState<BudgetForecast>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [explanation, setExplanation] = useState<FinancialExplanation | null>(null);
   const today = toIsoDate(new Date());
   const groups = groupFinancialForecastItems(forecast.items, today);
 
@@ -106,7 +109,7 @@ export default function BudgetForecastScreen() {
         </ThemedText>
         <ThemedView style={[styles.summary, { backgroundColor: colors.primary }]}>
           <ThemedText style={[styles.summaryLabel, { color: colors.onPrimary }]}>{t('budgetForecast.projectedNet')}</ThemedText>
-          <ThemedText style={[styles.summaryAmount, { color: colors.onPrimary }]}>{money(forecast.projectedNet)}</ThemedText>
+          <View style={styles.summaryAmountRow}><ThemedText style={[styles.summaryAmount, { color: colors.onPrimary }]}>{money(forecast.projectedNet)}</ThemedText><FinancialInfoButton color={colors.onPrimary} onPress={() => setExplanation({ title: t('budgetForecast.projectedNet'), description: t('financialExplanation.descriptions.forecast'), lines: [{ label: t('financialExplanation.labels.expectedIncome'), value: money(forecast.projectedIncome) }, { label: t('financialExplanation.labels.expectedOutflow'), value: money(forecast.projectedOutflow), operator: '−' }], totalLabel: t('budgetForecast.projectedNet'), total: money(forecast.projectedNet) })} /></View>
           <View style={styles.summaryColumns}>
             <View style={styles.summaryColumn}>
               <ThemedText style={[styles.summaryMeta, { color: colors.onPrimary }]}>{t('budgetForecast.expectedIncome')}</ThemedText>
@@ -135,7 +138,7 @@ export default function BudgetForecastScreen() {
             <ThemedView key={category.categoryId} style={[styles.budgetCard, { borderColor: colors.border }]}>
               <View style={styles.rowBetween}>
                 <ThemedText type="defaultSemiBold">{category.name}</ThemedText>
-                <ThemedText style={{ color }}>{Math.round(ratio * 100)}%</ThemedText>
+                <View style={styles.percentRow}><ThemedText style={{ color }}>{Math.round(ratio * 100)}%</ThemedText><FinancialInfoButton onPress={() => setExplanation({ title: category.name, description: t('financialExplanation.descriptions.budget'), lines: [{ label: t('financialExplanation.labels.budgetLimit'), value: money(category.limit) }, { label: t('financialExplanation.labels.budgetSpent'), value: money(category.spent), operator: '−' }], totalLabel: t('home.periodMetricAvailable'), total: money(category.limit - category.spent) })} /></View>
               </View>
               <View style={[styles.track, { backgroundColor: colors.border }]}>
                 <View style={[styles.progress, { backgroundColor: color, width: `${progress * 100}%` }]} />
@@ -169,6 +172,7 @@ export default function BudgetForecastScreen() {
           </View>
         ))}
       </ScrollView>
+      <FinancialExplanationModal explanation={explanation} onClose={() => setExplanation(null)} />
     </SafeAreaView>
   );
 }
@@ -178,6 +182,7 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 44, gap: 12 }, intro: { fontSize: 16, lineHeight: 23 },
   summary: { borderRadius: 18, padding: 20, gap: 5 }, summaryLabel: { opacity: 0.86 },
   summaryAmount: { fontFamily: Fonts.bold, fontSize: 30 }, summaryColumns: { flexDirection: 'row', gap: 20, marginTop: 10 },
+  summaryAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 3 }, percentRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   summaryColumn: { flex: 1, gap: 2 }, summaryMeta: { fontSize: 12, opacity: 0.82 }, summaryValue: { fontFamily: Fonts.semiBold },
   section: { gap: 3, marginTop: 12 }, emptyCard: { borderWidth: 1, borderRadius: 14, padding: 16 },
   budgetCard: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 9 }, rowBetween: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },

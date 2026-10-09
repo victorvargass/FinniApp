@@ -5,6 +5,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { FinancialExplanationModal, type FinancialExplanation } from '@/components/financial-explanation-modal';
+import { FinancialInfoButton } from '@/components/financial-info-button';
 import { ThemedView } from '@/components/themed-view';
 import { OverflowMenu } from '@/components/overflow-menu';
 import { Colors } from '@/constants/theme';
@@ -32,6 +34,7 @@ export default function DebtDetailScreen() {
   const usesLargeText = useLargeTextLayout();
   const [debt, setDebt] = useState<Debt | null>(null);
   const [working, setWorking] = useState(false);
+  const [explanation, setExplanation] = useState<FinancialExplanation | null>(null);
   const load = useCallback(async () => setDebt(await getDebt(debtId)), [debtId, getDebt]);
   useFocusEffect(useCallback(() => { load().catch(() => undefined); }, [load]));
 
@@ -159,7 +162,7 @@ export default function DebtDetailScreen() {
         <View style={styles.titleCopy}><ThemedText type="title">{debt.name}</ThemedText>{(debt.contactName || debt.creditor) && <ThemedText style={styles.secondary}>{debt.contactName ?? debt.creditor}</ThemedText>}<ThemedText style={styles.secondary}>{t(debt.direction === 'receivable' ? 'debts.owedToMe' : 'debts.iOwe')}</ThemedText></View>
 
         <ThemedView style={styles.summary}>
-          <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText style={styles.secondary}>{t('debts.currentBalance')}</ThemedText><ThemedText type="title">{formatCLP(debt.currentBalance)}</ThemedText></View>
+          <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText style={styles.secondary}>{t('debts.currentBalance')}</ThemedText><View style={styles.valueWithInfo}><ThemedText type="title">{formatCLP(debt.currentBalance)}</ThemedText><FinancialInfoButton onPress={() => setExplanation({ title: debt.name, description: t('financialExplanation.descriptions.debtBalance'), lines: [{ label: t('financialExplanation.labels.currentReportedDebt'), value: formatCLP(latestReportedAmount) }, { label: t('financialExplanation.labels.laterPayments'), value: formatCLP(Math.max(0, latestReportedAmount - debt.currentBalance)), operator: '−' }], totalLabel: t('debts.currentBalance'), total: formatCLP(debt.currentBalance) })} /></View></View>
           <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('debts.reportedBalanceOn', { date: formatDate(parseIsoDate(latestReportedDate)) })}</ThemedText><ThemedText>{formatCLP(latestReportedAmount)}</ThemedText></View>
           {debt.type === 'fixed' && <><View style={[styles.track, { backgroundColor: colors.border }]}><View style={[styles.fill, { width: `${progress}%`, backgroundColor: colors.primary }]} /></View><View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText style={styles.secondary}>{t('debts.paid')}</ThemedText><ThemedText>{formatCLP(debt.paidAmount)}</ThemedText></View></>}
           <ThemedText style={[styles.status, { color: isPaid ? '#1FAF78' : isArchived ? '#60758E' : colors.primary }]}>{isPaid ? t('debts.statusPaid') : isArchived ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
@@ -223,6 +226,7 @@ export default function DebtDetailScreen() {
         })}
 
       </ScrollView>
+      <FinancialExplanationModal explanation={explanation} onClose={() => setExplanation(null)} />
     </SafeAreaView>
   );
 }
@@ -230,6 +234,7 @@ export default function DebtDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, paddingBottom: 45, gap: 14 }, titleCopy: { gap: 3 },
   summary: { borderRadius: 13, padding: 17, gap: 11 }, card: { borderRadius: 12, padding: 15, gap: 11 }, row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }, rowLargeText: { flexDirection: 'column', alignItems: 'flex-start', gap: 2 }, secondary: { opacity: 0.65 },
+  valueWithInfo: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   track: { height: 9, borderRadius: 5, overflow: 'hidden' }, fill: { height: '100%', borderRadius: 5 }, status: { fontSize: 12, fontWeight: '800' },
   empty: { borderRadius: 12, padding: 18, alignItems: 'center' },
   entry: { borderRadius: 11, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, entryLargeText: { flexWrap: 'wrap', alignItems: 'flex-start' }, entryIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }, entryCopy: { flex: 1, minWidth: 0, gap: 2 }, entryMeta: { opacity: 0.62, fontSize: 12 }, entryAmount: { textAlign: 'right' }, entryAmountLargeText: { width: '100%', paddingLeft: 40 },

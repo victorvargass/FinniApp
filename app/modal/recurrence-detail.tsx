@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { FinancialExplanationModal, type FinancialExplanation } from '@/components/financial-explanation-modal';
+import { FinancialInfoButton } from '@/components/financial-info-button';
 import { ThemedView } from '@/components/themed-view';
 import { OverflowMenu } from '@/components/overflow-menu';
 import { Colors } from '@/constants/theme';
@@ -22,13 +24,14 @@ import { showToast } from '@/lib/toast';
 
 type RecurrenceKind = 'expense' | 'income';
 
-function DetailRow({ label, value, color }: { label: string; value: string; color?: string | null }) {
+function DetailRow({ label, value, color, onExplain }: { label: string; value: string; color?: string | null; onExplain?: () => void }) {
   return (
     <View style={styles.detailRow}>
       <ThemedText style={styles.label}>{label}</ThemedText>
       <View style={styles.valueRow}>
         {color ? <View style={[styles.dot, { backgroundColor: color }]} /> : null}
         <ThemedText style={styles.value}>{value}</ThemedText>
+        {onExplain && <FinancialInfoButton onPress={onExplain} />}
       </View>
     </View>
   );
@@ -40,6 +43,7 @@ export default function RecurrenceDetailScreen() {
   const kind: RecurrenceKind = requestedKind === 'income' ? 'income' : 'expense';
   const navigation = useNavigation();
   const colors = Colors[useColorScheme() ?? 'light'];
+  const [explanation, setExplanation] = useState<FinancialExplanation | null>(null);
   const {
     recurringExpenses,
     recurringIncomes,
@@ -187,7 +191,7 @@ export default function RecurrenceDetailScreen() {
         <ThemedView style={styles.card}>
           <ThemedText type="subtitle">{t('recurrence.information')}</ThemedText>
           <DetailRow label={t('recurrence.schedule')} value={describeRecurrence(recurrence)} />
-          <DetailRow label={t('recurrence.nextExecution')} value={recurrence.nextDate ? formatDate(parseIsoDate(recurrence.nextDate)) : t('recurrence.noNextExecutions')} />
+          <DetailRow label={t('recurrence.nextExecution')} value={recurrence.nextDate ? formatDate(parseIsoDate(recurrence.nextDate)) : t('recurrence.noNextExecutions')} onExplain={() => setExplanation({ title: t('recurrence.nextExecution'), description: t('financialExplanation.descriptions.recurrence'), lines: [{ label: t('recurrence.schedule'), value: describeRecurrence(recurrence) }, { label: t('recurrence.startDate'), value: formatDate(parseIsoDate(recurrence.startDate)) }, { label: t('recurrence.endDateLabel'), value: recurrence.endDate ? formatDate(parseIsoDate(recurrence.endDate)) : t('recurrence.noEndDate') }], totalLabel: t('recurrence.nextExecution'), total: recurrence.nextDate ? formatDate(parseIsoDate(recurrence.nextDate)) : t('recurrence.noNextExecutions') })} />
           <DetailRow label={t('recurrence.startDate')} value={formatDate(parseIsoDate(recurrence.startDate))} />
           <DetailRow label={t('recurrence.endDateLabel')} value={recurrence.endDate ? formatDate(parseIsoDate(recurrence.endDate)) : t('recurrence.noEndDate')} />
           <DetailRow label={t('recurrence.registrationMode')} value={recurrence.registrationMode === 'automatic' ? t('common.automatic') : t('recurrence.confirmation')} />
@@ -200,6 +204,7 @@ export default function RecurrenceDetailScreen() {
           <DetailRow label={t('recurrence.paymentMethod')} value={paymentName} color={paymentColor} />
         </ThemedView>
       </ScrollView>
+      <FinancialExplanationModal explanation={explanation} onClose={() => setExplanation(null)} />
     </SafeAreaView>
   );
 }

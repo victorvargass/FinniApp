@@ -5,6 +5,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
+import { FinancialExplanationModal, type FinancialExplanation } from '@/components/financial-explanation-modal';
+import { FinancialInfoButton } from '@/components/financial-info-button';
 import { FeatureGuide, FeatureGuideButton, useFeatureGuide } from '@/components/feature-guide';
 import { OverflowMenu } from '@/components/overflow-menu';
 import { SegmentedTabs } from '@/components/segmented-tabs';
@@ -64,6 +66,7 @@ export default function DebtsScreen() {
   const usesLargeText = useLargeTextLayout();
   const [plans, setPlans] = useState<DebtPlan[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [explanation, setExplanation] = useState<FinancialExplanation | null>(null);
   const [debtSection, setDebtSection] = useState<'cards' | 'other'>(() =>
     paymentMethods.some((item) => item.type === 'credit') ? 'cards' : 'other'
   );
@@ -117,17 +120,28 @@ export default function DebtsScreen() {
   const totalDebtBalance = visibleDebts.filter((item) => item.direction === 'payable').reduce((sum, item) => sum + item.currentBalance, 0)
     + creditCards.reduce((sum, item) => sum + (item.usedAmount ?? 0), 0);
   const totalReceivable = visibleDebts.filter((item) => item.direction === 'receivable').reduce((sum, item) => sum + item.currentBalance, 0);
-  const renderDebt = (debt: Debt) => (
+  const renderDebt = (debt: Debt, hideContactName = false) => (
     <Pressable key={debt.id} onPress={() => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(debt.id) } })}>
       <ThemedView style={[styles.card, debt.status === 'archived' && styles.archived]}>
         <View style={[styles.header, usesLargeText && styles.headerLargeText]}>
           <View style={[styles.debtIcon, { backgroundColor: debt.direction === 'receivable' ? '#20A486' : debt.type === 'fixed' ? '#0B315B' : '#D88916' }]}><Ionicons name={debt.direction === 'receivable' ? 'arrow-down-outline' : debt.type === 'fixed' ? 'calendar-outline' : 'analytics-outline'} size={17} color="#fff" /></View>
-          <View style={styles.copy}><ThemedText type="defaultSemiBold">{debt.name}</ThemedText><ThemedText style={styles.secondary}>{debt.contactName ?? debt.creditor ?? (debt.type === 'fixed' ? t('debts.fixed') : t('debts.variable'))}</ThemedText></View>
+          <View style={styles.copy}>
+            <ThemedText type="defaultSemiBold">{debt.name}</ThemedText>
+            {!hideContactName && (
+              <ThemedText style={styles.secondary}>
+                {debt.contactName ?? debt.creditor ?? (debt.type === 'fixed' ? t('debts.fixed') : t('debts.variable'))}
+              </ThemedText>
+            )}
+          </View>
           <Ionicons name="chevron-forward" size={21} color={colors.icon} />
         </View>
         <View style={[styles.row, usesLargeText && styles.rowLargeText]}><ThemedText>{t('debts.currentBalance')}</ThemedText><ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText></View>
         {debt.nextDueDate && <ThemedText style={styles.secondary}>{t('debts.nextDueValue', { date: new Intl.DateTimeFormat(APP_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${debt.nextDueDate}T12:00:00`)) })}</ThemedText>}
-        <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#1FAF78' : debt.status === 'archived' ? '#60758E' : colors.primary }]}>{debt.status === 'paid' ? t('debts.statusPaid') : debt.status === 'archived' ? t('debts.statusArchived') : t('debts.statusActive')}</ThemedText>
+        {debt.status !== 'active' && (
+          <ThemedText style={[styles.status, { color: debt.status === 'paid' ? '#1FAF78' : '#60758E' }]}>
+            {debt.status === 'paid' ? t('debts.statusPaid') : t('debts.statusArchived')}
+          </ThemedText>
+        )}
       </ThemedView>
     </Pressable>
   );
@@ -142,7 +156,7 @@ export default function DebtsScreen() {
             <ThemedText type="defaultSemiBold">{group.contactName}</ThemedText>
             <ThemedText style={styles.secondary}>{t('debts.debtsIncluded', { count: group.debts.length })}</ThemedText>
           </View>
-          <ThemedText type="defaultSemiBold">{formatCLP(group.total)}</ThemedText>
+          <View style={styles.valueWithInfo}><ThemedText type="defaultSemiBold">{formatCLP(group.total)}</ThemedText><FinancialInfoButton onPress={() => setExplanation({ title: group.contactName, description: t('financialExplanation.descriptions.contactDebt'), lines: group.debts.map((debt) => ({ label: debt.name, value: formatCLP(debt.currentBalance) })), totalLabel: t('financialExplanation.total'), total: formatCLP(group.total) })} /></View>
         </View>
         <Pressable
           onPress={() => router.push({
@@ -156,7 +170,7 @@ export default function DebtsScreen() {
           </ThemedText>
         </Pressable>
       </ThemedView>
-      <View style={styles.groupedDebts}>{group.debts.map(renderDebt)}</View>
+      <View style={styles.groupedDebts}>{group.debts.map((debt) => renderDebt(debt, true))}</View>
     </View>
   );
   const renderPlan = (plan: DebtPlan) => (
@@ -279,10 +293,10 @@ export default function DebtsScreen() {
                 )}
                 {payableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.payableSection')}</ThemedText>}
                 {payableContactGroups.groups.map((group) => renderContactGroup(group, 'payable'))}
-                {payableContactGroups.remaining.map(renderDebt)}
+                {payableContactGroups.remaining.map((debt) => renderDebt(debt))}
                 {receivableDebts.length > 0 && <ThemedText type="defaultSemiBold">{t('debts.receivableSection')}</ThemedText>}
                 {receivableContactGroups.groups.map((group) => renderContactGroup(group, 'receivable'))}
-                {receivableContactGroups.remaining.map(renderDebt)}
+                {receivableContactGroups.remaining.map((debt) => renderDebt(debt))}
               </>
             )}
           </>
@@ -309,6 +323,7 @@ export default function DebtsScreen() {
         )}
       </ScrollView>
       <FeatureGuide visible={guide.visible} slides={guideSlides} onClose={guide.close} />
+      <FinancialExplanationModal explanation={explanation} onClose={() => setExplanation(null)} />
       {methodId == null && (
         <FloatingActionButton
           accessibilityLabel={t('debts.new')}
@@ -340,5 +355,6 @@ const styles = StyleSheet.create({
   sectionHint: { fontSize: 13, lineHeight: 18 },
   sectionHeading: { marginTop: 4 }, methodSummary: { borderRadius: 12, padding: 16, gap: 10 }, methodActions: { flexDirection: 'row', gap: 10 }, methodButton: { flex: 1, minHeight: 45, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   contactGroup: { gap: 8 }, contactSummary: { borderWidth: 1, borderRadius: 12, padding: 15, gap: 12 }, contactAction: { minHeight: 44, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, groupedDebts: { paddingLeft: 12, gap: 8 },
+  valueWithInfo: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   pressed: { opacity: 0.62 },
 });

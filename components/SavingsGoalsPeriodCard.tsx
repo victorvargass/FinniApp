@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ExpandableFinanceCard } from '@/components/expandable-finance-card';
+import { FinancialInfoButton } from '@/components/financial-info-button';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -19,6 +20,7 @@ type SavingsGoalsPeriodCardProps = {
   asOfDate: string;
   onManage: () => void;
   onOpenGoal: (id: number) => void;
+  onExplainGoal: (item: SavingsGoalPeriodActivity) => void;
 };
 
 function formatDeadline(value: string): string {
@@ -52,6 +54,7 @@ export function SavingsGoalsPeriodCard({
   asOfDate,
   onManage,
   onOpenGoal,
+  onExplainGoal,
 }: SavingsGoalsPeriodCardProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const visibleGoals = goals.filter((goal) => goal.showOnHome !== false);
@@ -100,9 +103,12 @@ export function SavingsGoalsPeriodCard({
                   )}
                   <Ionicons name="chevron-forward" size={18} color={colors.icon} />
                 </View>
-                <ThemedText type="defaultSemiBold">
-                  {formatCLP(item.closingAmount)} / {formatCLP(item.targetAmount)}
-                </ThemedText>
+                <View style={styles.goalAmountRow}>
+                  <ThemedText type="defaultSemiBold">
+                    {formatCLP(item.closingAmount)} / {formatCLP(item.targetAmount)}
+                  </ThemedText>
+                  <FinancialInfoButton onPress={() => onExplainGoal(item)} />
+                </View>
               </View>
 
               <View style={styles.track}>
@@ -184,6 +190,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     opacity: 0.65,
   },
+  goalAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   pressed: {
     opacity: 0.68,
   },

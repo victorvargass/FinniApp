@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { FinancialInfoButton } from '@/components/financial-info-button';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -12,9 +13,10 @@ import type { WeeklyInsight } from '@/lib/weekly-insights';
 type WeeklyInsightCardProps = {
   insight: WeeklyInsight;
   savingsMilestone: { name: string; milestone: number } | null;
+  onExplain: () => void;
 };
 
-export function WeeklyInsightCard({ insight, savingsMilestone }: WeeklyInsightCardProps) {
+export function WeeklyInsightCard({ insight, savingsMilestone, onExplain }: WeeklyInsightCardProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const hasActivity = insight.expenseTotal > 0 || insight.incomeTotal > 0;
 
@@ -67,7 +69,10 @@ export function WeeklyInsightCard({ insight, savingsMilestone }: WeeklyInsightCa
   return (
     <View style={styles.section}>
       <View style={styles.heading}>
-        <ThemedText type="subtitle">{t('home.weeklyTitle')}</ThemedText>
+        <View style={styles.headingRow}>
+          <ThemedText type="subtitle" style={styles.headingTitle}>{t('home.weeklyTitle')}</ThemedText>
+          <FinancialInfoButton onPress={onExplain} />
+        </View>
         <ThemedText style={{ color: colors.textSecondary }}>{t('home.lastSevenDays')}</ThemedText>
       </View>
       <ThemedView style={[styles.card, { borderColor: colors.border }]}>
@@ -87,6 +92,8 @@ export function WeeklyInsightCard({ insight, savingsMilestone }: WeeklyInsightCa
 const styles = StyleSheet.create({
   section: { gap: 10 },
   heading: { gap: 2 },
+  headingRow: { flexDirection: 'row', alignItems: 'center' },
+  headingTitle: { flex: 1 },
   card: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   icon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

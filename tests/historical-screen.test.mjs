@@ -35,3 +35,17 @@ test('period history aggregates payable and receivable debt payments separately'
   assert.match(database, /debtPaymentsTotal: debtPaymentsByPeriod/);
   assert.match(database, /debtCollectionsTotal: debtCollectionsByPeriod/);
 });
+
+test('historical savings keeps contributions separate from expenses funded by savings', () => {
+  assert.match(database, /movement\.kind = 'contribution'[\s\S]*savingsContributionsByPeriod/);
+  assert.match(database, /movement\.kind = 'funded_expense'[\s\S]*savingsFundingByPeriod/);
+  assert.match(database, /savingsContributionTotal: savingsContributionsByPeriod/);
+  assert.match(screen, /report\.savingsContributionTotal/);
+});
+
+test('historical totals open the shared financial explanation', () => {
+  assert.match(screen, /<FinancialExplanationModal/);
+  assert.match(screen, /financialExplanation\.descriptions\.income/);
+  assert.match(screen, /financialExplanation\.descriptions\.net/);
+  assert.match(screen, /financialExplanation\.descriptions\.savings/);
+});

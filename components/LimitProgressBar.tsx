@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { FinancialInfoButton } from '@/components/financial-info-button';
 import { ThemedText } from '@/components/themed-text';
 import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
@@ -9,9 +10,10 @@ type LimitProgressBarProps = {
   color: string;
   spent: number;
   limit: number | null;
+  onExplain?: () => void;
 };
 
-export function LimitProgressBar({ name, color, spent, limit }: LimitProgressBarProps) {
+export function LimitProgressBar({ name, color, spent, limit, onExplain }: LimitProgressBarProps) {
   if (limit == null || limit <= 0) {
     return null;
   }
@@ -24,9 +26,12 @@ export function LimitProgressBar({ name, color, spent, limit }: LimitProgressBar
     <View style={styles.container}>
       <View style={styles.header}>
         <ThemedText type="defaultSemiBold">{name}</ThemedText>
-        <ThemedText style={onLimitOrMore ? styles.overLimit : undefined}>
-          {formatCLP(spent)} / {formatCLP(limit)}
-        </ThemedText>
+        <View style={styles.amountRow}>
+          <ThemedText style={onLimitOrMore ? styles.overLimit : undefined}>
+            {formatCLP(spent)} / {formatCLP(limit)}
+          </ThemedText>
+          {onExplain && <FinancialInfoButton onPress={onExplain} />}
+        </View>
       </View>
       <View style={styles.track}>
         <View
@@ -57,6 +62,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   track: {
     height: 8,
     backgroundColor: 'rgba(128,128,128,0.2)',

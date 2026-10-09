@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, type StyleProp, View, type ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { FinancialInfoButton } from '@/components/financial-info-button';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -18,6 +19,7 @@ type Props = {
   backgroundColor: string;
   collapsible?: boolean;
   style?: StyleProp<ViewStyle>;
+  onExplain?: () => void;
 };
 
 export function BreakdownSection({
@@ -28,6 +30,7 @@ export function BreakdownSection({
   backgroundColor,
   collapsible = false,
   style,
+  onExplain,
 }: Props) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const [expanded, setExpanded] = useState(!collapsible);
@@ -46,10 +49,11 @@ export function BreakdownSection({
             <ThemedText type="subtitle">{t('breakdown.title')}</ThemedText>
             <ThemedText style={[styles.summary, { color: colors.textSecondary }]}>{selectedModeLabel}</ThemedText>
           </View>
+          {onExplain && <FinancialInfoButton onPress={onExplain} />}
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={21} color={colors.icon} />
         </Pressable>
       ) : (
-        <ThemedText type="title" style={styles.title}>{t('breakdown.title')}</ThemedText>
+        <View style={styles.titleRow}><ThemedText type="title" style={styles.title}>{t('breakdown.title')}</ThemedText>{onExplain && <FinancialInfoButton onPress={onExplain} />}</View>
       )}
 
       {expanded && (
@@ -130,6 +134,7 @@ const styles = StyleSheet.create({
   headerCopy: { minWidth: 0, flex: 1, gap: 2 },
   summary: { fontSize: 12, lineHeight: 17 },
   title: { fontSize: 24, lineHeight: 28 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   toggle: {
     flexDirection: 'row',
     borderWidth: 1,

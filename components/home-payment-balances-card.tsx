@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ExpandableFinanceCard } from '@/components/expandable-finance-card';
+import { FinancialInfoButton } from '@/components/financial-info-button';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -22,6 +23,7 @@ type HomePaymentBalancesCardProps = {
   backgroundColor: string;
   onManage: () => void;
   onOpenPaymentMethod: (id: number) => void;
+  onExplainPaymentMethod: (method: PaymentMethod) => void;
 };
 
 export function HomePaymentBalancesCard({
@@ -30,6 +32,7 @@ export function HomePaymentBalancesCard({
   backgroundColor,
   onManage,
   onOpenPaymentMethod,
+  onExplainPaymentMethod,
 }: HomePaymentBalancesCardProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const usesLargeText = useLargeTextLayout();
@@ -115,6 +118,7 @@ export function HomePaymentBalancesCard({
                 <ThemedText type="defaultSemiBold">{formatCLP(method.availableBalance)}</ThemedText>
               ))}
             </View>
+            <FinancialInfoButton onPress={() => onExplainPaymentMethod(method)} />
             <Ionicons name="chevron-forward" size={18} color={colors.icon} />
           </Pressable>
         ))}
