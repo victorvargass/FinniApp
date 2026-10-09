@@ -1701,6 +1701,8 @@ const en = {
     accessEnabled: 'Detection from notifications is enabled',
     sourcesTitle: 'Detected apps',
     sourcesHint: 'Choose which financial apps can create new suggestions. Movements that are already pending will not be deleted.',
+    noSources: 'No apps detected yet',
+    noSourcesHint: 'When a compatible financial notification arrives, its app will appear here so you can enable or disable it.',
     sourceEnabled: 'Detection from %{name} was enabled',
     sourceDisabled: 'Detection from %{name} was disabled',
     sourceToggleAccessibility: 'Detect movements from %{name}',

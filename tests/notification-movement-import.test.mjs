@@ -102,16 +102,21 @@ test('detected financial apps can be enabled or disabled independently', () => {
   const listener = read('modules/notification-movements/android/src/main/java/com/vitoco18/finniapp/notificationmovements/FinancialNotificationListenerService.kt');
   const sourceStore = read('modules/notification-movements/android/src/main/java/com/vitoco18/finniapp/notificationmovements/NotificationMovementSourceStore.kt');
   const nativeModule = read('modules/notification-movements/android/src/main/java/com/vitoco18/finniapp/notificationmovements/NotificationMovementsModule.kt');
-  const screen = read('app/modal/pending-movements.tsx');
+  const screen = read('app/modal/detected-movement-apps.tsx');
+  const pendingScreen = read('app/modal/pending-movements.tsx');
+  const layout = read('app/_layout.tsx');
 
   assert.ok(listener.indexOf('NotificationMovementSourceStore.isEnabled') < listener.indexOf('Notification.EXTRA_TITLE'));
   assert.match(listener, /NotificationMovementSourceStore\.remember/);
   assert.match(sourceStore, /DISABLED_PACKAGES/);
   assert.match(nativeModule, /getSourcesAsync/);
   assert.match(nativeModule, /setSourceEnabledAsync/);
-  assert.match(screen, /pendingMovements\.sourcesTitle/);
+  assert.match(layout, /pendingMovements\.sourcesTitle/);
   assert.match(screen, /setNotificationMovementSourceEnabled/);
   assert.match(screen, /<Switch/);
+  assert.match(pendingScreen, /\/modal\/detected-movement-apps/);
+  assert.doesNotMatch(pendingScreen, /<Switch/);
+  assert.match(layout, /name="modal\/detected-movement-apps"/);
 });
 
 test('detected movements do not fall back to an unrelated default payment method', () => {

@@ -90,6 +90,10 @@ function AppContent() {
                   options={{ presentation: 'fullScreenModal', title: t('pendingMovements.title') }}
                 />
                 <Stack.Screen
+                  name="modal/detected-movement-apps"
+                  options={{ presentation: 'modal', title: t('pendingMovements.sourcesTitle') }}
+                />
+                <Stack.Screen
                   name="modal/income-form"
                   options={{ presentation: 'modal', title: t('navigation.income') }}
                 />

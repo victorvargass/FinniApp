@@ -1701,6 +1701,8 @@ const es = {
     accessEnabled: 'Detección desde notificaciones activada',
     sourcesTitle: 'Aplicaciones detectadas',
     sourcesHint: 'Elige desde cuáles aplicaciones financieras quieres recibir nuevas sugerencias. Los movimientos que ya están pendientes no se eliminarán.',
+    noSources: 'Aún no hay aplicaciones detectadas',
+    noSourcesHint: 'Cuando llegue una notificación financiera compatible, su aplicación aparecerá aquí para que puedas activarla o desactivarla.',
     sourceEnabled: 'Se activó la detección desde %{name}',
     sourceDisabled: 'Se desactivó la detección desde %{name}',
     sourceToggleAccessibility: 'Detectar movimientos desde %{name}',

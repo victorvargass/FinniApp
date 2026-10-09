@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, AppState, Modal, Pressable, ScrollView, StyleSheet, Switch, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, AppState, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { OverflowMenu } from '@/components/overflow-menu';
 import { Colors, Fonts, LayoutTokens } from '@/constants/theme';
 import { usePaymentDatabase, useRecurrenceDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -15,14 +16,11 @@ import { t } from '@/lib/i18n';
 import { findPendingRecurringMatches } from '@/lib/notification-recurrence-match';
 import {
   getPendingNotificationMovements,
-  getNotificationMovementSources,
   isNotificationMovementAccessEnabled,
   notificationMovementCaptureSupported,
   openNotificationMovementAccessSettings,
   pendingMovementHref,
   removePendingNotificationMovement,
-  setNotificationMovementSourceEnabled,
-  type NotificationMovementSource,
   type PendingMovementCandidate,
 } from '@/lib/notification-movements';
 import { showToast } from '@/lib/toast';
@@ -44,7 +42,6 @@ export default function PendingMovementsScreen() {
   const { fontScale } = useWindowDimensions();
   const usesLargeText = fontScale >= 1.2;
   const [items, setItems] = useState<PendingMovementCandidate[]>([]);
-  const [sources, setSources] = useState<NotificationMovementSource[]>([]);
   const [accessEnabled, setAccessEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [approvingCandidateId, setApprovingCandidateId] = useState<string | null>(null);
@@ -63,38 +60,16 @@ export default function PendingMovementsScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [pending, enabled, detectedSources] = await Promise.all([
+      const [pending, enabled] = await Promise.all([
         getPendingNotificationMovements(),
         isNotificationMovementAccessEnabled(),
-        getNotificationMovementSources(),
       ]);
       setItems(pending);
       setAccessEnabled(enabled);
-      setSources(detectedSources);
     } finally {
       setLoading(false);
     }
   }, []);
-
-  const setSourceEnabled = async (source: NotificationMovementSource, enabled: boolean) => {
-    setSources((current) => current.map((item) => (
-      item.packageName === source.packageName ? { ...item, enabled } : item
-    )));
-    try {
-      await setNotificationMovementSourceEnabled(source.packageName, enabled);
-      showToast(t(enabled
-        ? 'pendingMovements.sourceEnabled'
-        : 'pendingMovements.sourceDisabled', { name: source.name }));
-    } catch (error) {
-      setSources((current) => current.map((item) => (
-        item.packageName === source.packageName ? source : item
-      )));
-      Alert.alert(
-        t('common.error'),
-        error instanceof Error ? error.message : t('errors.couldNotSave')
-      );
-    }
-  };
 
   useFocusEffect(useCallback(() => {
     void load();
@@ -150,6 +125,19 @@ export default function PendingMovementsScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['bottom']}>
+      <Stack.Screen options={{
+        headerRight: () => (
+          <OverflowMenu
+            accessibilityLabel={t('common.moreOptions')}
+            actions={[{
+              label: t('pendingMovements.sourcesTitle'),
+              icon: 'apps-outline',
+              onPress: () => router.push('/modal/detected-movement-apps' as never),
+            }]}
+            iconColor={colors.icon}
+          />
+        ),
+      }} />
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText style={[styles.intro, { color: colors.textSecondary }]}>
           {t('pendingMovements.intro')}
@@ -182,35 +170,6 @@ export default function PendingMovementsScreen() {
           <ThemedView style={[styles.enabled, { borderColor: colors.success }]}>
             <Ionicons name="checkmark-circle-outline" size={22} color={colors.success} />
             <ThemedText>{t('pendingMovements.accessEnabled')}</ThemedText>
-          </ThemedView>
-        )}
-
-        {notificationMovementCaptureSupported && accessEnabled && sources.length > 0 && (
-          <ThemedView style={[styles.sourcesCard, { borderColor: colors.border }]}>
-            <ThemedText type="subtitle">{t('pendingMovements.sourcesTitle')}</ThemedText>
-            <ThemedText style={{ color: colors.textSecondary }}>
-              {t('pendingMovements.sourcesHint')}
-            </ThemedText>
-            {sources.map((source, index) => (
-              <View key={source.packageName}>
-                {index > 0 && <View style={[styles.sourceDivider, { backgroundColor: colors.border }]} />}
-                <View style={styles.sourceRow}>
-                  <View style={styles.sourceCopy}>
-                    <ThemedText type="defaultSemiBold">{source.name}</ThemedText>
-                    <ThemedText style={[styles.sourcePackage, { color: colors.textSecondary }]} numberOfLines={1}>
-                      {source.packageName}
-                    </ThemedText>
-                  </View>
-                  <Switch
-                    accessibilityLabel={t('pendingMovements.sourceToggleAccessibility', { name: source.name })}
-                    value={source.enabled}
-                    onValueChange={(enabled) => { void setSourceEnabled(source, enabled); }}
-                    trackColor={{ false: colors.border, true: colors.action }}
-                    thumbColor={colors.surface}
-                  />
-                </View>
-              </View>
-            ))}
           </ThemedView>
         )}
 
@@ -365,11 +324,6 @@ const styles = StyleSheet.create({
   primaryButton: { minHeight: 48, borderRadius: LayoutTokens.radiusMedium, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   primaryText: { fontFamily: Fonts.bold, textAlign: 'center' },
   loader: { marginTop: 36 },
-  sourcesCard: { borderWidth: 1, borderRadius: LayoutTokens.radiusLarge, padding: 16, gap: 8 },
-  sourceRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  sourceCopy: { flex: 1, minWidth: 0 },
-  sourcePackage: { fontSize: 12, lineHeight: 16 },
-  sourceDivider: { height: StyleSheet.hairlineWidth },
   empty: { alignItems: 'center', paddingVertical: 44, gap: 10 },
   emptyHint: { textAlign: 'center' },
   card: { borderWidth: 1, borderRadius: LayoutTokens.radiusLarge, overflow: 'hidden' },
