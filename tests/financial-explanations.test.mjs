@@ -12,6 +12,8 @@ test('financial explanations use one accessible lightbulb modal', () => {
   assert.match(modal, /accessibilityViewIsModal/);
   assert.match(modal, /explanation\.lines\.map/);
   assert.match(modal, /explanation\.total/);
+  assert.match(modal, /line\.operator \?\? '\+'/);
+  assert.match(modal, /maxHeight: 300/);
 });
 
 test('Home summary metrics expose their underlying calculations', () => {
@@ -25,14 +27,24 @@ test('Home summary metrics expose their underlying calculations', () => {
   assert.match(home, /financialExplanation\.descriptions\.totalDebt/);
 });
 
-test('compact calculation affordances cover the twelve financial contexts', () => {
+test('Home avoids repetitive explanation buttons inside detailed sections', () => {
+  const home = source('app/(tabs)/home.tsx');
+  const balances = source('components/home-payment-balances-card.tsx');
+  const goals = source('components/SavingsGoalsPeriodCard.tsx');
+  const summary = source('components/home-summary-cards.tsx');
+  const breakdownInvocation = home.match(/<BreakdownSection[\s\S]*?\/>/)?.[0] ?? '';
+
+  assert.doesNotMatch(balances, /FinancialInfoButton/);
+  assert.doesNotMatch(goals, /FinancialInfoButton/);
+  assert.doesNotMatch(breakdownInvocation, /onExplain=/);
+  assert.match(summary, /metric === 'income'[\s\S]*?undefined/);
+});
+
+test('compact calculation affordances remain on useful aggregate contexts', () => {
   const paths = [
     'app/(tabs)/home.tsx',
     'components/home-summary-cards.tsx',
-    'components/home-payment-balances-card.tsx',
-    'components/breakdown-section.tsx',
     'components/LimitProgressBar.tsx',
-    'components/SavingsGoalsPeriodCard.tsx',
     'components/weekly-insight-card.tsx',
     'app/modal/manual-debt-detail.tsx',
     'app/modal/debts.tsx',
@@ -43,10 +55,7 @@ test('compact calculation affordances cover the twelve financial contexts', () =
   const combined = paths.map(source).join('\n');
   for (const token of [
     'onExplainPeriodMetric',
-    'onExplainPaymentMethod',
-    'financialExplanation.descriptions.chart',
     'financialExplanation.descriptions.budget',
-    'onExplainGoal',
     'financialExplanation.descriptions.debtBalance',
     'financialExplanation.descriptions.contactDebt',
     'financialExplanation.descriptions.forecast',
@@ -54,4 +63,11 @@ test('compact calculation affordances cover the twelve financial contexts', () =
     'financialExplanation.descriptions.recurrence',
     'financialExplanation.descriptions.historicalPeriod',
   ]) assert.match(combined, new RegExp(token.replaceAll('.', '\\.')));
+});
+
+test('Home groups expense explanations by payment method and itemizes unbilled cards', () => {
+  const home = source('app/(tabs)/home.tsx');
+  assert.match(home, /totalsByPaymentMethod/);
+  assert.match(home, /expense\.paymentMethodName/);
+  assert.match(home, /unbilledCreditCardBreakdown\.map/);
 });

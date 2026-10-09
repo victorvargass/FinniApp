@@ -13,6 +13,7 @@ export {
   getDebtPlan,
   getDebtPlans,
   getDebts,
+  getUnbilledCreditCardBreakdown,
   getUnbilledCreditCardTotal,
   processProjectedInstallments,
   restoreRemovedInstallment,

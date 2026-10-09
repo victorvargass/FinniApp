@@ -186,7 +186,7 @@ export default function PaymentMethodsScreen() {
                   )}
                 {item.usdCreditLimitCents != null && (
                   <ThemedText type="defaultSemiBold" style={styles.balance}>
-                    USD {formatMoney(item.usdAvailableCreditCents ?? 0, 'USD')}
+                    {formatMoney(item.usdAvailableCreditCents ?? 0, 'USD')}
                   </ThemedText>
                 )}
                 {item.type === 'credit' && (

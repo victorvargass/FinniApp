@@ -266,7 +266,7 @@ export default function PaymentMethodFormScreen() {
                 testID="payment-method-usd-credit-limit-input"
                 value={usdCreditLimitText}
                 onChangeText={(value) => setUsdCreditLimitText(formatUSDInput(value))}
-                placeholder="US$0,00"
+                placeholder="USD $0,00"
                 placeholderTextColor={colors.icon}
                 style={[styles.input, { borderColor: colors.border, color: colors.text }]}
               />

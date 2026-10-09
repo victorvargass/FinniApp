@@ -75,7 +75,7 @@ export function FinancialExplanationModal({
               <View key={`${line.label}-${index}`} style={styles.line}>
                 <View style={[styles.operator, { backgroundColor: `${colors.primary}12` }]}>
                   <ThemedText style={[styles.operatorText, { color: colors.primary }]}>
-                    {line.operator ?? (index === 0 ? '' : '+')}
+                    {line.operator ?? '+'}
                   </ThemedText>
                 </View>
                 <ThemedText style={styles.lineLabel}>{line.label}</ThemedText>
@@ -86,7 +86,9 @@ export function FinancialExplanationModal({
 
           <View style={[styles.total, { borderTopColor: colors.border, backgroundColor: colors.surfaceRaised }]}>
             <ThemedText type="defaultSemiBold">{explanation.totalLabel}</ThemedText>
-            <ThemedText type="subtitle" style={{ color: colors.primary }}>{explanation.total}</ThemedText>
+            <ThemedText type="subtitle" style={[styles.totalValue, { color: colors.primary }]}>
+              {explanation.total}
+            </ThemedText>
           </View>
 
           <Pressable
@@ -128,7 +130,7 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 11, lineHeight: 15, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.7 },
   closeIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   description: { fontSize: 14, lineHeight: 20 },
-  scroll: { flexGrow: 0 },
+  scroll: { flexGrow: 0, flexShrink: 1, maxHeight: 300 },
   lines: { gap: 11 },
   line: { minHeight: 30, flexDirection: 'row', alignItems: 'center', gap: 8 },
   operator: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
@@ -137,6 +139,7 @@ const styles = StyleSheet.create({
   lineValue: { fontSize: 13, textAlign: 'right' },
   empty: { paddingVertical: 8, textAlign: 'center' },
   total: { borderTopWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  totalValue: { flexShrink: 1, textAlign: 'right' },
   button: { minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   buttonText: { fontFamily: Fonts.bold },
   pressed: { opacity: 0.72 },

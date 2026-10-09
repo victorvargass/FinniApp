@@ -861,7 +861,7 @@ export function ExpenseForm({ expense, creditAdjustment, templateExpense, initia
           style={[styles.input, { color: colors.text, borderColor: colors.icon }]}
         value={amountText as string}
         onChangeText={(value) => setAmountText(currency === 'USD' ? formatUSDInput(value) : formatCLPInput(value))}
-        placeholder={currency === 'USD' ? 'US$0,00' : t('forms.amountPlaceholder')}
+        placeholder={currency === 'USD' ? 'USD $0,00' : t('forms.amountPlaceholder')}
         placeholderTextColor={colors.icon}
         keyboardType="number-pad"
       />

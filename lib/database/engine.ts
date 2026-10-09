@@ -27,7 +27,10 @@ import { calculateAvailableBalance } from '../payment-method-calculations';
 import { PERIOD_CARD_ADJUSTMENTS_SQL, PERIOD_CARD_PAYMENTS_SQL } from '../period-card-cashflow';
 import { clpSpendingExpenseSql, spendingExpenseSql } from '../movement-classification';
 import { canUpdateExpenseAcrossCreditCycles } from '../credit-cycle-edit';
-import { UNBILLED_CREDIT_CARD_TOTAL_SQL } from '../home-summary';
+import {
+  UNBILLED_CREDIT_CARD_BREAKDOWN_SQL,
+  UNBILLED_CREDIT_CARD_TOTAL_SQL,
+} from '../home-summary';
 import {
   getSettings,
   updateHomePreferences,
@@ -114,6 +117,7 @@ import type {
   SavingsGroup,
   SavingsGoalMovement,
   SavingsGoalPeriodActivity,
+  UnbilledCreditCardAmount,
 } from '../types';
 
 async function ensureColumn(
@@ -4721,6 +4725,14 @@ export async function getUnbilledCreditCardTotal(): Promise<number> {
     UNBILLED_CREDIT_CARD_TOTAL_SQL
   );
   return Number(row?.total ?? 0);
+}
+
+export async function getUnbilledCreditCardBreakdown(): Promise<UnbilledCreditCardAmount[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<UnbilledCreditCardAmount>(
+    UNBILLED_CREDIT_CARD_BREAKDOWN_SQL
+  );
+  return rows.map((row) => ({ ...row, total: Number(row.total) }));
 }
 
 export async function setDebtPlanShowOnHome(id: number, showOnHome: boolean): Promise<void> {

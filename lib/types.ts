@@ -199,6 +199,12 @@ export type PaymentMethodType = 'cash' | 'debit' | 'prepaid' | 'credit';
 export type PaymentMethodSystemKey = 'cash';
 export type CurrencyCode = 'CLP' | 'USD';
 
+export type UnbilledCreditCardAmount = {
+  paymentMethodId: number;
+  paymentMethodName: string;
+  total: number;
+};
+
 export type PaymentMethod = {
   id: number;
   name: string;

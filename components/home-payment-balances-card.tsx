@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ExpandableFinanceCard } from '@/components/expandable-finance-card';
-import { FinancialInfoButton } from '@/components/financial-info-button';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -23,7 +22,6 @@ type HomePaymentBalancesCardProps = {
   backgroundColor: string;
   onManage: () => void;
   onOpenPaymentMethod: (id: number) => void;
-  onExplainPaymentMethod: (method: PaymentMethod) => void;
 };
 
 export function HomePaymentBalancesCard({
@@ -32,7 +30,6 @@ export function HomePaymentBalancesCard({
   backgroundColor,
   onManage,
   onOpenPaymentMethod,
-  onExplainPaymentMethod,
 }: HomePaymentBalancesCardProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
   const usesLargeText = useLargeTextLayout();
@@ -91,7 +88,7 @@ export function HomePaymentBalancesCard({
                   </ThemedText>
                   {method.usdCreditLimitCents != null && (
                     <ThemedText type="defaultSemiBold" style={[styles.currencyValue, { color: colors.primary }]}>
-                      USD {formatMoney(method.usdAvailableCreditCents ?? 0, 'USD')}
+                      {formatMoney(method.usdAvailableCreditCents ?? 0, 'USD')}
                     </ThemedText>
                   )}
                   <ThemedText style={[styles.billedAmount, { color: method.billedAmount > 0 ? colors.expense : colors.textSecondary }]}>
@@ -105,7 +102,7 @@ export function HomePaymentBalancesCard({
                   </ThemedText>
                   {method.usdCreditLimitCents != null && (
                     <ThemedText style={[styles.creditLimit, { color: colors.textSecondary }]}>
-                      USD {formatMoney(method.usdCreditLimitCents, 'USD')}
+                      {formatMoney(method.usdCreditLimitCents, 'USD')}
                     </ThemedText>
                   )}
                 </>
@@ -118,7 +115,6 @@ export function HomePaymentBalancesCard({
                 <ThemedText type="defaultSemiBold">{formatCLP(method.availableBalance)}</ThemedText>
               ))}
             </View>
-            <FinancialInfoButton onPress={() => onExplainPaymentMethod(method)} />
             <Ionicons name="chevron-forward" size={18} color={colors.icon} />
           </Pressable>
         ))}

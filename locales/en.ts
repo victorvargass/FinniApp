@@ -791,7 +791,7 @@ const en = {
     walletTotal: 'Total available balance: %{amount}',
     availableCredit: 'Credit cards',
     availableCreditTotal: 'Total available credit: %{amount}',
-    availableCreditTotals: 'Available credit: CLP %{clp} · USD %{usd}',
+    availableCreditTotals: 'Available credit: CLP %{clp} · %{usd}',
     unconfiguredBalances: '%{count} not configured',
     managePaymentBalances: 'View %{section} details',
     weeklyIncome: 'You recorded %{amount} in income.',

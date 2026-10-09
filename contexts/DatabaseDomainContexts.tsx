@@ -37,7 +37,7 @@ const SAVINGS_KEYS = [
 ] as const satisfies readonly (keyof DatabaseContextValue)[];
 
 const DEBT_KEYS = [
-  'unbilledCreditCardTotal', 'getDebtPlans', 'getDebtPlan', 'addInstallmentPurchase',
+  'unbilledCreditCardTotal', 'unbilledCreditCardBreakdown', 'getDebtPlans', 'getDebtPlan', 'addInstallmentPurchase',
   'activateInstallmentPlan', 'settleInstallmentPlan', 'setDebtPlanShowOnHome',
   'restoreRemovedInstallment', 'removeInstallmentPlan', 'getDebts', 'getDebt',
   'addDebt', 'editDebt', 'addDebtPayment', 'addDebtPayments', 'editDebtPayment',

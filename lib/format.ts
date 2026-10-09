@@ -17,12 +17,11 @@ export function formatCLP(amount: number): string {
 /** Formats an integer amount in its native currency. USD values are stored in cents. */
 export function formatMoney(amount: number, currency: CurrencyCode = 'CLP'): string {
   if (currency === 'USD') {
-    return new Intl.NumberFormat(APP_LOCALE, {
-      style: 'currency',
-      currency: 'USD',
+    const formattedAmount = new Intl.NumberFormat(APP_LOCALE, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount / 100);
+    return `USD $${formattedAmount}`;
   }
   return formatCLP(amount);
 }

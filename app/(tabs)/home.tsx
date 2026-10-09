@@ -51,7 +51,7 @@ import {
   calculatePeriodOverviewExpenses,
 } from '@/lib/period-card-cashflow';
 import { buildPeriodCloseInsights } from '@/lib/period-close-insights';
-import type { Debt, DebtPlan, FinancialForecastItem, PaymentMethod, SavingsGoalPeriodActivity } from '@/lib/types';
+import type { Debt, DebtPlan, FinancialForecastItem } from '@/lib/types';
 import { hasUserCreatedCategory } from '@/lib/setup-progress-state';
 import {
   confirmFirstPeriodDate,
@@ -95,7 +95,12 @@ export default function HomeScreen() {
     savingsGoals,
     savingsGroups,
   } = useSavingsDatabase();
-  const { unbilledCreditCardTotal, getDebts, getDebtPlans } = useDebtDatabase();
+  const {
+    unbilledCreditCardBreakdown,
+    unbilledCreditCardTotal,
+    getDebts,
+    getDebtPlans,
+  } = useDebtDatabase();
   const { paymentMethodTotals, paymentMethods } = usePaymentDatabase();
   const { recurringDecisions } = useRecurrenceDatabase();
   const { appNotifications, setAppNotificationRead } = usePreferenceDatabase();
@@ -502,22 +507,27 @@ export default function HomeScreen() {
       ], formatCLP(periodOverviewBalance));
       return;
     }
-    if (metric === 'income') {
-      explain(t('home.periodMetricIncome'), 'financialExplanation.descriptions.periodIncome', incomes
-        .filter((income) => income.savingsGoalId == null)
-        .map((income) => ({ label: income.name, value: formatCLP(income.amount) })), formatCLP(periodIncomesTotal));
-      return;
-    }
     if (metric === 'expenses') {
-      explain(t('home.periodMetricExpenses'), 'financialExplanation.descriptions.periodExpenses', expenses
+      const totalsByPaymentMethod = expenses
         .filter((expense) => expense.currency !== 'USD'
           && (expense.paymentMethodType === 'cash' || expense.paymentMethodType === 'debit' || expense.paymentMethodType === 'prepaid'))
-        .map((expense) => ({ label: expense.name, value: formatCLP(expense.amount) })), formatCLP(periodOverviewExpensesTotal));
+        .reduce((totals, expense) => {
+          const label = expense.paymentMethodName ?? t('common.notSpecified');
+          totals.set(label, (totals.get(label) ?? 0) + expense.amount);
+          return totals;
+        }, new Map<string, number>());
+      explain(t('home.periodMetricExpenses'), 'financialExplanation.descriptions.periodExpenses',
+        [...totalsByPaymentMethod.entries()]
+          .sort(([, first], [, second]) => second - first)
+          .map(([label, amount]) => ({ label, value: formatCLP(amount) })),
+        formatCLP(periodOverviewExpensesTotal));
       return;
     }
-    explain(t('home.periodMetricUnbilledCredit'), 'financialExplanation.descriptions.unbilledCredit', [
-      { label: t('home.periodMetricUnbilledCredit'), value: formatCLP(unbilledCreditCardTotal) },
-    ], formatCLP(unbilledCreditCardTotal));
+    explain(t('home.periodMetricUnbilledCredit'), 'financialExplanation.descriptions.unbilledCredit',
+      unbilledCreditCardBreakdown.map((item) => ({
+        label: item.paymentMethodName,
+        value: formatCLP(item.total),
+      })), formatCLP(unbilledCreditCardTotal));
   };
   const showGlobalMetricExplanation = (metric: HomeGlobalMetricId) => {
     if (metric === 'wallet') {
@@ -529,12 +539,14 @@ export default function HomeScreen() {
     if (metric === 'credit') {
       const clpLines = visibleCreditMethods
         .filter((method) => method.availableBalance != null)
-        .map((method) => ({ label: `${method.name} · CLP`, value: formatCLP(method.availableBalance ?? 0) }));
+        .map((method) => ({ label: method.name, value: `CLP ${formatCLP(method.availableBalance ?? 0)}` }));
       const usdLines = visibleCreditMethods
         .filter((method) => method.usdCreditLimitCents != null)
-        .map((method) => ({ label: `${method.name} · USD`, value: formatMoney(method.usdAvailableCreditCents ?? 0, 'USD') }));
+        .map((method) => ({ label: method.name, value: formatMoney(method.usdAvailableCreditCents ?? 0, 'USD') }));
       explain(t('home.globalMetricCredit'), 'financialExplanation.descriptions.availableCredit', [...clpLines, ...usdLines],
-        hasUsdCredit ? `CLP ${formatCLP(availableCreditTotal)} · USD ${formatMoney(usdAvailableCreditTotalCents, 'USD')}` : formatCLP(availableCreditTotal));
+        hasUsdCredit
+          ? `CLP ${formatCLP(availableCreditTotal)}\n${formatMoney(usdAvailableCreditTotalCents, 'USD')}`
+          : `CLP ${formatCLP(availableCreditTotal)}`);
       return;
     }
     if (metric === 'billedCredit') {
@@ -555,34 +567,6 @@ export default function HomeScreen() {
       .map((method) => ({ label: method.name, value: formatCLP(getCreditCardDebtAmount(method)) }));
     explain(t('home.globalMetricDebt'), 'financialExplanation.descriptions.totalDebt', [...debtLines, ...cardDebtLines], formatCLP(payableDebtTotal));
   };
-  const showPaymentMethodExplanation = (method: PaymentMethod) => explain(
-    method.name,
-    'financialExplanation.descriptions.paymentMethodBalance',
-    [
-      { label: t('financialExplanation.labels.reportedBalance'), value: formatCLP(method.reportedBalance ?? 0) },
-      { label: t('financialExplanation.labels.charges'), value: formatCLP(method.registeredCharges), operator: '−' },
-      { label: t('financialExplanation.labels.installments'), value: formatCLP(method.installmentCommitments), operator: '−' },
-      { label: t('financialExplanation.labels.payments'), value: formatCLP(method.registeredPayments) },
-      { label: t('financialExplanation.labels.incomes'), value: formatCLP(method.registeredIncomes) },
-      { label: t('financialExplanation.labels.transfersIn'), value: formatCLP(method.registeredTransfersIn) },
-      { label: t('financialExplanation.labels.transfersOut'), value: formatCLP(method.registeredTransfersOut), operator: '−' },
-      { label: t('financialExplanation.labels.adjustments'), value: formatCLP(method.registeredAdjustments) },
-    ],
-    method.availableBalance == null ? '—' : formatCLP(method.availableBalance)
-  );
-  const showGoalExplanation = (item: SavingsGoalPeriodActivity) => explain(
-    item.goalName,
-    'financialExplanation.descriptions.goalBalance',
-    [
-      { label: t('financialExplanation.labels.openingSavings'), value: formatCLP(item.openingAmount) },
-      { label: t('financialExplanation.labels.contributions'), value: formatCLP(item.contributions) },
-      { label: t('financialExplanation.labels.withdrawals'), value: formatCLP(item.withdrawals), operator: '−' },
-      { label: t('financialExplanation.labels.fundedExpenses'), value: formatCLP(item.fundedExpenses), operator: '−' },
-      { label: t('financialExplanation.labels.adjustments'), value: formatCLP(item.adjustments) },
-    ],
-    formatCLP(item.closingAmount)
-  );
-
   const renderHomeSection = (section: HomeSectionId) => {
     if (section === 'search') {
       return (
@@ -643,7 +627,6 @@ export default function HomeScreen() {
             pathname: '/modal/payment-method-detail',
             params: { id: String(id) },
           })}
-          onExplainPaymentMethod={showPaymentMethodExplanation}
         />
       );
     }
@@ -666,7 +649,6 @@ export default function HomeScreen() {
               pathname: '/modal/savings-goal-detail' as never,
               params: { id: String(id) },
             })}
-            onExplainGoal={showGoalExplanation}
           />
         </View>
       ) : null;
@@ -692,9 +674,6 @@ export default function HomeScreen() {
         collapsible
         mode={breakdownMode}
         onChange={setBreakdownMode}
-        onExplain={() => explain(t('breakdown.title'), 'financialExplanation.descriptions.chart', (breakdownMode === 'category'
-          ? periodCategoryExpensesTotals.map((item) => ({ label: item.categoryName, value: formatCLP(item.total) }))
-          : paymentMethodTotals.map((item) => ({ label: item.paymentMethodName, value: formatCLP(item.total) }))), formatCLP(periodExpensesTotal))}
         backgroundColor={colors.surface}
         categoryContent={(
           <>

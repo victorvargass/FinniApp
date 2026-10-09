@@ -69,6 +69,7 @@ import type {
   SavingsGoalPeriodActivity,
   SavingsGoalStatus,
   Settings,
+  UnbilledCreditCardAmount,
 } from '@/lib/types';
 import { addIsoDays, toIsoDate } from '@/lib/recurrence';
 import { DEFAULT_HOME_PREFERENCES } from '@/lib/home-preferences';
@@ -114,6 +115,7 @@ export type DatabaseContextValue = {
   periodHistory: PeriodHistory[];
   periodExpensesTotal: number;
   unbilledCreditCardTotal: number;
+  unbilledCreditCardBreakdown: UnbilledCreditCardAmount[];
   isReady: boolean;
   isPeriodChanging: boolean;
   periodRefreshFailed: boolean;
@@ -261,6 +263,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [periodSavingsGoalActivity, setPeriodSavingsGoalActivity] = useState<SavingsGoalPeriodActivity[]>([]);
   const [periodSavingsFundingTotal, setPeriodSavingsFundingTotal] = useState(0);
   const [unbilledCreditCardTotal, setUnbilledCreditCardTotal] = useState(0);
+  const [unbilledCreditCardBreakdown, setUnbilledCreditCardBreakdown] = useState<UnbilledCreditCardAmount[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenseNames, setExpenseNames] = useState<string[]>([]);
@@ -362,7 +365,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           skipNextSelectedPeriodRefreshRef.current = true;
           setSelectedPeriodId(targetPeriodId);
         }
-        const [cats, contactRows, relationshipRows, incomeCats, groups, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, unbilledCreditTotal, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
+        const [cats, contactRows, relationshipRows, incomeCats, groups, methods, methodTotals, cardPayments, transfers, recurring, decisions, recurringIncomeRows, goals, goalActivity, savingsFundingTotal, unbilledCreditTotal, unbilledCreditBreakdown, exps, incs, allExpenseNames, allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
           refreshStep('REFRESH_CATEGORIES', db.getCategories()),
           refreshStep('REFRESH_CONTACTS', db.getContacts()),
           refreshStep('REFRESH_RELATIONSHIPS', db.getRelationshipTypes()),
@@ -379,6 +382,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
           refreshStep('REFRESH_SAVINGS_ACTIVITY', db.getPeriodSavingsGoalActivity(targetPeriodId)),
           refreshStep('REFRESH_SAVINGS_TOTAL', db.getPeriodSavingsFundingTotal(targetPeriodId)),
           refreshStep('REFRESH_UNBILLED_CREDIT_TOTAL', db.getUnbilledCreditCardTotal()),
+          refreshStep('REFRESH_UNBILLED_CREDIT_BREAKDOWN', db.getUnbilledCreditCardBreakdown()),
           refreshStep('REFRESH_EXPENSES', db.getExpenses(targetPeriodId)),
           refreshStep('REFRESH_INCOMES', db.getIncomes(targetPeriodId)),
           refreshStep('REFRESH_EXPENSE_NAMES', db.getExpenseNames()),
@@ -414,6 +418,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
         setPeriodSavingsGoalActivity(goalActivity);
         setPeriodSavingsFundingTotal(savingsFundingTotal);
         setUnbilledCreditCardTotal(unbilledCreditTotal);
+        setUnbilledCreditCardBreakdown(unbilledCreditBreakdown);
         setExpenses(exps);
         setIncomes(incs);
         setExpenseNames(allExpenseNames);
@@ -469,7 +474,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     const targetPeriodId = selectedPeriodIdRef.current;
     if (targetPeriodId == null) return;
     const [methods, methodTotals, cardPayments, transfers, goals, goalActivity,
-      savingsFundingTotal, unbilledCreditTotal, exps, incs, allExpenseNames,
+      savingsFundingTotal, unbilledCreditTotal, unbilledCreditBreakdown, exps, incs, allExpenseNames,
       allIncomeNames, totals, incomesTotal, history, debts, debtPlans] = await Promise.all([
       refreshStep('REFRESH_PAYMENT_METHODS', db.getPaymentMethods(true)),
       refreshStep('REFRESH_PAYMENT_TOTALS', db.getPaymentMethodTotals(targetPeriodId)),
@@ -479,6 +484,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       refreshStep('REFRESH_SAVINGS_ACTIVITY', db.getPeriodSavingsGoalActivity(targetPeriodId)),
       refreshStep('REFRESH_SAVINGS_TOTAL', db.getPeriodSavingsFundingTotal(targetPeriodId)),
       refreshStep('REFRESH_UNBILLED_CREDIT_TOTAL', db.getUnbilledCreditCardTotal()),
+      refreshStep('REFRESH_UNBILLED_CREDIT_BREAKDOWN', db.getUnbilledCreditCardBreakdown()),
       refreshStep('REFRESH_EXPENSES', db.getExpenses(targetPeriodId)),
       refreshStep('REFRESH_INCOMES', db.getIncomes(targetPeriodId)),
       refreshStep('REFRESH_EXPENSE_NAMES', db.getExpenseNames()),
@@ -504,6 +510,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     setPeriodSavingsGoalActivity(goalActivity);
     setPeriodSavingsFundingTotal(savingsFundingTotal);
     setUnbilledCreditCardTotal(unbilledCreditTotal);
+    setUnbilledCreditCardBreakdown(unbilledCreditBreakdown);
     setExpenses(exps);
     setIncomes(incs);
     setExpenseNames(allExpenseNames);
@@ -611,6 +618,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       periodHistory,
       periodExpensesTotal,
       unbilledCreditCardTotal,
+      unbilledCreditCardBreakdown,
       isReady,
       isPeriodChanging,
       periodRefreshFailed,
@@ -643,6 +651,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       periodSavingsGoalActivity,
       periodSavingsFundingTotal,
       unbilledCreditCardTotal,
+      unbilledCreditCardBreakdown,
       expenses,
       incomes,
       expenseNames,

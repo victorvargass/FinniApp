@@ -108,7 +108,9 @@ export function HomeSummaryCards({
                       ? periodColors.negative
                       : periodColors.positive}
               largeText={usesLargeText}
-              onPress={() => onExplainPeriodMetric?.(metric)}
+              onPress={metric === 'income' || !onExplainPeriodMetric
+                ? undefined
+                : () => onExplainPeriodMetric(metric)}
             />
           ))}
         </View>
@@ -127,7 +129,7 @@ export function HomeSummaryCards({
               </ThemedText>
               {creditTotals.hasUsd && (
                 <ThemedText type="defaultSemiBold" style={styles.currencyMetricValue}>
-                  USD {formatMoney(creditTotals.availableUsdCents, 'USD')}
+                  {formatMoney(creditTotals.availableUsdCents, 'USD')}
                 </ThemedText>
               )}
               <ThemedText style={[styles.metricLabel, styles.creditLimitLabel, { color: colors.textSecondary }]}>
@@ -136,7 +138,7 @@ export function HomeSummaryCards({
               <ThemedText style={styles.currencyMetricSecondary}>CLP {formatCLP(creditTotals.limitClp)}</ThemedText>
               {creditTotals.hasUsd && (
                 <ThemedText style={styles.currencyMetricSecondary}>
-                  USD {formatMoney(creditTotals.limitUsdCents, 'USD')}
+                  {formatMoney(creditTotals.limitUsdCents, 'USD')}
                 </ThemedText>
               )}
               <FinancialInfoButton onPress={() => onExplainGlobalMetric?.(metric)} style={styles.info} />
