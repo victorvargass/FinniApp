@@ -10,17 +10,14 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useDebtDatabase } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Alert } from '@/lib/alert';
-import { errorMessage, showFeedback } from '@/lib/feedback';
 import { formatCLP } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import type { Debt } from '@/lib/types';
 
 export default function ArchivedDebtsScreen() {
-  const { getDebts, setDebtArchived } = useDebtDatabase();
+  const { getDebts } = useDebtDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [debts, setDebts] = useState<Debt[]>([]);
-  const [workingId, setWorkingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const rows = await getDebts();
@@ -31,28 +28,11 @@ export default function ArchivedDebtsScreen() {
     load().catch(() => undefined);
   }, [load]));
 
-  const reactivate = (debt: Debt) => {
-    Alert.alert(t('debts.reactivate'), t('debts.reactivateHint'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('debts.reactivate'),
-        onPress: () => {
-          setWorkingId(debt.id);
-          void setDebtArchived(debt.id, false)
-            .then(async () => {
-              showFeedback(t('debts.reactivated'));
-              await load();
-            })
-            .catch((error) => Alert.alert(t('errors.couldNotUpdate'), errorMessage(error)))
-            .finally(() => setWorkingId(null));
-        },
-      },
-    ]);
-  };
-
   const renderDebt = (debt: Debt) => (
     <ThemedView key={debt.id} style={[styles.card, { borderColor: colors.border }]}>
       <Pressable
+        accessibilityLabel={`${debt.name}, ${debt.currentBalance <= 0 ? t('debts.statusPaid') : `${t('debts.currentBalance')}: ${formatCLP(debt.currentBalance)}`}`}
+        accessibilityRole="button"
         onPress={() => router.push({ pathname: '/modal/manual-debt-detail', params: { id: String(debt.id) } })}
         style={({ pressed }) => [styles.cardMain, pressed && styles.pressed]}>
         <View style={[
@@ -70,22 +50,16 @@ export default function ArchivedDebtsScreen() {
           <ThemedText style={styles.secondary}>
             {debt.contactName ?? debt.creditor ?? t('common.notSpecified')}
           </ThemedText>
-          <ThemedText style={styles.balance}>{formatCLP(debt.currentBalance)}</ThemedText>
+          {debt.currentBalance <= 0 ? (
+            <ThemedText style={styles.paid}>{t('debts.statusPaid')}</ThemedText>
+          ) : (
+            <View style={styles.balanceRow}>
+              <ThemedText style={styles.secondary}>{t('debts.currentBalance')}</ThemedText>
+              <ThemedText type="defaultSemiBold">{formatCLP(debt.currentBalance)}</ThemedText>
+            </View>
+          )}
         </View>
         <Ionicons name="chevron-forward" size={21} color={colors.icon} />
-      </Pressable>
-      <Pressable
-        disabled={workingId === debt.id}
-        onPress={() => reactivate(debt)}
-        style={({ pressed }) => [
-          styles.reactivate,
-          { borderColor: colors.primary },
-          (pressed || workingId === debt.id) && styles.pressed,
-        ]}>
-        <Ionicons name="refresh-outline" size={18} color={colors.primary} />
-        <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>
-          {t('debts.reactivate')}
-        </ThemedText>
       </Pressable>
     </ThemedView>
   );
@@ -132,12 +106,12 @@ const styles = StyleSheet.create({
   emptyContent: { flexGrow: 1, justifyContent: 'center' },
   intro: { lineHeight: 21 },
   section: { gap: 10 },
-  card: { borderWidth: 1, borderRadius: 13, padding: 14, gap: 12 },
+  card: { borderWidth: 1, borderRadius: 13, padding: 14 },
   cardMain: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   icon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1, gap: 2 },
   secondary: { opacity: 0.64, fontSize: 12 },
-  balance: { marginTop: 3 },
-  reactivate: { minHeight: 44, borderWidth: 1, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  balanceRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  paid: { marginTop: 4, color: '#1FAF78', fontWeight: '800' },
   pressed: { opacity: 0.62 },
 });

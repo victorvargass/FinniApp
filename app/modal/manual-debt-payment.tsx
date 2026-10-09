@@ -43,7 +43,15 @@ export default function DebtPaymentScreen() {
   const { periods, selectedPeriod, selectedPeriodId } = usePeriodDatabase();
   const { categories, incomeCategories } = useOrganizerDatabase();
   const { paymentMethods } = usePaymentDatabase();
-  const { getDebts, getDebt, addDebtPayment, addDebtPayments, editDebtPayment, removeDebtPayment } = useDebtDatabase();
+  const {
+    getDebts,
+    getDebt,
+    addDebtPayment,
+    addDebtPayments,
+    editDebtPayment,
+    removeDebtPayment,
+    setDebtArchived,
+  } = useDebtDatabase();
   const colors = Colors[useColorScheme() ?? 'light'];
   const [availableDebts, setAvailableDebts] = useState<Debt[]>([]);
   const [selectedDebtId, setSelectedDebtId] = useState<number | null>(
@@ -67,6 +75,41 @@ export default function DebtPaymentScreen() {
   const [showDate, setShowDate] = useState(false);
   const [showTime, setShowTime] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const offerToArchivePaidDebts = async (debtIds: number[]) => {
+    const settledDebts = (await Promise.all(debtIds.map((item) => getDebt(item))))
+      .filter((item): item is Debt => item != null && item.status === 'paid');
+    if (settledDebts.length === 0) {
+      router.back();
+      return;
+    }
+    const multiple = settledDebts.length > 1;
+    Alert.alert(
+      t(multiple ? 'debts.paidDebtsArchiveTitle' : 'debts.paidDebtArchiveTitle', {
+        count: settledDebts.length,
+      }),
+      t(multiple ? 'debts.paidDebtsArchiveHint' : 'debts.paidDebtArchiveHint'),
+      [
+        { text: t('common.later'), style: 'cancel', onPress: () => router.back() },
+        {
+          text: t('debts.archivePaidAction'),
+          onPress: () => {
+            setSaving(true);
+            void Promise.all(settledDebts.map((item) => setDebtArchived(item.id, true)))
+              .then(() => {
+                showFeedback(t(multiple ? 'debts.paidDebtsArchived' : 'debts.archived', {
+                  count: settledDebts.length,
+                }));
+                router.dismissTo('/modal/debts');
+              })
+              .catch((error) => Alert.alert(t('errors.couldNotUpdate'), errorMessage(error)))
+              .finally(() => setSaving(false));
+          },
+        },
+      ],
+      { cancelable: false }
+    );
+  };
 
   useEffect(() => {
     const direction = debt?.direction ?? requestedDirection;
@@ -142,18 +185,23 @@ export default function DebtPaymentScreen() {
     setSaving(true);
     try {
       const commonData = { date, time, periodId, categoryId, paymentMethodId, note: note.trim() || null };
+      let affectedDebtIds: number[];
       if (entryId == null && selectedContactId != null) {
         const contactDebts = availableDebts.filter((item) => item.contactId === selectedContactId);
         await addDebtPayments({
           ...commonData,
           payments: contactDebts.map((item) => ({ debtId: item.id, amount: item.currentBalance })),
         });
-      } else if (entryId == null) await addDebtPayment(debt.id, { ...commonData, amount: parsedAmount });
-      else await editDebtPayment(entryId, { ...commonData, amount: parsedAmount });
+        affectedDebtIds = contactDebts.map((item) => item.id);
+      } else {
+        affectedDebtIds = [debt.id];
+        if (entryId == null) await addDebtPayment(debt.id, { ...commonData, amount: parsedAmount });
+        else await editDebtPayment(entryId, { ...commonData, amount: parsedAmount });
+      }
       showFeedback(debt?.direction === 'receivable'
         ? entryId == null ? t('debts.collectionRegistered') : t('debts.collectionUpdated')
         : entryId == null ? t('debts.paymentRegistered') : t('debts.paymentUpdated'));
-      router.back();
+      await offerToArchivePaidDebts(affectedDebtIds);
     } catch (error) {
       Alert.alert(t('errors.couldNotSave'), errorMessage(error));
     } finally { setSaving(false); }

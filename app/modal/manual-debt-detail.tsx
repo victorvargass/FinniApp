@@ -43,7 +43,14 @@ export default function DebtDetailScreen() {
       archive ? t('debts.archiveHint') : t('debts.reactivateHint'),
       [{ text: t('common.cancel'), style: 'cancel' }, { text: archive ? t('debts.archive') : t('debts.reactivate'), onPress: () => {
         setWorking(true);
-        setDebtArchived(debt.id, archive).then(() => { showFeedback(archive ? t('debts.archived') : t('debts.reactivated')); return load(); })
+        setDebtArchived(debt.id, archive).then(() => {
+          showFeedback(archive ? t('debts.archived') : t('debts.reactivated'));
+          if (archive) {
+            router.dismissTo('/modal/debts');
+            return;
+          }
+          return load();
+        })
           .catch((error) => Alert.alert(t('errors.couldNotUpdate'), errorMessage(error)))
           .finally(() => setWorking(false));
       } }]
