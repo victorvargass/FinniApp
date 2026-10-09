@@ -8,7 +8,7 @@ const schemaSource = readFileSync(new URL('../../lib/database-schema.ts', import
 const registrySource = readFileSync(new URL('../../lib/schema-migrations.ts', import.meta.url), 'utf8');
 
 test('schema v31 repairs reported balance writes without losing debt history', () => {
-  assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = 31/);
+  assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = (?:31|32)/);
   assert.match(registrySource, /version: 31, name: 'balance-adjustment-write-repair'/);
 
   const migrationStart = databaseSource.indexOf('if (previousSchemaVersion < 31)');

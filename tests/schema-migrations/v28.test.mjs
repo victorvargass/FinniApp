@@ -27,7 +27,7 @@ function financialSnapshot(database) {
 }
 
 test('schema v28 stores optional Home layout preferences without changing existing settings', () => {
-  assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = (?:28|29|30|31)/);
+  assert.match(schemaSource, /DATABASE_SCHEMA_VERSION = (?:28|29|30|31|32)/);
   assert.match(registrySource, /version: 28, name: 'home-layout-preferences'/);
   const migrationStart = databaseSource.indexOf('if (previousSchemaVersion < 28)');
   const migration = databaseSource.slice(

@@ -676,14 +676,15 @@ async function initializeDatabase(): Promise<void> {
 
     CREATE TABLE IF NOT EXISTS financial_audit_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      entity_type TEXT NOT NULL CHECK (entity_type IN ('expense', 'income')),
+      entity_type TEXT NOT NULL CHECK (entity_type IN ('expense', 'income', 'transfer', 'credit_adjustment')),
       entity_id INTEGER NOT NULL,
-      action TEXT NOT NULL CHECK (action IN ('deleted', 'restored')),
+      action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'deleted', 'restored')),
       title TEXT NOT NULL,
       amount INTEGER NOT NULL,
       event_date TEXT NOT NULL,
       event_time TEXT NOT NULL,
       snapshot_json TEXT,
+      previous_snapshot_json TEXT,
       restorable INTEGER NOT NULL DEFAULT 0,
       restriction_reason TEXT,
       restored_at TEXT,
@@ -1373,6 +1374,43 @@ async function initializeDatabase(): Promise<void> {
         FROM manual_debt_entries;
         DROP TABLE manual_debt_entries;
         ALTER TABLE manual_debt_entries_v31 RENAME TO manual_debt_entries;
+      `);
+    }
+  }
+  if (previousSchemaVersion < 32) {
+    const auditTable = await db.getFirstAsync<{ sql: string | null }>(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'financial_audit_log'"
+    );
+    if (!(auditTable?.sql ?? '').includes("'credit_adjustment'")) {
+      await db.execAsync(`
+        DROP INDEX IF EXISTS idx_financial_audit_created;
+        ALTER TABLE financial_audit_log RENAME TO financial_audit_log_v29;
+        CREATE TABLE financial_audit_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          entity_type TEXT NOT NULL CHECK (entity_type IN ('expense', 'income', 'transfer', 'credit_adjustment')),
+          entity_id INTEGER NOT NULL,
+          action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'deleted', 'restored')),
+          title TEXT NOT NULL,
+          amount INTEGER NOT NULL,
+          event_date TEXT NOT NULL,
+          event_time TEXT NOT NULL,
+          snapshot_json TEXT,
+          previous_snapshot_json TEXT,
+          restorable INTEGER NOT NULL DEFAULT 0,
+          restriction_reason TEXT,
+          restored_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        INSERT INTO financial_audit_log (
+          id, entity_type, entity_id, action, title, amount, event_date, event_time,
+          snapshot_json, previous_snapshot_json, restorable, restriction_reason, restored_at, created_at
+        )
+        SELECT id, entity_type, entity_id, action, title, amount, event_date, event_time,
+          snapshot_json, NULL, restorable, restriction_reason, restored_at, created_at
+        FROM financial_audit_log_v29;
+        DROP TABLE financial_audit_log_v29;
+        CREATE INDEX idx_financial_audit_created
+          ON financial_audit_log(created_at DESC, id DESC);
       `);
     }
   }
@@ -3651,6 +3689,97 @@ export async function getPaymentMethodMovements(
   }));
 }
 
+type FinancialAuditEntityType = FinancialAuditEntry['entityType'];
+type FinancialAuditAction = FinancialAuditEntry['action'];
+
+async function getFinancialAuditSnapshot(
+  database: SQLite.SQLiteDatabase,
+  entityType: FinancialAuditEntityType,
+  entityId: number
+): Promise<Record<string, unknown> | null> {
+  if (entityType === 'expense') {
+    return database.getFirstAsync<Record<string, unknown>>(
+      `SELECT movement.*, method.name AS payment_method_name,
+              target.name AS credit_payment_target_name, category.name AS category_name
+       FROM expenses movement
+       LEFT JOIN payment_methods method ON method.id = movement.payment_method_id
+       LEFT JOIN payment_methods target ON target.id = movement.credit_payment_target_id
+       LEFT JOIN categories category ON category.id = movement.category_id
+       WHERE movement.id = ?`,
+      entityId
+    );
+  }
+  if (entityType === 'income') {
+    return database.getFirstAsync<Record<string, unknown>>(
+      `SELECT movement.*, method.name AS payment_method_name, category.name AS category_name
+       FROM incomes movement
+       LEFT JOIN payment_methods method ON method.id = movement.payment_method_id
+       LEFT JOIN income_categories category ON category.id = movement.category_id
+       WHERE movement.id = ?`,
+      entityId
+    );
+  }
+  if (entityType === 'transfer') {
+    return database.getFirstAsync<Record<string, unknown>>(
+      `SELECT movement.*, source.name AS source_payment_method_name,
+              destination.name AS destination_payment_method_name
+       FROM account_transfers movement
+       LEFT JOIN payment_methods source ON source.id = movement.source_payment_method_id
+       LEFT JOIN payment_methods destination ON destination.id = movement.destination_payment_method_id
+       WHERE movement.id = ?`,
+      entityId
+    );
+  }
+  return database.getFirstAsync<Record<string, unknown>>(
+    `SELECT movement.*, method.name AS payment_method_name
+     FROM credit_card_adjustments movement
+     LEFT JOIN payment_methods method ON method.id = movement.payment_method_id
+     WHERE movement.id = ?`,
+    entityId
+  );
+}
+
+function auditTitle(entityType: FinancialAuditEntityType, snapshot: Record<string, unknown>): string {
+  if (entityType === 'transfer') {
+    const source = String(snapshot.source_payment_method_name ?? '');
+    const destination = String(snapshot.destination_payment_method_name ?? '');
+    return `${source} → ${destination}`;
+  }
+  if (entityType === 'credit_adjustment') {
+    return String(snapshot.note ?? snapshot.payment_method_name ?? t('financialAudit.entities.credit_adjustment'));
+  }
+  return String(snapshot.name ?? t(`financialAudit.entities.${entityType}`));
+}
+
+async function recordFinancialAudit(
+  database: SQLite.SQLiteDatabase,
+  entityType: FinancialAuditEntityType,
+  entityId: number,
+  action: FinancialAuditAction,
+  previousSnapshot: Record<string, unknown> | null,
+  snapshot: Record<string, unknown>,
+  restorable = false,
+  restrictionReason: string | null = null
+): Promise<void> {
+  await database.runAsync(
+    `INSERT INTO financial_audit_log (
+       entity_type, entity_id, action, title, amount, event_date, event_time,
+       snapshot_json, previous_snapshot_json, restorable, restriction_reason
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    entityType,
+    entityId,
+    action,
+    auditTitle(entityType, snapshot),
+    Number(snapshot.amount ?? 0),
+    String(snapshot.date ?? toDateString(new Date())),
+    String(snapshot.time ?? DEFAULT_EVENT_TIME),
+    JSON.stringify(snapshot),
+    previousSnapshot == null ? null : JSON.stringify(previousSnapshot),
+    restorable ? 1 : 0,
+    restrictionReason
+  );
+}
+
 function mapCreditCardAdjustment(row: Record<string, unknown>): CreditCardAdjustment {
   return {
     id: Number(row.id),
@@ -3721,6 +3850,10 @@ export async function createCreditCardAdjustment(data: NewCreditCardAdjustment):
       data.currency ?? 'CLP'
     );
     createdId = result.lastInsertRowId;
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'credit_adjustment', createdId);
+    if (snapshot) await recordFinancialAudit(
+      transaction, 'credit_adjustment', createdId, 'created', null, snapshot, true
+    );
   });
   return createdId;
 }
@@ -3749,6 +3882,7 @@ export async function updateCreditCardAdjustment(
     await assertCreditCardCycleIsEditable(database, data.paymentMethodId, data.date);
   }
   await withExclusiveTransaction(database, async (transaction) => {
+    const previousSnapshot = await getFinancialAuditSnapshot(transaction, 'credit_adjustment', id);
     await transaction.runAsync(
       `UPDATE credit_card_adjustments
        SET payment_method_id = ?, amount = ?, date = ?, time = ?, kind = ?, note = ?, currency = ?, updated_at = CURRENT_TIMESTAMP
@@ -3761,6 +3895,10 @@ export async function updateCreditCardAdjustment(
       data.note?.trim() || null,
       data.currency ?? 'CLP',
       id
+    );
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'credit_adjustment', id);
+    if (previousSnapshot && snapshot) await recordFinancialAudit(
+      transaction, 'credit_adjustment', id, 'updated', previousSnapshot, snapshot, true
     );
   });
 }
@@ -3776,8 +3914,12 @@ export async function deleteCreditCardAdjustment(id: number): Promise<void> {
     await assertCreditCardCycleIsEditable(database, current.payment_method_id, current.date);
   }
   await withExclusiveTransaction(database, async (transaction) => {
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'credit_adjustment', id);
     const result = await transaction.runAsync('DELETE FROM credit_card_adjustments WHERE id = ?', id);
     if (result.changes === 0) throw new Error(t('database.creditAdjustmentMissing'));
+    if (snapshot) await recordFinancialAudit(
+      transaction, 'credit_adjustment', id, 'deleted', null, snapshot, true
+    );
   });
 }
 
@@ -3951,6 +4093,10 @@ export async function createAccountTransfer(data: NewAccountTransfer): Promise<n
       data.note?.trim() || null
     );
     transferId = result.lastInsertRowId;
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'transfer', transferId);
+    if (snapshot) await recordFinancialAudit(
+      transaction, 'transfer', transferId, 'created', null, snapshot, true
+    );
   });
   return transferId;
 }
@@ -3958,6 +4104,7 @@ export async function createAccountTransfer(data: NewAccountTransfer): Promise<n
 export async function updateAccountTransfer(id: number, data: NewAccountTransfer): Promise<void> {
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
+    const previousSnapshot = await getFinancialAuditSnapshot(transaction, 'transfer', id);
     const current = await transaction.getFirstAsync<{ id: number; time: string }>(
       'SELECT id, time FROM account_transfers WHERE id = ?',
       id
@@ -3977,13 +4124,23 @@ export async function updateAccountTransfer(id: number, data: NewAccountTransfer
       data.note?.trim() || null,
       id
     );
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'transfer', id);
+    if (previousSnapshot && snapshot) await recordFinancialAudit(
+      transaction, 'transfer', id, 'updated', previousSnapshot, snapshot, true
+    );
   });
 }
 
 export async function deleteAccountTransfer(id: number): Promise<void> {
   const db = await getDb();
-  const result = await db.runAsync('DELETE FROM account_transfers WHERE id = ?', id);
-  if (result.changes === 0) throw new Error(t('database.transferMissing'));
+  await withExclusiveTransaction(db, async (transaction) => {
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'transfer', id);
+    const result = await transaction.runAsync('DELETE FROM account_transfers WHERE id = ?', id);
+    if (result.changes === 0) throw new Error(t('database.transferMissing'));
+    if (snapshot) await recordFinancialAudit(
+      transaction, 'transfer', id, 'deleted', null, snapshot, true
+    );
+  });
 }
 
 function validatePaymentMethod(data: NewPaymentMethod) {
@@ -5959,6 +6116,16 @@ export async function createExpense(
       },
       data.receivableShares ?? []
     );
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'expense', createdId);
+    if (snapshot) {
+      const creationRestorable = selection == null
+        && (data.receivableShares?.length ?? 0) === 0
+        && data.creditPaymentTargetId == null;
+      await recordFinancialAudit(
+        transaction, 'expense', createdId, 'created', null, snapshot,
+        creationRestorable, creationRestorable ? null : 'linked_financial_record'
+      );
+    }
   });
   return createdId;
 }
@@ -6061,6 +6228,7 @@ export async function updateExpense(
   }
 
   await withExclusiveTransaction(db, async (transaction) => {
+    const previousSnapshot = await getFinancialAuditSnapshot(transaction, 'expense', id);
     await assertSavingsSelectionMatchesCategory(transaction, data.categoryId, selection);
     await assertSavingsPaymentMethodAllowed(
       transaction,
@@ -6113,6 +6281,23 @@ export async function updateExpense(
         debtEntry.debt_id
       );
     }
+
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'expense', id);
+    const updateRestorable = existingShares.length === 0
+      && existingMovement == null
+      && debtEntry == null
+      && expense.recurring_expense_id == null
+      && expense.credit_payment_target_id == null;
+    if (previousSnapshot && snapshot) await recordFinancialAudit(
+      transaction,
+      'expense',
+      id,
+      'updated',
+      previousSnapshot,
+      snapshot,
+      updateRestorable,
+      updateRestorable ? null : 'linked_financial_record'
+    );
 
     if (expense.recurring_expense_id == null) return;
     const recurring = await transaction.getFirstAsync<{
@@ -6217,9 +6402,7 @@ export async function deleteExpense(
     await assertCreditCardCycleIsEditable(db, expense.payment_method_id, expense.date);
   }
   await withExclusiveTransaction(db, async (transaction) => {
-    const snapshot = await transaction.getFirstAsync<Record<string, unknown>>(
-      'SELECT * FROM expenses WHERE id = ?', id
-    );
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'expense', id);
     const expenseShares = await getExpenseShareRows(transaction, id);
     if (expenseShares.some((share) => Number(share.payment_count) > 0)) {
       throw new Error(t('database.splitExpenseHasCollections'));
@@ -6250,18 +6433,14 @@ export async function deleteExpense(
       || expense.debt_installment_id != null
       || snapshot?.credit_payment_target_id != null;
     if (snapshot) {
-      await transaction.runAsync(
-        `INSERT INTO financial_audit_log
-          (entity_type, entity_id, action, title, amount, event_date, event_time,
-           snapshot_json, restorable, restriction_reason)
-         VALUES ('expense', ?, 'deleted', ?, ?, ?, ?, ?, ?, ?)`,
+      await recordFinancialAudit(
+        transaction,
+        'expense',
         id,
-        String(snapshot.name),
-        Number(snapshot.amount),
-        String(snapshot.date),
-        String(snapshot.time ?? DEFAULT_EVENT_TIME),
-        JSON.stringify(snapshot),
-        hasProtectedLink ? 0 : 1,
+        'deleted',
+        null,
+        snapshot,
+        !hasProtectedLink,
         hasProtectedLink ? 'linked_financial_record' : null
       );
     }
@@ -6693,6 +6872,17 @@ export async function createExpenseWithRecurrence(
       'UPDATE recurring_expenses SET source_expense_id = ? WHERE id = ?',
       expenseResult.lastInsertRowId,
       recurringResult.lastInsertRowId
+    );
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'expense', createdExpenseId);
+    if (snapshot) await recordFinancialAudit(
+      transaction,
+      'expense',
+      createdExpenseId,
+      'created',
+      null,
+      snapshot,
+      false,
+      'linked_financial_record'
     );
   });
   return createdExpenseId;
@@ -7287,6 +7477,14 @@ export async function createIncome(
       data.amount,
       data.savingsGoalId ?? null
     );
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'income', result.lastInsertRowId);
+    if (snapshot) {
+      const creationRestorable = data.savingsGoalId == null;
+      await recordFinancialAudit(
+        transaction, 'income', result.lastInsertRowId, 'created', null, snapshot,
+        creationRestorable, creationRestorable ? null : 'linked_financial_record'
+      );
+    }
   });
 }
 
@@ -7326,6 +7524,17 @@ export async function createIncomeWithRecurrence(
         (recurring_income_id, scheduled_date, status, income_id)
        VALUES (?, ?, 'generated', ?)`,
       recurringResult.lastInsertRowId, data.date, incomeResult.lastInsertRowId
+    );
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'income', incomeResult.lastInsertRowId);
+    if (snapshot) await recordFinancialAudit(
+      transaction,
+      'income',
+      incomeResult.lastInsertRowId,
+      'created',
+      null,
+      snapshot,
+      false,
+      'linked_financial_record'
     );
   });
 }
@@ -7823,7 +8032,14 @@ export async function updateIncome(
   await assertIncomePaymentMethod(db, data.paymentMethodId, false);
 
   await withExclusiveTransaction(db, async (transaction) => {
+    const previousSnapshot = await getFinancialAuditSnapshot(transaction, 'income', id);
     const existingMovement = await getIncomeSavingsMovement(transaction, id);
+    const debtEntry = await transaction.getFirstAsync<{ id: number }>(
+      "SELECT id FROM manual_debt_entries WHERE income_id = ? AND kind = 'payment'", id
+    );
+    const recurringLink = await transaction.getFirstAsync<{ id: number }>(
+      'SELECT id FROM recurring_income_occurrences WHERE income_id = ? LIMIT 1', id
+    );
     const goalId = data.savingsGoalId === undefined
       ? existingMovement?.goal_id ?? null
       : data.savingsGoalId;
@@ -7838,6 +8054,18 @@ export async function updateIncome(
       id
     );
     await setIncomeSavingsMovement(transaction, id, data.amount, goalId);
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'income', id);
+    const updateRestorable = existingMovement == null && debtEntry == null && recurringLink == null;
+    if (previousSnapshot && snapshot) await recordFinancialAudit(
+      transaction,
+      'income',
+      id,
+      'updated',
+      previousSnapshot,
+      snapshot,
+      updateRestorable,
+      updateRestorable ? null : 'linked_financial_record'
+    );
   });
 }
 
@@ -7846,9 +8074,7 @@ export async function deleteIncome(
 ): Promise<void> {
   const db = await getDb();
   await withExclusiveTransaction(db, async (transaction) => {
-    const snapshot = await transaction.getFirstAsync<Record<string, unknown>>(
-      'SELECT * FROM incomes WHERE id = ?', id
-    );
+    const snapshot = await getFinancialAuditSnapshot(transaction, 'income', id);
     const savingsMovement = await getIncomeSavingsMovement(transaction, id);
     const debtEntry = await transaction.getFirstAsync<{ id: number }>(
       "SELECT id FROM manual_debt_entries WHERE income_id = ? AND kind = 'payment'", id
@@ -7870,18 +8096,14 @@ export async function deleteIncome(
     );
     const hasProtectedLink = savingsMovement != null || occurrence != null || debtEntry != null;
     if (snapshot) {
-      await transaction.runAsync(
-        `INSERT INTO financial_audit_log
-          (entity_type, entity_id, action, title, amount, event_date, event_time,
-           snapshot_json, restorable, restriction_reason)
-         VALUES ('income', ?, 'deleted', ?, ?, ?, ?, ?, ?, ?)`,
+      await recordFinancialAudit(
+        transaction,
+        'income',
         id,
-        String(snapshot.name),
-        Number(snapshot.amount),
-        String(snapshot.date),
-        String(snapshot.time ?? DEFAULT_EVENT_TIME),
-        JSON.stringify(snapshot),
-        hasProtectedLink ? 0 : 1,
+        'deleted',
+        null,
+        snapshot,
+        !hasProtectedLink,
         hasProtectedLink ? 'linked_financial_record' : null
       );
     }
@@ -7915,6 +8137,51 @@ export async function deleteIncome(
   });
 }
 
+function parseAuditSnapshot(value: string | null): Record<string, unknown> | null {
+  if (!value) return null;
+  try { return JSON.parse(value) as Record<string, unknown>; }
+  catch { return null; }
+}
+
+function auditComparableValues(
+  entityType: FinancialAuditEntityType,
+  snapshot: Record<string, unknown> | null
+): Record<FinancialAuditEntry['changes'][number]['field'], string | null> {
+  const value = (key: string) => snapshot?.[key] == null ? null : String(snapshot[key]);
+  const paymentMethod = entityType === 'transfer'
+    ? [value('source_payment_method_name'), value('destination_payment_method_name')]
+        .filter(Boolean).join(' → ') || null
+    : value('payment_method_name') ?? value('payment_method_id');
+  return {
+    name: value('name'),
+    amount: value('amount'),
+    originalAmount: value('original_amount'),
+    date: value('date'),
+    time: value('time'),
+    paymentMethod,
+    creditTarget: value('credit_payment_target_name') ?? value('credit_payment_target_id'),
+    category: value('category_name') ?? value('category_id'),
+    note: value('note'),
+    kind: value('kind'),
+    currency: value('currency') ?? 'CLP',
+    splitPercentage: value('split_percentage'),
+    splitMode: value('split_mode'),
+  };
+}
+
+function getAuditChanges(
+  entityType: FinancialAuditEntityType,
+  previous: Record<string, unknown> | null,
+  current: Record<string, unknown> | null
+): FinancialAuditEntry['changes'] {
+  if (!previous || !current) return [];
+  const before = auditComparableValues(entityType, previous);
+  const after = auditComparableValues(entityType, current);
+  return (Object.keys(before) as Array<keyof typeof before>)
+    .filter((field) => before[field] !== after[field])
+    .map((field) => ({ field, before: before[field], after: after[field] }));
+}
+
 export async function getFinancialAuditLog(): Promise<FinancialAuditEntry[]> {
   const db = await getDb();
   const rows = await db.getAllAsync<{
@@ -7931,22 +8198,19 @@ export async function getFinancialAuditLog(): Promise<FinancialAuditEntry[]> {
     restored_at: string | null;
     created_at: string;
     snapshot_json: string | null;
+    previous_snapshot_json: string | null;
   }>(
     `SELECT id, entity_type, entity_id, action, title, amount, event_date, event_time,
-            restorable, restriction_reason, restored_at, created_at, snapshot_json
+            restorable, restriction_reason, restored_at, created_at, snapshot_json,
+            previous_snapshot_json
      FROM financial_audit_log
      ORDER BY created_at DESC, id DESC
      LIMIT 250`
   );
   return rows.map((row) => {
-    let currency: 'CLP' | 'USD' = 'CLP';
-    if (row.entity_type === 'expense' && row.snapshot_json) {
-      try {
-        currency = (JSON.parse(row.snapshot_json) as { currency?: unknown }).currency === 'USD' ? 'USD' : 'CLP';
-      } catch {
-        currency = 'CLP';
-      }
-    }
+    const snapshot = parseAuditSnapshot(row.snapshot_json);
+    const previousSnapshot = parseAuditSnapshot(row.previous_snapshot_json);
+    const currency = snapshot?.currency === 'USD' ? 'USD' : 'CLP';
     return ({
     id: Number(row.id), entityType: row.entity_type, entityId: Number(row.entity_id),
     action: row.action, title: row.title, amount: Number(row.amount),
@@ -7955,6 +8219,7 @@ export async function getFinancialAuditLog(): Promise<FinancialAuditEntry[]> {
     restrictionReason: row.restriction_reason, restoredAt: row.restored_at,
     createdAt: row.created_at,
     currency,
+    changes: getAuditChanges(row.entity_type, previousSnapshot, snapshot),
   });
   });
 }
@@ -7963,6 +8228,174 @@ export async function deleteFinancialAuditEntry(auditId: number): Promise<void> 
   const db = await getDb();
   const result = await db.runAsync('DELETE FROM financial_audit_log WHERE id = ?', auditId);
   if (result.changes === 0) throw new Error(t('database.auditEntryMissing'));
+}
+
+async function restoreDeletedAuditSnapshot(
+  transaction: SQLite.SQLiteDatabase,
+  entityType: FinancialAuditEntityType,
+  snapshot: Record<string, unknown>
+): Promise<void> {
+  if (entityType === 'expense') {
+    if (snapshot.currency !== 'USD') {
+      await assertCreditCardCycleIsEditable(
+        transaction,
+        snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
+        String(snapshot.date)
+      );
+    }
+    await transaction.runAsync(
+      `INSERT INTO expenses
+        (id, name, amount, category_id, period_id, date, time, original_amount,
+         split_percentage, split_mode, payment_method_id, recurring_expense_id,
+         debt_plan_id, debt_installment_id, credit_payment_target_id, currency)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?)`,
+      Number(snapshot.id), String(snapshot.name), Number(snapshot.amount),
+      snapshot.category_id == null ? null : Number(snapshot.category_id), Number(snapshot.period_id),
+      String(snapshot.date), String(snapshot.time ?? DEFAULT_EVENT_TIME),
+      snapshot.original_amount == null ? null : Number(snapshot.original_amount),
+      snapshot.split_percentage == null ? null : Number(snapshot.split_percentage),
+      snapshot.split_mode == null ? null : String(snapshot.split_mode),
+      snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
+      snapshot.credit_payment_target_id == null ? null : Number(snapshot.credit_payment_target_id),
+      snapshot.currency === 'USD' ? 'USD' : 'CLP'
+    );
+    return;
+  }
+  if (entityType === 'income') {
+    await transaction.runAsync(
+      `INSERT INTO incomes
+        (id, name, amount, period_id, date, time, payment_method_id, category_id, recurring_income_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+      Number(snapshot.id), String(snapshot.name), Number(snapshot.amount), Number(snapshot.period_id),
+      String(snapshot.date), String(snapshot.time ?? DEFAULT_EVENT_TIME),
+      snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
+      snapshot.category_id == null ? null : Number(snapshot.category_id)
+    );
+    return;
+  }
+  if (entityType === 'transfer') {
+    await transaction.runAsync(
+      `INSERT INTO account_transfers
+        (id, source_payment_method_id, destination_payment_method_id, amount, date, time, note, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      Number(snapshot.id), Number(snapshot.source_payment_method_id),
+      Number(snapshot.destination_payment_method_id), Number(snapshot.amount), String(snapshot.date),
+      String(snapshot.time ?? DEFAULT_EVENT_TIME), snapshot.note == null ? null : String(snapshot.note),
+      String(snapshot.created_at), String(snapshot.updated_at)
+    );
+    return;
+  }
+  await transaction.runAsync(
+    `INSERT INTO credit_card_adjustments
+      (id, payment_method_id, amount, date, time, kind, note, currency, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    Number(snapshot.id), Number(snapshot.payment_method_id), Number(snapshot.amount),
+    String(snapshot.date), String(snapshot.time ?? DEFAULT_EVENT_TIME), String(snapshot.kind),
+    snapshot.note == null ? null : String(snapshot.note), snapshot.currency === 'USD' ? 'USD' : 'CLP',
+    String(snapshot.created_at), String(snapshot.updated_at)
+  );
+}
+
+async function restoreUpdatedAuditSnapshot(
+  transaction: SQLite.SQLiteDatabase,
+  entityType: FinancialAuditEntityType,
+  entityId: number,
+  snapshot: Record<string, unknown>
+): Promise<void> {
+  if (entityType === 'expense') {
+    if (snapshot.currency !== 'USD') {
+      await assertCreditCardCycleIsEditable(
+        transaction,
+        snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
+        String(snapshot.date)
+      );
+    }
+    await transaction.runAsync(
+      `UPDATE expenses SET name = ?, amount = ?, category_id = ?, period_id = ?, date = ?, time = ?,
+         original_amount = ?, split_percentage = ?, split_mode = ?, payment_method_id = ?,
+         credit_payment_target_id = ?, currency = ? WHERE id = ?`,
+      String(snapshot.name), Number(snapshot.amount),
+      snapshot.category_id == null ? null : Number(snapshot.category_id), Number(snapshot.period_id),
+      String(snapshot.date), String(snapshot.time ?? DEFAULT_EVENT_TIME),
+      snapshot.original_amount == null ? null : Number(snapshot.original_amount),
+      snapshot.split_percentage == null ? null : Number(snapshot.split_percentage),
+      snapshot.split_mode == null ? null : String(snapshot.split_mode),
+      snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
+      snapshot.credit_payment_target_id == null ? null : Number(snapshot.credit_payment_target_id),
+      snapshot.currency === 'USD' ? 'USD' : 'CLP', entityId
+    );
+    return;
+  }
+  if (entityType === 'income') {
+    await transaction.runAsync(
+      `UPDATE incomes SET name = ?, amount = ?, period_id = ?, date = ?, time = ?,
+         payment_method_id = ?, category_id = ? WHERE id = ?`,
+      String(snapshot.name), Number(snapshot.amount), Number(snapshot.period_id), String(snapshot.date),
+      String(snapshot.time ?? DEFAULT_EVENT_TIME),
+      snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
+      snapshot.category_id == null ? null : Number(snapshot.category_id), entityId
+    );
+    return;
+  }
+  if (entityType === 'transfer') {
+    await transaction.runAsync(
+      `UPDATE account_transfers SET source_payment_method_id = ?, destination_payment_method_id = ?,
+         amount = ?, date = ?, time = ?, note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      Number(snapshot.source_payment_method_id), Number(snapshot.destination_payment_method_id),
+      Number(snapshot.amount), String(snapshot.date), String(snapshot.time ?? DEFAULT_EVENT_TIME),
+      snapshot.note == null ? null : String(snapshot.note), entityId
+    );
+    return;
+  }
+  if (entityType === 'credit_adjustment' && snapshot.currency !== 'USD') {
+    await assertCreditCardCycleIsEditable(
+      transaction,
+      Number(snapshot.payment_method_id),
+      String(snapshot.date)
+    );
+  }
+  await transaction.runAsync(
+    `UPDATE credit_card_adjustments SET payment_method_id = ?, amount = ?, date = ?, time = ?,
+       kind = ?, note = ?, currency = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    Number(snapshot.payment_method_id), Number(snapshot.amount), String(snapshot.date),
+    String(snapshot.time ?? DEFAULT_EVENT_TIME), String(snapshot.kind),
+    snapshot.note == null ? null : String(snapshot.note), snapshot.currency === 'USD' ? 'USD' : 'CLP',
+    entityId
+  );
+}
+
+async function undoCreatedAuditSnapshot(
+  transaction: SQLite.SQLiteDatabase,
+  entityType: FinancialAuditEntityType,
+  snapshot: Record<string, unknown>
+): Promise<void> {
+  if (entityType === 'expense') {
+    if (snapshot.currency !== 'USD') {
+      await assertCreditCardCycleIsEditable(
+        transaction,
+        snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
+        String(snapshot.date)
+      );
+    }
+    await transaction.runAsync('DELETE FROM expenses WHERE id = ?', Number(snapshot.id));
+    return;
+  }
+  if (entityType === 'income') {
+    await transaction.runAsync('DELETE FROM incomes WHERE id = ?', Number(snapshot.id));
+    return;
+  }
+  if (entityType === 'transfer') {
+    await transaction.runAsync('DELETE FROM account_transfers WHERE id = ?', Number(snapshot.id));
+    return;
+  }
+  if (snapshot.currency !== 'USD') {
+    await assertCreditCardCycleIsEditable(
+      transaction,
+      Number(snapshot.payment_method_id),
+      String(snapshot.date)
+    );
+  }
+  await transaction.runAsync('DELETE FROM credit_card_adjustments WHERE id = ?', Number(snapshot.id));
 }
 
 export async function restoreFinancialAuditEntry(auditId: number): Promise<void> {
@@ -7976,13 +8409,15 @@ export async function restoreFinancialAuditEntry(auditId: number): Promise<void>
       event_date: string;
       event_time: string;
       snapshot_json: string | null;
+      previous_snapshot_json: string | null;
+      action: FinancialAuditEntry['action'];
       restorable: number;
       restored_at: string | null;
       created_at: string;
     }>(
-      `SELECT entity_type, entity_id, title, amount, event_date, event_time, snapshot_json,
-              restorable, restored_at, created_at
-       FROM financial_audit_log WHERE id = ? AND action = 'deleted'`,
+      `SELECT entity_type, entity_id, action, title, amount, event_date, event_time, snapshot_json,
+              previous_snapshot_json, restorable, restored_at, created_at
+       FROM financial_audit_log WHERE id = ? AND action IN ('created', 'deleted', 'updated')`,
       auditId
     );
     if (!audit || Number(audit.restorable) !== 1 || audit.restored_at != null || !audit.snapshot_json) {
@@ -7992,59 +8427,45 @@ export async function restoreFinancialAuditEntry(auditId: number): Promise<void>
     if (!Number.isFinite(createdAt.getTime()) || Date.now() - createdAt.getTime() > 30 * 24 * 60 * 60 * 1000) {
       throw new Error(t('database.auditExpired'));
     }
-    const snapshot = JSON.parse(audit.snapshot_json) as Record<string, unknown>;
-    const existing = await transaction.getFirstAsync<{ id: number }>(
-      `SELECT id FROM ${audit.entity_type === 'expense' ? 'expenses' : 'incomes'} WHERE id = ?`,
-      audit.entity_id
+    const newer = await transaction.getFirstAsync<{ id: number }>(
+      `SELECT id FROM financial_audit_log
+       WHERE entity_type = ? AND entity_id = ? AND id > ? AND restored_at IS NULL
+       LIMIT 1`,
+      audit.entity_type, audit.entity_id, auditId
     );
-    if (existing) throw new Error(t('database.auditIdConflict'));
-
-    if (audit.entity_type === 'expense') {
-      if (snapshot.currency !== 'USD') {
-        await assertCreditCardCycleIsEditable(
-          transaction,
-          snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
-          String(snapshot.date)
-        );
-      }
-      await transaction.runAsync(
-        `INSERT INTO expenses
-          (id, name, amount, category_id, period_id, date, time, original_amount,
-           split_percentage, split_mode, payment_method_id, recurring_expense_id,
-           debt_plan_id, debt_installment_id, credit_payment_target_id, currency)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        Number(snapshot.id), String(snapshot.name), Number(snapshot.amount),
-        snapshot.category_id == null ? null : Number(snapshot.category_id), Number(snapshot.period_id),
-        String(snapshot.date), String(snapshot.time ?? DEFAULT_EVENT_TIME),
-        snapshot.original_amount == null ? null : Number(snapshot.original_amount),
-        snapshot.split_percentage == null ? null : Number(snapshot.split_percentage),
-        snapshot.split_mode == null ? null : String(snapshot.split_mode),
-        snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
-        null, null, null,
-        snapshot.credit_payment_target_id == null ? null : Number(snapshot.credit_payment_target_id),
-        snapshot.currency === 'USD' ? 'USD' : 'CLP'
-      );
+    if (newer) throw new Error(t('database.auditSuperseded'));
+    const currentSnapshot = await getFinancialAuditSnapshot(
+      transaction, audit.entity_type, audit.entity_id
+    );
+    const restoredSource = audit.action === 'updated'
+      ? parseAuditSnapshot(audit.previous_snapshot_json)
+      : parseAuditSnapshot(audit.snapshot_json);
+    if (!restoredSource) throw new Error(t('database.auditNotRestorable'));
+    if (audit.action === 'created') {
+      if (!currentSnapshot) throw new Error(t('database.auditEntryMissing'));
+      await undoCreatedAuditSnapshot(transaction, audit.entity_type, restoredSource);
+    } else if (audit.action === 'deleted') {
+      if (currentSnapshot) throw new Error(t('database.auditIdConflict'));
+      await restoreDeletedAuditSnapshot(transaction, audit.entity_type, restoredSource);
     } else {
-      await transaction.runAsync(
-        `INSERT INTO incomes
-          (id, name, amount, period_id, date, time, payment_method_id, category_id, recurring_income_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-        Number(snapshot.id), String(snapshot.name), Number(snapshot.amount), Number(snapshot.period_id),
-        String(snapshot.date), String(snapshot.time ?? DEFAULT_EVENT_TIME),
-        snapshot.payment_method_id == null ? null : Number(snapshot.payment_method_id),
-        snapshot.category_id == null ? null : Number(snapshot.category_id)
-      );
+      if (!currentSnapshot) throw new Error(t('database.auditEntryMissing'));
+      await restoreUpdatedAuditSnapshot(transaction, audit.entity_type, audit.entity_id, restoredSource);
     }
+    const restoredSnapshot = await getFinancialAuditSnapshot(
+      transaction, audit.entity_type, audit.entity_id
+    );
     await transaction.runAsync(
       'UPDATE financial_audit_log SET restorable = 0, restored_at = CURRENT_TIMESTAMP WHERE id = ?',
       auditId
     );
-    await transaction.runAsync(
-      `INSERT INTO financial_audit_log
-        (entity_type, entity_id, action, title, amount, event_date, event_time, snapshot_json, restorable)
-       VALUES (?, ?, 'restored', ?, ?, ?, ?, ?, 0)`,
-      audit.entity_type, audit.entity_id, audit.title, audit.amount, audit.event_date, audit.event_time,
-      audit.snapshot_json
+    const activitySnapshot = restoredSnapshot ?? currentSnapshot;
+    if (activitySnapshot) await recordFinancialAudit(
+      transaction,
+      audit.entity_type,
+      audit.entity_id,
+      'restored',
+      currentSnapshot,
+      activitySnapshot
     );
   });
 }

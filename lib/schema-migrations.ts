@@ -36,6 +36,7 @@ export const SCHEMA_MIGRATIONS = [
   { version: 29, name: 'financial-audit-and-recovery' },
   { version: 30, name: 'credit-card-usd-ledger' },
   { version: 31, name: 'balance-adjustment-write-repair' },
+  { version: 32, name: 'complete-financial-activity-history' },
 ] as const;
 
 // Legacy version 16 tied the declared balance to the historical creation date.

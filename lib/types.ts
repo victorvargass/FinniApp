@@ -171,9 +171,9 @@ export type Income = {
 
 export type FinancialAuditEntry = {
   id: number;
-  entityType: 'expense' | 'income';
+  entityType: 'expense' | 'income' | 'transfer' | 'credit_adjustment';
   entityId: number;
-  action: 'deleted' | 'restored';
+  action: 'created' | 'updated' | 'deleted' | 'restored';
   title: string;
   amount: number;
   eventDate: string;
@@ -183,6 +183,12 @@ export type FinancialAuditEntry = {
   restoredAt: string | null;
   createdAt: string;
   currency: CurrencyCode;
+  changes: Array<{
+    field: 'name' | 'amount' | 'originalAmount' | 'date' | 'time' | 'paymentMethod' | 'creditTarget'
+      | 'category' | 'note' | 'kind' | 'currency' | 'splitPercentage' | 'splitMode';
+    before: string | null;
+    after: string | null;
+  }>;
 };
 
 export type ExpenseWithCategory = Expense & {
