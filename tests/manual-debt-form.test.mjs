@@ -62,3 +62,8 @@ test('same-amount debt updates are presented as dated confirmations', () => {
   assert.match(detail, /latestReportedEntry\?\.date \?\? debt\.balanceDate/);
   assert.match(detail, /!isBalanceConfirmation && <ThemedText/);
 });
+
+test('editing a variable debt shows its calculated next estimated date', () => {
+  assert.match(form, /setNextEstimatedPaymentDate\(debt\.nextDueDate \?\? debt\.firstDueDate/);
+  assert.match(form, /getDebtScheduleStartDate\(nextEstimatedPaymentDate, 'monthly', paymentCount\)/);
+});

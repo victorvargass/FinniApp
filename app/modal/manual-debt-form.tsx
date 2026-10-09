@@ -16,6 +16,7 @@ import {
 } from '@/contexts/DatabaseDomainContexts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
+import { getDebtScheduleStartDate } from '@/lib/debt-calculations';
 import { errorMessage, showFeedback } from '@/lib/feedback';
 import { dateWithTime, toTimeString } from '@/lib/event-time';
 import { formatCLPInput, formatDate, formatTime, parseAmount, toDateString } from '@/lib/format';
@@ -52,6 +53,8 @@ export default function DebtFormScreen() {
   const [installmentAmount, setInstallmentAmount] = useState('');
   const [frequency, setFrequency] = useState<DebtFrequency>('monthly');
   const [firstDueDate, setFirstDueDate] = useState<string | null>(toDateString(new Date()));
+  const [nextEstimatedPaymentDate, setNextEstimatedPaymentDate] = useState(toDateString(new Date()));
+  const [paymentCount, setPaymentCount] = useState(0);
   const [categoryId, setCategoryId] = useState<number | null>(defaultExpenseCategoryId);
   const [incomeCategoryId, setIncomeCategoryId] = useState<number | null>(defaultIncomeCategoryId);
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
@@ -76,6 +79,8 @@ export default function DebtFormScreen() {
       setBalanceDate(debt.balanceDate);
       setBalanceTime(debt.balanceTime ?? debt.balanceUpdatedTime ?? toTimeString(new Date()));
       setFrequency(debt.frequency ?? 'monthly'); setFirstDueDate(debt.firstDueDate);
+      setNextEstimatedPaymentDate(debt.nextDueDate ?? debt.firstDueDate ?? toDateString(new Date()));
+      setPaymentCount(debt.paymentCount);
       setCategoryId(debt.categoryId); setIncomeCategoryId(debt.incomeCategoryId); setPaymentMethodId(debt.paymentMethodId); setNotes(debt.notes ?? ''); setEntryCount(debt.entryCount);
       setShowOnHome(debt.showOnHome);
     }).catch(() => undefined);
@@ -113,7 +118,11 @@ export default function DebtFormScreen() {
           : type === 'fixed'
           ? frequency
           : parsedInstallment != null ? 'monthly' : null,
-        firstDueDate: parsedInstallment != null ? firstDueDate : null,
+        firstDueDate: parsedInstallment != null
+          ? type === 'variable'
+            ? getDebtScheduleStartDate(nextEstimatedPaymentDate, 'monthly', paymentCount)
+            : firstDueDate
+          : null,
         categoryId: direction === 'payable' ? categoryId : null,
         incomeCategoryId: direction === 'receivable' ? incomeCategoryId : null,
         paymentMethodId, notes: notes.trim() || null,
@@ -261,8 +270,8 @@ export default function DebtFormScreen() {
               {parseAmount(installmentAmount) != null && (
                 <View style={styles.group}>
                   <ThemedText style={styles.label}>{t('debts.nextEstimatedPaymentDate')}</ThemedText>
-                  <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatDate(parseIsoDate(firstDueDate ?? toDateString(new Date())))}</ThemedText></Pressable>
-                  {showDate && <DateTimePicker value={parseIsoDate(firstDueDate ?? toDateString(new Date()))} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setFirstDueDate(toDateString(date)); }} />}
+                  <Pressable onPress={() => setShowDate(true)} style={[styles.input, styles.dateButton, { borderColor: colors.border }]}><ThemedText>{formatDate(parseIsoDate(nextEstimatedPaymentDate))}</ThemedText></Pressable>
+                  {showDate && <DateTimePicker value={parseIsoDate(nextEstimatedPaymentDate)} mode="date" onChange={(_, date) => { if (Platform.OS === 'android') setShowDate(false); if (date) setNextEstimatedPaymentDate(toDateString(date)); }} />}
                 </View>
               )}
             </>

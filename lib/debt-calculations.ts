@@ -32,3 +32,14 @@ export function getNextDebtDueDate(
   if (frequency === 'annual') return addIsoMonths(firstDueDate, effectivePaymentCount * 12);
   return addIsoMonths(firstDueDate, effectivePaymentCount);
 }
+
+export function getDebtScheduleStartDate(
+  nextDueDate: string | null,
+  frequency: DebtFrequency | null,
+  effectivePaymentCount: number
+): string | null {
+  if (!nextDueDate || !frequency || effectivePaymentCount <= 0) return nextDueDate;
+  if (frequency === 'weekly') return addIsoDays(nextDueDate, effectivePaymentCount * -7);
+  if (frequency === 'annual') return addIsoMonths(nextDueDate, effectivePaymentCount * -12);
+  return addIsoMonths(nextDueDate, effectivePaymentCount * -1);
+}
