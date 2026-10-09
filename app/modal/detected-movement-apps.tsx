@@ -107,12 +107,7 @@ export default function DetectedMovementAppsScreen() {
               </ThemedText>
             </Pressable>
           </ThemedView>
-        ) : (
-          <ThemedView style={[styles.enabled, { borderColor: colors.success }]}>
-            <Ionicons name="checkmark-circle-outline" size={22} color={colors.success} />
-            <ThemedText>{t('pendingMovements.accessEnabled')}</ThemedText>
-          </ThemedView>
-        )}
+        ) : null}
 
         {loading ? (
           <ActivityIndicator color={colors.action} style={styles.loader} />
@@ -161,7 +156,6 @@ const styles = StyleSheet.create({
   intro: { lineHeight: 23 },
   notice: { borderWidth: 1, borderRadius: LayoutTokens.radiusLarge, padding: 16, gap: 12 },
   noticeCopy: { flex: 1, gap: 4 },
-  enabled: { borderWidth: 1, borderRadius: LayoutTokens.radiusMedium, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
   primaryButton: { minHeight: 48, borderRadius: LayoutTokens.radiusMedium, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   primaryText: { fontFamily: Fonts.bold, textAlign: 'center' },
   loader: { marginTop: 36 },

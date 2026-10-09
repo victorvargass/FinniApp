@@ -144,12 +144,12 @@ internal object NotificationMovementParser {
     val fallbackTitle = usableName(title)
     val walletMerchant = if (isGoogleWallet) extractWalletMerchant(title, body) else null
     val paymentMethodHint = if (isGoogleWallet) extractWalletPaymentMethod(body) else null
-    val paymentMethodType = when {
-      listOf("tarjeta de credito", "credito", "credit card", "credit").any { normalized.contains(it) } -> "credit"
-      listOf("tarjeta de debito", "debito", "debit card", "debit").any { normalized.contains(it) } -> "debit"
-      listOf("tarjeta de prepago", "prepago", "prepaid card", "prepaid").any { normalized.contains(it) } -> "prepaid"
-      else -> null
-    }
+    // Wallet titles usually contain the merchant, so only inspect the extracted
+    // instrument when deciding its type. This avoids treating a merchant name
+    // containing words such as "Crédito" as a credit card.
+    val paymentMethodType = detectPaymentMethodType(
+      if (isGoogleWallet) paymentMethodHint.orEmpty() else combined
+    )
     return ParsedNotificationMovement(
       walletMerchant ?: merchant ?: fallbackTitle.orEmpty(),
       amount,
@@ -159,9 +159,34 @@ internal object NotificationMovementParser {
     )
   }
 
-  private fun extractWalletPaymentMethod(body: String): String? = Regex(
-    "(?i)(?:with|con)\\s+(.+?)(?=\\s+(?:[•*xX]{2,}\\s*)?\\d{2,4}(?:\\D|$)|[.,]|$)"
-  ).find(body)?.groupValues?.getOrNull(1)?.let(::sanitizePaymentMethod)?.takeIf { it.isNotEmpty() }
+  private fun extractWalletPaymentMethod(body: String): String? {
+    val withoutAmount = amountPattern.replace(body, "").trim()
+    val patterns = listOf(
+      Regex(
+        "(?i)(?:with|con)\\s+(.+?)(?=\\s+(?:(?:terminad[ao]\\s+en|ending\\s+in)\\s+)?(?:[•*xX]{2,}\\s*)?\\d{2,4}(?:\\D|$)|[.,]|$)"
+      ),
+      Regex(
+        "(?i)^(.+?)(?=\\s+(?:(?:terminad[ao]\\s+en|ending\\s+in)\\s+)?[•*xX]{2,}\\s*\\d{2,4}(?:\\D|$))"
+      ),
+    )
+    for (pattern in patterns) {
+      val candidate = pattern.find(withoutAmount)?.groupValues?.getOrNull(1)
+        ?.let(::sanitizePaymentMethod)
+        ?.takeIf(::isUsefulPaymentMethodHint)
+      if (candidate != null) return candidate
+    }
+    return null
+  }
+
+  private fun detectPaymentMethodType(value: String): String? {
+    val normalized = normalize(value)
+    return when {
+      Regex("\\b(?:tarjeta de )?(?:credito|credit card|credit)\\b").containsMatchIn(normalized) -> "credit"
+      Regex("\\b(?:tarjeta de )?(?:debito|debit card|debit)\\b").containsMatchIn(normalized) -> "debit"
+      Regex("\\b(?:tarjeta de )?(?:prepago|prepaid card|prepaid)\\b").containsMatchIn(normalized) -> "prepaid"
+      else -> null
+    }
+  }
 
   private fun extractWalletMerchant(title: String, body: String): String? {
     usableName(title)?.let { return it }
@@ -185,9 +210,17 @@ internal object NotificationMovementParser {
 
   private fun sanitizePaymentMethod(value: String): String = value
     .replace(Regex("(?i)\\b(?:terminada|terminado|ending)\\s+(?:en|in)\\b"), "")
+    .replace(Regex("(?i)^(?:tarjeta|card)\\s+"), "")
     .replace(Regex("\\s+"), " ")
     .trim(' ', '-', ':', '.', ',')
     .take(48)
+
+  private fun isUsefulPaymentMethodHint(value: String): Boolean {
+    val normalized = normalize(value)
+    return normalized.isNotEmpty() && normalized !in setOf(
+      "tarjeta", "card", "visa", "mastercard", "credito", "debito", "prepago"
+    )
+  }
 
   private fun normalize(value: String): String = Normalizer.normalize(value.lowercase(Locale.ROOT), Normalizer.Form.NFD)
     .replace(Regex("\\p{Mn}+"), "")

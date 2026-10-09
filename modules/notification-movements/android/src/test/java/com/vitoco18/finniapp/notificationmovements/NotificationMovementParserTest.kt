@@ -31,6 +31,44 @@ class NotificationMovementParserTest {
     )
 
     assertEquals(7_500L, movement?.amount)
+    assertNull(movement?.paymentMethodHint)
+    assertNull(movement?.suggestedPaymentMethodType)
+  }
+
+  @Test
+  fun extractsSpanishWalletInstrumentWithBankAndCreditType() {
+    val movement = NotificationMovementParser.parse(
+      NotificationMovementParser.GOOGLE_WALLET_PACKAGE,
+      "Comercio de prueba",
+      "CLP 12.990 con tarjeta Banco de Chile Crédito terminada en 2067",
+    )
+
+    assertEquals("Banco de Chile Crédito", movement?.paymentMethodHint)
+    assertEquals("credit", movement?.suggestedPaymentMethodType)
+  }
+
+  @Test
+  fun extractsWalletInstrumentWhenItFollowsTheAmount() {
+    val movement = NotificationMovementParser.parse(
+      NotificationMovementParser.GOOGLE_WALLET_PACKAGE,
+      "Comercio de prueba",
+      "\$9.990 BancoEstado Visa Débito •••• 4472",
+    )
+
+    assertEquals("BancoEstado Visa Débito", movement?.paymentMethodHint)
+    assertEquals("debit", movement?.suggestedPaymentMethodType)
+  }
+
+  @Test
+  fun doesNotInferWalletCardTypeFromMerchantName() {
+    val movement = NotificationMovementParser.parse(
+      NotificationMovementParser.GOOGLE_WALLET_PACKAGE,
+      "Crédito Fácil",
+      "\$5.000 con BancoEstado ••4472",
+    )
+
+    assertEquals("BancoEstado", movement?.paymentMethodHint)
+    assertNull(movement?.suggestedPaymentMethodType)
   }
 
   @Test

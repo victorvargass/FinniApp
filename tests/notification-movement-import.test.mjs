@@ -22,6 +22,8 @@ test('Android notification capture is explicit and stores only parsed movement f
   assert.match(listener, /com\.google\.android\.gm/);
   assert.match(listener, /isGoogleWallet/);
   assert.match(listener, /extractWalletMerchant/);
+  assert.match(listener, /extractWalletPaymentMethod/);
+  assert.match(listener, /detectPaymentMethodType/);
   assert.match(store, /sourceApp/);
   assert.match(store, /suggestedType/);
   assert.match(store, /paymentMethodHint/);
@@ -114,6 +116,7 @@ test('detected financial apps can be enabled or disabled independently', () => {
   assert.match(layout, /pendingMovements\.sourcesTitle/);
   assert.match(screen, /setNotificationMovementSourceEnabled/);
   assert.match(screen, /<Switch/);
+  assert.doesNotMatch(screen, /pendingMovements\.accessEnabled/);
   assert.match(pendingScreen, /\/modal\/detected-movement-apps/);
   assert.doesNotMatch(pendingScreen, /<Switch/);
   assert.match(layout, /name="modal\/detected-movement-apps"/);
