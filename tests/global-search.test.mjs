@@ -34,3 +34,12 @@ test('global search applies a hard result limit', () => {
   assert.equal(buildGlobalSearchResults('cafe', repeated).length, 60);
   assert.equal(buildGlobalSearchResults('cafe', repeated, 10).length, 10);
 });
+
+test('global search finds amounts with or without thousands separators', () => {
+  const amountData = {
+    ...data,
+    expenses: [{ ...data.expenses[0], amount: 2750 }],
+  };
+  assert.deepEqual(buildGlobalSearchResults('2750', amountData).map((item) => item.kind), ['expense']);
+  assert.deepEqual(buildGlobalSearchResults('2.750', amountData).map((item) => item.kind), ['expense']);
+});

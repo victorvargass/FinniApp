@@ -1,4 +1,4 @@
-import { matchesSearchQuery, normalizeSearchText } from './search.ts';
+import { matchesMovementSearchQuery, normalizeSearchText } from './search.ts';
 import type {
   Contact,
   Debt,
@@ -129,7 +129,9 @@ export function buildGlobalSearchResults(
 
   const normalizedQuery = normalizeSearchText(trimmed);
   return candidates
-    .filter((item) => matchesSearchQuery(item.searchableText, trimmed))
+    .filter((item) => item.amount == null
+      ? normalizeSearchText(item.searchableText).includes(normalizedQuery)
+      : matchesMovementSearchQuery(item.searchableText, item.amount, trimmed))
     .sort((first, second) =>
       relevance(first, normalizedQuery) - relevance(second, normalizedQuery)
       || (second.date ?? '').localeCompare(first.date ?? '')

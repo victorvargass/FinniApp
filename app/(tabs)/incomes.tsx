@@ -30,6 +30,7 @@ import { Alert } from '@/lib/alert';
 import { formatCLP, formatEventDateTime } from '@/lib/format';
 import { getIncomeGroupIdentity } from '@/lib/income-grouping';
 import { t } from '@/lib/i18n';
+import { matchesMovementSearchQuery } from '@/lib/search';
 import { showToast } from '@/lib/toast';
 import type { Income } from '@/lib/types';
 
@@ -141,10 +142,8 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
   }, [selectedPeriodId]);
 
   const filteredIncomes = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
     const filtered = incomes.filter((item) => {
-      if (query && !item.name.toLowerCase().includes(query))
+      if (!matchesMovementSearchQuery(item.name, item.amount, search))
         return false;
     
       return true;

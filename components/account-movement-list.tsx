@@ -24,7 +24,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { formatCLP, formatEventDateTime, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
-import { matchesSearchQuery } from '@/lib/search';
+import { matchesMovementSearchQuery } from '@/lib/search';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 type SortOption = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc';
@@ -133,8 +133,9 @@ export function AccountMovementList({
 
   const filtered = useMemo(() => sortMovements(movements.filter((movement) => {
     if (filterKey !== 'all' && movement.filterKey !== filterKey) return false;
-    return matchesSearchQuery(
+    return matchesMovementSearchQuery(
       `${movement.title} ${movement.description} ${movement.primaryGroup.name} ${movement.secondaryGroup.name}`,
+      movement.amount,
       search
     );
   }), sortBy), [filterKey, movements, search, sortBy]);

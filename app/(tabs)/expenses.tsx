@@ -32,6 +32,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Alert } from '@/lib/alert';
 import { formatCLP, formatEventDateTime, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
+import { matchesMovementSearchQuery } from '@/lib/search';
 import { showToast } from '@/lib/toast';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
 import type { ExpenseWithCategory } from '@/lib/types';
@@ -280,10 +281,8 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
   ]);
 
   const filteredExpenses = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
     const filtered = expenses.filter((item) => {
-      if (query && !item.name.toLowerCase().includes(query))
+      if (!matchesMovementSearchQuery(item.name, item.amount, search))
         return false;
     
       if (categoryFilter.length > 0) {
