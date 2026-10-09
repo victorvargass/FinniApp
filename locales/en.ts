@@ -904,6 +904,9 @@ const en = {
   },
   breakdown: {
     emptyExpenses: 'No expenses during this period',
+    hideItem: 'Hide %{name} from the chart',
+    noVisibleItems: 'No visible items',
+    showItem: 'Show %{name} in the chart',
     title: 'Breakdown',
   },
   recurrence: {

@@ -904,6 +904,9 @@ const es = {
   },
   breakdown: {
     emptyExpenses: 'Sin gastos durante este período',
+    hideItem: 'Ocultar %{name} del gráfico',
+    noVisibleItems: 'No hay elementos visibles',
+    showItem: 'Mostrar %{name} en el gráfico',
     title: 'Desglose',
   },
   recurrence: {
