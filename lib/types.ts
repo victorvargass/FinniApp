@@ -593,6 +593,7 @@ export type PeriodHistory = {
   year: number;
   incomesTotal: number;
   savingsWithdrawalTotal: number;
+  savingsContributionTotal: number;
   savingsFundingTotal: number;
   debtPaymentsTotal: number;
   debtCollectionsTotal: number;

@@ -55,7 +55,7 @@ export function buildHistoricalReportHtml(report: HistoricalReport, scopeLabel: 
       <div class="metric">${escapeHtml(t('history.income'))}<strong class="positive">${formatCLP(report.incomeTotal)}</strong></div>
       <div class="metric">${escapeHtml(t('history.outflows'))}<strong class="negative">${formatCLP(report.expenseTotal)}</strong></div>
       <div class="metric">${escapeHtml(t('history.cashflow'))}<strong class="${report.cashflowTotal >= 0 ? 'positive' : 'negative'}">${formatCLP(report.cashflowTotal)}</strong></div>
-      <div class="metric">${escapeHtml(t('history.savingsContributions'))}<strong>${formatCLP(report.savingsFundingTotal)}</strong></div>
+      <div class="metric">${escapeHtml(t('history.savingsContributions'))}<strong>${formatCLP(report.savingsContributionTotal)}</strong></div>
     </div>
     <h2>${escapeHtml(t('history.activity'))}</h2>
     <table><tbody>
@@ -115,7 +115,7 @@ export async function exportHistoricalReportCsv(
     period.incomesTotal,
     period.expenseTotal,
     period.cashflow,
-    period.savingsFundingTotal,
+    period.savingsContributionTotal,
     period.savingsWithdrawalTotal,
     period.debtPaymentsTotal,
     period.debtCollectionsTotal,

@@ -8356,13 +8356,25 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
     target.set(row.periodId, Number(row.total));
   }
 
-  const savingsFundingRows = await db.getAllAsync<{ period_id: number; total: number }>(`
-    SELECT expense.period_id, COALESCE(SUM(expense.amount), 0) AS total
-    FROM savings_goal_movements movement
-    INNER JOIN expenses expense ON expense.id = movement.expense_id
-    WHERE movement.kind = 'funded_expense' AND expense.currency = 'CLP'
-    GROUP BY expense.period_id
-  `);
+  const [savingsContributionRows, savingsFundingRows] = await Promise.all([
+    db.getAllAsync<{ period_id: number; total: number }>(`
+      SELECT expense.period_id, COALESCE(SUM(expense.amount), 0) AS total
+      FROM savings_goal_movements movement
+      INNER JOIN expenses expense ON expense.id = movement.expense_id
+      WHERE movement.kind = 'contribution' AND expense.currency = 'CLP'
+      GROUP BY expense.period_id
+    `),
+    db.getAllAsync<{ period_id: number; total: number }>(`
+      SELECT expense.period_id, COALESCE(SUM(expense.amount), 0) AS total
+      FROM savings_goal_movements movement
+      INNER JOIN expenses expense ON expense.id = movement.expense_id
+      WHERE movement.kind = 'funded_expense' AND expense.currency = 'CLP'
+      GROUP BY expense.period_id
+    `),
+  ]);
+  const savingsContributionsByPeriod = new Map(
+    savingsContributionRows.map((row) => [row.period_id, Number(row.total)])
+  );
   const savingsFundingByPeriod = new Map(
     savingsFundingRows.map((row) => [row.period_id, Number(row.total)])
   );
@@ -8471,6 +8483,7 @@ export async function getPeriodHistory(): Promise<PeriodHistory[]> {
       paymentMethods: thisPaymentMethods,
       incomesTotal,
       savingsWithdrawalTotal: savingsWithdrawalsByPeriod.get(period.id) ?? 0,
+      savingsContributionTotal: savingsContributionsByPeriod.get(period.id) ?? 0,
       savingsFundingTotal: savingsFundingByPeriod.get(period.id) ?? 0,
       debtPaymentsTotal: debtPaymentsByPeriod.get(period.id) ?? 0,
       debtCollectionsTotal: debtCollectionsByPeriod.get(period.id) ?? 0,

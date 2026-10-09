@@ -15,7 +15,7 @@ export type HistoricalReport = {
   expenseTotal: number;
   cashflowTotal: number;
   averageExpense: number;
-  savingsFundingTotal: number;
+  savingsContributionTotal: number;
   savingsWithdrawalTotal: number;
   savingsRate: number | null;
   debtPaymentsTotal: number;
@@ -78,8 +78,8 @@ export function buildHistoricalReport(source: readonly PeriodHistory[]): Histori
   const paymentMethods = [...paymentMethodMap.values()].sort((a, b) => b.total - a.total);
   const incomeTotal = periods.reduce((total, period) => total + period.incomesTotal, 0);
   const expenseTotal = periods.reduce((total, period) => total + period.expenseTotal, 0);
-  const savingsFundingTotal = periods.reduce(
-    (total, period) => total + period.savingsFundingTotal,
+  const savingsContributionTotal = periods.reduce(
+    (total, period) => total + period.savingsContributionTotal,
     0
   );
   const savingsWithdrawalTotal = periods.reduce(
@@ -95,9 +95,9 @@ export function buildHistoricalReport(source: readonly PeriodHistory[]): Histori
     expenseTotal,
     cashflowTotal: incomeTotal + savingsWithdrawalTotal - expenseTotal,
     averageExpense: periods.length > 0 ? Math.round(expenseTotal / periods.length) : 0,
-    savingsFundingTotal,
+    savingsContributionTotal,
     savingsWithdrawalTotal,
-    savingsRate: incomeTotal > 0 ? Math.round((savingsFundingTotal / incomeTotal) * 100) : null,
+    savingsRate: incomeTotal > 0 ? Math.round((savingsContributionTotal / incomeTotal) * 100) : null,
     debtPaymentsTotal: periods.reduce((total, period) => total + period.debtPaymentsTotal, 0),
     debtCollectionsTotal: periods.reduce((total, period) => total + period.debtCollectionsTotal, 0),
     cardPaymentsTotal: periods.reduce(

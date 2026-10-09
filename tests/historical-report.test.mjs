@@ -16,6 +16,7 @@ function period(overrides = {}) {
     year: 2026,
     incomesTotal: 1_000,
     savingsWithdrawalTotal: 0,
+    savingsContributionTotal: 100,
     savingsFundingTotal: 100,
     debtPaymentsTotal: 50,
     debtCollectionsTotal: 0,
@@ -60,7 +61,7 @@ test('historical report combines periods, categories, savings and debts', () => 
       startDate: '2026-02-01',
       endDate: '2026-02-28',
       incomesTotal: 1_500,
-      savingsFundingTotal: 200,
+      savingsContributionTotal: 200,
       debtPaymentsTotal: 100,
       debtCollectionsTotal: 80,
       categories: [
@@ -74,7 +75,7 @@ test('historical report combines periods, categories, savings and debts', () => 
   assert.equal(report.expenseTotal, 1_300);
   assert.equal(report.cashflowTotal, 1_200);
   assert.equal(report.averageExpense, 650);
-  assert.equal(report.savingsFundingTotal, 300);
+  assert.equal(report.savingsContributionTotal, 300);
   assert.equal(report.savingsRate, 12);
   assert.equal(report.debtPaymentsTotal, 150);
   assert.equal(report.debtCollectionsTotal, 80);
