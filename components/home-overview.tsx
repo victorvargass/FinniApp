@@ -20,11 +20,12 @@ export type HomeAttentionItem = {
 
 type HomeAttentionSectionProps = {
   items: HomeAttentionItem[];
+  notificationCount: number;
   onOpenNotifications: () => void;
   onUndoDismiss?: () => void;
 };
 
-export function HomeAttentionSection({ items, onOpenNotifications, onUndoDismiss }: HomeAttentionSectionProps) {
+export function HomeAttentionSection({ items, notificationCount, onOpenNotifications, onUndoDismiss }: HomeAttentionSectionProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
 
   return (
@@ -37,7 +38,7 @@ export function HomeAttentionSection({ items, onOpenNotifications, onUndoDismiss
           onPress={onOpenNotifications}
           style={({ pressed }) => [styles.notificationsLink, pressed && styles.pressed]}>
           <ThemedText type="defaultSemiBold" style={{ color: colors.primary }}>
-            {t('home.viewNotificationsShort', { count: items.length })}
+            {t('home.viewNotificationsShort', { count: notificationCount })}
           </ThemedText>
         </Pressable>
       </View>

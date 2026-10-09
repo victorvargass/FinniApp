@@ -11,7 +11,7 @@ test('the notifications action is a clear counted link beside the attention titl
   assert.ok(titleIndex >= 0 && titleIndex < actionIndex);
   assert.ok(actionIndex < itemsIndex);
   assert.match(source, /accessibilityLabel=\{t\('home\.viewNotifications'\)\}/);
-  assert.match(source, /t\('home\.viewNotificationsShort', \{ count: items\.length \}\)/);
+  assert.match(source, /t\('home\.viewNotificationsShort', \{ count: notificationCount \}\)/);
   assert.doesNotMatch(source, /name="notifications-outline"/);
   assert.doesNotMatch(source, /notificationsButton|notificationsButtonLabel/);
 });

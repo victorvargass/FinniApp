@@ -29,6 +29,7 @@ import {
   useOrganizerDatabase,
   usePaymentDatabase,
   usePeriodDatabase,
+  usePreferenceDatabase,
   useRecurrenceDatabase,
   useSavingsDatabase,
 } from '@/contexts/DatabaseDomainContexts';
@@ -97,6 +98,7 @@ export default function HomeScreen() {
   const { unbilledCreditCardTotal, getDebts, getDebtPlans } = useDebtDatabase();
   const { paymentMethodTotals, paymentMethods } = usePaymentDatabase();
   const { recurringDecisions } = useRecurrenceDatabase();
+  const { appNotifications, setAppNotificationRead } = usePreferenceDatabase();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const isCurrentPeriod = selectedPeriod?.id === settings.currentPeriodId;
@@ -284,6 +286,24 @@ export default function HomeScreen() {
     )
     : null;
   const attentionItems: HomeAttentionItem[] = [];
+  const unreadAppNotifications = appNotifications.filter((notification) => !notification.isRead);
+
+  if (isCurrentPeriod) {
+    for (const notification of unreadAppNotifications) {
+      attentionItems.push({
+        key: `app-notification-${notification.id}`,
+        icon: notification.kind.includes('payment') ? 'cash-outline' : 'notifications-outline',
+        title: notification.title,
+        body: notification.body,
+        tone: 'action',
+        onPress: () => router.push('/modal/recurring-confirmations'),
+        onDismiss: () => {
+          void setAppNotificationRead(notification.id, true)
+            .catch(() => showToast(t('errors.couldNotChange')));
+        },
+      });
+    }
+  }
 
   if (isCurrentPeriod && pendingNotificationMovementIds.length > 0) {
     const pendingMovementCount = pendingNotificationMovementIds.length;
@@ -587,6 +607,7 @@ export default function HomeScreen() {
         <HomeAttentionSection
           key={section}
           items={visibleAttentionItems}
+          notificationCount={unreadAppNotifications.length}
           onOpenNotifications={() => router.push('/modal/recurring-confirmations')}
           onUndoDismiss={lastDismissedAttentionId ? undoDismissAttention : undefined}
         />
