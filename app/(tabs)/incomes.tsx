@@ -3,20 +3,23 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
 import { EmptyState } from '@/components/empty-state';
+import {
+  MovementFilterBar,
+  MovementFilterOption,
+  MovementFilterSection,
+  MovementFilterSheet,
+} from '@/components/movement-filter-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import {
   useMovementDatabase,
   usePeriodDatabase,
@@ -66,10 +69,6 @@ const SORT_OPTIONS: { value: SortOption; label: string; group: string }[] = [
   { value: 'amount-asc', label: t('filters.lowest'), group: t('filters.amount') },
 ];
 
-const SORT_LABELS = Object.fromEntries(
-  SORT_OPTIONS.map(({ value, label, group }) => [value, `${group}: ${label}`])
-) as Record<SortOption, string>;
-
 function sortIncomes(items: Income[], sortBy: SortOption) {
   const sorted = [...items];
   switch (sortBy) {
@@ -116,80 +115,6 @@ function compareIncomeGroups(first: IncomeGroup, second: IncomeGroup, sortBy: So
   return (sortBy === 'date-asc' ? comparison : -comparison) || nameComparison;
 }
 
-type OptionModalProps = {
-  visible: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-};
-
-function OptionModal({ visible, title, onClose, children }: OptionModalProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
-  const insets = useSafeAreaInsets();
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable
-          style={styles.modalSheet}
-          onPress={(e) => e.stopPropagation()}>
-          <ThemedView
-            style={[
-              styles.modalContent,
-              { paddingBottom: insets.bottom + 16 },
-            ]}>
-            <ThemedText style={styles.modalTitle}>{title}</ThemedText>
-            <ScrollView
-              style={styles.modalScroll}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}>
-              {children}
-            </ScrollView>
-            <Pressable
-              style={[styles.modalCloseButton, { borderColor: colors.icon }]}
-              onPress={onClose}>
-              <ThemedText type="defaultSemiBold">{t('common.close')}</ThemedText>
-            </Pressable>
-          </ThemedView>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
-type ModalOptionProps = {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  color?: string;
-};
-
-function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
-
-  return (
-    <Pressable
-      style={[
-        styles.modalOption,
-        { borderColor: colors.icon },
-        selected && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
-      ]}
-      onPress={onPress}>
-      <View style={styles.modalOptionLeft}>
-        {color != null && <View style={[styles.optionDot, { backgroundColor: color }]} />}
-        <ThemedText style={selected ? { color: colors.primary, fontWeight: '600' } : undefined}>{label}</ThemedText>
-      </View>
-      {selected && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
-    </Pressable>
-  );
-}
-
 export default function IncomesScreen({ embedded = false }: { embedded?: boolean }) {
   const { incomes, removeIncome } = useMovementDatabase();
   const { recurringIncomes } = useRecurrenceDatabase();
@@ -201,8 +126,7 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [groupBy, setGroupBy] = useState<GroupBy>('payment-method');
   const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<string[]>([]);
-  const [sortModalVisible, setSortModalVisible] = useState(false);
-  const [groupModalVisible, setGroupModalVisible] = useState(false);
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const activeRecurringIncomeIds = useMemo(
     () => new Set(recurringIncomes.filter((item) => item.active).map((item) => item.id)),
     [recurringIncomes]
@@ -213,8 +137,7 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
     setSortBy('date-desc');
     setGroupBy('payment-method');
     setCollapsedGroupKeys([]);
-    setSortModalVisible(false);
-    setGroupModalVisible(false);
+    setFilterSheetVisible(false);
   }, [selectedPeriodId]);
 
   const filteredIncomes = useMemo(() => {
@@ -231,6 +154,7 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
   }, [incomes, search, sortBy]);
 
   const isSortActive = sortBy !== 'date-desc';
+  const activeFilterCount = Number(isSortActive) + Number(groupBy !== 'payment-method');
 
   const listItems = useMemo<IncomeListItem[]>(() => {
     if (groupBy === 'none') {
@@ -297,7 +221,16 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
 
   const selectSort = (value: SortOption) => {
     setSortBy(value);
-    setSortModalVisible(false);
+  };
+
+  const selectGroupBy = (value: GroupBy) => {
+    setGroupBy(value);
+    setCollapsedGroupKeys([]);
+  };
+
+  const resetFilterControls = () => {
+    setSortBy('date-desc');
+    selectGroupBy('payment-method');
   };
 
   const sortGroups = [...new Set(SORT_OPTIONS.map((opt) => opt.group))];
@@ -311,114 +244,51 @@ export default function IncomesScreen({ embedded = false }: { embedded?: boolean
       )}
 
       <ThemedView style={styles.filters}>
-        <View style={[styles.searchBox, { borderColor: colors.icon }]}>
-          <Ionicons name="search" size={18} color={colors.icon} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t('expenses.searchPlaceholder')}
-            placeholderTextColor={colors.icon}
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <Ionicons name="close-circle" size={18} color={colors.icon} />
-            </Pressable>
-          )}
-        </View>
-
-        <View style={styles.toolbar}>
-          <Pressable
-            style={[
-              styles.toolbarButton,
-              { borderColor: colors.icon },
-              isSortActive && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
-            ]}
-            onPress={() => setSortModalVisible(true)}>
-            <Ionicons name="swap-vertical" size={18} color={isSortActive ? colors.primary : colors.icon} />
-            <View style={styles.toolbarButtonText}>
-              <ThemedText type="defaultSemiBold">{t('filters.order')}</ThemedText>
-              <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
-                {SORT_LABELS[sortBy]}
-              </ThemedText>
-            </View>
-          </Pressable>
-
-          <Pressable
-            style={[
-              styles.toolbarButton,
-              { borderColor: colors.icon },
-              groupBy !== 'none' && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
-            ]}
-            onPress={() => setGroupModalVisible(true)}>
-            <Ionicons name="layers-outline" size={18} color={groupBy !== 'none' ? colors.primary : colors.icon} />
-            <View style={styles.toolbarButtonText}>
-              <ThemedText type="defaultSemiBold">{t('filters.group')}</ThemedText>
-              <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
-                {groupBy === 'payment-method'
-                  ? t('navigation.paymentMethod')
-                  : groupBy === 'category'
-                    ? t('navigation.category')
-                    : t('filters.noGrouping')}
-              </ThemedText>
-            </View>
-          </Pressable>
-        </View>
+        <MovementFilterBar
+          activeCount={activeFilterCount}
+          onChangeSearch={setSearch}
+          onOpenFilters={() => setFilterSheetVisible(true)}
+          placeholder={t('expenses.searchPlaceholder')}
+          search={search}
+        />
       </ThemedView>
 
-      <OptionModal
-        visible={sortModalVisible}
-        title={t('filters.sortBy')}
-        onClose={() => setSortModalVisible(false)}>
+      <MovementFilterSheet
+        activeCount={activeFilterCount}
+        onClear={resetFilterControls}
+        onClose={() => setFilterSheetVisible(false)}
+        resultCount={filteredIncomes.length}
+        visible={filterSheetVisible}>
         {sortGroups.map((group) => (
-          <View key={group} style={styles.modalGroup}>
-            <ThemedText style={styles.modalGroupLabel}>{group}</ThemedText>
+          <MovementFilterSection key={group} title={`${t('filters.sortBy')} · ${group}`}>
             {SORT_OPTIONS.filter((opt) => opt.group === group).map((opt) => (
-              <ModalOption
+              <MovementFilterOption
                 key={opt.value}
                 label={opt.label}
-                selected={sortBy === opt.value}
                 onPress={() => selectSort(opt.value)}
+                selected={sortBy === opt.value}
               />
             ))}
-          </View>
+          </MovementFilterSection>
         ))}
-      </OptionModal>
-
-      <OptionModal
-        visible={groupModalVisible}
-        title={t('filters.groupIncomes')}
-        onClose={() => setGroupModalVisible(false)}>
-        <ModalOption
-          label={t('filters.groupByCategory')}
-          selected={groupBy === 'category'}
-          onPress={() => {
-            setGroupBy('category');
-            setCollapsedGroupKeys([]);
-            setGroupModalVisible(false);
-          }}
-        />
-        <ModalOption
-          label={t('filters.groupByPaymentMethod')}
-          selected={groupBy === 'payment-method'}
-          onPress={() => {
-            setGroupBy('payment-method');
-            setCollapsedGroupKeys([]);
-            setGroupModalVisible(false);
-          }}
-        />
-        <ModalOption
-          label={t('filters.noGrouping')}
-          selected={groupBy === 'none'}
-          onPress={() => {
-            setGroupBy('none');
-            setCollapsedGroupKeys([]);
-            setGroupModalVisible(false);
-          }}
-        />
-      </OptionModal>
+        <MovementFilterSection title={t('filters.groupIncomes')}>
+          <MovementFilterOption
+            label={t('filters.groupByCategory')}
+            onPress={() => selectGroupBy('category')}
+            selected={groupBy === 'category'}
+          />
+          <MovementFilterOption
+            label={t('filters.groupByPaymentMethod')}
+            onPress={() => selectGroupBy('payment-method')}
+            selected={groupBy === 'payment-method'}
+          />
+          <MovementFilterOption
+            label={t('filters.noGrouping')}
+            onPress={() => selectGroupBy('none')}
+            selected={groupBy === 'none'}
+          />
+        </MovementFilterSection>
+      </MovementFilterSheet>
 
       <FlatList
         style={{ marginTop: 8 }}
@@ -571,105 +441,7 @@ const styles = StyleSheet.create({
   },
   filters: {
     paddingHorizontal: 20,
-    gap: 10,
     paddingBottom: 12,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    padding: 0,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  toolbarButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  toolbarButtonText: {
-    flex: 1,
-    gap: 1,
-  },
-  toolbarSubtext: {
-    fontSize: 12,
-    opacity: 0.6,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-  },
-  modalSheet: {
-    maxHeight: '75%',
-  },
-  modalContent: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-  },
-  modalTitle: {
-    marginBottom: 12,
-  },
-  modalScroll: {
-    maxHeight: 420,
-  },
-  modalGroup: {
-    marginBottom: 8,
-  },
-  modalGroupLabel: {
-    fontSize: 13,
-    opacity: 0.5,
-    fontWeight: '600',
-    marginBottom: 6,
-    marginTop: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  modalOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  optionDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  modalCloseButton: {
-    marginTop: 4,
-    paddingVertical: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
   },
   list: {
     padding: 20,

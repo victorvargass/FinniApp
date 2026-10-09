@@ -4,20 +4,23 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingActionButton } from '@/components/floating-action-button';
 import { EmptyState } from '@/components/empty-state';
+import {
+  MovementFilterBar,
+  MovementFilterOption,
+  MovementFilterSection,
+  MovementFilterSheet,
+} from '@/components/movement-filter-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import {
   useMovementDatabase,
   useOrganizerDatabase,
@@ -31,7 +34,7 @@ import { formatCLP, formatEventDateTime, formatMoney } from '@/lib/format';
 import { t } from '@/lib/i18n';
 import { showToast } from '@/lib/toast';
 import { VIRTUAL_SAVINGS_PAYMENT_METHOD_ID } from '@/lib/types';
-import type { Category, ExpenseWithCategory, PaymentMethod } from '@/lib/types';
+import type { ExpenseWithCategory } from '@/lib/types';
 
 type SortOption =
   | 'name-asc'
@@ -74,10 +77,6 @@ const SORT_OPTIONS: { value: SortOption; label: string; group: string }[] = [
   { value: 'amount-asc', label: t('filters.lowest'), group: t('filters.amount') },
 ];
 
-const SORT_LABELS = Object.fromEntries(
-  SORT_OPTIONS.map(({ value, label, group }) => [value, `${group}: ${label}`])
-) as Record<SortOption, string>;
-
 function sortExpenses(items: ExpenseWithCategory[], sortBy: SortOption) {
   const sorted = [...items];
   switch (sortBy) {
@@ -94,20 +93,6 @@ function sortExpenses(items: ExpenseWithCategory[], sortBy: SortOption) {
     case 'date-desc':
       return sorted.sort((a, b) => b.date.localeCompare(a.date));
   }
-}
-
-function getPaymentMethodFilterLabel(
-  filter: PaymentMethodFilter,
-  paymentMethods: PaymentMethod[]
-) {
-  if (filter.length === 0) return t('filters.all');
-  if (filter.length === 1) {
-    const value = filter[0];
-    if (value === 'none') return t('common.notSpecified');
-    if (value === VIRTUAL_SAVINGS_PAYMENT_METHOD_ID) return t('savings.withdrawalPaymentMethod');
-    return paymentMethods.find((method) => method.id === value)?.name ?? t('navigation.paymentMethod');
-  }
-  return t('filters.mediaCount', { count: filter.length });
 }
 
 function compareExpenseGroups(
@@ -154,99 +139,6 @@ function compareExpenseGroups(
   }
 }
 
-function getCategoryFilterLabel(
-  filter: CategoryFilter,
-  categories: Category[]
-) {
-  if (filter.length === 0)
-    return t('filters.allFeminine');
-
-  if (filter.length === 1) {
-    const value = filter[0];
-
-    if (value === 'none')
-      return t('expenses.noCategory');
-
-    return categories.find(c => c.id === value)?.name ?? t('navigation.category');
-  }
-
-  return t('filters.categoriesCount', { count: filter.length });
-}
-
-type OptionModalProps = {
-  visible: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-};
-
-function OptionModal({ visible, title, onClose, children }: OptionModalProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
-  const insets = useSafeAreaInsets();
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable
-          style={styles.modalSheet}
-          onPress={(e) => e.stopPropagation()}>
-          <ThemedView
-            style={[
-              styles.modalContent,
-              { paddingBottom: insets.bottom + 16 },
-            ]}>
-            <ThemedText style={styles.modalTitle}>{title}</ThemedText>
-            <ScrollView
-              style={styles.modalScroll}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}>
-              {children}
-            </ScrollView>
-            <Pressable
-              style={[styles.modalCloseButton, { borderColor: colors.icon }]}
-              onPress={onClose}>
-              <ThemedText type="defaultSemiBold">{t('common.close')}</ThemedText>
-            </Pressable>
-          </ThemedView>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
-type ModalOptionProps = {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  color?: string;
-};
-
-function ModalOption({ label, selected, onPress, color }: ModalOptionProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
-
-  return (
-    <Pressable
-      style={[
-        styles.modalOption,
-        { borderColor: colors.icon },
-        selected && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
-      ]}
-      onPress={onPress}>
-      <View style={styles.modalOptionLeft}>
-        {color != null && <View style={[styles.optionDot, { backgroundColor: color }]} />}
-        <ThemedText style={selected ? { color: colors.primary, fontWeight: '600' } : undefined}>{label}</ThemedText>
-      </View>
-      {selected && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
-    </Pressable>
-  );
-}
-
 export default function ExpensesScreen({ embedded = false }: { embedded?: boolean }) {
   const { expenses, removeExpense } = useMovementDatabase();
   const { categories } = useOrganizerDatabase();
@@ -272,9 +164,7 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [groupBy, setGroupBy] = useState<GroupBy>('category');
   const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<string[]>([]);
-  const [sortModalVisible, setSortModalVisible] = useState(false);
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [groupModalVisible, setGroupModalVisible] = useState(false);
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const activeRecurringExpenseIds = useMemo(
     () => new Set(recurringExpenses.filter((item) => item.active).map((item) => item.id)),
     [recurringExpenses]
@@ -322,15 +212,12 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
     setPaymentMethodFilter([]);
     setSortBy('date-desc');
     setCollapsedGroupKeys([]);
-    setSortModalVisible(false);
-    setFilterModalVisible(false);
-    setGroupModalVisible(false);
+    setFilterSheetVisible(false);
   }, [selectedPeriodId]);
 
   const selectGroupBy = (value: GroupBy) => {
     setGroupBy(value);
     setCollapsedGroupKeys([]);
-    setGroupModalVisible(false);
     void AsyncStorage.setItem(EXPENSE_GROUP_BY_STORAGE_KEY, value).catch(() => undefined);
   };
 
@@ -423,7 +310,10 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
   }, [expenses, search, categoryFilter, paymentMethodFilter, sortBy]);
 
   const isSortActive = sortBy !== 'date-desc';
-  const isFilterActive = categoryFilter.length > 0 || paymentMethodFilter.length > 0;
+  const activeFilterCount = Number(isSortActive)
+    + Number(groupBy !== 'category')
+    + Number(categoryFilter.length > 0)
+    + Number(paymentMethodFilter.length > 0);
 
   const listItems = useMemo<ExpenseListItem[]>(() => {
     if (groupBy === 'none') {
@@ -523,7 +413,13 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
 
   const selectSort = (value: SortOption) => {
     setSortBy(value);
-    setSortModalVisible(false);
+  };
+
+  const resetFilterControls = () => {
+    setSortBy('date-desc');
+    selectGroupBy('category');
+    setCategoryFilter([]);
+    setPaymentMethodFilter([]);
   };
 
   const sortGroups = [...new Set(SORT_OPTIONS.map((opt) => opt.group))];
@@ -537,193 +433,116 @@ export default function ExpensesScreen({ embedded = false }: { embedded?: boolea
       )}
 
       <ThemedView style={styles.filters}>
-        <View style={[styles.searchBox, { borderColor: colors.icon }]}>
-          <Ionicons name="search" size={18} color={colors.icon} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t('expenses.searchPlaceholder')}
-            placeholderTextColor={colors.icon}
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <Ionicons name="close-circle" size={18} color={colors.icon} />
-            </Pressable>
-          )}
-        </View>
-
-        <View style={styles.toolbar}>
-          <Pressable
-            style={[
-              styles.toolbarButton,
-              { borderColor: colors.icon },
-              isSortActive && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
-            ]}
-            onPress={() => setSortModalVisible(true)}>
-            <Ionicons name="swap-vertical" size={18} color={isSortActive ? colors.primary : colors.icon} />
-            <View style={styles.toolbarButtonText}>
-              <ThemedText type="defaultSemiBold">{t('filters.order')}</ThemedText>
-              <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
-                {SORT_LABELS[sortBy]}
-              </ThemedText>
-            </View>
-          </Pressable>
-
-          <Pressable
-            style={[
-              styles.toolbarButton,
-              { borderColor: colors.icon },
-              groupBy !== 'none' && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
-            ]}
-            onPress={() => setGroupModalVisible(true)}>
-            <Ionicons name="layers-outline" size={18} color={groupBy !== 'none' ? colors.primary : colors.icon} />
-            <View style={styles.toolbarButtonText}>
-              <ThemedText type="defaultSemiBold">{t('filters.group')}</ThemedText>
-              <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
-                {groupBy === 'category' ? t('navigation.category') : groupBy === 'payment-method' ? t('navigation.paymentMethod') : t('filters.noGrouping')}
-              </ThemedText>
-            </View>
-          </Pressable>
-        </View>
-        <Pressable
-          style={[
-            styles.filterButton,
-            { borderColor: colors.icon },
-            isFilterActive && { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` },
-          ]}
-          onPress={() => setFilterModalVisible(true)}>
-          <Ionicons name="filter" size={18} color={isFilterActive ? colors.primary : colors.icon} />
-          <View style={styles.toolbarButtonText}>
-            <ThemedText type="defaultSemiBold">{t('common.filters')}</ThemedText>
-            <ThemedText style={styles.toolbarSubtext} numberOfLines={1}>
-              {t('filters.categorySummary', { category: getCategoryFilterLabel(categoryFilter, categories), payment: getPaymentMethodFilterLabel(paymentMethodFilter, paymentMethods) })}
-            </ThemedText>
-          </View>
-          <Ionicons name="chevron-forward" size={19} color={colors.icon} />
-        </Pressable>
+        <MovementFilterBar
+          activeCount={activeFilterCount}
+          onChangeSearch={setSearch}
+          onOpenFilters={() => setFilterSheetVisible(true)}
+          placeholder={t('expenses.searchPlaceholder')}
+          search={search}
+        />
       </ThemedView>
 
-      <OptionModal
-        visible={sortModalVisible}
-        title={t('filters.sortBy')}
-        onClose={() => setSortModalVisible(false)}>
+      <MovementFilterSheet
+        activeCount={activeFilterCount}
+        onClear={resetFilterControls}
+        onClose={() => setFilterSheetVisible(false)}
+        resultCount={filteredExpenses.length}
+        visible={filterSheetVisible}>
         {sortGroups.map((group) => (
-          <View key={group} style={styles.modalGroup}>
-            <ThemedText style={styles.modalGroupLabel}>{group}</ThemedText>
+          <MovementFilterSection key={group} title={`${t('filters.sortBy')} · ${group}`}>
             {SORT_OPTIONS.filter((opt) => opt.group === group).map((opt) => (
-              <ModalOption
+              <MovementFilterOption
                 key={opt.value}
                 label={opt.label}
-                selected={sortBy === opt.value}
                 onPress={() => selectSort(opt.value)}
+                selected={sortBy === opt.value}
               />
             ))}
-          </View>
+          </MovementFilterSection>
         ))}
-      </OptionModal>
-
-      <OptionModal
-        visible={groupModalVisible}
-        title={t('filters.groupExpenses')}
-        onClose={() => setGroupModalVisible(false)}>
-        <ModalOption
-          label={t('filters.groupByCategory')}
-          selected={groupBy === 'category'}
-          onPress={() => selectGroupBy('category')}
-        />
-        <ModalOption
-          label={t('filters.groupByPaymentMethod')}
-          selected={groupBy === 'payment-method'}
-          onPress={() => selectGroupBy('payment-method')}
-        />
-        <ModalOption
-          label={t('filters.noGrouping')}
-          selected={groupBy === 'none'}
-          onPress={() => selectGroupBy('none')}
-        />
-      </OptionModal>
-
-      <OptionModal
-        visible={filterModalVisible}
-        title={t('filters.filterExpenses')}
-        onClose={() => setFilterModalVisible(false)}>
-        <View style={styles.filterModalHeader}>
-          <ThemedText style={styles.modalGroupLabel}>{t('filters.category')}</ThemedText>
-          {categoryFilter.length > 0 && (
-            <Pressable onPress={() => setCategoryFilter([])}>
-              <ThemedText type="link">{t('filters.clear')}</ThemedText>
-            </Pressable>
+        <MovementFilterSection title={t('filters.groupExpenses')}>
+          <MovementFilterOption
+            label={t('filters.groupByCategory')}
+            onPress={() => selectGroupBy('category')}
+            selected={groupBy === 'category'}
+          />
+          <MovementFilterOption
+            label={t('filters.groupByPaymentMethod')}
+            onPress={() => selectGroupBy('payment-method')}
+            selected={groupBy === 'payment-method'}
+          />
+          <MovementFilterOption
+            label={t('filters.noGrouping')}
+            onPress={() => selectGroupBy('none')}
+            selected={groupBy === 'none'}
+          />
+        </MovementFilterSection>
+        <MovementFilterSection
+          actionLabel={categoryFilter.length > 0 ? t('filters.clear') : undefined}
+          onAction={categoryFilter.length > 0 ? () => setCategoryFilter([]) : undefined}
+          title={t('filters.category')}>
+          <MovementFilterOption
+            label={t('filters.allCategories')}
+            onPress={() => setCategoryFilter([])}
+            selected={categoryFilter.length === 0}
+          />
+          {hasUncategorizedExpenses && (
+            <MovementFilterOption
+              label={t('expenses.noCategory')}
+              onPress={() => toggleCategoryFilter('none')}
+              selectionMode="multiple"
+              selected={categoryFilter.includes('none')}
+            />
           )}
-        </View>
-        <ModalOption
-          label={t('filters.allCategories')}
-          selected={categoryFilter.length === 0}
-          onPress={() => setCategoryFilter([])}
-        />
-        {hasUncategorizedExpenses && (
-          <ModalOption
-            label={t('expenses.noCategory')}
-            selected={categoryFilter.includes('none')}
-            onPress={() => toggleCategoryFilter('none')}
+          {availableCategories.map((cat) => (
+            <MovementFilterOption
+              key={cat.id}
+              color={cat.color}
+              label={cat.name}
+              onPress={() => toggleCategoryFilter(cat.id)}
+              selectionMode="multiple"
+              selected={categoryFilter.includes(cat.id)}
+            />
+          ))}
+        </MovementFilterSection>
+        <MovementFilterSection
+          actionLabel={paymentMethodFilter.length > 0 ? t('filters.clear') : undefined}
+          onAction={paymentMethodFilter.length > 0 ? () => setPaymentMethodFilter([]) : undefined}
+          title={t('filters.paymentMethod')}>
+          <MovementFilterOption
+            label={t('filters.allPaymentMethods')}
+            onPress={() => setPaymentMethodFilter([])}
+            selected={paymentMethodFilter.length === 0}
           />
-        )}
-        {availableCategories.map((cat) => (
-          <ModalOption
-            key={cat.id}
-            label={cat.name}
-            color={cat.color}
-            selected={categoryFilter.includes(cat.id)}
-            onPress={() => toggleCategoryFilter(cat.id)}
-          />
-        ))}
-        <View style={styles.filterModalHeader}>
-          <ThemedText style={styles.modalGroupLabel}>{t('filters.paymentMethod')}</ThemedText>
-          {paymentMethodFilter.length > 0 && (
-            <Pressable onPress={() => setPaymentMethodFilter([])}>
-              <ThemedText type="link">{t('filters.clear')}</ThemedText>
-            </Pressable>
+          {hasUnspecifiedPaymentExpenses && (
+            <MovementFilterOption
+              label={t('common.notSpecified')}
+              onPress={() => togglePaymentMethodFilter('none')}
+              selectionMode="multiple"
+              selected={paymentMethodFilter.includes('none')}
+            />
           )}
-        </View>
-        <ModalOption
-          label={t('filters.allPaymentMethods')}
-          selected={paymentMethodFilter.length === 0}
-          onPress={() => setPaymentMethodFilter([])}
-        />
-        {hasUnspecifiedPaymentExpenses && (
-          <ModalOption
-            label={t('common.notSpecified')}
-            selected={paymentMethodFilter.includes('none')}
-            onPress={() => togglePaymentMethodFilter('none')}
-          />
-        )}
-        {hasSavingsWithdrawalExpenses && (
-          <ModalOption
-            label={t('savings.withdrawalPaymentMethod')}
-            color="#20B9DB"
-            selected={paymentMethodFilter.includes(VIRTUAL_SAVINGS_PAYMENT_METHOD_ID)}
-            onPress={() => togglePaymentMethodFilter(VIRTUAL_SAVINGS_PAYMENT_METHOD_ID)}
-          />
-        )}
-        {availablePaymentMethods.map((method) => (
-          <ModalOption
-            key={method.id}
-            label={method.name}
-            color={method.color}
-            selected={paymentMethodFilter.includes(method.id)}
-            onPress={() => togglePaymentMethodFilter(method.id)}
-          />
-        ))}
-        {isFilterActive && (
-          <Pressable
-            style={styles.clearAllFilters}
-            onPress={() => { setCategoryFilter([]); setPaymentMethodFilter([]); }}>
-            <ThemedText style={styles.clearAllFiltersText}>{t('filters.clearAll')}</ThemedText>
-          </Pressable>
-        )}
-      </OptionModal>
+          {hasSavingsWithdrawalExpenses && (
+            <MovementFilterOption
+              color="#20B9DB"
+              label={t('savings.withdrawalPaymentMethod')}
+              onPress={() => togglePaymentMethodFilter(VIRTUAL_SAVINGS_PAYMENT_METHOD_ID)}
+              selectionMode="multiple"
+              selected={paymentMethodFilter.includes(VIRTUAL_SAVINGS_PAYMENT_METHOD_ID)}
+            />
+          )}
+          {availablePaymentMethods.map((method) => (
+            <MovementFilterOption
+              key={method.id}
+              color={method.color}
+              label={method.name}
+              onPress={() => togglePaymentMethodFilter(method.id)}
+              selectionMode="multiple"
+              selected={paymentMethodFilter.includes(method.id)}
+            />
+          ))}
+        </MovementFilterSection>
+      </MovementFilterSheet>
 
       <FlatList
         style={{ marginTop: 8 }}
@@ -889,137 +708,7 @@ const styles = StyleSheet.create({
   },
   filters: {
     paddingHorizontal: 20,
-    gap: 10,
     paddingBottom: 12,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    fontFamily: Fonts.regular,
-    padding: 0,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  toolbarButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  toolbarButtonText: {
-    flex: 1,
-    gap: 1,
-  },
-  toolbarSubtext: {
-    fontSize: 12,
-    opacity: 0.6,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  filterModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  clearAllFilters: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 4,
-  },
-  clearAllFiltersText: {
-    color: '#C93F4B',
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-  },
-  modalSheet: {
-    maxHeight: '75%',
-  },
-  modalContent: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-  },
-  modalHandle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#D8E1E8',
-    marginBottom: 12,
-  },
-  modalTitle: {
-    marginBottom: 12,
-  },
-  modalScroll: {
-    maxHeight: 420,
-  },
-  modalGroup: {
-    marginBottom: 8,
-  },
-  modalGroupLabel: {
-    fontSize: 13,
-    opacity: 0.5,
-    fontWeight: '600',
-    marginBottom: 6,
-    marginTop: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  modalOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  optionDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  modalCloseButton: {
-    marginTop: 4,
-    paddingVertical: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
   },
   list: {
     padding: 20,

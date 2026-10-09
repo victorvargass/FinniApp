@@ -4,20 +4,22 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import {
   FlatList,
-  Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/empty-state';
 import { FloatingActionButton } from '@/components/floating-action-button';
+import {
+  MovementFilterBar,
+  MovementFilterOption,
+  MovementFilterSection,
+  MovementFilterSheet,
+} from '@/components/movement-filter-sheet';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLargeTextLayout } from '@/hooks/use-large-text-layout';
 import { formatCLP, formatEventDateTime, formatMoney } from '@/lib/format';
@@ -83,58 +85,6 @@ function sortMovements(items: AccountMovementListItem[], sortBy: SortOption) {
   });
 }
 
-function ChoiceModal({
-  title,
-  visible,
-  options,
-  selected,
-  onClose,
-  onSelect,
-}: {
-  title: string;
-  visible: boolean;
-  options: { value: string; label: string }[];
-  selected: string;
-  onClose: () => void;
-  onSelect: (value: string) => void;
-}) {
-  const colors = Colors[useColorScheme() ?? 'light'];
-  const insets = useSafeAreaInsets();
-  return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <Pressable accessible={false} style={styles.overlay} onPress={onClose}>
-        <Pressable accessible={false} style={styles.sheetPosition} onPress={(event) => event.stopPropagation()}>
-          <ThemedView accessibilityViewIsModal style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-            <ThemedText type="subtitle">{title}</ThemedText>
-            {options.map((option) => {
-              const active = option.value === selected;
-              return (
-                <Pressable
-                  accessibilityLabel={option.label}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                  key={option.value}
-                  onPress={() => onSelect(option.value)}
-                  style={[
-                    styles.option,
-                    { borderColor: active ? colors.primary : colors.border },
-                    active && { backgroundColor: `${colors.secondary}24` },
-                  ]}>
-                  <ThemedText style={active ? styles.optionActive : undefined}>{option.label}</ThemedText>
-                  {active && <Ionicons name="checkmark-circle" size={21} color={colors.primary} />}
-                </Pressable>
-              );
-            })}
-            <Pressable accessibilityRole="button" onPress={onClose} style={[styles.close, { borderColor: colors.border }]}>
-              <ThemedText type="defaultSemiBold">{t('common.close')}</ThemedText>
-            </Pressable>
-          </ThemedView>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
 export function AccountMovementList({
   movements,
   periodKey,
@@ -170,8 +120,7 @@ export function AccountMovementList({
   const defaultFilterKey = filterOptions[0]?.value ?? 'all';
   const [filterKey, setFilterKey] = useState(defaultFilterKey);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
-  const [sortVisible, setSortVisible] = useState(false);
-  const [groupVisible, setGroupVisible] = useState(false);
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
 
   useEffect(() => {
     setSearch('');
@@ -179,6 +128,7 @@ export function AccountMovementList({
     setGroupBy(defaultGroup);
     setFilterKey(defaultFilterKey);
     setCollapsedGroups([]);
+    setFilterSheetVisible(false);
   }, [defaultFilterKey, defaultGroup, periodKey]);
 
   const filtered = useMemo(() => sortMovements(movements.filter((movement) => {
@@ -219,104 +169,74 @@ export function AccountMovementList({
       });
   }, [collapsedGroups, filtered, groupBy]);
 
-  const selectedSort = SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? '';
-  const selectedGroup = groupOptions.find((option) => option.value === groupBy)?.label ?? '';
+  const activeFilterCount = Number(sortBy !== 'date-desc')
+    + Number(groupBy !== defaultGroup)
+    + Number(filterKey !== defaultFilterKey);
   const clearFilters = () => {
     setSearch('');
     setFilterKey(defaultFilterKey);
+  };
+  const resetFilterControls = () => {
+    setSortBy('date-desc');
+    setGroupBy(defaultGroup);
+    setFilterKey(defaultFilterKey);
+    setCollapsedGroups([]);
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.filters}>
-        <View style={[styles.search, { borderColor: colors.icon }]}>
-          <Ionicons name="search" size={18} color={colors.icon} />
-          <TextInput
-            accessibilityLabel={searchPlaceholder}
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            onChangeText={setSearch}
-            placeholder={searchPlaceholder}
-            placeholderTextColor={colors.icon}
-            style={[styles.searchInput, { color: colors.text }]}
-            value={search}
-          />
-          {search.length > 0 && (
-            <Pressable
-              accessibilityLabel={t('common.clearSearch')}
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={18} color={colors.icon} />
-            </Pressable>
-          )}
-        </View>
-
-        {filterOptions.length > 1 && (
-          <ScrollView horizontal contentContainerStyle={styles.chips} showsHorizontalScrollIndicator={false}>
-            {filterOptions.map((option) => {
-              const active = filterKey === option.value;
-              return (
-                <Pressable
-                  accessibilityLabel={option.label}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                  key={option.value}
-                  onPress={() => setFilterKey(option.value)}
-                  style={[
-                    styles.chip,
-                    { borderColor: active ? colors.primary : colors.border },
-                    active && { backgroundColor: `${colors.secondary}24` },
-                  ]}>
-                  <ThemedText style={active ? styles.optionActive : undefined}>{option.label}</ThemedText>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        )}
-
-        <View style={[styles.toolbar, usesLargeText && styles.toolbarLargeText]}>
-          <Pressable
-            accessibilityLabel={`${t('filters.order')}: ${selectedSort}`}
-            accessibilityRole="button"
-            onPress={() => setSortVisible(true)}
-            style={[styles.toolbarButton, { borderColor: colors.icon }]}>
-            <Ionicons name="swap-vertical" size={18} color={colors.icon} />
-            <View style={styles.toolbarCopy}>
-              <ThemedText type="defaultSemiBold">{t('filters.order')}</ThemedText>
-              <ThemedText numberOfLines={1} style={styles.toolbarDetail}>{selectedSort}</ThemedText>
-            </View>
-          </Pressable>
-          <Pressable
-            accessibilityLabel={`${t('filters.group')}: ${selectedGroup}`}
-            accessibilityRole="button"
-            onPress={() => setGroupVisible(true)}
-            style={[styles.toolbarButton, { borderColor: colors.primary, backgroundColor: `${colors.secondary}24` }]}>
-            <Ionicons name="layers-outline" size={18} color={colors.primary} />
-            <View style={styles.toolbarCopy}>
-              <ThemedText type="defaultSemiBold">{t('filters.group')}</ThemedText>
-              <ThemedText numberOfLines={1} style={styles.toolbarDetail}>{selectedGroup}</ThemedText>
-            </View>
-          </Pressable>
-        </View>
+        <MovementFilterBar
+          activeCount={activeFilterCount}
+          onChangeSearch={setSearch}
+          onOpenFilters={() => setFilterSheetVisible(true)}
+          placeholder={searchPlaceholder}
+          search={search}
+        />
       </View>
 
-      <ChoiceModal
-        title={t('filters.sortBy')}
-        visible={sortVisible}
-        options={SORT_OPTIONS}
-        selected={sortBy}
-        onClose={() => setSortVisible(false)}
-        onSelect={(value) => { setSortBy(value as SortOption); setSortVisible(false); }}
-      />
-      <ChoiceModal
-        title={t('filters.group')}
-        visible={groupVisible}
-        options={groupOptions}
-        selected={groupBy}
-        onClose={() => setGroupVisible(false)}
-        onSelect={(value) => { setGroupBy(value as GroupOption['value']); setCollapsedGroups([]); setGroupVisible(false); }}
-      />
+      <MovementFilterSheet
+        activeCount={activeFilterCount}
+        onClear={resetFilterControls}
+        onClose={() => setFilterSheetVisible(false)}
+        resultCount={filtered.length}
+        visible={filterSheetVisible}>
+        <MovementFilterSection title={t('filters.sortBy')}>
+          {SORT_OPTIONS.map((option) => (
+            <MovementFilterOption
+              key={option.value}
+              label={option.label}
+              onPress={() => setSortBy(option.value)}
+              selected={sortBy === option.value}
+            />
+          ))}
+        </MovementFilterSection>
+        <MovementFilterSection title={t('filters.group')}>
+          {groupOptions.map((option) => (
+            <MovementFilterOption
+              key={option.value}
+              label={option.label}
+              onPress={() => {
+                setGroupBy(option.value);
+                setCollapsedGroups([]);
+              }}
+              selected={groupBy === option.value}
+            />
+          ))}
+        </MovementFilterSection>
+        {filterOptions.length > 1 && (
+          <MovementFilterSection title={t('filters.movementType')}>
+            {filterOptions.map((option) => (
+              <MovementFilterOption
+                key={option.value}
+                label={option.label}
+                onPress={() => setFilterKey(option.value)}
+                selected={filterKey === option.value}
+              />
+            ))}
+          </MovementFilterSection>
+        )}
+      </MovementFilterSheet>
 
       <FlatList
         contentContainerStyle={styles.list}
@@ -412,16 +332,7 @@ export function AccountMovementList({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  filters: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 10 },
-  search: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  searchInput: { flex: 1, padding: 0, fontSize: 16, fontFamily: Fonts.regular },
-  chips: { gap: 8 },
-  chip: { minHeight: 44, borderWidth: 1, borderRadius: 22, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  toolbar: { flexDirection: 'row', gap: 10 },
-  toolbarLargeText: { flexDirection: 'column' },
-  toolbarButton: { flex: 1, minHeight: 60, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  toolbarCopy: { flex: 1, gap: 1 },
-  toolbarDetail: { fontSize: 12, opacity: 0.6 },
+  filters: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
   list: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 105 },
   groupHeader: { minHeight: 48, borderLeftWidth: 5, borderRadius: 10, marginBottom: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   groupHeaderLargeText: { flexWrap: 'wrap', paddingVertical: 10 },
@@ -438,10 +349,4 @@ const styles = StyleSheet.create({
   amountColumnLargeText: { width: '100%', alignItems: 'flex-start', paddingLeft: 48 },
   movementActions: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   deleteAction: { width: 32, height: 28, alignItems: 'center', justifyContent: 'center' },
-  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
-  sheetPosition: { maxHeight: '75%' },
-  sheet: { borderTopLeftRadius: 18, borderTopRightRadius: 18, paddingHorizontal: 20, paddingTop: 20, gap: 10 },
-  option: { minHeight: 49, borderWidth: 1, borderRadius: 10, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  optionActive: { fontWeight: '700' },
-  close: { minHeight: 48, borderWidth: 1, borderRadius: 10, marginTop: 4, alignItems: 'center', justifyContent: 'center' },
 });

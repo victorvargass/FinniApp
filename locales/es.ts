@@ -654,6 +654,11 @@ const es = {
     groupExpenses: 'Agrupar gastos',
     groupIncomes: 'Agrupar ingresos',
     filterExpenses: 'Filtrar gastos',
+    oneActive: '1 activo',
+    activeCount: '%{count} activos',
+    movementType: 'Tipo de movimiento',
+    viewOneMovement: 'Ver 1 movimiento',
+    viewMovements: 'Ver %{count} movimientos',
   },
   movementLedger: {
     searchCardPayments: 'Buscar por tarjeta, cuenta o detalle...',

@@ -33,7 +33,12 @@ test('interactive chart legends announce values and selection', () => {
 
 test('shared account movement controls expose actionable semantics', () => {
   const contents = source('components/account-movement-list.tsx');
-  assert.match(contents, /accessibilityRole="radio"/);
+  const filterContents = source('components/movement-filter-sheet.tsx');
+  assert.match(contents, /MovementFilterOption/);
+  assert.match(filterContents, /accessibilityRole=\{isMultiple \? 'checkbox' : 'radio'\}/);
+  assert.match(filterContents, /checked: selected/);
+  assert.match(filterContents, /selected/);
   assert.match(contents, /accessibilityLabel=\{`\$\{movement\.title\}/);
-  assert.match(contents, /chip: \{ minHeight: 44/);
+  assert.match(filterContents, /option: \{\s*minHeight: 49/);
+  assert.match(contents, /movement: \{ minHeight: 64/);
 });

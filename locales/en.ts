@@ -654,6 +654,11 @@ const en = {
     groupExpenses: 'Group expenses',
     groupIncomes: 'Group income',
     filterExpenses: 'Filter expenses',
+    oneActive: '1 active',
+    activeCount: '%{count} active',
+    movementType: 'Movement type',
+    viewOneMovement: 'View 1 movement',
+    viewMovements: 'View %{count} movements',
   },
   movementLedger: {
     searchCardPayments: 'Search by card, account, or details...',
